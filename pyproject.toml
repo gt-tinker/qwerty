@@ -1,0 +1,32 @@
+[build-system]
+requires = ["scikit-build-core == 0.10.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "qwerty"
+version = "0.0.12"
+requires-python = ">= 3.10"
+# Only needed by simon_post.py used in both the integration tests and
+# examples/. But include it here for simplicity
+dependencies = ["numpy==1.26.4"]
+
+[project.optional-dependencies]
+coverage = ['coverage==7.6.7']
+
+[tool.scikit-build]
+build-dir = "_skbuild"
+wheel.py-api = "cp310"
+wheel.exclude = ["*.hpp", "*.cpp", ".*.swp"]
+# Useful when you are debugging the build system. Makes ninja print out every
+# command (e.g., compiler/linker invocation)
+cmake.verbose = false
+# It's useful to change the following two options to false and Debug
+# (respectively) when debugging, but heads up, that will significantly slow
+# down compilation time
+install.strip = true
+cmake.build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+# Set this to true if you want to run unit tests
+BUILD_TESTS = {env="QWERTY_BUILD_TESTS", default=false}
+USE_QIREE = {env="QWERTY_USE_QIREE", default=false}
