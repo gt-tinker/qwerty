@@ -21,7 +21,7 @@ jobs:
       - name: Clone Tweedledum
         uses: actions/checkout@v4
         with:
-          repository: ausbin/tweedledum
+          repository: gt-tinker/tweedledum
           ref: qwerty
           path: tpls/tweedledum
       - name: Clone QIR-Runner
@@ -79,7 +79,7 @@ jobs:
       - name: Clone Tweedledum
         uses: actions/checkout@v4
         with:
-          repository: ausbin/tweedledum
+          repository: gt-tinker/tweedledum
           ref: qwerty
           path: tpls/tweedledum
       - name: Clone QIR-Runner
@@ -135,7 +135,7 @@ jobs:
       - name: Clone Tweedledum
         uses: actions/checkout@v4
         with:
-          repository: ausbin/tweedledum
+          repository: gt-tinker/tweedledum
           ref: qwerty
           path: tpls/tweedledum
       - name: Clone QIR-Runner
