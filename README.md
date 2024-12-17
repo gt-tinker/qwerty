@@ -210,8 +210,9 @@ BibTeX citation:
         year = {2025}
     }
 
-The evaluation for the CGO '25 paper uses additional code not in this
-repository. You can find that evaluation code in [the Zenodo artifact][50].
+The evaluation for the CGO '25 paper uses additional code not on the `main`
+branch of this repository. You can find that evaluation code in [the Zenodo
+artifact][50] or on the `cgo25-artifact` branch.
 
 [8]: https://www.rust-lang.org/tools/install
 [9]: https://packages.ubuntu.com/search?keywords=python3-dev
