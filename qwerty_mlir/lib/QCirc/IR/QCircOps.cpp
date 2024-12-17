@@ -211,32 +211,16 @@ struct ChainedCalcs : public mlir::OpRewritePattern<qcirc::CalcOp> {
 
 namespace qcirc {
 
-mlir::Value stationaryF64Const(mlir::OpBuilder &builder, mlir::Location loc, double theta) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), mlir::ValueRange());
+mlir::Value stationaryF64Negate(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value theta) {
+    qcirc::CalcOp calc = rewriter.create<qcirc::CalcOp>(loc, rewriter.getF64Type(), theta);
     {
-        mlir::OpBuilder::InsertionGuard guard(builder);
+        mlir::OpBuilder::InsertionGuard guard(rewriter);
         // Sets insertion point to end of this block
-        mlir::Block *calc_block = builder.createBlock(&calc.getRegion(), {}, {}, {});
-        assert(!calc_block->getNumArguments());
-        mlir::Value theta_val = builder.create<mlir::arith::ConstantOp>(
-            loc, builder.getF64FloatAttr(theta)).getResult();
-        builder.create<qcirc::CalcYieldOp>(loc, theta_val);
-    }
-    mlir::ValueRange calc_results = calc.getResults();
-    assert(calc_results.size() == 1);
-    return calc_results[0];
-}
-
-mlir::Value stationaryF64Negate(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value theta) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), theta);
-    {
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        // Sets insertion point to end of this block
-        mlir::Block *calc_block = builder.createBlock(&calc.getRegion(), {}, builder.getF64Type(), {loc});
+        mlir::Block *calc_block = rewriter.createBlock(&calc.getRegion(), {}, rewriter.getF64Type(), {loc});
         assert(calc_block->getNumArguments() == 1);
         mlir::Value old_theta = calc_block->getArgument(0);
-        mlir::Value neg_theta = builder.create<mlir::arith::NegFOp>(loc, old_theta).getResult();
-        builder.create<qcirc::CalcYieldOp>(loc, neg_theta);
+        mlir::Value neg_theta = rewriter.create<mlir::arith::NegFOp>(loc, old_theta).getResult();
+        rewriter.create<qcirc::CalcYieldOp>(loc, neg_theta);
     }
     mlir::ValueRange calc_results = calc.getResults();
     assert(calc_results.size() == 1);

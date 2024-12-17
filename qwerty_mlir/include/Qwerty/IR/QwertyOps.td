@@ -240,14 +240,6 @@ def Qwerty_YieldOp : Qwerty_Op<"yield", [Pure, HasParent<"PredOp">, Terminator]>
     let assemblyFormat = "$qbundle attr-dict `:` qualified(type($qbundle))";
 }
 
-def Qwerty_SuperposOp: Qwerty_Op<"superpos", [InferTypeOpAdaptor]> {
-    let summary = "Prepare a superposition state";
-    let arguments = (ins Qwerty_SuperposAttr:$superpos);
-    let results = (outs Res<Qwerty_QBundle, "", [MemAlloc]>:$qbundle);
-    let hasCanonicalizer = 1;
-    let assemblyFormat = "$superpos attr-dict `:` qualified(type($qbundle))";
-}
-
 //////// QBUNDLE MANAGEMENT ////////
 
 // Not Pure because this has a side effect: allocating a qubit

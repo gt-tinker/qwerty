@@ -24,8 +24,7 @@ from ._qwerty_harness import set_debug, Kernel, MlirHandle, Bits, Integer, \
                              AST_QPU, AST_CLASSICAL, \
                              EMBED_XOR, EMBED_SIGN, EMBED_INPLACE, \
                              embedding_kind_name
-from .runtime import dimvar, bit, _int, _tuple, angle, ampl, \
-                     HybridPythonQwertyType
+from .runtime import dimvar, bit, _int, _tuple, angle, HybridPythonQwertyType
 from .convert_ast import convert_ast
 
 QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
@@ -504,8 +503,6 @@ def _to_hybrid_obj(obj):
         return _int(obj)
     elif isinstance(obj, float):
         return angle(obj)
-    elif isinstance(obj, complex):
-        return ampl(obj)
     else:
         return None
 

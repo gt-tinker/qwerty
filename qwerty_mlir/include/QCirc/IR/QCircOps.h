@@ -26,12 +26,9 @@
 
 namespace qcirc {
 
-// Very common. Wraps an arith.const inside a qcirc.calc op.
-mlir::Value stationaryF64Const(mlir::OpBuilder &builder, mlir::Location loc, double theta);
-
 // Very common in implementations of rebuildAdjoint() in both the QCirc and
 // Qwerty dialects. Wraps an arith.negf inside a qcirc.calc op.
-mlir::Value stationaryF64Negate(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value theta);
+mlir::Value stationaryF64Negate(mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value theta);
 
 // Heavily, heavily inspired by the implementation of mlir::m_Constant() in the
 // MLIR source tree. The difference here is that the ConstantLike trait

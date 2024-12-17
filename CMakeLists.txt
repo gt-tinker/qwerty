@@ -208,7 +208,7 @@ add_library(qwc STATIC qwerty/ast.cpp
                        qwerty/classical_kernel.cpp
                        qwerty/mlir_handle.cpp
                        qwerty/qpu_kernel.cpp
-                       qwerty/ast_visitor/flag_immat.cpp
+                       qwerty/ast_visitor/flag_dyn_basis.cpp
                        qwerty/ast_visitor/canonicalize.cpp
                        qwerty/ast_visitor/graphviz.cpp
                        qwerty/ast_visitor/find_instants.cpp

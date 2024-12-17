@@ -63,12 +63,11 @@ struct ASTVisitor {
     // @qpu nodes
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) = 0;
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) = 0;
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) = 0;
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) = 0;
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) = 0;
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) = 0;
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) = 0;
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) = 0;
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) = 0;
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) = 0;
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) = 0;
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) = 0;
@@ -88,7 +87,6 @@ struct ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) = 0;
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) = 0;
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) = 0;
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) = 0;
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) = 0;
     // @classical nodes
     virtual bool visit(ASTVisitContext &ctx, BitUnaryOp &unOp) = 0;
@@ -115,12 +113,11 @@ struct ObliviousASTVisitor : ASTVisitor {
     // @qpu nodes
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override { return visitNode(ctx, (ASTNode &)adj); }
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override { return visitNode(ctx, (ASTNode &)prep); }
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override { return visitNode(ctx, (ASTNode &)lift); }
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override { return visitNode(ctx, (ASTNode &)lift); }
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override { return visitNode(ctx, (ASTNode &)embed); }
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override { return visitNode(ctx, (ASTNode &)pipe); }
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override { return visitNode(ctx, (ASTNode &)inst); }
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override { return visitNode(ctx, (ASTNode &)repeat); }
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override { return visitNode(ctx, (ASTNode &)reptens); }
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override { return visitNode(ctx, (ASTNode &)pred); }
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override { return visitNode(ctx, (ASTNode &)broadtensor); }
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override { return visitNode(ctx, (ASTNode &)bitensor); }
@@ -140,7 +137,6 @@ struct ObliviousASTVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override { return visitNode(ctx, (ASTNode &)flip); }
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override { return visitNode(ctx, (ASTNode &)rot); }
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override { return visitNode(ctx, (ASTNode &)lit); }
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override { return visitNode(ctx, (ASTNode &)lit); }
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override { return visitNode(ctx, (ASTNode &)cond); }
     // @classical nodes
     virtual bool visit(ASTVisitContext &ctx, BitUnaryOp &unOp) override { return visitNode(ctx, (ASTNode &)unOp); }
@@ -152,12 +148,12 @@ struct ObliviousASTVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, BitLiteral &bitLit) override { return visitNode(ctx, (ASTNode &)bitLit); }
 };
 
-// The job of this guy is to verify that every expression of an immaterial type
-// (e.g,. Basis[N]) is used only as operands to AST nodes like basis
-// translations, not e.g., the right-hand side of an assignment. In the cases
-// of bases, this is because ultimately a basis in Qwerty is part of the syntax
-// of basis-oriented constructs, not an actual expression.
-struct FlagImmaterialVisitor : ObliviousASTVisitor {
+// The job of this guy is to verify that every expression of type Basis[N] is
+// used only as operands to AST nodes like basis translations, not e.g., the
+// right-hand side of an assignment. This is because ultimately a basis in
+// Qwerty is part of the syntax of basis-oriented constructs, not an actual
+// expression.
+struct FlagDynamicBasisVisitor : ObliviousASTVisitor {
     virtual Traversal traversal() override { return Traversal::POSTORDER; } // Doesn't matter
     virtual void init(ASTNode &root) override {}
 
@@ -187,37 +183,13 @@ struct BaseTypeCheckVisitor : ASTVisitor {
 
 // Type checking specifically for @qpu kernels
 struct QpuTypeCheckVisitor : BaseTypeCheckVisitor {
-    // The primitive basis for a range of qubits
-    struct PrimRange {
-        PrimitiveBasis prim_basis;
-        size_t start, end; // [start, end)
-
-        PrimRange(PrimitiveBasis prim_basis,
-                  size_t start,
-                  size_t end)
-                 : prim_basis(prim_basis),
-                   start(start),
-                   end(end) {}
-
-        bool operator==(const PrimRange &pd) const {
-            return prim_basis == pd.prim_basis
-                   && start == pd.start
-                   && end == pd.end;
-        }
-
-        bool operator!=(const PrimRange &pd) const {
-            return !(*this == pd);
-        }
-    };
-
-    // Interpret individual basis vectors as singleton basis literals
+    // Interpret individual basis states as basis lists
     std::unique_ptr<ASTNode> wrapBasis(ASTVisitContext &ctx,
                                        std::unique_ptr<ASTNode> node,
                                        bool allow_empty);
     bool onlyLiterals(ASTNode *node);
     bool singletonBasis(ASTNode *node);
     PrimitiveBasis basisVectorPrimitiveBasisOrError(ASTNode *node, size_t vector_idx);
-    void extractPrimRanges(ASTNode &node, std::vector<PrimRange> &prim_ranges_out);
     llvm::APInt basisVectorEigenbitsOrError(ASTNode *node, size_t vector_idx);
     bool isQfunc(const Type *type, DebugInfo &dbg, bool must_be_rev, DimVarExpr **dim_out);
     std::unique_ptr<Type> biTensorTypes(const Type *left, const Type *right);
@@ -226,12 +198,11 @@ struct QpuTypeCheckVisitor : BaseTypeCheckVisitor {
     virtual bool visit(ASTVisitContext &ctx, Slice &slice) override;
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override;
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override;
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override;
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override;
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override;
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override;
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override;
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override;
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override;
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override;
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override;
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override;
@@ -251,7 +222,6 @@ struct QpuTypeCheckVisitor : BaseTypeCheckVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override;
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override;
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override;
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override;
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override;
     // @classical nodes
     virtual bool visitNonQpuNode(ASTVisitContext &ctx, ASTNode &node);
@@ -270,12 +240,11 @@ struct ClassicalTypeCheckVisitor : BaseTypeCheckVisitor {
     virtual bool visitNonClassicalNode(ASTVisitContext &ctx, ASTNode &node);
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override { return visitNonClassicalNode(ctx, (ASTNode &)adj); }
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override { return visitNonClassicalNode(ctx, (ASTNode &)prep); }
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override { return visitNonClassicalNode(ctx, (ASTNode &)lift); }
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override { return visitNonClassicalNode(ctx, (ASTNode &)lift); }
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override { return visitNonClassicalNode(ctx, (ASTNode &)embed); }
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override { return visitNonClassicalNode(ctx, (ASTNode &)pipe); }
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override { return visitNonClassicalNode(ctx, (ASTNode &)inst); }
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override { return visitNonClassicalNode(ctx, (ASTNode &)repeat); }
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override { return visitNonClassicalNode(ctx, (ASTNode &)reptens); }
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override { return visitNonClassicalNode(ctx, (ASTNode &)pred); }
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override { return visitNonClassicalNode(ctx, (ASTNode &)broadtensor); }
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override { return visitNonClassicalNode(ctx, (ASTNode &)bitensor); }
@@ -295,7 +264,6 @@ struct ClassicalTypeCheckVisitor : BaseTypeCheckVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override { return visitNonClassicalNode(ctx, (ASTNode &)flip); }
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override { return visitNonClassicalNode(ctx, (ASTNode &)rot); }
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override { return visitNonClassicalNode(ctx, (ASTNode &)lit); }
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override { return visitNonClassicalNode(ctx, (ASTNode &)lit); }
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override { return visitNonClassicalNode(ctx, (ASTNode &)cond); }
 
     // @classical nodes
@@ -327,12 +295,11 @@ struct CanonicalizeVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override;
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override { return true; }
     // This actually does something!
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override;
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override;
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override { return true; }
     // This actually does something!
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override;
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override { return true; }
@@ -345,8 +312,8 @@ struct CanonicalizeVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, FloatNeg &neg) override;
     // This actually does something!
     virtual bool visit(ASTVisitContext &ctx, FloatBinaryOp &bin) override;
-    // This should have been removed by EvalDimVarExprVisitor
-    virtual bool visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) override { return true; }
+    // This actually does something!
+    virtual bool visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) override;
     virtual bool visit(ASTVisitContext &ctx, TupleLiteral &tuple) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, BuiltinBasis &std) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Identity &id) override { return true; }
@@ -357,7 +324,6 @@ struct CanonicalizeVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override { return true; }
     // @classical nodes
     virtual bool visit(ASTVisitContext &ctx, BitUnaryOp &unOp) override { return true; }
@@ -393,7 +359,6 @@ struct EvalDimVarExprVisitor : ObliviousASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override;
     // Throw an error if we see this — the Pipe visitor above should've gotten rid of these!
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override;
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override;
     // Has DimVarExpr factor. And if it's zero, we should replace this with a UnitLiteral
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override;
     // Has QubitType, which contains DimVarExpr dim
@@ -436,13 +401,9 @@ struct FindInstantiationsVisitor : ObliviousASTVisitor {
 // Generate a .dot file from a Qwerty AST. Very useful for debugging. (See
 // docs/debugging.md.)
 struct GraphvizVisitor : ObliviousASTVisitor {
-    bool print_dbg;
     std::unordered_map<ASTNode *, size_t> node_indices;
     size_t next_node_index;
     std::ostringstream ss;
-
-    GraphvizVisitor() : print_dbg(false) {}
-    GraphvizVisitor(bool print_dbg) : print_dbg(print_dbg) {}
 
     virtual Traversal traversal() override { return Traversal::PREORDER; }
     virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override;
@@ -480,12 +441,11 @@ struct ClassicalNetlistVisitor : ASTVisitor {
     virtual bool visitNonClassicalNode(ASTVisitContext &ctx, ASTNode &node);
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override { return visitNonClassicalNode(ctx, (ASTNode &)adj); }
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override { return visitNonClassicalNode(ctx, (ASTNode &)prep); }
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override { return visitNonClassicalNode(ctx, (ASTNode &)lift); }
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override { return visitNonClassicalNode(ctx, (ASTNode &)lift); }
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override { return visitNonClassicalNode(ctx, (ASTNode &)embed); }
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override { return visitNonClassicalNode(ctx, (ASTNode &)pipe); }
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override { return visitNonClassicalNode(ctx, (ASTNode &)inst); }
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override { return visitNonClassicalNode(ctx, (ASTNode &)repeat); }
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override { return visitNonClassicalNode(ctx, (ASTNode &)reptens); }
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override { return visitNonClassicalNode(ctx, (ASTNode &)pred); }
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override { return visitNonClassicalNode(ctx, (ASTNode &)broadtensor); }
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override { return visitNonClassicalNode(ctx, (ASTNode &)bitensor); }
@@ -505,7 +465,6 @@ struct ClassicalNetlistVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override { return visitNonClassicalNode(ctx, (ASTNode &)flip); }
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override { return visitNonClassicalNode(ctx, (ASTNode &)rot); }
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override { return visitNonClassicalNode(ctx, (ASTNode &)lit); }
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override { return visitNonClassicalNode(ctx, (ASTNode &)lit); }
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override { return visitNonClassicalNode(ctx, (ASTNode &)cond); }
 
     // @classical nodes
@@ -530,10 +489,6 @@ struct QpuLoweringVisitor : ASTVisitor {
     // The vector of DimVarValues is empty for non-instantiates
     std::map<std::pair<std::string, const std::vector<DimVarValue>>, ClassicalKernel *> cfunc_names;
     std::map<std::pair<std::string, const std::vector<DimVarValue>>, llvm::SmallVector<mlir::Value>> instantiate_values;
-    // An array of amplitudes cannot be lowered to MLIR (it is "immaterial," we
-    // say). So instead store them here so we can lower this directly to a
-    // SuperposOp
-    std::unordered_map<std::string, std::vector<std::complex<double>>> amplitude_names;
 
     QpuLoweringVisitor(MlirHandle &handle,
                        std::string funcOp_name,
@@ -550,22 +505,8 @@ struct QpuLoweringVisitor : ASTVisitor {
                              const FuncType &func_type,
                              mlir::ValueRange captures,
                              std::function<void(mlir::ValueRange, mlir::ValueRange)> add_contents);
-    void walkBasisList(ASTNode *node,
-                       ASTVisitContext &ctx,
-                       bool already_visited,
-                       qwerty::PrimitiveBasis &prim_basis_out,
-                       mlir::Value &theta_out,
-                       llvm::APInt &eigenbits_out);
-    void walkSuperposOperandHelper(
-        ASTNode &node,
-        qwerty::PrimitiveBasis &prim_basis_out,
-        double &theta_out,
-        llvm::APInt &eigenbits_out,
-        llvm::SmallVector<qwerty::BasisVectorAttr> &vecs_out);
-    void walkSuperposOperand(
-        ASTNode &node,
-        double &theta_out,
-        llvm::SmallVector<qwerty::BasisVectorAttr> &vec_attrs);
+    void walkBasisList(ASTNode *node, bool clear_pls, qwerty::PrimitiveBasis &prim_basis_out,
+                       mlir::Value &theta_out, llvm::APInt &eigenbits_out);
     mlir::Value materializeSimpleCapture(DebugInfo &dbg,
                                          mlir::Location loc,
                                          HybridObj *capture);
@@ -583,12 +524,11 @@ struct QpuLoweringVisitor : ASTVisitor {
     // @qpu nodes
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override;
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override;
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override;
+    virtual bool visit(ASTVisitContext &ctx, LiftBits &lift) override;
     virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override;
     virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override;
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override;
     virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override;
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override;
     virtual bool visit(ASTVisitContext &ctx, Pred &pred) override;
     virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override;
     virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override;
@@ -608,7 +548,6 @@ struct QpuLoweringVisitor : ASTVisitor {
     virtual bool visit(ASTVisitContext &ctx, Flip &flip) override;
     virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override;
     virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override;
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override;
     virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override;
     // @classical nodes
     virtual bool visitNonQpuNode(ASTVisitContext &ctx, ASTNode &node);

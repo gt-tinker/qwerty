@@ -1,2 +1,1 @@
-coverage-html/
-.coverage
+!*.mlir

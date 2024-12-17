@@ -47,18 +47,23 @@ For the sake of cross-platform compatibility, the Python tester also runs the
 tests for MLIR passes with [FileCheck][1], which we enable by imitating
 [lit][2], the LLVM test runner.
 
-Coverage
---------
+C++ Coverage
+------------
 Update `pyproject.toml` to set `install.strip = false` and
-`cmake.build-type = "Coverage"`. Then run
+`cmake.build-type = "Coverage"`. (Also, make sure `BUILD_TESTS` in
+`pyproject.toml` is `true`.) Then:
 
     $ rm -rv _skbuild
-    $ QWERTY_BUILD_TESTS=true pip install -v .[coverage]
-    $ test/coverage-report.sh
+    $ pip install -v .
+    $ test/run-tests.sh
+    $ gcovr
+    $ firefox coverage.html
 
-The last command will run all the tests and generate
-`test/coverage-html/{cpp,py}/index.html` with coverage results. Note that it
-skips the integration tests to avoid misleadingly inflating coverage.
+(The last command is trying to convey that you need to open `coverage.html` at
+the root of the project in your browser.) When you're done, delete the
+generated files:
+
+    $ rm *.html *.css
 
 [1]: https://llvm.org/docs/CommandGuide/FileCheck.html
 [2]: https://llvm.org/docs/CommandGuide/lit.html

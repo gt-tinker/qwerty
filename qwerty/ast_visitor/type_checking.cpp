@@ -1,5 +1,3 @@
-#include "util.hpp"
-#include "defs.hpp"
 #include "ast.hpp"
 #include "ast_visitor.hpp"
 
@@ -7,6 +5,7 @@ void BaseTypeCheckVisitor::validateSlice(Slice &slice,
                                          DimVarValue dim,
                                          DimVarValue &n_elem,
                                          DimVarValue &start_idx) {
+
     if (!slice.lower) {
         slice.lower = std::make_unique<DimVarExpr>("", 0);
     }
@@ -313,39 +312,15 @@ bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, Prepare &prep) {
     return true;
 }
 
-bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, Lift &lift) {
-    lift.operand->visit(ctx, *this);
-
-    if (const BitType *bit_type =
-            dynamic_cast<const BitType *>(&lift.operand->getType())) {
-        lift.type = std::make_unique<QubitType>(std::move(bit_type->dim->copy()));
-    } else if (std::unique_ptr<BroadcastType> complex_arr =
-                   lift.operand->getType().collapseToHomogeneousArray<ComplexType>()) {
-        assert(complex_arr->factor->isConstant()
-               && "dimension variables snuck into lift type checking");
-        DimVarValue len = complex_arr->factor->offset;
-
-        if (len < 2) {
-            throw TypeException("The statevector v in v.q must have a length "
-                                "of at least 2. Instead found a length of "
-                                + std::to_string(len),
-                                std::move(lift.dbg->copy()));
-        }
-        if (bits_popcount(len) != 1) {
-            throw TypeException("The statevector v in v.q must have a length "
-                                "that is a power of two. Instead found a "
-                                "length of " + std::to_string(len),
-                                std::move(lift.dbg->copy()));
-        }
-        size_t n_qubits = bits_trailing_zeros(len); // log2(len)
-        lift.type = std::make_unique<QubitType>(
-            std::make_unique<DimVarExpr>("", n_qubits));
-    } else {
-        throw TypeException("The operand x of a quantum lift operation x.q "
-                            "must have type bit[N] or ampl[M], not "
-                            + lift.operand->getType().toString(),
+bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, LiftBits &lift) {
+    lift.bits->visit(ctx, *this);
+    const BitType *bit_type;
+    if (!(bit_type = dynamic_cast<const BitType *>(&lift.bits->getType()))) {
+        throw TypeException("The operand x of a bit lift x.q must have type "
+                            "bit[N], not " + lift.bits->getType().toString(),
                             std::move(lift.dbg->copy()));
     }
+    lift.type = std::make_unique<QubitType>(std::move(bit_type->dim->copy()));
     return true;
 }
 
@@ -513,13 +488,6 @@ bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, Repeat &repeat) {
     // EvalDimVarExprVisitor should unroll these! What's going on here?
     throw TypeException("Unexpected Repeat construct. This is a compiler bug.",
                         std::move(repeat.dbg->copy()));
-}
-
-bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, RepeatTensor &reptens) {
-    // EvalDimVarExprVisitor should unroll these! What's going on here?
-    throw TypeException("Unexpected RepeatTensor construct. "
-                        "This is a compiler bug.",
-                        std::move(reptens.dbg->copy()));
 }
 
 std::unique_ptr<Type> QpuTypeCheckVisitor::biTensorTypes(const Type *left,
@@ -1117,8 +1085,8 @@ bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
         }
 
         PrimitiveBasis this_prim_basis = basisVectorPrimitiveBasisOrError(elt, i);
-        assert(this_prim_basis != (PrimitiveBasis)-1
-               && "Unit literal () snuck into basis literal typechecking?");
+        assert(this_prim_basis != (PrimitiveBasis)-1 && "Unit literal () snuck into basis "
+                                          "literal typechecking?");
         if (span->prim_basis == (PrimitiveBasis)-1) {
             span->prim_basis = this_prim_basis;
         } else if (span->prim_basis != this_prim_basis) {
@@ -1147,134 +1115,10 @@ bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
         }
     }
 
-    std::unique_ptr<BasisType> basis_type =
-        std::make_unique<BasisType>(std::move(first_dim->copy()));
+    std::unique_ptr<BasisType> basis_type = std::make_unique<BasisType>(std::move(first_dim->copy()));
     basis_type->span.clear();
     basis_type->span.append(std::move(span));
     lit.type = std::move(basis_type);
-    return true;
-}
-
-void QpuTypeCheckVisitor::extractPrimRanges(
-        ASTNode &node, std::vector<PrimRange> &prim_ranges_out) {
-    TupleLiteral *tup;
-    if (QubitLiteral *lit = dynamic_cast<QubitLiteral *>(&node)) {
-        assert(lit->type.dim->isConstant()
-               && "Dimvars snuck into superpos type checking");
-        DimVarValue dim = lit->type.dim->offset;
-
-        if (prim_ranges_out.empty()) {
-            prim_ranges_out.emplace_back(lit->prim_basis, 0, dim);
-        } else {
-            PrimRange &last_range = prim_ranges_out.back();
-            if (lit->prim_basis == last_range.prim_basis) {
-                last_range.end += dim;
-            } else {
-                prim_ranges_out.emplace_back(lit->prim_basis, last_range.end,
-                                             last_range.end + dim);
-            }
-        }
-    } else if (Phase *phase = dynamic_cast<Phase *>(&node)) {
-        extractPrimRanges(*phase->value, prim_ranges_out);
-    } else if (BiTensor *bi_tensor = dynamic_cast<BiTensor *>(&node)) {
-        extractPrimRanges(*bi_tensor->left, prim_ranges_out);
-        extractPrimRanges(*bi_tensor->right, prim_ranges_out);
-    } else if (BroadcastTensor *broad_tensor = dynamic_cast<BroadcastTensor *>(&node)) {
-        extractPrimRanges(*broad_tensor->value, prim_ranges_out);
-    } else if ((tup = dynamic_cast<TupleLiteral *>(&node)) && tup->isUnit()) {
-        // Don't need to touch prim_ranges_out, this is nothing (literally)
-    } else {
-        throw TypeException("Unknown syntax in superposition literal",
-                            std::move(node.dbg->copy()));
-    }
-}
-
-bool QpuTypeCheckVisitor::visit(ASTVisitContext &ctx, SuperposLiteral &lit) {
-    std::vector<PrimRange> first_prim_range;
-    const DimVarExpr *first_dim = nullptr;
-    std::unordered_set<llvm::APInt> vecs;
-
-    if (lit.pairs.empty()) {
-        throw TypeException("Superposition literal cannot be empty",
-                            std::move(lit.dbg->copy()));
-    }
-
-    double sum = 0;
-    for (size_t i = 0; i < lit.pairs.size(); i++) {
-        if (lit.pairs[i].first < ATOL) {
-            throw TypeException("Element probabilities of superposition "
-                                "literal must be positive",
-                                std::move(lit.dbg->copy()));
-        }
-        sum += lit.pairs[i].first;
-        ASTNode &elt = *lit.pairs[i].second;
-        elt.visit(ctx, *this);
-
-        if (!onlyLiterals(&elt)) {
-            throw TypeException("Elements of superposition literal must be "
-                                "qubit literals, but the element at index "
-                                + std::to_string(i) + " is not",
-                                std::move(elt.dbg->copy()));
-        }
-
-        const QubitType *elt_type =
-            dynamic_cast<const QubitType *>(&elt.getType());
-        if (!elt_type) {
-            throw TypeException("Elements of superposition literal must have "
-                                "type Qubit[N], but the element at index "
-                                + std::to_string(i) + " has type "
-                                + elt.getType().toString() + " instead",
-                                std::move(elt.dbg->copy()));
-        }
-
-        const DimVarExpr *this_dim = elt_type->dim.get();
-        if (!first_dim) {
-            first_dim = this_dim;
-        } else if (*this_dim != *first_dim) {
-            throw TypeException("All qubit literals in a superposition "
-                                "literal must have the same number of qubits, "
-                                "yet first state has dimension "
-                                + first_dim->toString() +
-                                " but index " + std::to_string(i)
-                                + " has dimension " + this_dim->toString(),
-                                std::move(elt.dbg->copy()));
-        }
-        std::vector<PrimRange> this_prim_range;
-        extractPrimRanges(elt, this_prim_range);
-
-        if (this_prim_range.empty()) {
-            throw TypeException("Qubit literals in a superposition literal "
-                                "must be nonempty",
-                                std::move(elt.dbg->copy()));
-        }
-
-        if (first_prim_range.empty()) {
-            first_prim_range = this_prim_range;
-        } else if (this_prim_range != first_prim_range) {
-            throw TypeException("Qubit literals in a superposition literal "
-                                "must have the same primitive bases "
-                                "position-wise", std::move(elt.dbg->copy()));
-        }
-
-        llvm::APInt eigenbits = basisVectorEigenbitsOrError(&elt, i);
-        assert(eigenbits.getBitWidth() && "Empty apint for superpos elem?");
-
-        if (!vecs.insert(eigenbits).second) {
-            throw TypeException("Elements of superposition literals must be "
-                                "distinct, but the element at index "
-                                + std::to_string(i) + " is a repeat",
-                                std::move(elt.dbg->copy()));
-        }
-    }
-
-    if (std::abs(sum - 1.0) > ATOL) {
-        throw TypeException("Element probabilities must sum to exactly 1",
-        std::move(lit.dbg->copy()));
-    }
-
-    std::unique_ptr<QubitType> qubit_type =
-        std::make_unique<QubitType>(std::move(first_dim->copy()));
-    lit.type = std::move(qubit_type);
     return true;
 }
 

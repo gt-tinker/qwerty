@@ -10,7 +10,7 @@ from qwerty import *
 
 @qpu
 def teleport(secret: qubit) -> qubit:
-    alice, bob = '00' or '11'
+    alice, bob = 'p0' | '1' & std.flip
 
     # Now imagine Alice and Bob being separated. Alice wants
     # to transfer a qubit state (named "secret" here) to Bob.

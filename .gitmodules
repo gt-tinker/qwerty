@@ -1,14 +1,19 @@
-[submodule "tpls/llvm"]
-	path = tpls/llvm
-	url = https://github.com/llvm/llvm-project.git
 [submodule "tpls/tweedledum"]
 	path = tpls/tweedledum
 	url = https://github.com/gt-tinker/tweedledum.git
-	branch = qwerty
+	branch = qwerty-cgo25-artifact
 [submodule "tpls/qir-runner"]
 	path = tpls/qir-runner
-	branch = qwerty
+	branch = qwerty-cgo25-artifact
 	url = https://github.com/gt-tinker/qir-runner.git
 [submodule "tpls/googletest"]
 	path = tpls/googletest
 	url = https://github.com/google/googletest.git
+[submodule "tpls/qsharp"]
+	path = tpls/qsharp
+	url = https://github.com/gt-tinker/qsharp.git
+	branch = qwerty-cgo25-artifact
+[submodule "tpls/quipper-qasm"]
+	path = tpls/quipper-qasm
+	url = https://github.com/gt-tinker/quipper-qasm.git
+	branch = qwerty-cgo25-artifact

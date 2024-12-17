@@ -1,0 +1,4 @@
+# Let's not broadcast our git configuration to the world quite yet
+.gitignore export-ignore
+.gitattributes export-ignore
+.gitmodules export-ignore

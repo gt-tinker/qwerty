@@ -10,14 +10,9 @@ def DecomposeMultiControl : Pass<"decompose-multi-control"> {
   let constructor = "qcirc::createDecomposeMultiControlPass()";
 }
 
-def ReplaceNonQIRGates : Pass<"replace-non-qir-gates"> {
+def ReplaceAnnoyingGates : Pass<"replace-annoying-gates"> {
   let summary = "Replace Tweedledum IR gates with equivalents in QIR";
-  let constructor = "qcirc::createReplaceNonQIRGatesPass()";
-}
-
-def ReplaceNonQasmGates : Pass<"replace-non-qasm-gates"> {
-  let summary = "Replace P(theta) with Rz(theta)";
-  let constructor = "qcirc::createReplaceNonQasmGatesPass()";
+  let constructor = "qcirc::createReplaceAnnoyingGatesPass()";
 }
 
 def PeepholeOptimization : Pass<"peephole-optimization"> {

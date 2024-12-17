@@ -22,7 +22,7 @@ warnings.simplefilter('ignore', category=SyntaxWarning)
 _all_jit = ['qpu', 'classical', 'dump_mlir_module', 'dump_qir', 'get_qir',
             'set_func_opt']
 _all_types = ['bit', 'qfunc', 'cfunc', 'rev_qfunc', 'rev_func', 'dimvar',
-              'qubit', 'func', 'cfrac', 'angle', 'ampl', 'reversible',
+              'qubit', 'func', 'cfrac', 'angle', 'reversible',
               'print_histogram'] + list(string.ascii_uppercase)
 
 __all__ = _all_jit + _all_types

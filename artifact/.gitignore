@@ -1,0 +1,4 @@
+# Built artifact tarballs
+upload/
+# Useful for testing
+data/

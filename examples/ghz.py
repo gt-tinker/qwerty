@@ -12,8 +12,12 @@ from qwerty import *
 
 def ghz(num_qubits, shots=None, histogram=False, acc=None):
     @qpu[[N]]
-    def kernel() -> bit[N]:
-        return ('0'[N] or '1'[N]) | measure[N]
+    def prep() -> qubit[N]:
+        return 'p' + '0'[N-1] |    '1' + {'0','1'}[N-1] \
+                                >> '1' + {'1','0'}[N-1]
+    @qpu[[N]](prep)
+    def kernel(prep: qfunc[0,N]) -> bit[N]:
+        return prep() | std[N].measure
 
     return kernel[[num_qubits]](shots=shots, histogram=histogram, acc=acc)
 

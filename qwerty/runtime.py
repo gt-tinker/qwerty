@@ -16,7 +16,7 @@ from fractions import Fraction
 from abc import ABC, abstractmethod
 from typing import List, Optional, Iterable
 
-from ._qwerty_harness import Bits, Integer, Angle, Tuple, Amplitude
+from ._qwerty_harness import Bits, Integer, Angle, Tuple
 
 class dimvar:
     """
@@ -539,6 +539,7 @@ class _tuple(HybridPythonQwertyType):
                                   'tuples returned by kernels back to '
                                   'Python yet')
 
+# Wrapper around float with a __class_getitem__
 class angle(HybridPythonQwertyType):
     """
     An angle (i.e., a ``float``) or an array of angles. This type is currently
@@ -564,32 +565,6 @@ class angle(HybridPythonQwertyType):
     def from_qwerty_obj(theta: Angle):
         # Same special case as _int.from_qwerty_obj() above
         return theta.as_pyfloat()
-
-class ampl(HybridPythonQwertyType):
-    """
-    An amplitude, i.e., a complex number, or an array of amplitudes. This type
-    is currently intended only for use in ``@qpu`` kernel type annotations.
-    """
-
-    def __class_getitem__(cls, arg):
-        return cls
-
-    def __init__(self, z: complex):
-        self._z = z
-
-    def __str__(self):
-        return str(self._z)
-
-    def __repr__(self):
-        return 'ampl({})'.format(self._z)
-
-    def as_qwerty_obj(self) -> Amplitude:
-        return Amplitude(self._z)
-
-    @staticmethod
-    def from_qwerty_obj(amp: Amplitude):
-        # Same special case as _int.from_qwerty_obj() above
-        return amp.as_pycomplex()
 
 # TODO: how does this relate to a KernelHandle?
 class qfunc:

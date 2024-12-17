@@ -244,9 +244,6 @@ static int convert_string_list(PyObject *strs_list, void *result_vector) {
     {Py_nb_inplace_subtract, (void *)subtract}, \
     {Py_nb_inplace_multiply, (void *)multiply},
 #define SLOT_METHODS(methods) {Py_tp_methods, (void *)methods},
-#define SLOT_RICHCOMP(richcomp) {Py_tp_richcompare, (void *)richcomp},
-#define SLOT_STRFUNC(strfunc) {Py_tp_repr, (void *)strfunc}, \
-                              {Py_tp_str, (void *)strfunc},
 
 #define AST_NODE_BOILERPLATE(name, parent_name) \
     AST_NODE_OBJECT_STRUCT(name, parent_name) \
@@ -260,23 +257,11 @@ static int convert_string_list(PyObject *strs_list, void *result_vector) {
 #define AST_NODE_METHODS(name) \
     static PyMethodDef name ## _methods[] =
 
-#define AST_NODE_RICHCOMP(name) \
-    PyObject *name ## _richcomp(name ## Object *self, PyObject *other, int op)
-
-#define AST_NODE_STRFUNC(name) \
-    PyObject *name ## _str(name ## Object *self)
-
 #define AST_NODE_TYPE_WITH_METHODS(name, parent_name) \
     AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_BASE(parent_name ## Type) SLOT_METHODS(name ## _methods))
 
 #define AST_NODE_TYPE_WITH_NUMBER_METHODS(name, parent_name, add, subtract, multiply) \
     AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_BASE(parent_name ## Type) SLOT_NUMBER_METHODS(add, subtract, multiply))
-
-#define AST_NODE_TYPE_WITH_METHODS_AND_RICHCOMP(name, parent_name) \
-    AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_BASE(parent_name ## Type) SLOT_METHODS(name ## _methods) SLOT_RICHCOMP(name ## _richcomp))
-
-#define AST_NODE_TYPE_WITH_METHODS_AND_RICHCOMP_AND_STRFUNC(name, parent_name) \
-    AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_BASE(parent_name ## Type) SLOT_METHODS(name ## _methods) SLOT_RICHCOMP(name ## _richcomp) SLOT_STRFUNC(name ## _str))
 
 #define AST_NODE_SUBINIT(name) \
     static int name ## _subinit(name ## Object *self, PyObject *args)
@@ -312,12 +297,6 @@ static int convert_string_list(PyObject *strs_list, void *result_vector) {
 
 #define AST_ROOT_NODE_TYPE_WITH_METHODS_AND_NUMBER_METHODS(name, add, subtract, multiply) \
     AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_NUMBER_METHODS(add, subtract, multiply) SLOT_METHODS(name ## _methods))
-
-#define AST_ROOT_NODE_TYPE_WITH_METHODS_AND_RICHCOMP(name) \
-    AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_METHODS(name ## _methods) SLOT_RICHCOMP(name ## _richcomp))
-
-#define AST_ROOT_NODE_TYPE_WITH_METHODS_AND_RICHCOMP_AND_STRFUNC(name) \
-    AST_NODE_TYPE_GLOBAL_VAR(name, SLOT_METHODS(name ## _methods) SLOT_RICHCOMP(name ## _richcomp) SLOT_STRFUNC(name ## _str))
 
 #define AST_NODE_RUNTIME_SETUP(name) \
     if (!(name ## Type = name ## _get_type()) \
@@ -704,17 +683,6 @@ static PyObject *Type_new_float(PyObject *cls, PyObject *args) {
     return (PyObject *)type;
 }
 
-static PyObject *Type_new_complex(PyObject *cls, PyObject *args) {
-    (void)args;
-    // This is a @classmethod, so cls is the Type type object
-    TypeObject *type = (TypeObject *)PyObject_CallNoArgs(cls);
-    if (!type) {
-        return NULL;
-    }
-    type->ptr = std::make_unique<ComplexType>();
-    return (PyObject *)type;
-}
-
 static PyObject *Type_new_tuple(PyObject *cls, PyObject *args) {
     std::unique_ptr<QwertyTupleType> tuple;
     if (!PyTuple_Size(args)) { // Unit
@@ -846,7 +814,6 @@ AST_NODE_METHODS(Type) {
     {"new_bit", (PyCFunction)Type_new_bit, METH_VARARGS | METH_CLASS, "Create a new bit type"},
     {"new_int", (PyCFunction)Type_new_int, METH_NOARGS | METH_CLASS, "Create a new int type"},
     {"new_float", (PyCFunction)Type_new_float, METH_NOARGS | METH_CLASS, "Create a new float type"},
-    {"new_complex", (PyCFunction)Type_new_complex, METH_NOARGS | METH_CLASS, "Create a new complex type"},
     {"new_tuple", (PyCFunction)Type_new_tuple, METH_VARARGS | METH_CLASS, "Create a new tuple type"},
     {"new_func", (PyCFunction)Type_new_func, METH_VARARGS | METH_CLASS, "Create a new func type"},
     {"new_rev_func", (PyCFunction)Type_new_rev_func, METH_VARARGS | METH_CLASS, "Create a new reversible func type"},
@@ -1036,44 +1003,6 @@ AST_NODE_METHODS(Angle) {
 
 AST_NODE_TYPE_WITH_METHODS(Angle, HybridObj)
 
-///////////////////////// HYBRID AMPLITUDE OBJECT /////////////////////////
-
-AST_NODE_BOILERPLATE(Amplitude, HybridObj)
-
-AST_NODE_SUBINIT(Amplitude) {
-    PyObject *py_z;
-    if (!PyArg_ParseTuple(args, "O!",
-                          &PyComplex_Type, &py_z)) {
-        return -1;
-    }
-
-    double real = PyComplex_RealAsDouble(py_z);
-    if (PyErr_Occurred()) {
-        return -1;
-    }
-    double imag = PyComplex_ImagAsDouble(py_z);
-    if (PyErr_Occurred()) {
-        return -1;
-    }
-
-    std::complex<double> z(real, imag);
-    self->parent.ptr = std::make_unique<Amplitude>(z);
-    return 0;
-}
-
-static PyObject *Amplitude_as_pycomplex(BitsObject *self, PyObject *args) {
-    (void)args;
-    Amplitude &amp = dynamic_cast<Amplitude &>(*self->parent.ptr);
-    return PyComplex_FromDoubles(amp.val.real(), amp.val.imag());
-}
-
-AST_NODE_METHODS(Amplitude) {
-    {"as_pycomplex", (PyCFunction)Amplitude_as_pycomplex, METH_NOARGS, "Return Python complex object"},
-    {NULL}
-};
-
-AST_NODE_TYPE_WITH_METHODS(Amplitude, HybridObj)
-
 ///////////////////////// HYBRID TUPLE OBJECT /////////////////////////
 
 AST_NODE(Tuple, HybridObj)
@@ -1114,40 +1043,13 @@ static PyObject *ASTNode_get_dbg(ASTNodeObject *self, PyObject *args) {
     return (PyObject *)dbgObj;
 }
 
-AST_NODE_STRFUNC(ASTNode) /*(ASTNodeObject *self)*/ {
-    // Print debug locations since this is used by unit tests primarily
-    return PyUnicode_FromString(self->ptr->dump(/*print_dbg=*/true).c_str());
-}
-
 AST_NODE_METHODS(ASTNode) {
     {"get_type", (PyCFunction)ASTNode_get_type, METH_NOARGS, "Get type of this node"},
     {"get_dbg", (PyCFunction)ASTNode_get_dbg, METH_NOARGS, "Get DebugInfo of this node"},
     {NULL}
 };
 
-AST_NODE_RICHCOMP(ASTNode)/*(ASTNodeObject *self, PyObject *other, int op)*/ {
-    if (op != Py_EQ && op != Py_NE) {
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-
-    int ret;
-    if ((ret = PyObject_IsInstance(other, (PyObject *)Py_TYPE(self))) == -1) {
-        return NULL;
-    }
-    if (!ret) {
-        Py_RETURN_FALSE;
-    }
-
-    int neg = op == Py_NE;
-    ASTNodeObject *other_node = (ASTNodeObject *)other;
-    if ((*other_node->ptr == *self->ptr) ^ neg) {
-        Py_RETURN_TRUE;
-    } else {
-        Py_RETURN_FALSE;
-    }
-}
-
-AST_ROOT_NODE_TYPE_WITH_METHODS_AND_RICHCOMP_AND_STRFUNC(ASTNode)
+AST_ROOT_NODE_TYPE_WITH_METHODS(ASTNode)
 
 static int convert_node_list(PyObject *stmts_list, void *result_vector) {
     std::vector<std::unique_ptr<ASTNode>> *output_vector =
@@ -1175,61 +1077,6 @@ static int convert_node_list(PyObject *stmts_list, void *result_vector) {
     failure:
     Py_XDECREF(iter);
     Py_XDECREF(node_obj);
-
-    if (PyErr_Occurred()) {
-        return 0;
-    } else {
-        return 1;
-    }
-}
-
-static int convert_node_pair(PyObject *stmts_pair, void *result_vector) {
-    std::vector<std::pair<double, std::unique_ptr<ASTNode>>> *output_vector =
-            (std::vector<std::pair<double, std::unique_ptr<ASTNode>>> *)result_vector;
-    PyObject *iter = NULL;
-    PyObject *tuple_obj = NULL;
-    if (!(iter = PyObject_GetIter(stmts_pair))) {
-        goto failure;
-    }
-    while ((tuple_obj = PyIter_Next(iter))) {
-        PyObject *double_obj;
-        PyObject *node_obj;
-        Py_ssize_t size;
-        int ret;
-        if (!PyTuple_CheckExact(tuple_obj)) {
-            PyErr_SetString(PyExc_ValueError, "Need to pass pair of doubles and ASTNodes");
-            goto failure;
-        } else if ((size = PyTuple_Size(tuple_obj)) < 0) {
-            goto failure;
-        } else if (size != 2) {
-            PyErr_SetString(PyExc_ValueError, "Size of tuple list must be size 2");
-            goto failure;
-        } else if (!(double_obj = PyTuple_GetItem(tuple_obj, 0))) {
-            goto failure;
-        } else if (!PyFloat_CheckExact(double_obj)) {
-            PyErr_SetString(PyExc_ValueError, "Left tuple element must hold float");
-            goto failure;
-        } else if (!(node_obj = PyTuple_GetItem(tuple_obj, 1))
-                   || (ret = PyObject_IsInstance(node_obj, ASTNodeType)) == -1) {
-            goto failure;
-        } else if (!ret) {
-            PyErr_SetString(PyExc_ValueError, "Right tuple element must hold ASTNode");
-            goto failure;
-        }
-
-        double prob = PyFloat_AsDouble(double_obj);
-        if (PyErr_Occurred()) {
-            goto failure;
-        }
-        output_vector->emplace_back(prob, std::move(((ASTNodeObject*)node_obj)->ptr));
-
-        Py_XDECREF(tuple_obj);
-        tuple_obj = NULL;
-    }
-
-    failure:
-    Py_XDECREF(iter);
-    Py_XDECREF(tuple_obj);
 
     if (PyErr_Occurred()) {
         return 0;
@@ -1293,10 +1140,11 @@ AST_NODE_SUBINIT(Prepare) {
             std::move(dbg->ptr), std::move(operand->parent.ptr));
     return 0;
 }
+
 ///////////////////////// LIFT BITS TO QUBITS /////////////////////////
 
-AST_NODE(Lift, Expr)
-AST_NODE_SUBINIT(Lift) {
+AST_NODE(LiftBits, Expr)
+AST_NODE_SUBINIT(LiftBits) {
     DebugInfoObject *dbg;
     ExprObject *bits;
     if (!PyArg_ParseTuple(args, "O!O!",
@@ -1305,7 +1153,7 @@ AST_NODE_SUBINIT(Lift) {
         return -1;
     }
 
-    self->parent.parent.ptr = std::make_unique<Lift>(
+    self->parent.parent.ptr = std::make_unique<LiftBits>(
             std::move(dbg->ptr), std::move(bits->parent.ptr));
     return 0;
 }
@@ -1677,24 +1525,6 @@ AST_NODE_SUBINIT(BasisLiteral) {
     return 0;
 }
 
-///////////////////////// SUPERPOSITION /////////////////////////
-
-AST_NODE(SuperposLiteral, Expr)
-AST_NODE_SUBINIT(SuperposLiteral) {
-    DebugInfoObject *dbg;
-    std::vector<std::pair<double, std::unique_ptr<ASTNode>>> pairs;
-    if (!PyArg_ParseTuple(args, "O!O&",
-                          DebugInfoType, &dbg,
-                          convert_node_pair, (void *)& pairs)) {
-        return -1;
-    }
-
-    self->parent.parent.ptr = std::make_unique<SuperposLiteral>(
-            std::move(dbg->ptr),
-            std::move(pairs));
-    return 0;
-}
-
 ///////////////////////// CONDITIONAL EXPRESSION /////////////////////////
 
 AST_NODE(Conditional, Expr)
@@ -1784,31 +1614,7 @@ AST_NODE_SUBINIT(Repeat) {
     return 0;
 }
 
-///////////////////////// REPEATED TENSOR /////////////////////////
-
-AST_NODE(RepeatTensor, Expr)
-AST_NODE_SUBINIT(RepeatTensor) {
-    DebugInfoObject *dbg;
-    ExprObject *body;
-    DimVarExprObject *ub;
-    const char *loopvar;
-    if (!PyArg_ParseTuple(args, "O!O!sO!",
-                          DebugInfoType, &dbg,
-                          ExprType, &body,
-                          &loopvar,
-                          DimVarExprType, &ub)) {
-        return -1;
-    }
-
-    self->parent.parent.ptr = std::make_unique<RepeatTensor>(
-            std::move(dbg->ptr),
-            std::move(body->parent.ptr),
-            loopvar,
-            std::move(ub->ptr));
-    return 0;
-}
-
-///////////////////////// PRED /////////////////////////
+///////////////////////// LEFT PRED /////////////////////////
 
 AST_NODE(Pred, Expr)
 AST_NODE_SUBINIT(Pred) {
@@ -2583,7 +2389,7 @@ PyMODINIT_FUNC PyInit__qwerty_harness(void) {
     AST_NODE_RUNTIME_SETUP(Variable);
     AST_NODE_RUNTIME_SETUP(Adjoint);
     AST_NODE_RUNTIME_SETUP(Prepare);
-    AST_NODE_RUNTIME_SETUP(Lift);
+    AST_NODE_RUNTIME_SETUP(LiftBits);
     AST_NODE_RUNTIME_SETUP(EmbedClassical);
     AST_NODE_RUNTIME_SETUP(BiTensor);
     AST_NODE_RUNTIME_SETUP(BroadcastTensor);
@@ -2602,13 +2408,11 @@ PyMODINIT_FUNC PyInit__qwerty_harness(void) {
     AST_NODE_RUNTIME_SETUP(Project);
     AST_NODE_RUNTIME_SETUP(Flip);
     AST_NODE_RUNTIME_SETUP(Rotate);
-    AST_NODE_RUNTIME_SETUP(SuperposLiteral);
     AST_NODE_RUNTIME_SETUP(BasisLiteral);
     AST_NODE_RUNTIME_SETUP(Conditional);
     AST_NODE_RUNTIME_SETUP(Pipe);
     AST_NODE_RUNTIME_SETUP(Instantiate);
     AST_NODE_RUNTIME_SETUP(Repeat);
-    AST_NODE_RUNTIME_SETUP(RepeatTensor);
     AST_NODE_RUNTIME_SETUP(Pred);
     AST_NODE_RUNTIME_SETUP(BitUnaryOp);
     AST_NODE_RUNTIME_SETUP(BitBinaryOp);
@@ -2627,7 +2431,6 @@ PyMODINIT_FUNC PyInit__qwerty_harness(void) {
     AST_NODE_RUNTIME_SETUP(Bits);
     AST_NODE_RUNTIME_SETUP(Integer);
     AST_NODE_RUNTIME_SETUP(Angle);
-    AST_NODE_RUNTIME_SETUP(Amplitude);
     AST_NODE_RUNTIME_SETUP(Tuple);
     AST_NODE_RUNTIME_SETUP(MlirHandle);
 
@@ -2651,8 +2454,6 @@ PyMODINIT_FUNC PyInit__qwerty_harness(void) {
         || PyModule_AddIntMacro(m, FLOAT_DIV) < 0
         || PyModule_AddIntMacro(m, FLOAT_POW) < 0
         || PyModule_AddIntMacro(m, FLOAT_MUL) < 0
-        || PyModule_AddIntMacro(m, FLOAT_ADD) < 0
-        || PyModule_AddIntMacro(m, FLOAT_MOD) < 0
         || PyModule_AddIntMacro(m, AST_QPU) < 0
         || PyModule_AddIntMacro(m, AST_CLASSICAL) < 0
         || !(prog_err_fields = PyDict_New())

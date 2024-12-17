@@ -71,11 +71,11 @@ bool EvalDimVarExprVisitor::visit(ASTVisitContext &ctx, Pipe &pipe) {
             ctx.ptr = std::move(pipe.left);
             return false;
         } else {
-            std::unique_ptr<ASTNode> body0 = std::move(repeat->body->copy());
-            body0->setScopedDimvar(repeat->loopvar, 0);
+            std::unique_ptr<ASTNode> body = std::move(repeat->body->copy());
+            body->setScopedDimvar(repeat->loopvar, 0);
             std::unique_ptr<ASTNode> root = std::make_unique<Pipe>(std::move(pipe.dbg->copy()),
                                                                    std::move(pipe.left),
-                                                                   std::move(body0));
+                                                                   std::move(body));
             for (DimVarValue i = 1; i < repeat->ub->offset; i++) {
                 std::unique_ptr<ASTNode> body = std::move(repeat->body->copy());
                 body->setScopedDimvar(repeat->loopvar, i);
@@ -108,31 +108,6 @@ bool EvalDimVarExprVisitor::visit(ASTVisitContext &ctx, Repeat &repeat) {
     }
     throw TypeException("A repeat construct must follow a pipe",
                         std::move(repeat.dbg->copy()));
-}
-
-bool EvalDimVarExprVisitor::visit(ASTVisitContext &ctx, RepeatTensor &reptens) {
-    if (!visitNode(ctx, reptens)) {
-        return false;
-    }
-    RETHROW_AS_TYPE_EXCEPTION(reptens, reptens.ub->eval(dvvs, false))
-
-    if (!reptens.ub->offset) {
-        ctx.ptr = std::make_unique<TupleLiteral>(std::move(reptens.dbg->copy()));
-        return false;
-    } else {
-        std::unique_ptr<ASTNode> root = std::move(reptens.body->copy());
-        root->setScopedDimvar(reptens.loopvar, 0);
-        for (DimVarValue i = 1; i < reptens.ub->offset; i++) {
-            std::unique_ptr<ASTNode> body = std::move(reptens.body->copy());
-            body->setScopedDimvar(reptens.loopvar, i);
-            root = std::move(std::make_unique<BiTensor>(
-                std::move(reptens.dbg->copy()),
-                std::move(root),
-                std::move(body)));
-        }
-        ctx.ptr = std::move(root);
-        return false;
-    }
 }
 
 bool EvalDimVarExprVisitor::visit(ASTVisitContext &ctx, BroadcastTensor &broad_tensor) {
@@ -251,11 +226,7 @@ bool EvalDimVarExprVisitor::visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) {
         return false;
     }
     RETHROW_AS_TYPE_EXCEPTION(fdve, fdve.value->eval(dvvs, false))
-
-    // Okay, now we can replace this with a FloatLiteral
-    double float_const = (double)fdve.value->offset;
-    ctx.ptr = std::make_unique<FloatLiteral>(std::move(fdve.dbg->copy()), float_const);
-    return false;
+    return true;
 }
 
 #undef RETHROW_AS_TYPE_EXCEPTION

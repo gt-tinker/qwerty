@@ -1,0 +1,9 @@
+*
+# Don't ignore myself
+!/.gitignore
+!/*.csproj
+!/*.qs
+!/README.md
+!/*.py
+!/*.ll
+!/*.csv

@@ -9,7 +9,7 @@ from qwerty import *
 
 @qpu
 def kernel() -> bit[2]:
-    return ('00' or '11') | measure[2]
+    return 'p0' | '1' & std.flip | std[2].measure
 
 if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)

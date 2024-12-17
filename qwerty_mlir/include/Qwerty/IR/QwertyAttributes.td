@@ -99,39 +99,6 @@ def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
     }];
 }
 
-def Qwerty_SuperposElemAttr : Qwerty_Attr<"SuperposElem", "superposelem"> {
-    let summary = "An element of a superposition";
-    let description = [{
-        A qubit literal with a probability, intended for use as a superposition
-        element. Because this element may consist of multiple primitive bases,
-        this attribute contains a sequence of basis vectors. Unlike a basis
-        vector, though, the phase of this attribute must be constant.
-    }];
-    let parameters = (ins "mlir::FloatAttr":$prob, "mlir::FloatAttr":$phase, ArrayRefParameter<"BasisVectorAttr", "">:$vectors);
-    let assemblyFormat = "$prob `*` $vectors `at` `tilt` $phase";
-    let extraClassDeclaration = [{
-        llvm::APInt getEigenbits() const;
-        uint64_t getDim() const;
-    }];
-    let genVerifyDecl = 1;
-}
-
-def Qwerty_SuperposAttr: Qwerty_Attr<"Superpos", "superpos"> {
-    let summary = "A set of superposition elements";
-    let description = [{
-        An attribute holding a superposition to be prepared. Among
-        superposition elements, eigenbits must be distinct, dimensions must
-        match, and primitive bases must match otherwise. The sum of
-        probabilities of superposition elements must also be 1.
-    }];
-    let parameters = (ins ArrayRefParameter<"SuperposElemAttr", "">:$elems);
-    let assemblyFormat = "`(` $elems `)`";
-    let extraClassDeclaration = [{
-        uint64_t getDim() const;
-    }];
-    let genVerifyDecl = 1;
-}
-
 def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
     let summary = "A basis literal";
     let description = [{

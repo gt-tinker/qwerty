@@ -1,5 +1,5 @@
 The structure of this project follows below. For each file, relevant sections
-of the CGO '25 paper are written in bold in square brackets.
+of the paper submission are written in bold in square brackets.
 
  * `qwerty/`: Python `qwerty` module, which also contains the code for the
    [Python C++ extension][3]

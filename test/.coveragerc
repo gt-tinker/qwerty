@@ -1,5 +1,0 @@
-[run]
-source = qwerty
-
-[html]
-directory = coverage-html/py/

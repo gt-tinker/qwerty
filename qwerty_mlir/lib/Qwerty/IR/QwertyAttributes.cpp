@@ -1,10 +1,6 @@
 //===- QwertyAttributes.cpp - Qwerty dialect attributes ---------*- C++ -*-===//
 //===----------------------------------------------------------------------===//
 
-// Needs to be at the top for <cmath> on Windows.
-// See https://stackoverflow.com/a/6563891/321301
-#include "util.hpp"
-
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/Builders.h"
 #include "llvm/ADT/APFloat.h"
@@ -15,14 +11,6 @@
 
 #include "Qwerty/IR/QwertyAttributes.h"
 #include "Qwerty/IR/QwertyDialect.h"
-
-namespace {
-    struct APIntHash {
-        auto operator()(llvm::APInt i) const {
-            return llvm::hash_value(i);
-        }
-    };
-} // namespace
 
 using namespace qwerty;
 
@@ -45,7 +33,7 @@ qwerty::BasisVectorListAttr BuiltinBasisAttr::expandToVeclist() const {
     uint64_t dim = getDim();
 
     for (size_t i = 0; i < expanded_size; i++) {
-        llvm::APInt eigentemp(getDim(), i, /*isSigned=*/false);
+        llvm::APInt eigentemp(getDim(), i);
         vectors.push_back(BasisVectorAttr::get(getContext(), getPrimBasis(), eigentemp,
                                                dim, false));
     }
@@ -120,7 +108,7 @@ mlir::Attribute BasisVectorAttr::parse(mlir::AsmParser &parser, mlir::Type odsTy
 
     PrimitiveBasis prim_basis = PrimitiveBasis::Z; // Initialize to make compiler happy
     uint64_t dim = bits.size();
-    llvm::APInt eigenbits(dim, 0, /*isSigned=*/false);
+    llvm::APInt eigenbits(dim, 0);
     for (uint64_t i = 0; i < dim; i++) {
         char bit = bits[i];
         PrimitiveBasis new_prim_basis;
@@ -190,28 +178,6 @@ uint64_t BasisVectorListAttr::getDim() const {
     llvm::ArrayRef<BasisVectorAttr> vectors = getVectors();
     assert(!vectors.empty() && "Empty BasisVectorList. How? The verifier should catch this!");
     return vectors[0].getDim();
-}
-
-uint64_t SuperposElemAttr::getDim() const {
-    size_t n_qubits = 0;
-    for (qwerty::BasisVectorAttr vec : getVectors()) {
-        n_qubits += vec.getDim();
-    }
-    return n_qubits;
-}
-
-uint64_t SuperposAttr::getDim() const {
-    llvm::ArrayRef<SuperposElemAttr> elems = getElems();
-    assert(!elems.empty() && "Empty BasisVectorList. How? The verifier should catch this!");
-    return elems[0].getDim();
-}
-
-llvm::APInt SuperposElemAttr::getEigenbits() const {
-    llvm::APInt eigenbits(/*numBits=*/0UL, /*val=*/0UL, /*isSigned=*/false);
-    for (qwerty::BasisVectorAttr vec : getVectors()) {
-        eigenbits = eigenbits.concat(vec.getEigenbits());
-    }
-    return eigenbits;
 }
 
 PrimitiveBasis BasisVectorListAttr::getPrimBasis() const {
@@ -486,6 +452,11 @@ mlir::LogicalResult BasisVectorListAttr::verify(
         }
     }
 
+    struct APIntHash {
+        auto operator()(llvm::APInt i) const {
+            return llvm::hash_value(i);
+        }
+    };
     std::unordered_set<llvm::APInt, APIntHash> basisVectorsSeen;
     for (auto it = vectors.begin(); it != vectors.end(); it++) {
         const BasisVectorAttr &vec = *it;
@@ -502,77 +473,6 @@ mlir::LogicalResult BasisVectorListAttr::verify(
         }
         basisVectorsSeen.insert(eigenbits);
     }
-    return mlir::success();
-}
-
-mlir::LogicalResult SuperposElemAttr::verify(
-        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
-        mlir::FloatAttr prob_attr,
-        mlir::FloatAttr phase_attr,
-        llvm::ArrayRef<BasisVectorAttr> vectors) {
-    double prob = prob_attr.getValueAsDouble();
-    if (prob < ATOL) {
-        return emitError() << "Probability must be nonzero";
-    }
-    if (vectors.empty()) {
-        return emitError() << "Empty list of vectors is not allowed";
-    }
-    return mlir::success();
-}
-
-mlir::LogicalResult SuperposAttr::verify(
-        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
-        llvm::ArrayRef<SuperposElemAttr> elems) {
-    if (elems.empty()) {
-        return emitError() << "Empty list of superpos elems is not allowed";
-    }
-
-    bool first = true;
-    double sum = 0.0;
-    size_t last_dim;
-    llvm::ArrayRef<BasisVectorAttr> last_vecs;
-    std::unordered_set<llvm::APInt, APIntHash> eigenbits_seen;
-
-    for (SuperposElemAttr elem : elems) {
-        sum += elem.getProb().getValueAsDouble();
-
-        size_t this_dim = elem.getDim();
-        llvm::ArrayRef<BasisVectorAttr> this_vecs = elem.getVectors();
-        if (first) {
-            last_dim = this_dim;
-            last_vecs = this_vecs;
-        } else {
-            if (last_dim != this_dim) {
-                return emitError() << "Element dimensions do not match up: "
-                                   << last_dim << " != " << this_dim;
-            }
-            if (last_vecs.size() != this_vecs.size()) {
-                return emitError() << "Basis vectors lists must have the "
-                                   << "same size:"
-                                   << last_vecs.size() << " != "
-                                   << this_vecs.size();
-            }
-            for (auto [last_vec, this_vec] : llvm::zip(last_vecs, this_vecs)) {
-                // TODO: remove this check? works well enough for now though
-                if (last_vec.getDim() != this_vec.getDim()) {
-                    return emitError() << "Basis vector dimension does not "
-                                       << "match: " << last_vec.getDim()
-                                       << " != " << this_vec.getDim();
-                }
-
-                if (last_vec.getPrimBasis() != this_vec.getPrimBasis()) {
-                    return emitError()
-                        << "Basis vector primitive basis mismatch: "
-                        << stringifyPrimitiveBasis(last_vec.getPrimBasis())
-                        << " != "
-                        << stringifyPrimitiveBasis(this_vec.getPrimBasis());
-                }
-            }
-        }
-
-        first = false;
-    }
-
     return mlir::success();
 }
 

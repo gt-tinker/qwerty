@@ -5,27 +5,27 @@ formed by Qwerty syntax.
 
 import ast
 import math
-from typing import List, Tuple, Union
+from typing import List, Tuple
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  _get_frame
-from ._qwerty_harness import Expr, Kernel, Type, DimVarExpr, DebugInfo, \
-                             Return, Pipe, Instantiate, Repeat, RepeatTensor, \
-                             Pred, QubitLiteral, Variable, Identity, \
-                             BasisTranslation, BiTensor, Conditional, \
-                             BroadcastTensor, Adjoint, Measure, Project, \
-                             Discard, BuiltinBasis, BasisLiteral, Phase, \
-                             SuperposLiteral, FloatLiteral, FloatNeg, \
-                             FloatBinaryOp, FloatDimVarExpr, TupleLiteral, \
-                             EmbedClassical, Prepare, Lift, Slice, Flip, \
-                             Rotate, BitUnaryOp, BitBinaryOp, BitReduceOp, \
-                             ModMulOp, BitConcat, BitRepeat, BitLiteral, \
+from ._qwerty_harness import Kernel, Type, DimVarExpr, DebugInfo, Return, Pipe, \
+                             Instantiate, Repeat, Pred, QubitLiteral, Variable, \
+                             Identity, BasisTranslation, BiTensor, Conditional, \
+                             BroadcastTensor, Adjoint, Measure, Project, Discard, \
+                             BuiltinBasis, BasisLiteral, Phase, FloatLiteral, \
+                             FloatNeg, FloatBinaryOp, FloatDimVarExpr, \
+                             TupleLiteral, EmbedClassical, Prepare, LiftBits, \
+                             Slice, Flip, Rotate, \
+                             BitUnaryOp, BitBinaryOp, BitReduceOp, ModMulOp, \
+                             BitConcat, BitRepeat, BitLiteral, \
                              Assign, DestructAssign, \
                              PLUS, MINUS, X, Y, Z, FOURIER, \
                              BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_ROTR, \
-                             BIT_ROTL, FLOAT_DIV, FLOAT_POW, FLOAT_MUL, \
-                             FLOAT_ADD, FLOAT_MOD, EMBED_XOR, EMBED_SIGN, \
-                             EMBED_INPLACE, embedding_kind_name, \
-                             embedding_kind_has_operand, AST_QPU, AST_CLASSICAL
+                             BIT_ROTL, \
+                             FLOAT_DIV, FLOAT_POW, FLOAT_MUL, \
+                             EMBED_XOR, EMBED_SIGN, EMBED_INPLACE, \
+                             embedding_kind_name, embedding_kind_has_operand, \
+                             AST_QPU, AST_CLASSICAL
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -57,19 +57,14 @@ class BaseVisitor:
     Common Python AST visitor for both ``@classical`` and ``@qpu`` kernels.
     """
 
-    def __init__(self, filename: str = '', line_offset: int = 0, col_offset: int = 0, no_pyframe: bool = False):
-        """
-        Constructor. The ``no_pyframe`` flag is used by the tests to avoid
-        including frames (see ``errs.py``) in DebugInfos constructed by
-        ``get_debug_info()`` below, since this complicates testing.
-        """
+    def __init__(self, filename: str = '', line_offset: int = 0, col_offset: int = 0):
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
         # TODO: Figure out a way to pass this data around instead of storing it
         #       in this member variable and setting it inside certain visitors
-        self.dim_vars = set()
-        self.frame = None if no_pyframe else _get_frame()
+        self.dim_vars = None
+        self.frame = _get_frame()
 
     def get_node_row_col(self, node: ast.AST):
         if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
@@ -160,8 +155,6 @@ class BaseVisitor:
                 return Type.new_int()
             elif type_name == 'angle':
                 return Type.new_float()
-            elif type_name == 'ampl':
-                return Type.new_complex()
             elif type_name in func_type_aliases:
                 new_val, new_func = func_type_aliases[type_name]
                 return new_func(new_val(DimVarExpr('', 1)),
@@ -239,10 +232,6 @@ class BaseVisitor:
 
         func_def = module.body[0]
         return self.visit_FunctionDef(func_def)
-
-    # Root note for a single expression
-    def visit_Expression(self, expr: ast.Expression):
-        return self.visit(expr.body)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
                                decorator_name: str,
@@ -558,9 +547,8 @@ class QpuVisitor(BaseVisitor):
     Python AST visitor for syntax specific to ``@qpu`` kernels.
     """
 
-    def __init__(self, filename: str = '', line_offset: int = 0,
-                 col_offset: int = 0, no_pyframe: bool = False):
-        super().__init__(filename, line_offset, col_offset, no_pyframe)
+    def __init__(self, filename: str = '', line_offset: int = 0, col_offset: int = 0):
+        super().__init__(filename, line_offset, col_offset)
 
     def extract_float_expr(self, node: ast.AST):
         """
@@ -592,14 +580,6 @@ class QpuVisitor(BaseVisitor):
             return FloatBinaryOp(dbg, FLOAT_POW,
                                  self.extract_float_expr(node.left),
                                  self.extract_float_expr(node.right))
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
-            return FloatBinaryOp(dbg, FLOAT_MOD,
-                                 self.extract_float_expr(node.left),
-                                 self.extract_float_expr(node.right))
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            return FloatBinaryOp(dbg, FLOAT_ADD,
-                                 self.extract_float_expr(node.left),
-                                 self.extract_float_expr(node.right))
         elif isinstance(node, ast.Name):
             return self.visit(node)
         elif isinstance(node, ast.Subscript) \
@@ -628,7 +608,7 @@ class QpuVisitor(BaseVisitor):
     def visit_Name(self, name: ast.Name):
         """
         Convert a Python AST identitifer node into either a Qwerty primitive
-        AST node or a Qwerty variable name AST node. For example ``id`` becomes
+        AST node or a Qwerty variable name AST node. For example ``id`` becomes 
         an ``Identity`` AST node, and ``foobar`` becomes a Qwerty ``Variable``
         AST node.
         """
@@ -651,11 +631,6 @@ class QpuVisitor(BaseVisitor):
         elif var_name == 'flip':
             # Sugar for `std.flip'
             return Flip(dbg, BuiltinBasis(dbg.copy(), Z, DimVarExpr('', 1)))
-        elif var_name == 'fourier':
-            raise QwertySyntaxError('fourier is a reserved keyword. The '
-                                    'one-dimensional Fourier basis must be '
-                                    'written as fourier[1]',
-                                    self.get_debug_info(name))
         else:
             return Variable(dbg, var_name)
 
@@ -901,10 +876,16 @@ class QpuVisitor(BaseVisitor):
         basis_elts = self.visit(set_.elts)
         return BasisLiteral(dbg, basis_elts)
 
-    def list_comp_helper(self, gen: Union[ast.GeneratorExp, ast.ListComp]):
+    def visit_GeneratorExp(self, gen: ast.GeneratorExp):
         """
-        Helper used by both ``visit_GeneratorExp()`` and ``visit_ListComp()``,
-        since both Python AST nodes have near-identical fields.
+        Convert a Python generator expression AST node into a Qwerty ``Repeat``
+        AST node. For example the highlighted part of the code::
+
+            ... | (func for i in range(20)) | ...
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+
+        is converted to a Repeat AST node. Here, ``range`` is a keyword whose
+        operand is a dimension variable expression.
         """
         dbg = self.get_debug_info(gen)
 
@@ -935,7 +916,7 @@ class QpuVisitor(BaseVisitor):
         loopvar = comp.target.id
 
         if loopvar in self.dim_vars:
-            raise QwertySyntaxError('Index variable {} collides with the '
+            raise QwertySyntaxError('Repeat variable {} collides with the '
                                     'name of another type variable'
                                     .format(loopvar),
                                     self.get_debug_info(gen))
@@ -945,33 +926,7 @@ class QpuVisitor(BaseVisitor):
 
         ub = self.extract_dimvar_expr(comp.iter.args[0])
 
-        return (dbg, body, loopvar, ub)
-
-    def visit_GeneratorExp(self, gen: ast.GeneratorExp):
-        """
-        Convert a Python generator expression AST node into a Qwerty ``Repeat``
-        AST node. For example the highlighted part of the code::
-
-            ... | (func for i in range(20)) | ...
-                   ^^^^^^^^^^^^^^^^^^^^^^^
-
-        is converted to a Repeat AST node. Here, ``range`` is a keyword whose
-        operand is a dimension variable expression.
-        """
-        return Repeat(*self.list_comp_helper(gen))
-
-    def visit_ListComp(self, comp: ast.ListComp):
-        """
-        Convert a Python list comprehension expression AST node into a Qwerty
-        ``RepeatTensor`` AST node. For example, this code:
-
-            ['0' for i in range(5)]
-
-        is converted to a RepeatTensor AST node whose child is a QubitLiteral.
-        (This particular example is equivalent to '00000'.) Here, ``range`` is
-        a keyword whose operand is a dimension variable expression.
-        """
-        return RepeatTensor(*self.list_comp_helper(comp))
+        return Repeat(dbg, body, loopvar, ub)
 
     def visit_Call(self, call: ast.Call):
         """
@@ -1078,7 +1033,7 @@ class QpuVisitor(BaseVisitor):
             return Project(dbg, basis)
         elif attr_rhs == 'q':
             bits = self.visit(attr_lhs)
-            return Lift(dbg, bits)
+            return LiftBits(dbg, bits)
         elif attr_rhs == 'prep':
             operand = self.visit(attr_lhs)
             return Prepare(dbg, operand)
@@ -1124,84 +1079,6 @@ class QpuVisitor(BaseVisitor):
 
         return Conditional(dbg, if_expr_node, then_expr_node, else_expr_node)
 
-    def visit_BoolOp(self, boolOp: ast.BoolOp):
-        if isinstance(boolOp.op, ast.Or):
-            return self.visit_BoolOp_Or(boolOp)
-        else:
-            op_name = type(boolOp.op).__name__
-            raise QwertySyntaxError('Unknown boolean operation {}'
-                                    .format(op_name),
-                                    self.get_debug_info(boolOp))
-
-    def visit_BoolOp_Or(self, boolOp: ast.BoolOp):
-        """
-        Convert a Python Boolean expression with an ``or`` into a Qwerty
-        superposition AST node. For example, ``0.25*'0' or 0.75*'1'`` becomes a
-        ``SuperpositionLiteral`` AST node with two children.
-        """
-        dbg = self.get_debug_info(boolOp)
-        operands = boolOp.values
-        if len(operands) < 2:
-            raise QwertySyntaxError('Superposition needs at least two operands', dbg)
-
-        pairs = []
-        had_prob = False
-
-        for operand in operands:
-            # Common case: 0.5 * '0'
-            if isinstance(mult_binop := operand, ast.BinOp) \
-                    and isinstance(mult_binop.op, ast.Mult):
-                prob_node = mult_binop.left
-                vec_node = mult_binop.right
-            # Deal with some operator precedence aggravation: for 0.5 * '0'@45
-            # the root node is actually @. Rearrange this for programmer
-            # convenience
-            elif isinstance(matmult_binop := operand, ast.BinOp) \
-                     and isinstance(matmult_binop.op, ast.MatMult) \
-                     and isinstance(mult_binop := matmult_binop.left, ast.BinOp) \
-                     and isinstance(mult_binop.op, ast.Mult):
-                prob_node = mult_binop.left
-                vec_node = ast.BinOp(mult_binop.right, ast.MatMult(),
-                                     matmult_binop.right, lineno=matmult_binop.lineno,
-                                     col_offset=matmult_binop.col_offset)
-            else:
-                prob_node = None
-                vec_node = operand
-
-            has_prob = prob_node is not None
-
-            if pairs and has_prob ^ had_prob:
-                operand_dbg = self.get_debug_info(operand)
-                raise QwertySyntaxError(
-                    'Either all operands of a superposition operator should '
-                    'have explicit probabilities, or none should have '
-                    'explicit probabilities', operand_dbg)
-
-            had_prob = has_prob
-
-            if has_prob:
-                if not isinstance(prob_node, ast.Constant):
-                    prob_dbg = self.get_debug_info(prob_node)
-                    raise QwertySyntaxError(
-                        'Currently, probabilities in a superposition literal '
-                        'must be integer constants', prob_dbg)
-                prob_const_node = prob_node
-                prob_val = prob_const_node.value
-
-                if not isinstance(prob_val, float) \
-                        and not isinstance(prob_val, int):
-                    prob_dbg = self.get_debug_info(prob_node)
-                    raise QwertySyntaxError(
-                        'Probabilities in a superposition literal must be '
-                        'floats, not {}'.format(str(type(prob_val))), prob_dbg)
-            else:
-                prob_val = 1.0 / len(operands)
-
-            pair = (prob_val, self.visit(vec_node))
-            pairs.append(pair)
-
-        return SuperposLiteral(dbg, pairs)
-
     def visit(self, node: ast.AST):
         if isinstance(node, ast.Name):
             return self.visit_Name(node)
@@ -1217,8 +1094,6 @@ class QpuVisitor(BaseVisitor):
             return self.visit_Set(node)
         elif isinstance(node, ast.GeneratorExp):
             return self.visit_GeneratorExp(node)
-        elif isinstance(node, ast.ListComp):
-            return self.visit_ListComp(node)
         elif isinstance(node, ast.Call):
             return self.visit_Call(node)
         elif isinstance(node, ast.Tuple):
@@ -1227,8 +1102,6 @@ class QpuVisitor(BaseVisitor):
             return self.visit_Attribute(node)
         elif isinstance(node, ast.IfExp):
             return self.visit_IfExp(node)
-        elif isinstance(node, ast.BoolOp):
-            return self.visit_BoolOp(node)
         else:
             return self.base_visit(node)
 
@@ -1246,30 +1119,15 @@ def convert_qpu_ast(module: ast.Module, filename: str = '', line_offset: int = 0
     visitor = QpuVisitor(filename, line_offset, col_offset)
     return visitor.visit_Module(module), visitor.tvs_has_explicit_value
 
-def convert_qpu_expr(expr: ast.Expression, filename: str = '',
-                     line_offset: int = 0, col_offset: int = 0,
-                     no_pyframe: bool = False) -> Expr:
-    """
-    Convert an expression from a @qpu kernel instead of the whole thing.
-    Currently used only in unit tests. Someday could be used in a REPL, for
-    example.
-    """
-    if not isinstance(expr, ast.Expression):
-        raise QwertySyntaxError('Expected top-level Expression node in '
-                                'Python AST', None) # This should not happen
-
-    visitor = QpuVisitor(filename, line_offset, col_offset, no_pyframe)
-    return visitor.visit_Expression(expr)
-
 #################### @CLASSICAL DSL ####################
 
 class ClassicalVisitor(BaseVisitor):
     """
     Python AST visitor for syntax specific to ``@classical`` kernels.
     """
-    def __init__(self, filename: str = '', line_offset: int = 0,
-                 col_offset: int = 0, no_pyframe: bool = False):
-        super().__init__(filename, line_offset, col_offset, no_pyframe)
+
+    def __init__(self, filename: str = '', line_offset: int = 0, col_offset: int = 0):
+        super().__init__(filename, line_offset, col_offset)
 
     def visit_FunctionDef(self, func_def: ast.FunctionDef) -> Kernel:
         """

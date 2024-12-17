@@ -20,7 +20,7 @@ Step 1: Build XACC
 Step 2: Build QIR-EE
 --------------------
 
-1. Check out the `qwerty` branch of [our lab's fork][7] of the [QIR-EE git
+1. Check out the `qwerty` branch of [my fork][7] of the [QIR-EE git
    repository][4]
 2. Set up your LLVM environment variables properly as described in the Qwerty
    build instructions
@@ -87,4 +87,4 @@ We need to address this by either allowing XACC to be built as a static library
 [2]: https://arxiv.org/abs/1911.02452
 [3]: https://github.com/ORNL-QCI/xacc/
 [4]: https://github.com/ORNL-QCI/qiree
-[7]: https://github.com/gt-tinker/qiree/tree/qwerty
+[7]: https://github.com/ausbin/qiree/tree/qwerty

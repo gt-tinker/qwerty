@@ -2,17 +2,10 @@ Building LLVM Yourself
 ======================
 
 First, you need to clone [the LLVM repository][5] and check out the
-`llvmorg-19.1.6` tag. For example, the following commands would check out the
-right commit (I would _strongly_ recommend running these outside this
-repository):
+`llvmorg-19.1.2` tag. For example, the following command would clone the right
+commit:
 
-    $ git clone https://github.com/llvm/llvm-project.git llvm
-    $ cd llvm
-    $ git checkout llvmorg-19.1.6
-
-There are some scripts for building LLVM on different operating systems under
-`docs/scripts/`, but the instructions below guide you through building LLVM by
-hand.
+    $ git clone https://github.com/llvm/llvm-project.git llvm -b llvmorg-19.1.2 --depth 1
 
 macOS/Linux
 -----------
@@ -47,7 +40,7 @@ some Qwerty-specific advice to complement their guide:
 
 1. Use the `git clone` command above with `C:\qwerty` as your current directory
    (that is, clone LLVM at `C:\qwerty\llvm-project`). Check out the tag
-   `llvmorg-19.1.6`.
+   `llvmorg-19.1.2`.
 2. When you install Python, if you want to do a debug build of the Qwerty
    compiler, you should check "Download debugging symbols" and "Downloaded debug
    binaries" under "Advanced Options" in the installer. This will install

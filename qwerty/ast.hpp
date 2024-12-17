@@ -50,21 +50,8 @@ static inline std::vector<std::unique_ptr<T>> copy_vector_of_copyable(const std:
     return new_vec;
 }
 
-// Similar to the above except for a vector of pairs whose right element is
-// copy()able
-template <typename S, typename T>
-static inline std::vector<std::pair<S, std::unique_ptr<T>>> copy_vector_of_copyable_pair(
-        const std::vector<std::pair<S, std::unique_ptr<T>>> &old_vec) {
-    std::vector<std::pair<S, std::unique_ptr<T>>> new_vec;
-    new_vec.reserve(old_vec.size());
-    for (size_t i = 0; i < old_vec.size(); i++) {
-        new_vec.emplace_back(old_vec[i].first, old_vec[i].second->copy());
-    }
-    return new_vec;
-}
-
 // Similar to copy_vector_of_copyable() except for comparison (i.e., the
-// overload for `==' instead of `copy()')
+// overload for `<' instead of `copy()')
 template <typename T>
 static inline bool compare_vectors(const std::vector<std::unique_ptr<T>> &lhs, const std::vector<std::unique_ptr<T>> &rhs) {
     if (lhs.size() != rhs.size()) {
@@ -79,7 +66,7 @@ static inline bool compare_vectors(const std::vector<std::unique_ptr<T>> &lhs, c
 }
 
 // Similar to compare_vectors() above except for a getHash() method instead of
-// the operator overload for `=='.
+// the operator overload for `<'.
 template <typename T>
 static inline bool compare_vectors_of_hashable(const std::vector<std::unique_ptr<T>> &lhs, const std::vector<std::unique_ptr<T>> &rhs) {
     if (lhs.size() != rhs.size()) {
@@ -87,22 +74,6 @@ static inline bool compare_vectors_of_hashable(const std::vector<std::unique_ptr
     }
     for (size_t i = 0; i < lhs.size(); i++) {
         if (lhs[i]->getHash() != rhs[i]->getHash()) {
-            return false;
-        }
-    }
-    return true;
-}
-
-// Similar to compare_vectors() above except for pairs where the right element
-// is a unique_ptr
-template <typename S, typename T>
-static inline bool compare_vectors_of_pairs(const std::vector<std::pair<S, std::unique_ptr<T>>> &lhs, const std::vector<std::pair<S, std::unique_ptr<T>>> &rhs) {
-    if (lhs.size() != rhs.size()) {
-        return false;
-    }
-    for (size_t i = 0; i < lhs.size(); i++) {
-        if (lhs[i].first != rhs[i].first
-            || *lhs[i].second != *rhs[i].second) {
             return false;
         }
     }
@@ -244,23 +215,8 @@ static inline bool bit_op_is_broadcast(BitOp bit_op) {
 typedef enum FloatOp {
     FLOAT_DIV,
     FLOAT_POW,
-    FLOAT_MUL,
-    FLOAT_ADD,
-    FLOAT_MOD
+    FLOAT_MUL
 } FloatOp;
-
-// Return a string representation of a float operation. Useful for printing out
-// an AST
-static inline std::string float_op_name(FloatOp float_op) {
-    switch (float_op) {
-    case FLOAT_DIV: return "DIV";
-    case FLOAT_POW: return "POW";
-    case FLOAT_MUL: return "MUL";
-    case FLOAT_ADD: return "ADD";
-    case FLOAT_MOD: return "MOD";
-    default: assert(0 && "Missing name of FloatOp"); return "";
-    }
-}
 
 // Abstract base class for a basis element in span checking. Used in type
 // checking basis translations
@@ -625,9 +581,6 @@ struct Type {
     virtual bool isReversibleFriendly() const = 0;
     // Is this a linear type (e.g., a qubit)? Return true if so.
     virtual bool isLinear() const { return !isClassical(); }
-    // Can an expression with this type be lowered to a MLIR Value? A Qubit
-    // could be, for example, but a Basis could not
-    virtual bool isMaterializable() const { return true; }
     // If this returns true, this type needs to be canonicalized ASAP, before
     // typechecking. Currently just BroadcastType
     virtual bool isFurled() const { return false; }
@@ -723,12 +676,6 @@ struct Type {
         }
         return false;
     }
-
-    // Returns a non-null pointer if this type can be collapsed to a BroadcastType
-    // with element type T. For example, (angle, angle, angle) can be collapsed to
-    // an angle[3], but (angle, angle, int) cannot.
-    template<typename T>
-    std::unique_ptr<BroadcastType> collapseToHomogeneousArray() const;
 };
 
 // Corresponds to e.g. angle[5] in Qwerty code. unfurl() will expand that to
@@ -770,9 +717,6 @@ struct BroadcastType : Type {
     virtual bool isReversibleFriendly() const override {
         return elem_type->isReversibleFriendly();
     }
-    virtual bool isMaterializable() const override {
-        return elem_type->isMaterializable();
-    }
     // See comment in isCanonical()
     virtual std::unique_ptr<Type> canonicalize() const override {
         return std::move(copy());
@@ -802,28 +746,6 @@ struct BroadcastType : Type {
         return {elem_type.get()};
     };
 };
-
-// See the declaration of this method above for an explanation of what it is.
-// This is mysteriously down here because it's a template so it can't be in a
-// .cpp file, yet it calls the BroadcastType constructor, so it has to be after
-// the BroadcastType constructor is declared directly above.
-template<typename T>
-std::unique_ptr<BroadcastType> Type::collapseToHomogeneousArray() const {
-    std::unique_ptr<BroadcastType> furled;
-    BroadcastType array(std::make_unique<T>(),
-                        /*factor=*/nullptr);
-    try {
-        furled = collapseToBroadcast(array);
-    } catch (DimVarInferenceConflict &exc) {
-        return nullptr;
-    }
-
-    if (!(*furled->elem_type <= *array.elem_type)) {
-        return nullptr;
-    }
-
-    return furled;
-}
 
 // The tensor product of n>1 types. Currently, Qwerty programmers do not write
 // this type explicitly. Instead, when they write types on a function like
@@ -888,14 +810,6 @@ struct TupleType : Type {
     virtual bool isReversibleFriendly() const override {
         for (size_t i = 0; i < types.size(); i++) {
             if (!types[i]->isReversibleFriendly()) {
-                return false;
-            }
-        }
-        return true;
-    }
-    virtual bool isMaterializable() const override {
-        for (size_t i = 0; i < types.size(); i++) {
-            if (!types[i]->isMaterializable()) {
                 return false;
             }
         }
@@ -1007,7 +921,7 @@ struct TupleType : Type {
 
 // Avoid repeating ourselves by defining a macro for the near-identical
 // qubit[N], bit[N], and basis[N] types.
-#define PSEUDO_ARR_TYPE(name, is_classical, is_rev_friendly, is_materializable, rev_impl, type_gen, extra_fields, extra_copy) \
+#define PSEUDO_ARR_TYPE(name, is_classical, is_rev_friendly, rev_impl, type_gen, extra_fields, extra_copy) \
     struct name ## Type : Type { \
         std::unique_ptr<DimVarExpr> dim; \
         \
@@ -1043,9 +957,6 @@ struct TupleType : Type {
         virtual bool isReversibleFriendly() const override { \
             return is_rev_friendly; \
         } \
-        virtual bool isMaterializable() const override { \
-            return is_materializable; \
-        } \
         virtual std::unique_ptr<Type> canonicalize() const override { \
             if (isCanonical()) { \
                 return std::move(copy()); \
@@ -1077,27 +988,24 @@ struct TupleType : Type {
     }
 
 // Corresponds to qubit[N]
-PSEUDO_ARR_TYPE(Qubit, /*is_classical=*/false, /*is_rev_friendly=*/false,
-                /*is_materializable=*/true, copy(),
+PSEUDO_ARR_TYPE(Qubit, false, false, copy(),
                 {handle.builder.getType<qwerty::QBundleType>(dim_)},
                 /* no extra fields */, /* no extra copying */);
 // Corresponds to bit[N]
-PSEUDO_ARR_TYPE(Bit, /*is_classical=*/true, /*is_rev_friendly=*/true,
-                /*is_materializable=*/true,
+PSEUDO_ARR_TYPE(Bit, true, true,
                 std::make_unique<QubitType>(std::move(dim->copy())),
                 {handle.builder.getType<qwerty::BitBundleType>(dim_)},
                 /* no extra fields */, /* no extra copying */);
 // Corresponds to basis[N], although programmers should not be able to write
 // that in the current implementation
-PSEUDO_ARR_TYPE(Basis, /*is_classical=*/true, /*is_rev_friendly=*/false,
-                /*is_materializable=*/false, copy(), {},
+PSEUDO_ARR_TYPE(Basis, true, false, copy(), {},
                 SpanList span;,
                 ret->span.append(span););
 
 #undef PSEUDO_ARR_TYPE
 
 // Common code for both number types
-#define NUMBER_TYPE(name, is_materializable, buildercall) \
+#define NUMBER_TYPE(name, buildercall) \
     struct name##Type : Type { \
         virtual bool isSubtypeOf(const Type &type) const override { return true; } \
         virtual std::unique_ptr<Type> copy() const override { \
@@ -1107,7 +1015,6 @@ PSEUDO_ARR_TYPE(Basis, /*is_classical=*/true, /*is_rev_friendly=*/false,
         virtual bool isCanonical() const override { return true; } \
         virtual bool isClassical() const override { return true; } \
         virtual bool isReversibleFriendly() const override { return true; } \
-        virtual bool isMaterializable() const override { return is_materializable; } \
         virtual std::unique_ptr<Type> canonicalize() const override { \
             return std::move(copy()); \
         } \
@@ -1120,12 +1027,9 @@ PSEUDO_ARR_TYPE(Basis, /*is_classical=*/true, /*is_rev_friendly=*/false,
     };
 
 // Currently unused and likely poorly supported
-NUMBER_TYPE(Int, /*is_materializable=*/true, handle.builder.getI64Type())
+NUMBER_TYPE(Int, handle.builder.getI64Type())
 // Called "angle" in the frontend (so you can say e.g. angle[3])
-NUMBER_TYPE(Float, /*is_materializable=*/true, handle.builder.getF64Type())
-// Called "ampl" for "amplitude" in the frontend (so you can say e.g. ampl[32])
-NUMBER_TYPE(Complex, /*is_materializable=*/false,
-            mlir::ComplexType::get(handle.builder.getF64Type()))
+NUMBER_TYPE(Float, handle.builder.getF64Type())
 
 #undef NUMBER_TYPE
 
@@ -1167,9 +1071,6 @@ struct FuncType : Type {
     }
     virtual bool isClassical() const override { return true; }
     virtual bool isReversibleFriendly() const override { return false; }
-    virtual bool isMaterializable() const override {
-        return lhs->isMaterializable() && rhs->isMaterializable();
-    }
     virtual std::unique_ptr<Type> asEmbedded(DebugInfo &dbg, EmbeddingKind kind) const override;
     virtual std::unique_ptr<Type> canonicalize() const override {
         return std::move(std::make_unique<FuncType>(std::move(lhs->canonicalize()),
@@ -1248,23 +1149,6 @@ struct Angle : HybridObj {
         return std::make_unique<Angle>(val);
     }
     virtual HybridObj::Hash getHash() const override { return "Angle:" + std::to_string(val); }
-};
-
-// Holds a single complex number
-struct Amplitude : HybridObj {
-    std::complex<double> val;
-    ComplexType type;
-
-    Amplitude(std::complex<double> val) : val(val) {}
-
-    virtual const Type &getType() const override { return type; }
-    virtual std::unique_ptr<HybridObj> copyHybrid() const override {
-        return std::make_unique<Amplitude>(val);
-    }
-    virtual HybridObj::Hash getHash() const override {
-        return "Amplitude:" + std::to_string(val.real())
-               + " + i*" + std::to_string(val.imag());
-    }
 };
 
 // Holds a captured tuple that contains other HybridObjs. A captured angle[5]
@@ -1372,11 +1256,6 @@ struct ASTNode {
     virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() = 0;
     // Additional metadata to dump out when printing out the AST
     virtual std::vector<std::string> getAdditionalMetadata() const { return {}; };
-    // Return a string representation of this AST node (useful for debugging).
-    // The print_dbg determines whether full debug information is printed
-    // (warning: this is very verbose)
-    std::string dump(bool print_dbg);
-    std::string dump() { return dump(false); }
     // Used for double dispatch, see the comment for the VISITOR_TEDIUM macro
     // below.
     virtual bool visit(ASTVisitContext &ctx, ASTVisitor &visitor) = 0;
@@ -1559,27 +1438,23 @@ struct Prepare : Expr {
     VISITOR_TEDIUM
 };
 
-// Lift some bit[N] or ampl[M] to a qubit state.
+// Lift some bit[N] to a qubit state.
 // Example syntax:
 //     bit[4](0b1101).q
 // which evaluates to '1101'. This example is silly but it's useful to prepare
 // a captured bit[N] as qubits.
-//
-// Another example, if `capture' is a Python `list' of `float's [1.4142, 1.4142]:
-//     capture.q
-// which evaluates to 'p'.
-struct Lift : Expr {
-    std::unique_ptr<ASTNode> operand;
+struct LiftBits : Expr {
+    std::unique_ptr<ASTNode> bits;
     std::unique_ptr<Type> type;
 
-    Lift(std::unique_ptr<DebugInfo> dbg,
-             std::unique_ptr<ASTNode> operand)
+    LiftBits(std::unique_ptr<DebugInfo> dbg,
+             std::unique_ptr<ASTNode> bits)
             : Expr(std::move(dbg)),
-              operand(std::move(operand)) {}
+              bits(std::move(bits)) {}
 
     virtual std::unique_ptr<ASTNode> copy() const override {
-        std::unique_ptr<ASTNode> result = std::make_unique<Lift>(
-                std::move(dbg->copy()), std::move(operand->copy()));
+        std::unique_ptr<ASTNode> result = std::make_unique<LiftBits>(
+                std::move(dbg->copy()), std::move(bits->copy()));
         result->copyInternalsFrom(*this);
         return std::move(result);
     }
@@ -1588,12 +1463,12 @@ struct Lift : Expr {
         return *type;
     }
     virtual bool isEqual(const ASTNode &node) const override {
-        const Lift &lift = static_cast<const Lift &>(node);
-        return *operand == *lift.operand;
+        const LiftBits &lift = static_cast<const LiftBits &>(node);
+        return *bits == *lift.bits;
     }
-    virtual std::string label() override { return "Lift"; }
+    virtual std::string label() override { return "LiftBits"; }
     virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override {
-        return {{"operand", operand}};
+        return {{"bits", bits}};
     }
     VISITOR_TEDIUM
 };
@@ -1752,59 +1627,6 @@ struct Repeat : Expr {
     virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override {
         return {{"body", body}};
     }
-    virtual std::vector<std::string> getAdditionalMetadata() const override {
-        return {"Loop variable: " + loopvar,
-                "Upper bound: " + ub->toString()};
-    };
-    VISITOR_TEDIUM
-};
-
-// Tensor an expression with itself multiple times
-// Example syntax:
-//     ['0' for i in range(5)]
-// This example is equivalent to '0'+'0'+'0'+'0'+'0'.
-struct RepeatTensor : Expr {
-    std::unique_ptr<ASTNode> body;
-    std::string loopvar;
-    std::unique_ptr<DimVarExpr> ub;
-    std::unique_ptr<Type> type;
-
-    RepeatTensor(std::unique_ptr<DebugInfo> dbg,
-           std::unique_ptr<ASTNode> body,
-           std::string loopvar,
-           std::unique_ptr<DimVarExpr> ub)
-          : Expr(std::move(dbg)),
-            body(std::move(body)),
-            loopvar(loopvar),
-            ub(std::move(ub)) {}
-
-    virtual std::unique_ptr<ASTNode> copy() const override {
-        std::unique_ptr<ASTNode> result =
-            std::make_unique<RepeatTensor>(std::move(dbg->copy()),
-                                           std::move(body->copy()),
-                                           loopvar,
-                                           std::move(ub->copy()));
-        result->copyInternalsFrom(*this);
-        return std::move(result);
-    }
-    virtual bool hasType() const override { return !!type; }
-    virtual const Type &getType() const override {
-        return *type;
-    }
-    virtual bool isEqual(const ASTNode &node) const override {
-        const RepeatTensor &rep = static_cast<const RepeatTensor &>(node);
-        return *body == *rep.body
-               && loopvar == loopvar
-               && *ub == *rep.ub;
-    }
-    virtual std::string label() override { return "RepeatTensor"; }
-    virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override {
-        return {{"body", body}};
-    }
-    virtual std::vector<std::string> getAdditionalMetadata() const override {
-        return {"Loop variable: " + loopvar,
-                "Upper bound: " + ub->toString()};
-    };
     VISITOR_TEDIUM
 };
 
@@ -2072,38 +1894,6 @@ struct Phase : Expr {
     VISITOR_TEDIUM
 };
 
-// A superposition of qubit literals.
-// Example syntax:
-//     0.25*'0p' or 0.75*-'1m'
-// This prepares the state (1/2)|0⟩|+⟩ + (√3/2)|1⟩|-⟩
-struct SuperposLiteral : Expr {
-    std::vector<std::pair<double, std::unique_ptr<ASTNode>>> pairs;
-    std::unique_ptr<Type> type;
-
-    SuperposLiteral(std::unique_ptr<DebugInfo> dbg,
-                 std::vector<std::pair<double, std::unique_ptr<ASTNode>>> pairs)
-                : Expr(std::move(dbg)),
-                  pairs(std::move(pairs)) {}
-
-    virtual std::unique_ptr<ASTNode> copy() const override {
-        std::unique_ptr<ASTNode> result =
-                std::make_unique<SuperposLiteral>(
-                    std::move(dbg->copy()),
-                    std::move(copy_vector_of_copyable_pair<double, ASTNode>(pairs)));
-        result->copyInternalsFrom(*this);
-        return std::move(result);
-    }
-    virtual bool hasType() const override { return !!type; }
-    virtual const Type &getType() const override { return *type; }
-    virtual bool isEqual(const ASTNode &node) const override {
-        const SuperposLiteral &split = static_cast<const SuperposLiteral &>(node);
-        return compare_vectors_of_pairs(pairs, split.pairs);
-    }
-    virtual std::string label() override { return "SuperposLiteral"; }
-    virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override;
-    VISITOR_TEDIUM
-};
-
 // A float constant.
 // Example syntax:
 //     3.14
@@ -2133,9 +1923,6 @@ struct FloatLiteral : Expr {
     virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override {
         return {};
     }
-    virtual std::vector<std::string> getAdditionalMetadata() const override {
-        return {"Value: " + std::to_string(value)};
-    };
     VISITOR_TEDIUM
 };
 
@@ -2212,9 +1999,6 @@ struct FloatBinaryOp : Expr {
                && *right == *fbin.right;
     }
     virtual std::string label() override { return "FloatBinaryOp"; }
-    virtual std::vector<std::string> getAdditionalMetadata() const override {
-        return {"Operation: " + float_op_name(op)};
-    };
     virtual std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> children() override {
         return {{"left", left}, {"right", right}};
     }
@@ -3114,7 +2898,7 @@ struct QpuKernel : Kernel {
     // The extra type checking here is just checking that bases are not passed
     // around at runtime, which would be invalid.
     virtual void runExtraTypeChecking() override {
-        FlagImmaterialVisitor dynBasisVisitor;
+        FlagDynamicBasisVisitor dynBasisVisitor;
         walk(dynBasisVisitor);
     }
     virtual void runASTVisitorPipeline() override {

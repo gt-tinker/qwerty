@@ -1,2 +1,2 @@
-add_subdirectory(test_qwerty_mlir)
-add_subdirectory(test_qwerty)
+add_subdirectory(qwerty_mlir)
+add_subdirectory(qwerty)

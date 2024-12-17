@@ -64,28 +64,12 @@ void ASTNode::walk(ASTVisitor &visitor) {
     visitor.finish();
 }
 
-std::string ASTNode::dump(bool print_dbg) {
-    GraphvizVisitor visitor(print_dbg);
-    walk(visitor);
-    return visitor.str();
-}
-
 std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> BasisLiteral::children() {
     std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> kids;
     kids.reserve(elts.size());
     for (size_t i = 0; i < elts.size(); i++) {
         std::unique_ptr<ASTNode> &elt = elts[i];
         kids.push_back({std::to_string(i), elt});
-    }
-    return kids;
-}
-
-std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> SuperposLiteral::children() {
-    std::vector<std::pair<std::string, std::unique_ptr<ASTNode> &>> kids;
-    kids.reserve(pairs.size());
-    for (size_t i = 0; i < pairs.size(); i++) {
-        std::unique_ptr<ASTNode> &elt = pairs[i].second;
-        kids.push_back({std::to_string(pairs[i].first), elt});
     }
     return kids;
 }
@@ -912,7 +896,9 @@ void Kernel::evalExplicitDimvars(DimVarValues &new_vals, size_t n_freevars) {
         std::string filename = basename + "_" + name + ".dot";
 
         std::ofstream stream(filename);
-        stream << dump();
+        GraphvizVisitor visitor;
+        walk(visitor);
+        stream << visitor.str();
         stream.close();
     }
 }

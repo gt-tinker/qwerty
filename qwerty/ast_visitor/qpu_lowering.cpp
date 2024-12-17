@@ -233,46 +233,19 @@ void QpuLoweringVisitor::init(ASTNode &root) {
                 assert(added && "Duplicate instantiated capture. How is this possible?");
             }
         } else if (Tuple *tuple = dynamic_cast<Tuple *>(provided_captures[i].get())) {
-            if (std::unique_ptr<BroadcastType> complex_array =
-                    tuple->getType().collapseToHomogeneousArray<ComplexType>()) {
-                std::vector<std::complex<double>> state_vec;
-                assert(complex_array->factor->isConstant()
-                       && "dimvars snuck into statevector capture lowering");
-                state_vec.reserve(complex_array->factor->offset);
-                assert((size_t)complex_array->factor->offset == tuple->children.size()
-                       && "mismatch in type and number of children for "
-                          "complex tuple");
-
-                for (std::unique_ptr<HybridObj> &child : tuple->children) {
-                    Amplitude *amp = dynamic_cast<Amplitude *>(child.get());
-                    assert(amp && "Statevector contains something other than "
-                                  "an amplitude, how?");
-                    state_vec.push_back(amp->val);
-                }
-
-                [[maybe_unused]] bool added = amplitude_names.emplace(
-                        kernel.capture_names[i], std::move(state_vec)
-                    ).second;
-                assert(added && "Duplicate name of statevector");
-
-                // Make the variable visitor shut up
-                variable_values.emplace(kernel.capture_names[i],
-                                        std::initializer_list<mlir::Value>{});
-            } else {
-                // TODO: move the {Classical,}Kernel stuff above into
-                //       materializeSimpleCapture. That way you can capture tuples
-                //       of kernels
-                llvm::SmallVector<mlir::Value> values;
-                values.reserve(tuple->children.size());
-                for (size_t j = 0; j < tuple->children.size(); j++) {
-                    values.push_back(materializeSimpleCapture(*root.dbg, loc, tuple->children[j].get()));
-                }
-                [[maybe_unused]] bool added = variable_values.emplace(
-                        kernel.capture_names[i],
-                        values
-                    ).second;
-                assert(added && "Duplicate capture/argument name. How?");
+            // TODO: move the {Classical,}Kernel stuff above into
+            //       materializeSimpleCapture. That way you can capture tuples
+            //       of kernels
+            llvm::SmallVector<mlir::Value> values;
+            values.reserve(tuple->children.size());
+            for (size_t j = 0; j < tuple->children.size(); j++) {
+                values.push_back(materializeSimpleCapture(*root.dbg, loc, tuple->children[j].get()));
             }
+            [[maybe_unused]] bool added = variable_values.emplace(
+                    kernel.capture_names[i],
+                    values
+                ).second;
+            assert(added && "Duplicate capture/argument name. How?");
         } else {
             mlir::Value val = materializeSimpleCapture(*root.dbg, loc, provided_captures[i].get());
             [[maybe_unused]] bool added = variable_values.emplace(
@@ -413,46 +386,9 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, Prepare &prep) {
     return true;
 }
 
-bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, Lift &lift) {
-    assert(lift.operand->getType().collapseToHomogeneousArray<ComplexType>()
-           && "Lift should be taken care of canonicalizer, how is it "
-              "reaching qpu_lowering?");
-    Variable *var = dynamic_cast<Variable *>(lift.operand.get());
-    assert(var && "Operand of lift should be a Variable");
-    assert(amplitude_names.count(var->name)
-           && "Missing state vector for lift");
-
-    std::vector<std::complex<double>> &state_vec =
-        amplitude_names.at(var->name);
-
-    const QubitType *qubit_ty =
-        dynamic_cast<const QubitType *>(&lift.getType());
-    assert(qubit_ty && "Result of lift is not Qubit[N]");
-    assert(qubit_ty->dim->isConstant() && "Dimvars snuck into Lift type");
-    size_t dim = qubit_ty->dim->offset;
-
-    llvm::SmallVector<qwerty::SuperposElemAttr> elems;
-    for (size_t i = 0; i < state_vec.size(); i++) {
-        double prob = std::pow(std::abs(state_vec[i]), 2.0);
-        double tilt = std::arg(state_vec[i]);
-        llvm::APInt eigenbits(/*numBits=*/dim, /*val=*/i, /*isSigned=*/false);
-
-        elems.push_back(handle.builder.getAttr<qwerty::SuperposElemAttr>(
-            handle.builder.getF64FloatAttr(prob),
-            handle.builder.getF64FloatAttr(tilt),
-            handle.builder.getAttr<qwerty::BasisVectorAttr>(
-                qwerty::PrimitiveBasis::Z,
-                eigenbits,
-                dim,
-                /*hasPhase=*/false)));
-    }
-
-    qwerty::SuperposAttr superpos =
-        handle.builder.getAttr<qwerty::SuperposAttr>(elems);
-    mlir::Location loc = lift.dbg->toMlirLoc(handle);
-    lift.getMlirValues() = std::initializer_list<mlir::Value>{
-        handle.builder.create<qwerty::SuperposOp>(loc, superpos).getQbundle()};
-
+bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, LiftBits &lift) {
+    assert(0 && "LiftBits should be taken care of canonicalizer, how is it "
+                "reaching qpu_lowering?");
     return true;
 }
 
@@ -547,13 +483,6 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, Repeat &repeat) {
     throw CompileException("Repeat construct made it to lowering. This is a "
                            "compiler bug.",
                            std::move(repeat.dbg->copy()));
-}
-
-bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, RepeatTensor &reptens) {
-    // RepeatTensor constructs should be unrolled by EvalDimVarExprVisitor
-    throw CompileException("RepeatTensor construct made it to lowering. This "
-                           "is a compiler bug.",
-                           std::move(reptens.dbg->copy()));
 }
 
 bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, Pred &pred) {
@@ -947,16 +876,6 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, FloatBinaryOp &bin) {
                     loc, left_arg, right_arg).getResult();
                 break;
 
-            case FLOAT_ADD:
-                result = handle.builder.create<mlir::arith::AddFOp>(
-                    loc, left_arg, right_arg).getResult();
-                break;
-
-            case FLOAT_MOD:
-                result = handle.builder.create<mlir::arith::RemFOp>(
-                    loc, left_arg, right_arg).getResult();
-                break;
-
             default:
                 assert(0 && "Missing FloatOp handling in FloatBinaryOp lowering");
             }
@@ -970,8 +889,8 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, FloatBinaryOp &bin) {
 }
 
 bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) {
-    assert(0 && "FloatDimVarExpr should be taken care of in "
-                "EvalDimVarExprVisitor, how is it reaching qpu_lowering?");
+    assert(0 && "FloatDimVarExpr should be taken care of canonicalizer, how is "
+                "it reaching qpu_lowering?");
     return true;
 }
 
@@ -1154,15 +1073,10 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, Rotate &rot) {
     return true;
 }
 
-// already_visited avoids re-visiting the angle for Phase nodes when we
-// encounter a BroadcastTensor
-void QpuLoweringVisitor::walkBasisList(
-        ASTNode *node, ASTVisitContext &ctx, bool already_visited,
-        qwerty::PrimitiveBasis &prim_basis_out, mlir::Value &theta_out,
-        llvm::APInt &eigenbits_out) {
-    TupleLiteral *tup;
+void QpuLoweringVisitor::walkBasisList(ASTNode *node, bool clear_pls, qwerty::PrimitiveBasis &prim_basis_out, mlir::Value &theta_out, llvm::APInt &eigenbits_out) {
     if (Phase *phase = dynamic_cast<Phase *>(node)) {
-        phase->phase->visit(ctx, *this);
+        assert(phase->getMlirValues().size() == 1
+               && "Phase has wrong number of MLIR values");
         assert(phase->phase->getMlirValues().size() == 1
                && "Phase of phase has wrong number of MLIR values");
         mlir::Value next_theta = phase->phase->getMlirValues()[0];
@@ -1185,47 +1099,89 @@ void QpuLoweringVisitor::walkBasisList(
             assert(stat_vals.size() == 1);
             theta_out = stat_vals[0];
         }
-        walkBasisList(phase->value.get(), ctx, /*already_visited=*/false,
-                      prim_basis_out, theta_out, eigenbits_out);
+        if (clear_pls) {
+            phase->getMlirValues()[0].getDefiningOp()->erase();
+            phase->getMlirValues().clear();
+        }
+        walkBasisList(phase->value.get(), clear_pls, prim_basis_out, theta_out, eigenbits_out);
     } else if (QubitLiteral *lit = dynamic_cast<QubitLiteral *>(node)) {
-        qwerty::PrimitiveBasis prim_basis = prim_basis_to_qwerty(lit->prim_basis);
+        assert(lit->getMlirValues().size() == 1
+               && "QubitLiteral in BasisLiteral does not have any MLIR values");
+        qwerty::QBundlePrepOp prep =
+                lit->getMlirValues()[0].getDefiningOp<qwerty::QBundlePrepOp>();
+        assert(prep && "QubitLiteral in BasisLiteral does not have a QBundlePrepOp handle");
+
         if (prim_basis_out == (qwerty::PrimitiveBasis)-1) {
-            prim_basis_out = prim_basis;
-        } else if (prim_basis_out != prim_basis) {
+            prim_basis_out = prep.getPrimBasis();
+        } else if (prim_basis_out != prep.getPrimBasis()) {
             throw CompileException("Mismatch in PrimitiveBasiss for qubits of basis "
                                    "literal. Earlier I saw "
                                    + qwerty::stringifyPrimitiveBasis(prim_basis_out).str()
                                    + " but now I am seeing "
-                                   + qwerty::stringifyPrimitiveBasis(prim_basis).str(),
+                                   + qwerty::stringifyPrimitiveBasis(prep.getPrimBasis()).str(),
                                    std::move(lit->dbg->copy()));
         }
 
-        assert(lit->type.dim->isConstant()
-               && "typevars snuck into basis vector lowering");
-        size_t dim = lit->type.dim->offset;
-        eigenbits_out = eigenbits_out.zext(eigenbits_out.getBitWidth() + dim);
-        eigenbits_out = eigenbits_out << dim;
-        if (lit->eigenstate == MINUS) {
-            eigenbits_out.setBits(0, dim);
+        // Fix this
+        eigenbits_out = eigenbits_out.zext(eigenbits_out.getBitWidth() + prep.getDim());
+        eigenbits_out = eigenbits_out << prep.getDim();
+        if (prep.getEigenstate() == qwerty::Eigenstate::MINUS) {
+            eigenbits_out.setBits(0, prep.getDim());
+        }
+        if (clear_pls) {
+            prep.erase();
+            lit->getMlirValues().clear();
         }
     } else if (BiTensor *bi_tensor = dynamic_cast<BiTensor *>(node)) {
-        walkBasisList(bi_tensor->left.get(), ctx, /*already_visited=*/false,
-                      prim_basis_out, theta_out, eigenbits_out);
-        walkBasisList(bi_tensor->right.get(), ctx, /*already_visited=*/false,
-                      prim_basis_out, theta_out, eigenbits_out);
+        // A BiTensor is lowered as unpacks and then a pack. Erase it all, not
+        // needed or helpful for basis literals
+        if (clear_pls) {
+            assert(bi_tensor->getMlirValues().size() == 1
+                   && "BiTensor in BasisLiteral does not have any MLIR values");
+
+            qwerty::QBundlePackOp repack = bi_tensor->getMlirValues()[0].getDefiningOp<qwerty::QBundlePackOp>();
+            if (!repack) {
+                // It's possible that the mlir_values consists of just a qbprep
+                // if we wrote something like `'0' + ()'. In that case, let
+                // recursions below take care of erasing the qbprep op
+            } else {
+                llvm::SmallSet<qwerty::QBundleUnpackOp, 4> unpacks;
+                std::for_each(repack->operand_begin(),
+                              repack->operand_end(),
+                              [&](mlir::Value val_) {
+                                  qwerty::QBundleUnpackOp unpack = val_.getDefiningOp<qwerty::QBundleUnpackOp>();
+                                  assert(unpack && "BiTensor is not a unpack-repack");
+                                  unpacks.insert(unpack);
+                              });
+
+                repack.erase();
+                std::for_each(unpacks.begin(), unpacks.end(), [&](qwerty::QBundleUnpackOp unpack) {
+                    unpack.erase();
+                });
+            }
+        }
+
+        walkBasisList(bi_tensor->left.get(), clear_pls, prim_basis_out, theta_out, eigenbits_out);
+        walkBasisList(bi_tensor->right.get(), clear_pls, prim_basis_out, theta_out, eigenbits_out);
+
+        if (clear_pls) {
+            bi_tensor->getMlirValues().clear();
+        }
     } else if (BroadcastTensor *broad_tensor = dynamic_cast<BroadcastTensor *>(node)) {
+        if (clear_pls) {
+            // Currently, BroadcastTensors aren't lowered to MLIR (the canonicalize
+            // AST pass should take care of most of them). So don't try to
+            // delete anything to avoid hopelessly mangling the IR. If we
+            // should've deleted something, that should be flagged by a
+            // verifier
+            broad_tensor->getMlirValues().clear();
+        }
+
         assert(broad_tensor->factor->isConstant() && "Dimvar snuck into basis list lowering!");
         DimVarValue factor = broad_tensor->factor->offset;
         for (DimVarValue i = 0; i < factor; i++) {
-            walkBasisList(broad_tensor->value.get(), ctx, already_visited || i > 0,
-                          prim_basis_out, theta_out, eigenbits_out);
+            walkBasisList(broad_tensor->value.get(), i+1 == factor && clear_pls, prim_basis_out, theta_out, eigenbits_out);
         }
-    } else if ((tup = dynamic_cast<TupleLiteral *>(node)) && tup->isUnit()) {
-        // Don't do anything
-    } else {
-        throw CompileException("Unknown node in basis vector: "
-                               + node->label(),
-                               std::move(node->dbg->copy()));
     }
 }
 
@@ -1235,11 +1191,11 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
     llvm::SmallVector<mlir::Value> thetas;
     llvm::SmallVector<qwerty::BasisVectorAttr> vectors;
     for (size_t i = 0; i < lit.elts.size(); i++) {
+        lit.elts[i]->visit(ctx, *this);
         qwerty::PrimitiveBasis prim_basis = (qwerty::PrimitiveBasis)-1;
         mlir::Value theta;
-        llvm::APInt eigenbits(/*numBits=*/0UL, /*val=*/0UL, /*isSigned=*/false);
-        walkBasisList(lit.elts[i].get(), ctx, /*already_visited=*/false,
-                      prim_basis, theta, eigenbits);
+        llvm::APInt eigenbits(/*numBits=*/0UL, /*val=*/0UL, false);
+        walkBasisList(lit.elts[i].get(), true, prim_basis, theta, eigenbits);
 
         const QubitType *elt_type = dynamic_cast<const QubitType *>(&lit.elts[i]->getType());
         assert(elt_type && "Type of basis element is not qubit, how?");
@@ -1260,126 +1216,6 @@ bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
     ASTNode::BasisValue &lit_basis = lit.getBasis();
     lit_basis.basis = basis;
     lit_basis.phases = thetas;
-    return true;
-}
-
-void QpuLoweringVisitor::walkSuperposOperandHelper(
-        ASTNode &node,
-        qwerty::PrimitiveBasis &prim_basis_out,
-        double &theta_out,
-        llvm::APInt &eigenbits_out,
-        llvm::SmallVector<qwerty::BasisVectorAttr> &vecs_out) {
-    TupleLiteral *tup;
-    if (Phase *phase = dynamic_cast<Phase *>(&node)) {
-        FloatLiteral *next_theta = dynamic_cast<FloatLiteral*>(phase->phase.get());
-
-        if (!next_theta) {
-            throw CompileException(
-                "Phases in a superposition literal must be constant",
-                std::move(node.dbg->copy()));
-        }
-
-        theta_out += next_theta->value;
-        walkSuperposOperandHelper(
-            *phase->value, prim_basis_out, theta_out, eigenbits_out,
-            vecs_out);
-    } else if (QubitLiteral *lit = dynamic_cast<QubitLiteral *>(&node)) {
-        qwerty::PrimitiveBasis prim_basis = prim_basis_to_qwerty(lit->prim_basis);
-        if (prim_basis_out == (qwerty::PrimitiveBasis)-1) {
-            prim_basis_out = prim_basis;
-        } else if (prim_basis_out != prim_basis) {
-            size_t n_qubits = eigenbits_out.getBitWidth();
-            qwerty::BasisVectorAttr vec_attr =
-                handle.builder.getAttr<qwerty::BasisVectorAttr>(
-                    prim_basis_out, eigenbits_out,
-                    n_qubits, /*hasPhase=*/false);
-            llvm::APInt eigenbits(/*numBits=*/0UL, /*val=*/0UL, /*isSigned=*/false);
-            vecs_out.push_back(vec_attr);
-            prim_basis_out = prim_basis;
-            eigenbits_out = eigenbits;
-        }
-
-        assert(lit->type.dim->isConstant()
-               && "typevars snuck into basis vector lowering");
-        size_t dim = lit->type.dim->offset;
-        eigenbits_out = eigenbits_out.zext(eigenbits_out.getBitWidth() + dim);
-        eigenbits_out <<= dim;
-        if (lit->eigenstate == MINUS) {
-            eigenbits_out.setBits(0, dim);
-        }
-    } else if (BiTensor *bi_tensor = dynamic_cast<BiTensor *>(&node)) {
-        walkSuperposOperandHelper(
-            *bi_tensor->left, prim_basis_out, theta_out, eigenbits_out,
-            vecs_out);
-        walkSuperposOperandHelper(
-            *bi_tensor->right, prim_basis_out, theta_out, eigenbits_out,
-            vecs_out);
-    } else if (BroadcastTensor *broad_tensor = dynamic_cast<BroadcastTensor *>(&node)) {
-        assert(broad_tensor->factor->isConstant() && "Dimvar snuck into basis list lowering!");
-        DimVarValue factor = broad_tensor->factor->offset;
-        for (DimVarValue i = 0; i < factor; i++) {
-            walkSuperposOperandHelper(
-                *broad_tensor->value, prim_basis_out, theta_out, eigenbits_out,
-                vecs_out);
-        }
-    } else if ((tup = dynamic_cast<TupleLiteral *>(&node)) && tup->isUnit()) {
-        // Don't do anything
-    } else {
-        throw CompileException("Unknown node in superposition literal: "
-                               + node.label(),
-                               std::move(node.dbg->copy()));
-    }
-}
-
-void QpuLoweringVisitor::walkSuperposOperand(
-        ASTNode &node,
-        double &theta_out,
-        llvm::SmallVector<qwerty::BasisVectorAttr> &vecs_out) {
-    theta_out = 0;
-    qwerty::PrimitiveBasis prim_basis = (qwerty::PrimitiveBasis)-1;
-    llvm::APInt eigenbits(/*numBits=*/0UL, /*val=*/0UL, /*isSigned=*/false);
-    walkSuperposOperandHelper(
-        node, prim_basis, theta_out, eigenbits, vecs_out);
-
-    // This could be 0 if the last operand is ()
-    if (eigenbits.getBitWidth()) {
-        size_t n_qubits = eigenbits.getBitWidth();
-        qwerty::BasisVectorAttr vec_attr =
-            handle.builder.getAttr<qwerty::BasisVectorAttr>(
-                prim_basis, eigenbits, n_qubits, /*hasPhase=*/false);
-        vecs_out.push_back(vec_attr);
-    }
-}
-
-bool QpuLoweringVisitor::visit(ASTVisitContext &ctx, SuperposLiteral &lit) {
-    mlir::Location loc = lit.dbg->toMlirLoc(handle);
-    assert(!lit.pairs.empty()
-           && "Empty Superposition makes no sense, shouldn't typechecking "
-              "catch this?");
-    llvm::SmallVector<qwerty::SuperposElemAttr> opperands;
-    for (size_t i = 0; i < lit.pairs.size(); i++) {
-        double prob_val = lit.pairs[i].first;
-        mlir::FloatAttr prob = handle.builder.getF64FloatAttr(prob_val);
-
-        ASTNode &elt = *lit.pairs[i].second;
-        double theta;
-        llvm::SmallVector<qwerty::BasisVectorAttr> vectors;
-        walkSuperposOperand(elt, theta, vectors);
-        assert(!vectors.empty() && "Empty superpos element. Shouldn't "
-                                   "typechecking catch this?");
-
-        mlir::FloatAttr floatTheta = handle.builder.getF64FloatAttr(theta);
-        qwerty::SuperposElemAttr superpos_elem =
-            handle.builder.getAttr<qwerty::SuperposElemAttr>(
-                prob, floatTheta, vectors);
-        opperands.push_back(superpos_elem);
-    }
-
-    qwerty::SuperposAttr superpos_attr =
-        handle.builder.getAttr<qwerty::SuperposAttr>(opperands);
-    lit.getMlirValues() = {
-        handle.builder.create<qwerty::SuperposOp>(
-            loc, superpos_attr).getQbundle()};
     return true;
 }
 

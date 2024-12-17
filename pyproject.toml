@@ -10,9 +10,6 @@ requires-python = ">= 3.10"
 # examples/. But include it here for simplicity
 dependencies = ["numpy==1.26.4"]
 
-[project.optional-dependencies]
-coverage = ['coverage==7.6.7']
-
 [tool.scikit-build]
 build-dir = "_skbuild"
 wheel.py-api = "cp310"

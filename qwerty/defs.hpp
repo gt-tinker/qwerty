@@ -67,12 +67,11 @@ struct Slice;
 // @qpu nodes
 struct Adjoint;
 struct Prepare;
-struct Lift;
+struct LiftBits;
 struct EmbedClassical;
 struct Pipe;
 struct Instantiate;
 struct Repeat;
-struct RepeatTensor;
 struct Pred;
 struct BiTensor;
 struct BroadcastTensor;
@@ -92,7 +91,6 @@ struct Project;
 struct Flip;
 struct Rotate;
 struct BasisLiteral;
-struct SuperposLiteral;
 struct Conditional;
 // @classical nodes
 struct BitUnaryOp;

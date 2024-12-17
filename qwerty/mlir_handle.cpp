@@ -195,7 +195,6 @@ void MlirHandle::lower_to_qcirc(bool decompose_multi_ctrl) {
     if (decompose_multi_ctrl) {
         func_pm2.addPass(qcirc::createDecomposeMultiControlPass());
         func_pm2.addPass(qcirc::createPeepholeOptimizationPass());
-        func_pm2.addPass(qcirc::createReplaceNonQasmGatesPass());
     }
 
     if (mlir::failed(pm2.run(*optModule))) {
@@ -205,7 +204,7 @@ void MlirHandle::lower_to_qcirc(bool decompose_multi_ctrl) {
 
 void MlirHandle::lower_to_llvm(bool to_base_profile) {
     mlir::PassManager pm(&context);
-    pm.addPass(qcirc::createReplaceNonQIRGatesPass());
+    pm.addPass(qcirc::createReplaceAnnoyingGatesPass());
     if (to_base_profile) {
         pm.addPass(qcirc::createBaseProfileModulePrepPass());
         mlir::OpPassManager &fpm = pm.nest<mlir::func::FuncOp>();

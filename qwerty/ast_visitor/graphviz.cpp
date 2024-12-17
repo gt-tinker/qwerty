@@ -32,12 +32,6 @@ size_t GraphvizVisitor::getNodeIndex(ASTNode *node) {
     if (pair.second) {
         ss << "node" << next_node_index << "[shape=box, label=\""
            << node->label();
-        if (print_dbg && node->dbg) {
-            ss << "\\n Dbg: " << node->dbg->srcfile
-               << ":" << node->dbg->row << ":" << node->dbg->col
-               << ":0x" << std::hex << (uintptr_t)node->dbg->python_frame
-               << std::dec;
-        }
         if (node->hasType()) {
             const Type &ty = node->getType();
             ss << "\\n Type: " << ty.toString();

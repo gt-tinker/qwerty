@@ -1,7 +1,7 @@
 # The Compiler for Qwerty, a Basis-Oriented Quantum Programming Language
 
 This is the compiler (and examples) for Qwerty, a quantum programming language
-embedded in Python. It is licensed under the MIT license.
+embedded in Python.
 
 Documentation
 -------------
@@ -13,40 +13,24 @@ README:
   contents of this project (i.e., which files do what) and how the sections in
   the paper submission map to source files.
 * [`docs/examples.md`](docs/examples.md): A list of the example programs found
-  in the `examples/` directory in this directory.
+  in the `examples/` directory.
 * [`docs/testing.md`](docs/testing.md): Details on our multi-faceted testing
   framework.
 * [`docs/debugging.md`](docs/debugging.md): Guide for debugging the
   Qwerty compiler when it misbehaves.
+* [`docs/eval.md`](docs/eval.md): Guide for running the evaluation for the
+  CGO '25 paper on the Qwerty compiler.
 * [`docs/qiree.md`](docs/qiree.md): Directions for building a copy of the
   Qwerty compiler/runtime that integrates with [QIR-EE][49], an execution
   engine for QIR.
+* [`docs/artifact-README.md`](docs/artifact-README.md): This is the same README
+  attached to the Zenodo artifact.
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
 
-Quick Start: Installing a Binary Build
---------------------------------------
-
-If you are not doing development on the Qwerty compiler and you don't need the
-very latest compiler/runtime version, you can try installing a binary build.
-
-1. Download the `.whl` corresponding to your platform of choice from [the
-   latest GitHub release][43]
-2. Install the wheel (binary) with pip:
-   ```
-   $ pip install *.whl
-   ```
-3. Download [an example like `bv_simple.py`][44] and test that it works:
-   ```
-   $ python3 bv_simple.py 1101
-   1101
-   ```
-
-If you hit problems, please ask for help (<aja@gatech.edu>).
-
-Building the Compiler on Your Own Machine
------------------------------------------
+Building the Compiler
+---------------------
 
 ### Step 1: Setting Up LLVM
 
@@ -57,39 +41,18 @@ build LLVM yourself. We discuss both options below.
 
 #### Option 1: Use a Pre-Built LLVM Tarball
 
-You can download our builds of LLVM from the following links:
-
-1. Linux x86\_64 `-O2` build with assertions (~3GB uncompressed, ~500MB
-   compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz>
-2. macOS aarch64 (M1/M2/M3) `-O2` build with assertions (~500MB compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_aarch64_macos.tar.xz>
-3. Windows x86\_64 `-O2` build with assertions (~2.5GB uncompressed, ~750MB
-   compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_x86_windows.zip>
-
-_(See [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md) for details on how we
-generate these tarballs as part of upgrading LLVM)_
-
-##### macOS/Linux
-
-You can extract it with something like:
+The artifact includes a tarball `llvm_mlir_rel_v19_1_2_x86_linux.tar.xz` that
+is a Linux x86\_64 `-O2` build with assertions (~3GB uncompressed, ~500MB
+compressed). You can extract it with something like:
 
     $ export LLVM_INSTALL_DIR=~/bin/llvm19
     $ mkdir -p "$LLVM_INSTALL_DIR"
-    $ tar -C "$(dirname "$LLVM_INSTALL_DIR")" -xJvf ~/Downloads/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz
+    $ tar -C "$(dirname "$LLVM_INSTALL_DIR")" -xJvf ~/Downloads/llvm_mlir_rel_v19_1_2_x86_linux.tar.xz
     $ export PATH=$PATH:$LLVM_INSTALL_DIR/bin/
     $ export MLIR_DIR=$LLVM_INSTALL_DIR/lib/cmake/mlir/
 
 All three `export`s above should probably be in [your `~/.bashrc`][24] (or your
 `~/.zshrc` if you use zsh, e.g., if you are a macOS user).
-
-##### Windows
-
-Download the `.zip` above and put it somewhere like `C:\qwerty\llvm19`. (Avoid
-spaces in the path.) Then press _Start_ and type in "environment variables"
-(either system or user should be fine). Set `MLIR_DIR`
-to `C:\qwerty\llvm19\lib\cmake\mlir` and add `C:\qwerty\llvm19\bin` to `Path`.
 
 #### Option 2: Build LLVM Yourself
 
@@ -104,20 +67,20 @@ following commands produce the expected output:
 
     $ mlir-opt --version
     LLVM (http://llvm.org/):
-      LLVM version 19.1.6
+      LLVM version 19.1.2
       Optimized build with assertions.
     $ llvm-config --version
-    19.1.6
+    19.1.2
 
 Next, you need to install [Rust][8] (for [`qir-runner`][10]),
 [`python3-venv`][45] (to make a **v**irtual **env**ironment),
 [`python3-dev`][9] (Python C API headers for the Python C extension), and
 [`libffi-dev`][28] and [`libxml2-dev`][39] (apparently required by
-`qir-runner`, possibly transitively), [`libzstd-dev`][33] (an LLVM dependency).
+`qir-runner`, possibly transitively), [`libzstd-dev`][33], and
+[`libtinfo-dev`][34] (both LLVM dependencies).
 
-Finally, to build, run (the first two commands are a one-time thing):
+Finally, to build, run (the first command is a one-time thing):
 
-    $ git submodule update --init tpls/tweedledum tpls/qir-runner tpls/googletest
     $ python3 -m venv venv
     $ . venv/bin/activate
     $ pip install -v .
@@ -189,30 +152,6 @@ This tells CMake to tell Ninja to limit the number of linking and compilation
 jobs done in parallel to just 1 each, although this can be changed by changing
 the above parameters.
 
-Citation
---------
-
-To cite the Qwerty compiler, you can cite our paper in CGO '25:
-
-Austin J. Adams, Sharjeel Khan, Arjun S. Bhamra, Ryan R. Abusaada, Anthony M.
-Cabrera, Cameron C. Hoechst, Travis S. Humble, Jeffrey S. Young, and Thomas M.
-Conte. "**Asdf: A Compiler for Qwerty, a Basis-Oriented Quantum Programming
-Language**." To appear in _2025 IEEE/ACM International Symposium on Code
-Generation and Optimization (CGO '25)_. March 2025.
-
-BibTeX citation:
-
-    @inproceedings{adams_asdf_2025,
-        title = {{Asdf}: {A} {Compiler} for {Qwerty}, a {Basis-Oriented} {Quantum} {Programming} {Language}},
-        booktitle = {2025 {IEEE}/{ACM} {International} {Symposium} on {Code} {Generation} and {Optimization} ({CGO})},
-        author = {Adams, Austin J. and Khan, Sharjeel and Bhamra, Arjun S. and Abusaada, Ryan R. and Cabrera, Anthony M. and Hoechst, Cameron C. and Humble, Travis S. and Young, Jeffrey S. and  Conte, Thomas M.},
-        month = mar,
-        year = {2025}
-    }
-
-The evaluation for the CGO '25 paper uses additional code not in this
-repository. You can find that evaluation code in [the Zenodo artifact][50].
-
 [8]: https://www.rust-lang.org/tools/install
 [9]: https://packages.ubuntu.com/search?keywords=python3-dev
 [10]: https://github.com/qir-alliance/qir-runner/
@@ -221,11 +160,9 @@ repository. You can find that evaluation code in [the Zenodo artifact][50].
 [26]: https://mlir.llvm.org/
 [28]: https://sourceware.org/libffi/
 [33]: https://github.com/facebook/zstd
+[34]: https://packages.ubuntu.com/focal/amd64/libtinfo-dev
 [39]: https://github.com/GNOME/libxml2
 [41]: https://www.python.org/downloads/windows/
-[43]: https://github.com/gt-tinker/qwerty/releases/latest
-[44]: https://github.com/gt-tinker/qwerty/blob/main/examples/bv_simple.py
 [45]: https://packages.ubuntu.com/search?keywords=python3-venv
 [48]: https://github.com/scikit-build/scikit-build-core
 [49]: https://github.com/ORNL-QCI/qiree
-[50]: https://doi.org/10.5281/zenodo.14080494

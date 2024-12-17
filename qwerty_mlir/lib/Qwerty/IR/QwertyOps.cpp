@@ -1,10 +1,6 @@
 //===- QwertyOps.cpp - Qwerty dialect ops --------------------*- C++ -*-===//
 //===----------------------------------------------------------------------===//
 
-// Needs to be at the top for <cmath> on Windows.
-// See https://stackoverflow.com/a/6563891/321301
-#include "util.hpp"
-
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
@@ -761,51 +757,6 @@ struct RemoveIdentity : public mlir::OpRewritePattern<qwerty::QBundleIdentityOp>
                                         mlir::PatternRewriter &rewriter) const override {
         mlir::Value qbundle = id.getQbundleIn();
         rewriter.replaceOp(id, qbundle);
-        return mlir::success();
-    }
-};
-
-// If a user writes something like '0' or '1'@(17*pi), then replace that with
-// '0' or '1'@pi. This allows our peephole optimizer to recognize Ry(theta)
-// gates emitted by superpos op lowering better.
-struct NormalizeSuperposTilt : public mlir::OpRewritePattern<qwerty::SuperposOp> {
-    using OpRewritePattern<qwerty::SuperposOp>::OpRewritePattern;
-
-    mlir::LogicalResult matchAndRewrite(qwerty::SuperposOp superpos_op,
-                                        mlir::PatternRewriter &rewriter) const override {
-        qwerty::SuperposAttr superpos = superpos_op.getSuperpos();
-        llvm::SmallVector<qwerty::SuperposElemAttr> new_elems;
-
-        bool changed = false;
-        for (qwerty::SuperposElemAttr elem : superpos.getElems()) {
-            double theta = elem.getPhase().getValueAsDouble();
-            double norm_theta = theta;
-
-            while (norm_theta < -M_PI - ATOL/2.0) {
-                norm_theta += 2.0*M_PI;
-            }
-            while (M_PI + ATOL/2.0 < norm_theta) {
-                norm_theta -= 2.0*M_PI;
-            }
-
-            if (std::abs(norm_theta - theta) < ATOL) {
-                new_elems.push_back(elem);
-            } else {
-                changed = true;
-                new_elems.push_back(rewriter.getAttr<qwerty::SuperposElemAttr>(
-                    elem.getProb(),
-                    rewriter.getF64FloatAttr(norm_theta),
-                    elem.getVectors()));
-            }
-        }
-
-        if (!changed) {
-            return mlir::failure();
-        }
-
-        qwerty::SuperposAttr new_superpos =
-            rewriter.getAttr<qwerty::SuperposAttr>(new_elems);
-        rewriter.replaceOpWithNewOp<qwerty::SuperposOp>(superpos_op, new_superpos);
         return mlir::success();
     }
 };
@@ -2656,21 +2607,6 @@ mlir::LogicalResult QBundleRotateOp::verify() {
     }
 
     return mlir::success();
-}
-
-mlir::LogicalResult SuperposOp::inferReturnTypes(
-        mlir::MLIRContext *ctx,
-        std::optional<mlir::Location> loc,
-        SuperposOp::Adaptor adaptor,
-        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
-    QBundleType retType = QBundleType::get(ctx, adaptor.getSuperpos().getDim());
-    inferredReturnTypes.insert(inferredReturnTypes.end(), retType);
-    return mlir::success();
-}
-
-void SuperposOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
-                                             mlir::MLIRContext *context) {
-    results.add<NormalizeSuperposTilt>(context);
 }
 
 void QBundleRotateOp::buildAdjoint(

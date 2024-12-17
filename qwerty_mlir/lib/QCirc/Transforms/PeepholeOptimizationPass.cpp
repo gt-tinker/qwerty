@@ -60,12 +60,12 @@ class ReplaceZPattern : public mlir::OpRewritePattern<qcirc::QfreeOp> {
 
         // Check if after single-qubit gates are X gates with controls
         qcirc::Gate1QOp gateX = gate1Q;
-        if (!gateX) {
+        if(!gateX) {
             return mlir::failure();
         }
 
         // Check how many X gates before we see H(X(QAlloc))
-        while (gateX.getGate() == qcirc::Gate1Q::X) {
+        while(gateX.getGate() == qcirc::Gate1Q::X) {
             // X gates need controls
             if(gateX.getControls().size() == 0) {
                 return mlir::failure();
@@ -491,126 +491,6 @@ class ReplacePPiWithZ :
     }
 };
 
-// The lowering of superpos ops frequently generates R(pi/2)|0⟩. We should
-// replace these cases with H|0⟩.
-class ReplaceRyQallocWithHQalloc :
-        public mlir::OpRewritePattern<qcirc::Gate1Q1POp> {
-    using mlir::OpRewritePattern<qcirc::Gate1Q1POp>::OpRewritePattern;
-
-    mlir::LogicalResult matchAndRewrite(
-            qcirc::Gate1Q1POp gate,
-            mlir::PatternRewriter &rewriter) const override {
-        if (gate.getGate() != qcirc::Gate1Q1P::Ry) {
-            return mlir::failure();
-        }
-        mlir::FloatAttr float_attr;
-        if (!mlir::matchPattern(gate.getParam(), qcirc::m_CalcConstant(&float_attr))) {
-            return mlir::failure();
-        }
-
-        double theta = float_attr.getValueAsDouble();
-
-        qcirc::QallocOp qalloc = gate.getQubit().getDefiningOp<qcirc::QallocOp>();
-        if (!qalloc) {
-            return mlir::failure();
-        }
-        if (gate.getControls().empty()) {
-            if (std::abs(theta - M_PI_2) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::H, mlir::ValueRange(), qalloc.getResult());
-                return mlir::success();
-            } else if (std::abs(theta - (-M_PI_2)) <= ATOL) {
-                qcirc::Gate1QOp X = rewriter.create<qcirc::Gate1QOp>(
-                    gate.getLoc(), qcirc::Gate1Q::X, mlir::ValueRange(), qalloc.getResult());
-                qcirc::Gate1QOp H = rewriter.create<qcirc::Gate1QOp>(
-                    gate.getLoc(), qcirc::Gate1Q::H, mlir::ValueRange(), X.getResult());
-
-                rewriter.replaceOp(gate, H.getResult());
-                return mlir::success();
-            } else {
-                return mlir::failure();
-            }
-        } else {
-            return mlir::failure();
-        }
-    }
-};
-
-// Applying Rz(theta)|0⟩ is pointless because it only introduces a global
-// phase. So just remove Rzs in this case.
-class ReplaceRzQallocWithQalloc :
-        public mlir::OpRewritePattern<qcirc::Gate1Q1POp> {
-    using mlir::OpRewritePattern<qcirc::Gate1Q1POp>::OpRewritePattern;
-
-    mlir::LogicalResult matchAndRewrite(
-            qcirc::Gate1Q1POp gate,
-            mlir::PatternRewriter &rewriter) const override {
-        if (gate.getGate() != qcirc::Gate1Q1P::Rz) {
-            return mlir::failure();
-        }
-
-        qcirc::QallocOp qalloc = gate.getQubit().getDefiningOp<qcirc::QallocOp>();
-        if (!qalloc) {
-            return mlir::failure();
-        }
-
-        if (gate.getControls().empty()) {
-            rewriter.replaceOp(gate, qalloc.getResult());
-            return mlir::success();
-        } else {
-            return mlir::failure();
-        }
-    }
-};
-
-// According to a resource estimator, Rz(theta) is more expensive than a
-// Clifford gate. So replace e.g. Rz(pi) with Z and Rz(pi/2) with S.
-class ReplaceRzWithZ :
-        public mlir::OpRewritePattern<qcirc::Gate1Q1POp> {
-    using mlir::OpRewritePattern<qcirc::Gate1Q1POp>::OpRewritePattern;
-
-    mlir::LogicalResult matchAndRewrite(
-            qcirc::Gate1Q1POp gate,
-            mlir::PatternRewriter &rewriter) const override {
-        if (gate.getGate() != qcirc::Gate1Q1P::Rz) {
-            return mlir::failure();
-        }
-        mlir::FloatAttr float_attr;
-        if (!mlir::matchPattern(gate.getParam(), qcirc::m_CalcConstant(&float_attr))) {
-            return mlir::failure();
-        }
-
-        double phi = float_attr.getValueAsDouble();
-
-        if (gate.getControls().empty()) {
-            if (std::abs(phi - M_PI) <= ATOL || std::abs(phi - (-M_PI)) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::Z, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(phi - M_PI_2) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::S, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(phi - (-M_PI_2)) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::Sdg, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(phi - M_PI_4) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::T, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(phi - (-M_PI_4)) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::Tdg, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else {
-                return mlir::failure();
-            }
-        }
-        return mlir::failure();
-    }
-};
-
 // Replace Rx(pi) with X gates (and if there are controls, deal with the
 // global phase accordingly)
 class ReplaceRxWithX :
@@ -762,13 +642,7 @@ struct PeepholeOptimizationPass : public qcirc::PeepholeOptimizationBase<Peephol
         // As the P gate can be transformed to Z, we need to do this
         // replacement first.
         mlir::RewritePatternSet patternsPP(&getContext());
-        patternsPP.add<
-            ReplacePPiWithZ,
-            ReplaceRxWithX,
-            ReplaceRyQallocWithHQalloc,
-            ReplaceRzQallocWithQalloc,
-            ReplaceRzWithZ
-        >(&getContext());
+        patternsPP.add<ReplacePPiWithZ, ReplaceRxWithX>(&getContext());
         if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patternsPP)))) {
             signalPassFailure();
         }

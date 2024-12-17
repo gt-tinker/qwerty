@@ -116,19 +116,7 @@ bool simulate_float_bin_op(FloatOp op, double left, double right, double &result
         case FLOAT_MUL:
             result = left * right;
             return true;
-        case FLOAT_ADD:
-            result = left + right;
-            return true;
-        case FLOAT_MOD:
-            if (right) {
-                result = std::fmod(left, right);
-                return true;
-            } else {
-                // Undefined behavior... or not... not gonna touch this with a
-                // 1000ft pole
-                return false;
-            }
-        default: assert(0 && "Missing float bin op to simulate"); return false;
+        default: assert(0 && "Missing float bin op to simulate"); return 0;
     }
 }
 } // namespace
@@ -186,24 +174,29 @@ bool CanonicalizeVisitor::visit(ASTVisitContext &ctx, BroadcastTensor &broad_ten
     return true;
 }
 
-bool CanonicalizeVisitor::visit(ASTVisitContext &ctx, Lift &lift) {
+bool CanonicalizeVisitor::visit(ASTVisitContext &ctx, LiftBits &lift) {
     // TODO: turn lifted bit literal into a qubit literal
-    if (const BitType *bit_type =
-            dynamic_cast<const BitType *>(&lift.operand->getType())) {
-        const DimVarExpr &dim = *bit_type->dim;
-        std::unique_ptr<ASTNode> replacement = std::make_unique<Pipe>(
-            std::move(lift.dbg->copy()),
-            std::make_unique<QubitLiteral>(std::move(lift.dbg->copy()),
-                                           PLUS,
-                                           Z,
-                                           std::move(dim.copy())),
-            std::make_unique<Prepare>(std::move(lift.dbg->copy()),
-                                      std::move(lift.operand)));
 
-        ctx.ptr = std::move(replacement);
-        return false;
-    } else {
-        // Different kind of lift, possibly
-        return true;
-    }
+    const BitType *bit_type = dynamic_cast<const BitType *>(&lift.bits->getType());
+    assert(bit_type && "operand to liftbits is not a bit[N]. "
+                       "shouldn't typechecking catch this?");
+    const DimVarExpr &dim = *bit_type->dim;
+    std::unique_ptr<ASTNode> replacement = std::make_unique<Pipe>(
+        std::move(lift.dbg->copy()),
+        std::make_unique<QubitLiteral>(std::move(lift.dbg->copy()),
+                                       PLUS,
+                                       Z,
+                                       std::move(dim.copy())),
+        std::make_unique<Prepare>(std::move(lift.dbg->copy()),
+                                  std::move(lift.bits)));
+
+    ctx.ptr = std::move(replacement);
+    return false;
+}
+
+bool CanonicalizeVisitor::visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) {
+    assert(fdve.value->isConstant() && "dimvar snuck into FloatDimVarExpr canonicalization");
+    double float_const = (double)fdve.value->offset;
+    ctx.ptr = std::make_unique<FloatLiteral>(std::move(fdve.dbg->copy()), float_const);
+    return false;
 }

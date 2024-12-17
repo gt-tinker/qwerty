@@ -19,8 +19,6 @@
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 
-#include "Eigen/SparseCore"
-
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/IR/QCircOps.h"
@@ -1179,402 +1177,6 @@ struct QBundleIdentityOpLowering : public mlir::OpConversionPattern<qwerty::QBun
     }
 };
 
-// See Section 2B of docs/state-prep.md
-void computeAngles(std::complex<double> alpha,
-                   std::complex<double> beta,
-                   double &gamma,
-                   double &theta,
-                   double &phi) {
-    double arg_alpha = std::arg(alpha);
-    double arg_beta = std::arg(beta);
-
-    gamma = (arg_alpha + arg_beta) / 2.0;
-    if (std::abs(alpha) > ATOL) {
-        phi = 2*(gamma - arg_alpha);
-    } else { // std::abs(beta) > ATOL
-        phi = 2*(arg_beta - gamma);
-    }
-    theta = 2.0 * std::acos(std::abs(alpha));
-}
-
-// See Section 3D of docs/state-prep.md
-void revisedUndoSubroutine(
-        std::vector<Eigen::SparseVector<double>> &thetas,
-        std::vector<Eigen::SparseVector<double>> &phis,
-        Eigen::SparseVector<std::complex<double>> &state_vector,
-        uint64_t dim) {
-    assert(dim && "dimension is not positive");
-
-    if (dim == 1) {
-        double theta = 0.0;
-        double phi = 0.0;
-        double gamma = 0.0;
-        computeAngles(state_vector.coeff(0), state_vector.coeff(1), gamma, theta, phi);
-        Eigen::SparseVector<double> theta_vec_1(1);
-        Eigen::SparseVector<double> phi_vec_1(1);
-        if (std::abs(theta - 0) > ATOL) {
-            theta_vec_1.coeffRef(0) = theta;
-            phi_vec_1.coeffRef(0) = phi;
-        }
-        thetas[dim - 1] = theta_vec_1;
-        phis[dim - 1] = phi_vec_1;
-    } else { // dim > 1
-        Eigen::SparseVector<std::complex<double>> state_vector_prime(std::pow(2, dim - 1));
-        Eigen::SparseVector<double> theta_vec_n(std::pow(2, dim - 1));
-        Eigen::SparseVector<double> phi_vec_n(std::pow(2, dim - 1));
-        size_t skip_idx = state_vector.size(); // Initialized with Size if no skipping was needed, no false skipping happens
-        for (Eigen::SparseVector<std::complex<double>>::InnerIterator it(state_vector); it; ++it) {
-            size_t idx = it.index();
-            if (idx == skip_idx) {
-                continue;
-            }
-            size_t j = idx >> 1;
-            std::complex<double> alpha = it.value();
-            std::complex<double> alpha_2j, alpha_2jplus1;
-            if (idx & 1) { // odd case. alpha is alpha2jplus1 right now and alpha2j == 0
-                alpha_2j = 0;
-                alpha_2jplus1 = alpha;
-            } else { // even case
-                alpha_2j = alpha;
-                alpha_2jplus1 = state_vector.coeff(idx+1);
-                // Skip the next guy. we've already handled it!
-                skip_idx = idx+1;
-            }
-
-            std::complex<double> alpha_2j_sqr = std::pow(std::abs(alpha_2j), 2);
-            std::complex<double> alpha_2jplus1_sqr = std::pow(std::abs(alpha_2jplus1), 2);
-            std::complex<double> r_j = std::sqrt(alpha_2j_sqr + alpha_2jplus1_sqr);
-
-            std::complex<double> alpha_2j_prime = alpha_2j / r_j;
-            std::complex<double> alpha_2jplus1_prime = alpha_2jplus1 / r_j;
-            double gamma_j = 0.0;
-            double theta_j = 0.0;
-            double phi_j = 0.0;
-            computeAngles(alpha_2j_prime, alpha_2jplus1_prime, gamma_j, theta_j, phi_j);
-            state_vector_prime.coeffRef(j) = r_j * std::polar(1.0, gamma_j);
-
-            // Add gates if necessary to undo
-            if (std::abs(theta_j - 0) <= ATOL) continue;
-            theta_vec_n.coeffRef(j) = theta_j;
-            phi_vec_n.coeffRef(j) = phi_j;
-        }
-        thetas[dim - 1] = theta_vec_n;
-        phis[dim - 1] = phi_vec_n;
-        revisedUndoSubroutine(thetas, phis, state_vector_prime, dim - 1);
-    }
-}
-
-// See Section 3B of docs/state-prep.md
-void recrunchAngles(
-        Eigen::SparseVector<double> &angles_in,
-        Eigen::SparseVector<double> &angles_out,
-        std::function<double(double, double)> angle_computer) {
-    size_t skip_idx = angles_in.size();
-    for (Eigen::SparseVector<double>::InnerIterator it(angles_in); it; ++it) {
-        size_t idx = it.index();
-        if (idx == skip_idx) {
-            continue;
-        }
-        size_t k = idx >> 1;
-        double angle = it.value();
-        double angle_2k, angle_2kplus1;
-        if (idx & 1) { // odd case
-            angle_2k = 0;
-            angle_2kplus1 = angle;
-        } else { // even case
-            angle_2k = angle;
-            angle_2kplus1 = angles_in.coeff(idx+1);
-            // Skip the next guy. we've already handled it!
-            skip_idx = idx+1;
-        }
-
-        double angle_k_prime = angle_computer(angle_2k, angle_2kplus1);
-        angles_out.coeffRef(k) = angle_k_prime;
-    }
-}
-
-// Checks if angles has an angle that is not very close to 0
-bool hasNontrivialAngle(Eigen::SparseVector<double> &angles) {
-    if (!angles.nonZeros()) {
-        return false;
-    }
-
-    // Why didn't angles.nonZeros() cover it above? Because there could be a
-    // bunch of angles that are e.g. 1e-10
-    bool found_nonzero = false;
-    for (Eigen::SparseVector<double>::InnerIterator it(angles); it; ++it) {
-        if (std::abs(it.value()) > ATOL) {
-            found_nonzero = true;
-            break;
-        }
-    }
-
-    return found_nonzero;
-}
-
-// Due to Shende et al.: Theorem 8 of https://doi.org/10.1109/TCAD.2005.855930
-void multiplexedRyRzSynthesis(
-        mlir::RewriterBase &rewriter,
-        mlir::Location &loc,
-        qcirc::Gate1Q1P rot_kind,
-        uint64_t dim,
-        llvm::SmallVector<mlir::Value> &qubits,
-        Eigen::SparseVector<double> &thetas) {
-    assert(dim && "qubit dimension is not positive");
-
-    if (!hasNontrivialAngle(thetas)) {
-        // Nothing to do here, all angles are 0s
-        return;
-    }
-
-    llvm::SmallVector<mlir::Value> no_controls;
-    if (dim == 1) {
-        mlir::Value theta_const =
-            qcirc::stationaryF64Const(rewriter, loc, thetas.coeff(0));
-        qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(loc, rot_kind, theta_const, no_controls, qubits[0]).getResult();
-    } else { // dim > 1
-        {
-            Eigen::SparseVector<double> thetas_prime(thetas.size() / 2);
-            recrunchAngles(thetas, thetas_prime,
-                           [](double theta_2k, double theta_2kplus1) { return (theta_2k + theta_2kplus1) / 2; });
-            // Exclude second-to-last qubit
-            llvm::SmallVector<mlir::Value> qubits_prime(qubits.begin(), qubits.begin() + qubits.size()-2);
-            qubits_prime.push_back(qubits[qubits.size()-1]);
-            multiplexedRyRzSynthesis(rewriter, loc, rot_kind, dim-1, qubits_prime, thetas_prime);
-            // Thread qubits through
-            for (size_t i = 0; i < qubits_prime.size()-1; i++) {
-                qubits[i] = qubits_prime[i];
-            }
-            qubits[qubits.size()-1] = qubits_prime[qubits_prime.size()-1];
-        }
-
-        qcirc::Gate1QOp X = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
-        qubits[dim - 2] = X.getControlResults()[0];
-        qubits[dim - 1] = X.getResult();
-
-        {
-            Eigen::SparseVector<double> thetas_double_prime(thetas.size() / 2);
-            recrunchAngles(thetas, thetas_double_prime,
-                           [](double theta_2k, double theta_2kplus1) { return (theta_2k - theta_2kplus1) / 2; });
-            // Exclude second-to-last qubit
-            llvm::SmallVector<mlir::Value> qubits_double_prime(qubits.begin(), qubits.begin() + qubits.size()-2);
-            qubits_double_prime.push_back(qubits[qubits.size()-1]);
-            multiplexedRyRzSynthesis(rewriter, loc, rot_kind, dim-1, qubits_double_prime, thetas_double_prime);
-            // Thread qubits through
-            for (size_t i = 0; i < qubits_double_prime.size()-1; i++) {
-                qubits[i] = qubits_double_prime[i];
-            }
-            qubits[qubits.size()-1] = qubits_double_prime[qubits_double_prime.size()-1];
-        }
-
-        X = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
-        qubits[dim - 2] = X.getControlResults()[0];
-        qubits[dim - 1] = X.getResult();
-    }
-}
-
-// Due to Shende et al.: Theorem 9 of https://doi.org/10.1109/TCAD.2005.855930
-void arbitraryStatePrep(mlir::RewriterBase &rewriter,
-                        mlir::Location loc,
-                        qwerty::SuperposAttr superpos,
-                        llvm::SmallVectorImpl<mlir::Value> &qubits) {
-    size_t dim = superpos.getDim();
-    Eigen::SparseVector<std::complex<double>> state_vector(1ULL << dim);
-
-    for (qwerty::SuperposElemAttr elem : superpos.getElems()) {
-        double prob = elem.getProb().getValueAsDouble();
-        double phase = elem.getPhase().getValueAsDouble();
-        llvm::APInt eigenbits = elem.getEigenbits();
-        state_vector.coeffRef(eigenbits.getZExtValue()) = std::sqrt(prob) * std::polar(1.0, phase);
-    }
-
-    // Run Undo Subroutine to get list of theta and phi vectors
-    std::vector<Eigen::SparseVector<double>> theta_vecs(dim);
-    std::vector<Eigen::SparseVector<double>> phi_vecs(dim);
-    revisedUndoSubroutine(theta_vecs, phi_vecs, state_vector, dim);
-
-    for (size_t i = 1; i <= dim; i++) {
-        llvm::SmallVector<mlir::Value> target_qubits(qubits.begin(), qubits.begin()+i);
-
-        multiplexedRyRzSynthesis(rewriter, loc, qcirc::Gate1Q1P::Ry, i, target_qubits, theta_vecs[i - 1]);
-        multiplexedRyRzSynthesis(rewriter, loc, qcirc::Gate1Q1P::Rz, i, target_qubits, phi_vecs[i - 1]);
-
-        for (size_t i = 0; i < target_qubits.size(); i++) {
-            qubits[i] = target_qubits[i];
-        }
-    }
-}
-
-// Check if the superposition desired is an equal superposition of all
-// computational basis states. If all basis states have the same phase, then it
-// is ignored (since it is a global phase)
-bool isUniformSuperpos(qwerty::SuperposAttr superpos) {
-    size_t dim = superpos.getDim();
-
-    if (superpos.getElems().size() != (1ULL << dim)) {
-        return false;
-    }
-
-    double uniform_prob = 1.0/(1ULL << dim);
-    bool first = true;
-    double prev_phase;
-
-    for (qwerty::SuperposElemAttr elem : superpos.getElems()) {
-        double phase = elem.getPhase().getValueAsDouble();
-        if (first) {
-            prev_phase = phase;
-        } else if (std::abs(prev_phase - phase) > ATOL) {
-            return false;
-        }
-
-        double prob = elem.getProb().getValueAsDouble();
-        if (std::abs(prob - uniform_prob) > ATOL) {
-            return false;
-        }
-
-        first = false;
-    }
-
-    // The phase is a global phase. We are good to prepare this as an equal
-    // superposition
-    return true;
-}
-
-// Prepare a uniform state with a broadcast of Hadamards. Qiskit does a similar
-// optimization to this
-void uniformStatePrep(mlir::RewriterBase &rewriter,
-                      mlir::Location loc,
-                      llvm::SmallVectorImpl<mlir::Value> &qubits) {
-    for (size_t i = 0; i < qubits.size(); i++) {
-        qubits[i] = rewriter.create<qcirc::Gate1QOp>(
-            loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[i]).getResult();
-    }
-}
-
-// Check whether the desired superposition is of the form
-//     cos(θ/2)e^{iΦ_1}|x⟩ + sin(θ/2)e^{iΦ_2}|¬x⟩
-// where ¬ is the bitwise complement. We call this a "quasi-GHZ state." It is
-// cheap to prepare (see below)
-bool isQuasiGhzState(qwerty::SuperposAttr superpos) {
-    if (superpos.getElems().size() != 2) {
-        return false;
-    }
-
-    llvm::APInt differing_eigenbits = superpos.getElems()[0].getEigenbits();
-    differing_eigenbits ^= superpos.getElems()[1].getEigenbits();
-    return differing_eigenbits.isAllOnes();
-}
-
-// Prepare a quasi-GHZ state (defined above for isQuasiGhzState())
-// with the gates Ry(θ), a ladder of CNOTs, some X gates, and then an Rz gate.
-void quasiGhzStatePrep(mlir::RewriterBase &rewriter,
-                       mlir::Location loc,
-                       qwerty::SuperposAttr superpos,
-                       llvm::SmallVectorImpl<mlir::Value> &qubits) {
-    assert(superpos.getElems().size() == 2
-           && "expected 2 superpos elems for ghz");
-    size_t dim = qubits.size();
-    assert(dim == superpos.getDim() && "wrong size of qubit array");
-
-    qwerty::SuperposElemAttr elem0 = superpos.getElems()[0];
-    qwerty::SuperposElemAttr elem1 = superpos.getElems()[1];
-
-    // elem0's first eigenbit is 0 and elem1's first eigenbit is 1
-    if (elem0.getVectors()[0].getEigenbits().isSignBitSet()) { // if msb==1
-        std::swap(elem0, elem1);
-    }
-
-    // First, get the right absolute value of amplitudes
-    double theta = 2*std::acos(std::sqrt(elem0.getProb().getValueAsDouble()));
-    mlir::Value theta_const =
-        qcirc::stationaryF64Const(rewriter, loc, theta);
-    qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(
-            loc, qcirc::Gate1Q1P::Ry, theta_const, mlir::ValueRange(), qubits[0]
-        ).getResult();
-
-    // Now entangle all the qubits
-    assert(dim && "number of superpos qubits must be positive");
-    for (size_t i = 0; i < dim-1; i++) {
-        qcirc::Gate1QOp cnot = rewriter.create<qcirc::Gate1QOp>(
-            loc, qcirc::Gate1Q::X, qubits[i], qubits[i+1]);
-
-        assert(cnot.getControlResults().size() == 1);
-        qubits[i] = cnot.getControlResults()[0];
-        qubits[i+1] = cnot.getResult();
-    }
-
-    // Next flip bits as needed, giving us the desired state up to a phase
-    llvm::APInt eigenbits0 = elem0.getEigenbits();
-    for (size_t i = 1; i < dim; i++) {
-        if (eigenbits0[eigenbits0.getBitWidth()-1 - i]) {
-            qubits[i] = rewriter.create<qcirc::Gate1QOp>(
-                loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[i]).getResult();
-        }
-    }
-
-    // Finally, impart phases if needed
-    double phase0 = elem0.getPhase().getValueAsDouble();
-    double phase1 = elem1.getPhase().getValueAsDouble();
-
-    // Tiny optimization: notice that
-    // e^{i\phi_0}|00⟩ + e^{i\phi_1}|00⟩
-    // = e^{-i\phi_0}(|00⟩ + e^{i(\phi_1 - phi_0)}|11⟩).
-    // Thus, we can apply a phase to just one of the states, not both
-    double relative_phase = phase1 - phase0;
-
-    if (std::abs(relative_phase - 0.0) >= ATOL) {
-        mlir::Value phi_const =
-            qcirc::stationaryF64Const(rewriter, loc, relative_phase);
-        qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(
-                loc, qcirc::Gate1Q1P::P, phi_const, mlir::ValueRange(), qubits[0]
-            ).getResult();
-    }
-}
-
-struct SuperposOpLowering : public mlir::OpConversionPattern<qwerty::SuperposOp> {
-    using mlir::OpConversionPattern<qwerty::SuperposOp>::OpConversionPattern;
-
-    mlir::LogicalResult matchAndRewrite(qwerty::SuperposOp superPosOp,
-                                        OpAdaptor adaptor,
-                                        mlir::ConversionPatternRewriter &rewriter) const final {
-        mlir::Location loc = superPosOp.getLoc();
-        size_t dim = adaptor.getSuperpos().getDim();
-        llvm::SmallVector<mlir::Value> qubits;
-        qubits.reserve(dim);
-
-        // Allocate zero qubits
-        for (uint64_t i = 0; i < dim; i++) {
-            qubits.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
-        }
-
-        qwerty::SuperposAttr superpos = superPosOp.getSuperpos();
-        if (isUniformSuperpos(superpos)) {
-            uniformStatePrep(rewriter, loc, qubits);
-        } else if (isQuasiGhzState(superpos)) {
-            quasiGhzStatePrep(rewriter, loc, superpos, qubits);
-        } else {
-            // Fall back to general case
-            arbitraryStatePrep(rewriter, loc, superpos, qubits);
-        }
-
-        mlir::Value qbundle = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
-
-        qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
-            std::initializer_list<qwerty::BasisElemAttr>{
-            rewriter.getAttr<qwerty::BasisElemAttr>(
-                rewriter.getAttr<qwerty::BuiltinBasisAttr>(qwerty::PrimitiveBasis::Z, dim))});
-        llvm::SmallVector<qwerty::BasisElemAttr> desired_prim_bases;
-        for (qwerty::BasisVectorAttr elem_vec : adaptor.getSuperpos().getElems()[0].getVectors()) {
-            desired_prim_bases.push_back(rewriter.getAttr<qwerty::BasisElemAttr>(
-                rewriter.getAttr<qwerty::BuiltinBasisAttr>(elem_vec.getPrimBasis(), elem_vec.getDim())));
-        }
-        qwerty::BasisAttr desired_basis = rewriter.getAttr<qwerty::BasisAttr>(desired_prim_bases);
-        rewriter.replaceOpWithNewOp<qwerty::QBundleBasisTranslationOp>(
-            superPosOp, std_N, desired_basis, mlir::ValueRange(), qbundle);
-        return mlir::success();
-    }
-};
-
 // As specified in Section 5.1 of Mike & Ike
 void runQft(mlir::Location loc, mlir::OpBuilder &builder,
             llvm::SmallVectorImpl<mlir::Value> &control_qubits,
@@ -1596,8 +1198,13 @@ void runQft(mlir::Location loc, mlir::OpBuilder &builder,
             // TODO: this precision is not enough for very large circuits. Need
             // to use llvm::APFloat or something
             double phase = 2.0*M_PI/std::pow(2, j-i+1);
-            mlir::Value phase_const =
-                qcirc::stationaryF64Const(builder, loc, phase);
+            mlir::Value phase_const = wrapStationaryFloatOps(
+                builder, loc, {},
+                [&](mlir::ValueRange args) {
+                    assert(args.empty());
+                    return builder.create<mlir::arith::ConstantOp>(
+                        loc, builder.getF64FloatAttr(phase)).getResult();
+                });
             llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                                       control_qubits.end());
             p_controls.push_back(qubits[start_idx+j]);
@@ -1656,8 +1263,13 @@ void runInverseQft(mlir::Location loc, mlir::OpBuilder &builder,
             // TODO: this precision is not enough for very large circuits. Need
             // to use llvm::APFloat or something
             double phase = -2.0*M_PI/std::pow(2, j-i+1);
-            mlir::Value phase_const =
-                qcirc::stationaryF64Const(builder, loc, phase);
+            mlir::Value phase_const = wrapStationaryFloatOps(
+                builder, loc, {},
+                [&](mlir::ValueRange args) {
+                    assert(args.empty());
+                    return builder.create<mlir::arith::ConstantOp>(
+                        loc, builder.getF64FloatAttr(phase)).getResult();
+                });
             llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                                       control_qubits.end());
             p_controls.push_back(qubits[start_idx+j]);
@@ -1749,7 +1361,7 @@ bool isPermutation(llvm::ArrayRef<qwerty::BasisVectorAttr> left,
     return true;
 }
 
-qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
+qwerty::BasisElemAttr rebuildZ(mlir::ConversionPatternRewriter &rewriter,
                                qwerty::BuiltinBasisAttr bib) {
     if (bib.getPrimBasis() == qwerty::PrimitiveBasis::Z) {
         return rewriter.getAttr<qwerty::BasisElemAttr>(bib);
@@ -1760,7 +1372,7 @@ qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
     }
 }
 
-qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
+qwerty::BasisElemAttr rebuildZ(mlir::ConversionPatternRewriter &rewriter,
                                qwerty::BasisVectorListAttr veclist) {
     if (veclist.getPrimBasis() == qwerty::PrimitiveBasis::Z && !veclist.hasPhases()) {
         return rewriter.getAttr<qwerty::BasisElemAttr>(veclist);
@@ -1777,10 +1389,10 @@ qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
     }
 }
 
-qwerty::BuiltinBasisAttr splitStd(mlir::RewriterBase &rewriter,
-                                  std::deque<qwerty::BasisElemAttr> &dest_queue,
-                                  qwerty::BuiltinBasisAttr bib,
-                                  size_t new_dim) {
+qwerty::BuiltinBasisAttr splitStd(mlir::ConversionPatternRewriter &rewriter,
+                                   std::deque<qwerty::BasisElemAttr> &dest_queue,
+                                   qwerty::BuiltinBasisAttr bib,
+                                   size_t new_dim) {
     assert(bib.getDim() > new_dim && "built-in basis too small to split");
 
     qwerty::BuiltinBasisAttr ret =
@@ -1797,7 +1409,7 @@ qwerty::BuiltinBasisAttr splitStd(mlir::RewriterBase &rewriter,
 
 // See factorFullOutOfVeclist() in ast.cpp. This is a little more complicated,
 // though, because unlike in span checking, ordering matters here.
-qwerty::BasisElemAttr factorFull(mlir::RewriterBase &rewriter,
+qwerty::BasisElemAttr factorFull(mlir::ConversionPatternRewriter &rewriter,
                                  std::deque<qwerty::BasisElemAttr> &dest_queue,
                                  qwerty::BasisVectorListAttr vl,
                                  size_t std_dim) {
@@ -1892,7 +1504,7 @@ qwerty::BasisElemAttr factorFull(mlir::RewriterBase &rewriter,
 }
 
 qwerty::BasisVectorListAttr factorVeclist(
-        mlir::RewriterBase &rewriter,
+        mlir::ConversionPatternRewriter &rewriter,
         std::deque<qwerty::BasisElemAttr> &dest_queue,
         qwerty::BasisVectorListAttr vl,
         qwerty::BasisVectorListAttr factor) {
@@ -1977,7 +1589,7 @@ qwerty::BasisVectorListAttr factorVeclist(
 }
 
 qwerty::BasisVectorListAttr merge(
-        mlir::RewriterBase &rewriter,
+        mlir::ConversionPatternRewriter &rewriter,
         qwerty::BasisVectorListAttr left,
         qwerty::BasisVectorListAttr right) {
     size_t new_dim = left.getDim() + right.getDim();
@@ -1997,7 +1609,7 @@ qwerty::BasisVectorListAttr merge(
 }
 
 qwerty::BasisVectorListAttr merge(
-        mlir::RewriterBase &rewriter,
+        mlir::ConversionPatternRewriter &rewriter,
         qwerty::BasisVectorListAttr left,
         qwerty::BasisElemAttr right) {
     qwerty::BasisVectorListAttr vl_right = right.getVeclist();
@@ -2009,7 +1621,7 @@ qwerty::BasisVectorListAttr merge(
 
 // Mission: merge small with its successors until it's the same dimension as
 // big. (In the process, they may swap roles)
-bool greedyMerge(mlir::RewriterBase &rewriter,
+bool greedyMerge(mlir::ConversionPatternRewriter &rewriter,
                  qwerty::BasisVectorListAttr big,
                  qwerty::BasisVectorListAttr small,
                  std::deque<qwerty::BasisElemAttr> &big_queue,
@@ -2257,7 +1869,7 @@ void findVectorPhases(llvm::SmallVectorImpl<VectorPhase> &vec_phases,
 // Rebuild a pair of bases such that they are both aligned (according to
 // Section 6.3 of the CGO paper) and in the std/Z primitive basis.
 mlir::LogicalResult rebuildAligned(mlir::Operation *offender,
-                                   mlir::RewriterBase &rewriter,
+                                   mlir::ConversionPatternRewriter &rewriter,
                                    qwerty::BasisAttr basis_in,
                                    qwerty::BasisAttr basis_out,
                                    llvm::SmallVectorImpl<qwerty::BasisElemAttr> &left_rebuilt,
@@ -2435,7 +2047,7 @@ void uncompactStandardizedQubits(llvm::SmallVectorImpl<Standardization> &standar
 }
 
 // Translate from other primitive bases to std and back again
-void standardizeCompressed(mlir::RewriterBase &rewriter,
+void standardizeCompressed(mlir::ConversionPatternRewriter &rewriter,
                            mlir::Location loc,
                            llvm::SmallVectorImpl<Standardization> &standardizations,
                            bool unconditional, bool left,
@@ -2494,7 +2106,7 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
     }
 }
 
-void standardizeCompressed(mlir::RewriterBase &rewriter,
+void standardizeCompressed(mlir::ConversionPatternRewriter &rewriter,
                            mlir::Location loc,
                            llvm::SmallVectorImpl<Standardization> &standardizations,
                            bool unconditional, bool left,
@@ -2508,7 +2120,7 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
 
 // Outer layer of unconditional (de)standardizations. (See the
 // "Standardization" subheading of Section 6.3 of the CGO paper.)
-void standardizeUncond(mlir::RewriterBase &rewriter,
+void standardizeUncond(mlir::ConversionPatternRewriter &rewriter,
                        mlir::Location loc,
                        llvm::SmallVectorImpl<Standardization> &standardizations,
                        bool left,
@@ -2524,7 +2136,7 @@ void standardizeUncond(mlir::RewriterBase &rewriter,
 
 // Conditional (de)standardizations. (See the "Standardization" subheading of
 // Section 6.3 of the CGO paper.)
-void standardizeCond(mlir::RewriterBase &rewriter,
+void standardizeCond(mlir::ConversionPatternRewriter &rewriter,
                      mlir::Location loc,
                      llvm::SmallVectorImpl<Standardization> &standardizations,
                      bool left,
@@ -2694,7 +2306,7 @@ qwerty::BasisAttr replaceVecWithPadding(
 // Emit gates that impart (or un-impart if negate==true) vector phases for a
 // basis translation. (For example, this code emits a relative phase gate for
 // the basis translation {'1'} >> {-'1'}.)
-void impartVecPhases(mlir::RewriterBase &rewriter,
+void impartVecPhases(mlir::ConversionPatternRewriter &rewriter,
                      mlir::Location loc,
                      llvm::SmallVectorImpl<VectorPhase> &phases,
                      bool negate,
@@ -2978,7 +2590,7 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
 };
 
 // Invoke Tweedledum to synthesize a permutation
-void synthesizePermutation(mlir::RewriterBase &rewriter,
+void synthesizePermutation(mlir::ConversionPatternRewriter &rewriter,
                            mlir::Location loc,
                            llvm::SmallVectorImpl<mlir::Value> &control_qubits,
                            llvm::SmallVectorImpl<mlir::Value> &qubits,
@@ -3428,8 +3040,7 @@ struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<
                      QBundleProjectNonStd,
                      QBundleProjectOpLowering,
                      QBundleFlipOpLowering,
-                     QBundleRotateOpLowering,
-                     SuperposOpLowering>(type_converter, &getContext());
+                     QBundleRotateOpLowering>(type_converter, &getContext());
 
         if (mlir::failed(mlir::applyFullConversion(module_op, target, std::move(patterns)))) {
             signalPassFailure();

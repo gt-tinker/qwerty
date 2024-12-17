@@ -6,7 +6,6 @@ Bernstein—Vazirani algorithm on a provided bitstring and prints the bitstring
 found by the algorithm.
 """
 
-from argparse import ArgumentParser
 from qwerty import *
 
 def bv(secret_string, acc=None):
