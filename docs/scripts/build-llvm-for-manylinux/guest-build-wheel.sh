@@ -24,8 +24,11 @@ popd
 
 pushd "$wheel_outdir"
     wheels=( qwerty-*.whl )
-    if [[ ${#wheels[@]} -ne 1 ]]; then
+    if [[ ${#wheels[@]} -eq 0 ]]; then
         printf 'Could not find a wheel named qwerty-*.whl in the directory %s\n' "$wheel_outdir" >&2
+        exit 1
+    elif [[ ${#wheels[@]} -gt 1 ]]; then
+        printf 'Too many wheels named qwerty-*.whl in the directory %s\n' "$wheel_outdir" >&2
         exit 1
     fi
     wheel=${wheels[0]}
