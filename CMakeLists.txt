@@ -17,7 +17,21 @@ set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE --coverage)
 
 # TODO: Remove both of these
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(CMAKE_CXX_FLAGS "-fuse-ld=gold")
+    # Extract this part of the line:
+    #     GNU gold (GNU Binutils for Debian 2.40) 1.16
+    #                                       ^^^^
+    # or, on RHEL:
+    #     GNU gold (version 2.30-125.el8_10) 1.15
+    #                       ^^^^
+    execute_process(COMMAND /bin/bash -c "ld.gold --version | head -1 | cut -d ')' -f 1 | awk '{print $NF}' | cut -d - -f 1" OUTPUT_VARIABLE GOLD_VERSION)
+
+    # --dependency-file was added to gold in f37b21b481a780, first seen in
+    # version 2.35 of binutils. For some reason, CMake decides to emit an ld
+    # line that includes --dependency-file, so we should not use gold unless it
+    # is new enough to support this
+    if (GOLD_VERSION VERSION_GREATER_EQUAL "2.35")
+        set(CMAKE_CXX_FLAGS "-fuse-ld=gold")
+    endif()
 endif()
 
 # Need to use C++17 because mockturtle contains some syntax that is invalid in
@@ -156,16 +170,14 @@ ExternalProject_Add(qir-runner
     # GIT_REPOSITORY here), CMake will unnecessarily re-clone it for every
     # invocation of cmake
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/tpls/qir-runner
-    # cargo expects this
-    BUILD_IN_SOURCE TRUE
     CONFIGURE_COMMAND cmake -E echo "Skipping configure step as we do not need it for a Rust build"
-    BUILD_COMMAND cargo build --package qir-backend --profile ${RUST_BUILD_TYPE}
+    BUILD_COMMAND cargo build --package qir-backend --profile ${RUST_BUILD_TYPE} --target-dir <BINARY_DIR> --manifest-path <SOURCE_DIR>/Cargo.toml
     INSTALL_COMMAND cmake -E echo "Skipping install step as we only need the static qir-runner libraries"
     # Needed for Ninja to know to build this before linking _qwerty_harness
-    BUILD_BYPRODUCTS <SOURCE_DIR>/target/${RUST_BUILD_TARGET_DIR}/${STATIC_LIBRARY_PREFIX}qir_backend${STATIC_LIBRARY_SUFFIX}
+    BUILD_BYPRODUCTS <BINARY_DIR>/${RUST_BUILD_TARGET_DIR}/${STATIC_LIBRARY_PREFIX}qir_backend${STATIC_LIBRARY_SUFFIX}
 )
-ExternalProject_Get_Property(qir-runner SOURCE_DIR)
-set(QIR_RUNNER_LIB_PATH ${SOURCE_DIR}/target/${RUST_BUILD_TARGET_DIR}/${STATIC_LIBRARY_PREFIX}qir_backend${STATIC_LIBRARY_SUFFIX})
+ExternalProject_Get_Property(qir-runner BINARY_DIR)
+set(QIR_RUNNER_LIB_PATH ${BINARY_DIR}/${RUST_BUILD_TARGET_DIR}/${STATIC_LIBRARY_PREFIX}qir_backend${STATIC_LIBRARY_SUFFIX})
 
 # qir-runner apparently needs this
 # From: https://stackoverflow.com/a/18559081/321301

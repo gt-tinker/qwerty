@@ -5,6 +5,8 @@ import shlex
 import unittest
 import subprocess
 
+should_skip = bool(os.environ.get('SKIP_FILECHECK_TESTS'))
+
 # Imitates LLVM lit[2] by dynamically building a TestCase class[1]
 # [1]: https://stackoverflow.com/a/25860118/321301
 # [2]: https://llvm.org/docs/CommandGuide/lit.html
@@ -93,6 +95,7 @@ def discover_filecheck_tests(cls):
 
     return cls
 
+@unittest.skipIf(should_skip, "Skipping FileCheck tests as requested by $SKIP_FILECHECK_TESTS")
 @discover_filecheck_tests
 class FileCheckTests(unittest.TestCase):
     pass

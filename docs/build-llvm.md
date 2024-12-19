@@ -11,7 +11,7 @@ repository):
     $ git checkout llvmorg-19.1.6
 
 There are some scripts for building LLVM on different operating systems under
-`docs/scripts/`, but the instructions below guide you through building LLVM by
+`ci/`, but the instructions below guide you through building LLVM by
 hand.
 
 macOS/Linux

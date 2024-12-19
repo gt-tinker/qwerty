@@ -223,6 +223,9 @@ struct QpuTypeCheckVisitor : BaseTypeCheckVisitor {
     std::unique_ptr<Type> biTensorTypes(const Type *left, const Type *right);
     std::unique_ptr<Type> broadcastTensorType(const Type *type, const DimVarExpr &factor);
 
+    // Don't hide visit()s in base class
+    using BaseTypeCheckVisitor::visit;
+
     virtual bool visit(ASTVisitContext &ctx, Slice &slice) override;
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override;
     virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override;
@@ -266,6 +269,9 @@ struct QpuTypeCheckVisitor : BaseTypeCheckVisitor {
 
 // Type checking specifically for @classical kernels
 struct ClassicalTypeCheckVisitor : BaseTypeCheckVisitor {
+    // Don't hide visit()s in base class
+    using BaseTypeCheckVisitor::visit;
+
     // @qpu nodes
     virtual bool visitNonClassicalNode(ASTVisitContext &ctx, ASTNode &node);
     virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override { return visitNonClassicalNode(ctx, (ASTNode &)adj); }
@@ -382,6 +388,9 @@ struct EvalDimVarExprVisitor : ObliviousASTVisitor {
     virtual Traversal traversal() override { return Traversal::PREORDER; }
     virtual void init(ASTNode &root) override {}
 
+    // Don't hide visit()s in base class
+    using ObliviousASTVisitor::visit;
+
     virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override;
     // Has DimVarExprs permeating it
     virtual bool visit(ASTVisitContext &ctx, Kernel &kernel) override;
@@ -428,6 +437,9 @@ struct FindInstantiationsVisitor : ObliviousASTVisitor {
 
     virtual Traversal traversal() override { return Traversal::PREORDER; }
     virtual void init(ASTNode &root) override {}
+
+    // Don't hide visit()s in base class
+    using ObliviousASTVisitor::visit;
 
     virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override { return true; }
     virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override;

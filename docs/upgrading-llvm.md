@@ -16,13 +16,12 @@ sure to check the results are right):
     'sed' is aliased to '! git ls-files -s -z | grep -z -v '^16' | cut -z -f 2- | xargs -0 sed -i -e'
     $ git sed 's/\<llvm18\>/llvm19/g' -e 's/v18_1_8/v19_1_6/g' -e 's/\<18_1_8\>/19_1_6/g' -e 's/\<18\.1\.8/19.1.6/g'
 
-To rebuild the tarballs, see the scripts under `docs/scripts/`. `build-llvm.sh`
-has been tested on macOS and GNU/Linux, and
-`build-llvm-for-windows/build-llvm.ps1` is for Windows. Note it's a solid idea
-to delete `_skbuild` if you are testing a new LLVM release, since the existing
-version may reference the previous LLVM version. (Also, for Windows,
-`docs/scripts/build-llvm-for-windows/setup-env.bat` sets a lot of annoying
-variables useful for building Qwerty on Windows.)
+To rebuild the tarballs, see the scripts under `ci/`. `build-llvm.sh` has been
+tested on macOS and GNU/Linux, and `build-windows/build-llvm.ps1` is for
+Windows. Note it's a solid idea to delete `_skbuild` if you are testing a new
+LLVM release, since the existing version may reference the previous LLVM
+version. (Also, for Windows, `ci/build-windows/setup-env.bat` sets a lot of
+annoying variables useful for building Qwerty on Windows.)
 
 Finally, for my own convenience when copy-pasting:
 

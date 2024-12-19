@@ -1,10 +1,25 @@
 #!/bin/bash
 set -e
 
-if [[ $# -ne 1 ]]; then
-    printf 'usage: %s <version>\n' "$0" >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    printf 'usage: %s <version> [dir]\n' "$0" >&2
     exit 1
 fi
+
+version=$1
+
+if [[ $# -lt 2 ]]; then
+    # Default to whatever directory this script is in
+    relative_whereami=$(dirname "${BASH_SOURCE[0]}")
+else
+    relative_whereami=$2
+fi
+
+# `readlink -f' does not exist on the readlink that ships with macOS.
+# Workaround: https://stackoverflow.com/a/70604668/321301
+pushd "$relative_whereami" >/dev/null
+    whereami=$(pwd -P)
+popd >/dev/null
 
 kernel_name=$(uname -s)
 case "$kernel_name" in
@@ -30,13 +45,6 @@ case "$machine_name" in
         ;;
 esac
 
-# `readlink -f' does not exist on the readlink that ships with macOS.
-# Workaround: https://stackoverflow.com/a/70604668/321301
-pushd "$(dirname "${BASH_SOURCE[0]}")"
-    whereami=$(pwd -P)
-popd
-
-version=$1
 major_version=${version%%.*}
 install_dir=$whereami/llvm$major_version
 repo_dir=$whereami/llvm
@@ -48,20 +56,20 @@ if [[ ! -e $repo_dir ]]; then
     git clone https://github.com/llvm/llvm-project.git "$repo_dir"
 fi
 
-pushd "$repo_dir"
+pushd "$repo_dir" >/dev/null
     git fetch origin
     git checkout "llvmorg-$version"
     rm -rf build
     mkdir build
-    pushd build
+    pushd build >/dev/null
         cmake -G Ninja -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=TRUE -DCMAKE_INSTALL_PREFIX="$install_dir" -DLLVM_TARGETS_TO_BUILD=Native -DLLVM_INSTALL_UTILS=TRUE ../llvm
         time ninja install
-    popd
-popd
+    popd >/dev/null
+popd >/dev/null
 
-pushd "$install_dir/.."
+pushd "$install_dir/.." >/dev/null
     time XZ_OPT='-T0' tar -cJvf "$archive_filename" "$(basename "$install_dir")"
-popd
+popd >/dev/null
 
 printf 'Mission accomplished. Compressed archive path:\n'
 printf '%s\n' "$whereami/$archive_filename"
