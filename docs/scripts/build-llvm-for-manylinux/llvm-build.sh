@@ -1,10 +1,25 @@
 #!/bin/bash
 set -e
 
-if [[ $# -ne 1 ]]; then
-    printf 'usage: %s <version>\n' "$0" >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    printf 'usage: %s <version> [dir]\n' "$0" >&2
     exit 1
 fi
+
+version=$1
+
+if [[ $# -lt 2 ]]; then
+    # Default to whatever directory this script is in
+    relative_whereami=$(dirname "${BASH_SOURCE[0]}")
+else
+    relative_whereami=$2
+fi
+
+# `readlink -f' does not exist on the readlink that ships with macOS.
+# Workaround: https://stackoverflow.com/a/70604668/321301
+pushd "$relative_whereami"
+    whereami=$(pwd -P)
+popd
 
 kernel_name=$(uname -s)
 case "$kernel_name" in
@@ -30,13 +45,6 @@ case "$machine_name" in
         ;;
 esac
 
-# `readlink -f' does not exist on the readlink that ships with macOS.
-# Workaround: https://stackoverflow.com/a/70604668/321301
-pushd "$(dirname "${BASH_SOURCE[0]}")"
-    whereami=$(pwd -P)
-popd
-
-version=$1
 major_version=${version%%.*}
 install_dir=$whereami/llvm$major_version
 repo_dir=$whereami/llvm
