@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "qwerty"
-version = "0.0.12"
+version = "1.0.0"
 requires-python = ">= 3.10"
 # Only needed by simon_post.py used in both the integration tests and
 # examples/. But include it here for simplicity
