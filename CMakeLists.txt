@@ -17,7 +17,21 @@ set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE --coverage)
 
 # TODO: Remove both of these
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(CMAKE_CXX_FLAGS "-fuse-ld=gold")
+    # Extract this part of the line:
+    #     GNU gold (GNU Binutils for Debian 2.40) 1.16
+    #                                       ^^^^
+    # or, on RHEL:
+    #     GNU gold (version 2.30-125.el8_10) 1.15
+    #                       ^^^^
+    execute_process(COMMAND /bin/bash -c "ld.gold --version | head -1 | cut -d ')' -f 1 | awk '{print $NF}' | cut -d - -f 1" OUTPUT_VARIABLE GOLD_VERSION)
+
+    # --dependency-file was added to gold in f37b21b481a780, first seen in
+    # version 2.35 of binutils. For some reason, CMake decides to emit an ld
+    # line that includes --dependency-file, so we should not use gold unless it
+    # is new enough to support this
+    if (GOLD_VERSION VERSION_GREATER_EQUAL "2.35")
+        set(CMAKE_CXX_FLAGS "-fuse-ld=gold")
+    endif()
 endif()
 
 # Need to use C++17 because mockturtle contains some syntax that is invalid in
