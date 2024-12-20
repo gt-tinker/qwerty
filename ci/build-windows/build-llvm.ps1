@@ -8,7 +8,15 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = "C:\qwerty"
-$visual_studio_install_path = "C:\Program Files\Microsoft Visual Studio\2022\Community"
+$visual_studio_install_path = 'C:\Program Files\Microsoft Visual Studio\2022\Community'
+
+if (-not (Test-Path $visual_studio_install_path)) {
+    $visual_studio_install_path = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
+}
+if (-not (Test-Path $visual_studio_install_path)) {
+    Write-Error "Visual Studio install dir does not exist and I'm out of ideas: $visual_studio_install_path"
+    exit 1
+}
 
 $llvm_version = $version
 $llvm_dir = "$root\llvm"

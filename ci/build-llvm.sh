@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-    printf 'usage: %s <version> [dir]\n' "$0" >&2
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    printf 'usage: %s <version> [<out-dir> [<llvm-dir>]]\n' "$0" >&2
     exit 1
 fi
 
@@ -20,6 +20,17 @@ fi
 pushd "$relative_whereami" >/dev/null
     whereami=$(pwd -P)
 popd >/dev/null
+
+if [[ $# -lt 3 ]]; then
+    # Default to out_dir/llvm
+    repo_dir=$whereami/llvm
+else
+    # Same trick to mitigate missing `readlink -f' as above except if the
+    # directory does not exist yet
+    pushd "$(dirname "$3")" >/dev/null
+        repo_dir=$(pwd -P)/$(basename "$3")
+    popd >/dev/null
+fi
 
 kernel_name=$(uname -s)
 case "$kernel_name" in
@@ -47,7 +58,6 @@ esac
 
 major_version=${version%%.*}
 install_dir=$whereami/llvm$major_version
-repo_dir=$whereami/llvm
 archive_filename=llvm_mlir_rel_v${version//./_}_${arch_name}_${os_name}.tar.xz
 
 rm -rf "$install_dir"
