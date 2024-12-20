@@ -1,2 +1,5 @@
 # Volume used by Dockerfile
 io/
+
+# Built image file
+*.sif
