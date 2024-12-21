@@ -1,19 +1,38 @@
 #!/bin/bash
 set -e -o pipefail
 
-if [[ $# -ne 2 || ( ( $1 != docker ) && ( $1 != apptainer ) ) ]]; then
-    printf 'usage: %s <docker|apptainer> <llvm-version>\n' "$0" >&2
+if [[ $# -lt 2 || ( ( $1 != docker ) && ( $1 != apptainer ) ) || $# -gt 3 ]]; then
+    printf 'usage: %s <docker|apptainer> <llvm-version> [<llvm-repo>]\n' "$0" >&2
     exit 1
 fi
 container=$1
 llvm_version=$2
+llvm_repo_path=$3
 
 . "$(dirname "${BASH_SOURCE[0]}")/build-common.sh"
 
+args=( "$guest_whereami_path_absolute/../build-llvm.sh" "$llvm_version" "$guest_io_path_absolute" )
+
+if [[ -n $llvm_repo_path ]]; then
+    args+=( /io-llvm/ )
+fi
+
 if [[ $container == docker ]]; then
-    run_docker "$guest_whereami_path_absolute/../build-llvm.sh" "$llvm_version" "$guest_io_path_absolute"
+    if [[ -n $llvm_repo_path ]]; then
+        printf 'Passing an LLVM repo path with Docker is not supported right now '`
+              `'because I have not needed it yet\n' >&2
+        exit 1
+    fi
+
+    run_docker "${args[@]}"
 elif [[ $container == apptainer ]]; then
-    apptainer exec --bind "$repo_path_absolute:$guest_repo_path_absolute" "$rg_container_path" "$guest_whereami_path_absolute/../build-llvm.sh" "$llvm_version" "$guest_io_path_absolute"
+    bind_arg=$repo_path_absolute:$guest_repo_path_absolute
+
+    if [[ -n $llvm_repo_path ]]; then
+        bind_arg+=,$llvm_repo_path_absolute:/io-llvm/
+    fi
+
+    apptainer exec --bind "$bind_arg" "$rg_container_path" "${args[@]}"
 else
     printf 'unknown type of container' >&2
     exit 1
