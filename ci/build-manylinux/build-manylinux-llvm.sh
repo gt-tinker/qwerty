@@ -15,6 +15,10 @@ args=( "$guest_whereami_path_absolute/../build-llvm.sh" "$llvm_version" "$guest_
 
 if [[ -n $llvm_repo_path ]]; then
     args+=( /io-llvm/ )
+
+    pushd "$(dirname "$llvm_repo_path")" >/dev/null
+        llvm_repo_path_absolute=$(pwd -P)/$(basename "$llvm_repo_path")
+    popd >/dev/null
 fi
 
 if [[ $container == docker ]]; then
