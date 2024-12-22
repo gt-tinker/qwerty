@@ -21,6 +21,9 @@ README:
 * [`docs/qiree.md`](docs/qiree.md): Directions for building a copy of the
   Qwerty compiler/runtime that integrates with [QIR-EE][49], an execution
   engine for QIR.
+* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
+  semi-automated process for upgrading the version of LLVM used by the Qwerty
+  compiler.
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
@@ -52,10 +55,7 @@ Building the Compiler on Your Own Machine
 
 [LLVM][25] is a heavy-duty compiler framework we use, along with its
 sub-project [MLIR][26], in the Qwerty compiler.
-**Qwerty currently requires LLVM 19.1.6.**
-_(See [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md) for a description of
-the semi-automated process for upgrading the version of LLVM we use.)_
-
+Qwerty currently requires LLVM 19.1.6.
 If you want to build the Qwerty compiler, you have two options to satisfy the
 LLVM dependency: (1) download pre-built LLVM libraries or (2) build LLVM
 yourself. We discuss both options below.
@@ -109,7 +109,8 @@ Next, you need to install [Rust][8] (for [`qir-runner`][10]),
 [`libffi-dev`][28] and [`libxml2-dev`][39] (apparently required by
 `qir-runner`, possibly transitively), [`libzstd-dev`][33] (an LLVM dependency).
 
-Finally, to build, run (the first two commands are a one-time thing):
+Finally, to build, run the following in a cloned copy of this repository (the
+first two commands are a one-time thing):
 
     $ git submodule update --init tpls/tweedledum tpls/qir-runner tpls/googletest
     $ python3 -m venv venv
@@ -146,21 +147,56 @@ environment variable `QWERTY_BUILD_TESTS=true` (e.g., if you ran
 
 #### Windows
 
-This is nearly identical to the Unix instructions above except:
-1. **You need to run all the commands in the "x64 Native Tools Command Prompt
-   for VS 2022"**. (Try typing "x64" into the Start menu.) Otherwise, it will
-   attempt a 32-bit build, causing x64 intrinsics not to show up and triggering
-   many, many linker errors.
-2. You need to tell CMake to use ninja. In `cmd`, this is
-   `set CMAKE_GENERATOR=Ninja`. This is because msbuild does not seem to play
-   along with Tweedledum.
-3. Any forward slash `/` should be a backslash `\` instead
-4. While you still need to [install Rust][8] and [Python 3][41], you can ignore
-   the other dependencies.
-5. Activate the virtual environment with `venv\Scripts\Activate.bat` (in `cmd`) or
-   `venv\Scripts\Activate.ps1` (in PowerShell) instead.
-6. You can run all the tests with `test\run-tests.bat` instead of
-   `test/run-tests.sh`.
+First, install [Visual Studio][7], [Rust][8] and [Python 3][41].
+
+Then, open a **Command Prompt** (i.e., `cmd`, _not_ PowerShell) and make sure
+that LLVM is installed correctly from the previous section:
+
+    > mlir-opt --version
+    LLVM (http://llvm.org/):
+      LLVM version 19.1.6
+      Optimized build with assertions.
+    > llvm-config --version
+    19.1.6
+
+Still inside of `cmd` (_not_ PowerShell), run the following commands inside a
+cloned copy of this repository (`setup-env.bat` configures Visual Studio to
+build an amd64 binary and tells CMake to use `ninja` instead of `msbuild`, both
+avoiding very strange errors — treat `setup-env.bat` as an extension of
+`activate.bat` in that you'll need to run it in every fresh terminal you build in):
+
+    > git submodule update --init tpls\tweedledum tpls\qir-runner tpls\googletest
+    > python -m venv venv
+    > ci\build-windows\setup-env.bat
+    > venv\Scripts\activate.bat
+    > pip install -v .
+
+Now try one of the examples:
+
+    > python examples\dj.py
+    Constant test:
+    Classical: constant
+    Quantum: constant
+
+    Balanced test:
+    Classical: balanced
+    Quantum: balanced
+
+To run the test suite, rebuild with tests included:
+
+    > set QWERTY_BUILD_TESTS=1
+    > pip install -v .
+
+And then try running the tests:
+
+    > test\run-tests.bat
+    [...voluminous output...]
+    100% tests passed, 0 tests failed out of 1
+
+    [...voluminous output...]
+    Ran 41 tests in 10.390s
+
+    OK
 
 Troubleshooting
 ---------------
@@ -208,6 +244,7 @@ The evaluation for the CGO '25 paper uses additional code not on the `main`
 branch of this repository. You can find that evaluation code in [the Zenodo
 artifact][50] or on the `cgo25-artifact` branch.
 
+[7]: https://visualstudio.microsoft.com/
 [8]: https://www.rust-lang.org/tools/install
 [9]: https://packages.ubuntu.com/search?keywords=python3-dev
 [10]: https://github.com/qir-alliance/qir-runner/

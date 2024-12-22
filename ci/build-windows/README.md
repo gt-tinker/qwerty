@@ -67,7 +67,7 @@ Run `.\build-llvm.ps1 -version 19.1.6` in PowerShell.
 Building Qwerty
 ===============
 
-To build Qwerty, you can source `setup-env.bat` to set up LLVM (and MSVC)
+To build Qwerty, you can run `.\setup-env.bat /p` to set up LLVM and MSVC
 environment variables properly for you. Afterward, you just need to set up (and
 activate) the virtual environment and you are off to the races.
 
