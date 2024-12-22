@@ -51,25 +51,19 @@ Building the Compiler on Your Own Machine
 ### Step 1: Setting Up LLVM
 
 [LLVM][25] is a heavy-duty compiler framework we use, along with its
-sub-project [MLIR][26], in the Qwerty compiler. If you want to build the Qwerty
-compiler, you have two options: (1) download pre-built LLVM libraries or (2)
-build LLVM yourself. We discuss both options below.
+sub-project [MLIR][26], in the Qwerty compiler.
+**Qwerty currently requires LLVM 19.1.6.**
+_(See [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md) for a description of
+the semi-automated process for upgrading the version of LLVM we use.)_
+
+If you want to build the Qwerty compiler, you have two options to satisfy the
+LLVM dependency: (1) download pre-built LLVM libraries or (2) build LLVM
+yourself. We discuss both options below.
 
 #### Option 1: Use a Pre-Built LLVM Tarball
 
-You can download our builds of LLVM from the following links:
-
-1. Linux x86\_64 `-O2` build with assertions (~3GB uncompressed, ~500MB
-   compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz>
-2. macOS aarch64 (M1/M2/M3) `-O2` build with assertions (~500MB compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_aarch64_macos.tar.xz>
-3. Windows x86\_64 `-O2` build with assertions (~2.5GB uncompressed, ~750MB
-   compressed):
-   <https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_6_x86_windows.zip>
-
-_(See [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md) for details on how we
-generate these tarballs as part of upgrading LLVM)_
+You can download our builds of LLVM from here:
+<https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v19.1.6>
 
 ##### macOS/Linux
 
