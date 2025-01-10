@@ -13,9 +13,9 @@ def standard_prelude():
     'j'.sym = '0' or '1'@270
 
     # Simple bases
-    std = {'0', '1'}
-    pm = {'p', 'm'}
-    ij = {'i', 'j'}
+    std[1] = {'0', '1'}
+    pm[1] = {'p', 'm'}
+    ij[1] = {'i', 'j'}
 
     # Basis macros
     {bv1, bv2}.flip = {bv1, bv2} >> {bv2, bv1}
