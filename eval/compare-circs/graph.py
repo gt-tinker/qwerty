@@ -230,6 +230,9 @@ def chop(data):
     return data[2:]
 
 def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, quipper, qsharp, log):
+    BASE_FONT_SIZE = 18
+    LEG_FONT_SIZE = BASE_FONT_SIZE - 0.5
+    MAIN_FONT_SIZE = BASE_FONT_SIZE
     sizes, qwerty, qiskit, quipper, qsharp = (chop(x) for x in (sizes, qwerty, qiskit, quipper, qsharp))
 
     X_axis = np.arange(len(sizes)) 
@@ -237,14 +240,14 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, quipper, qsharp, lo
     opacity = 0.9
     ax.set_facecolor('white')
 
-    plt.bar(X_axis - 0.3, qwerty, 0.2, alpha=opacity, label = "Asdf (Our Work)", color='#0072B2')
+    plt.bar(X_axis - 0.3, qwerty, 0.2, alpha=opacity, label = "ASDF", color='#0072B2')
     plt.bar(X_axis - 0.1, qiskit, 0.2, alpha=opacity, label = "Qiskit", color='#009E73')
     plt.bar(X_axis + 0.1, quipper, 0.2, alpha=opacity, label = "Quipper", color='#F0E442')
     plt.bar(X_axis + 0.3, qsharp, 0.2, alpha=opacity, label = "Q#", color='#D55E00')
     
-    plt.xlabel("Input size (bits)", fontsize= 14)
-    plt.ylabel(subytitle, fontsize= 14)
-    plt.title(title, fontsize=8)
+    plt.xlabel("Input size (bits)", fontsize=MAIN_FONT_SIZE)
+    plt.ylabel(subytitle, fontsize=MAIN_FONT_SIZE)
+    #plt.title(title, fontsize=8)
 
     largest = int(max(max(qwerty),max(qiskit), max(quipper), max(qsharp)))
     smallest = int(min(min(qwerty), min(qiskit), min(quipper), min(qsharp)))
@@ -252,8 +255,8 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, quipper, qsharp, lo
     #plt.ylim(bottom=smallest-2)
 
     plt.ticklabel_format(useOffset=False, style='plain')
-    plt.xticks(X_axis, sizes, rotation=45, fontsize=12)
-    plt.yticks(fontsize=12)
+    plt.xticks(X_axis, sizes, rotation=45, fontsize=MAIN_FONT_SIZE)
+    plt.yticks(fontsize=MAIN_FONT_SIZE)
     if log:
         plt.yscale('log')
 
@@ -266,16 +269,22 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, quipper, qsharp, lo
             if idx >= len(units): 
                 idx = len(units) - 1
         mention_log = ', log scale' if log else ''
-        plt.ylabel(f'Runtime ({units[idx][0]}{mention_log})', fontsize= 15)
+        plt.ylabel(f'Runtime ({units[idx][0]}{mention_log})', fontsize=MAIN_FONT_SIZE)
         ax.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f'{int(y * units[idx][1])}'))
     elif 'Physical Kiloqubits' in subytitle:
         ax.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f'{int(y * 1e-3)}'))
 
     if unabbreviate('bv') in title:
-        plt.legend(fontsize=12)
+        plt.legend(fontsize=LEG_FONT_SIZE, labelspacing=0.25, handlelength=0.75)
 
     plt.tight_layout()
     plt.rcParams["figure.figsize"] = (4,3)
+    # Match ACM template
+    plt.rcParams["font.family"] = 'Linux Libertine O'
+    # Don't use Type 3 fonts, which are usually banned by publishers:
+    # http://phyletica.org/matplotlib-fonts/
+    plt.rcParams['pdf.fonttype'] = 42
+    plt.rcParams['ps.fonttype'] = 42
     #plt.savefig(file, dpi = 96 * 2)
     #plt.savefig(file, dpi = 8)
     plt.savefig(file)

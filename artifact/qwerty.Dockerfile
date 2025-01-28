@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y \
     libtinfo-dev \
     libxml2-dev \
     vim \
-    datamash
+    datamash \
+    fonts-linuxlibertine
 
 ADD https://junk.ausb.in/qwerty/llvm_mlir_rel_v19_1_2_x86_linux.tar.xz llvm.tar.xz
 RUN mkdir -p /llvm \
