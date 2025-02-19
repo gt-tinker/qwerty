@@ -26,24 +26,24 @@ def fix_pt_amp(a, oracle, orig_prob,
                new_prob=0.98, n_shots=2048, histogram=False, acc=None):
     phis = get_phases(orig_prob, new_prob)
 
-    @qpu[[N,K,D]](phis, a, oracle)
-    def amp_iter(phis: angle[2*D], a: rev_qfunc[N], oracle: cfunc[N,1],
-                 q: qubit[N+1]) -> qubit[N+1]:
-        return q | oracle.xor \
-                 | id[N] + std.rotate(phis[[2*K]]) \
-                 | oracle.xor \
-                 | ~a + id \
-                 | '0'[N] & std.flip \
-                 | id[N] + std.rotate(phis[[2*K+1]]) \
-                 | '0'[N] & std.flip \
-                 | a + id
+    @qpu[[N,K]]
+    def amp_iter(q):
+        return q + '0' | oracle.xor \
+                       | id[N] + std.rotate(phis[[2*K]]) \
+                       | oracle.xor \
+                       | ~a + id \
+                       | '0'[N] & std.flip \
+                       | id[N] + std.rotate(phis[[2*K+1]]) \
+                       | '0'[N] & std.flip \
+                       | a + discardz
 
-    @qpu[[N,D]](phis, a, amp_iter)
-    def kernel(phis: angle[2*D], a: qfunc[N],
-               amp_iter: qfunc[N+1][[...]]) -> bit[N]:
-        return '0'[N+1] | a + id \
-                        | (amp_iter[[k]] for k in range(D)) \
-                        | std[N].measure + discard
+    n_phis = len(phis)
+
+    @qpu[[N]]
+    def kernel():
+        return '0'[N] | a \
+                      | (amp_iter[[k]] for k in range(n_phis)) \
+                      | measure[N]
 
     return kernel(shots=n_shots, histogram=histogram, acc=acc)
 

@@ -25,19 +25,18 @@ def match(string, pat, acc=None):
     n, m = len(string), len(pat)
     k = math.ceil(math.log2(n))
 
-    @classical[[K(k),N(n),M(m)]]
-    def shift_and_cmp(off: bit[K], string: bit[N], pat: bit[M]) -> bit[K+N+M]:
-        return off, string, (string.rotl(off)[:M] ^ pat)
+    @classical
+    def shift_and_cmp(off: bit[k], string: bit[n], pat: bit[m]):
+        return concat(off, string, (string.rotl(off)[:m] ^ pat))
 
-    @qpu[[K(k),N,M]](string, pat, shift_and_cmp)
+    @qpu
     @reversible
-    def a(string: bit[N], pat: bit[M], shift_and_cmp: cfunc[K+N+M],
-                q: qubit[K+N+M]) -> qubit[K+N+M]:
-        return q | 'p'[K].prep + string.prep + pat.prep \
+    def a(q):
+        return q | 'p'[k].prep + string.prep + pat.prep \
                  | shift_and_cmp.inplace(shift_and_cmp)
 
-    @classical[[K(k),N(n),M(m)]]
-    def oracle(off: bit[K], string: bit[N], pat: bit[M]) -> bit:
+    @classical
+    def oracle(off: bit[k], string: bit[n], pat: bit[m]):
         return (~pat).and_reduce()
 
     ret = fix_pt_amp(a, oracle, 1/n, acc=acc)

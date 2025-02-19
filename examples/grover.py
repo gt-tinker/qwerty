@@ -15,19 +15,18 @@ import math
 from argparse import ArgumentParser
 from qwerty import *
 
-def grover(oracle, n_iter, n_shots, acc=None):
-    @qpu[[N]](oracle)
-    def grover_iter(oracle: cfunc[N,1], q: qubit[N]) -> qubit[N]:
+def grover(oracle, n_iter, n_shots):
+    @qpu[[N]]
+    def grover_iter(q):
         return q | oracle.sign \
                  | -('p'[N] >> -'p'[N])
 
-    @qpu[[N,I]](grover_iter)
-    def kernel(grover_iter: qfunc[N]) -> bit[N]:
-        return 'p'[N] | (grover_iter for _ in range(I)) \
-                      | std[N].measure
+    @qpu[[N]]
+    def kernel():
+        return 'p'[N] | (grover_iter for _ in range(n_iter)) \
+                      | measure[N]
 
-    kern_inst = kernel[[n_iter]]
-    results = kern_inst(shots=n_shots, acc=acc)
+    results = kernel(shots=n_shots)
     return {r for r in set(results) if oracle(r)}
 
 def get_n_iter(n_qubits, n_answers):
