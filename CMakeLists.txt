@@ -222,6 +222,7 @@ add_library(qwc STATIC qwerty/ast.cpp
                        qwerty/qpu_kernel.cpp
                        qwerty/ast_visitor/flag_immat.cpp
                        qwerty/ast_visitor/canonicalize.cpp
+                       qwerty/ast_visitor/desugar.cpp
                        qwerty/ast_visitor/graphviz.cpp
                        qwerty/ast_visitor/find_instants.cpp
                        qwerty/ast_visitor/eval_dimvar_exprs.cpp

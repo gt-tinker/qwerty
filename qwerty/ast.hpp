@@ -2893,6 +2893,15 @@ struct Kernel : ASTNode, HybridObj {
             EvalDimVarExprVisitor evalVisitor(dimvar_values);
             walk(evalVisitor);
         }
+        // Desugar -- want this to be distinct from canonicalization
+        // since we seem to want to type-check after canonicalizing.
+        // This limits which transformations can avoid typechecking.
+        /*
+        {
+            DesugarVisitor desugarVisitor;
+            walk(desugarVisitor);
+        }
+        */
         // Type check #1
         {
             V typeCheckVisitor;
@@ -3118,6 +3127,7 @@ struct QpuKernel : Kernel {
         walk(dynBasisVisitor);
     }
     virtual void runASTVisitorPipeline() override {
+        // Here?
         _runASTVisitorPipeline<QpuTypeCheckVisitor>();
     }
     virtual std::unique_ptr<ASTNode> copy() const override {
