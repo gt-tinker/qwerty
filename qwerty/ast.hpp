@@ -2895,13 +2895,11 @@ struct Kernel : ASTNode, HybridObj {
         }
         // Desugar -- want this to be distinct from canonicalization
         // since we seem to want to type-check after canonicalizing.
-        // This limits which transformations can avoid typechecking.
-        /*
+        // This limits which transformations can avoid typechecking
         {
             DesugarVisitor desugarVisitor;
             walk(desugarVisitor);
         }
-        */
         // Type check #1
         {
             V typeCheckVisitor;
