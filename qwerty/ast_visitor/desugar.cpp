@@ -2,11 +2,8 @@
 #include "ast_visitor.hpp"
 
 // Rewrites basis literals of the form {a >> b, c >> d, ...} into {a, c, ...} >> {b, d, ...}
-// I'm open to treating this as "canonicalization" if you don't mind it running
-// *before* typechecking, but my intuition tells me it's a bad idea.
 bool DesugarVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
     for (auto const &elt : lit.elts) {
-        // Our types don't implement this.
         if (!dynamic_cast<BasisTranslation *>(elt.get())) {
             // Forward this to type-checking so it can admit literals 
             // of the form {'qbl1', 'qbl2', ...} or complain appropriately
@@ -27,7 +24,6 @@ bool DesugarVisitor::visit(ASTVisitContext &ctx, BasisLiteral &lit) {
     }
 
     // Move everything everywhere everywhen
-    // FIXME: Don't know how we handle debug info...
     std::unique_ptr<BasisTranslation> new_btrans =
         std::make_unique<BasisTranslation>(std::move(lit.dbg->copy()),
                                            std::make_unique<BasisLiteral>(std::move(lit.dbg->copy()),

@@ -4,9 +4,6 @@
 #include "ast_visitor.hpp"
 
 TEST(desugar, desugarBasisTranslation) {
-    // I tried just initializer lists only to discover that they
-    // always copy their inputs, and we're using a type that bans trivial copying,
-    // so...
     std::vector<std::unique_ptr<ASTNode>> mapping1{};
     mapping1.push_back(
         std::make_unique<BasisTranslation>(
@@ -23,10 +20,14 @@ TEST(desugar, desugarBasisTranslation) {
         )
     );
 
-    BasisLiteral ast(mock_dbg(1), std::move(mapping1));
+    Return ast(
+        mock_dbg(1),
+        std::make_unique<BasisLiteral>(
+            mock_dbg(1),
+            std::move(mapping1)
+        )
+    );
 
-    // Apparently "ast->copy" changes some metadata on the new tree, so this
-    // is how we compare two ASTs using GTest...
     std::vector<std::unique_ptr<ASTNode>> mapping2lhs_elts{};
     mapping2lhs_elts.push_back(std::make_unique<QubitLiteral>(mock_dbg(1), PLUS, X, mock_dimvar_expr(1)));
     mapping2lhs_elts.push_back(std::make_unique<QubitLiteral>(mock_dbg(1), MINUS, X, mock_dimvar_expr(1)));
@@ -45,10 +46,13 @@ TEST(desugar, desugarBasisTranslation) {
         std::move(mapping2rhs_elts)
     );
 
-    BasisTranslation expected_ast(
+    Return expected_ast(
         mock_dbg(1),
-        std::move(mapping2lhs),
-        std::move(mapping2rhs)
+        std::make_unique<BasisTranslation>(
+            mock_dbg(1),
+            std::move(mapping2lhs),
+            std::move(mapping2rhs)
+        )
     );
 
     DesugarVisitor visitor;
@@ -59,7 +63,7 @@ TEST(desugar, desugarBasisTranslation) {
 
 // When this process doesn't find a perfect match, it simply leaves the tree
 // untransformed. Typechecking already provides the infrastructure to validate
-// whether the basis is correctly written or it encountered a malformed basis literal.
+// if the basis is well-formed.
 TEST(desugar, ignoreNormalLiteral) {
     std::vector<std::unique_ptr<ASTNode>> qubits{};
     qubits.push_back(
@@ -72,7 +76,8 @@ TEST(desugar, ignoreNormalLiteral) {
 
     BasisLiteral ast(mock_dbg(1), std::move(qubits));
 
-    // Same thing, mfw "copy" doesn't make an identical copy.
+    // Apparently "ast->copy" changes some metadata on the new tree, so this
+    // is how we compare two ASTs using GTest...
     std::vector<std::unique_ptr<ASTNode>> qubits_exp{};
     qubits_exp.push_back(
         std::make_unique<QubitLiteral>(mock_dbg(1), PLUS, X, mock_dimvar_expr(1))
