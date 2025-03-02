@@ -112,3 +112,7 @@ class IntegrationTests(unittest.TestCase):
             histo = swap_inference.test(input_, n_shots)
             histo_expected = {output: n_shots}
             self.assertEqual(histo_expected, histo)
+
+    def test_syntax_sugar(self):
+        from .tests import basis_sugar
+        self.assertEqual(bit[1](0b0), basis_sugar.sweet())
