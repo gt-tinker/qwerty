@@ -2896,10 +2896,7 @@ struct Kernel : ASTNode, HybridObj {
         // Desugar -- want this to be distinct from canonicalization
         // since we seem to want to type-check after canonicalizing.
         // This limits which transformations can avoid typechecking
-        {
-            DesugarVisitor desugarVisitor;
-            walk(desugarVisitor);
-        }
+        runDesugaring();
         // Type check #1
         {
             V typeCheckVisitor;
@@ -2921,6 +2918,8 @@ struct Kernel : ASTNode, HybridObj {
 
     // Extra per-subclass type checking
     virtual void runExtraTypeChecking() {}
+    // Only QPUKernels should desguar.
+    virtual void runDesugaring() {}
     // Should run _runASTVisitorPipeline() above with the desired type checker V.
     virtual void runASTVisitorPipeline() = 0;
     virtual ASTKind kind() const = 0;
@@ -3124,8 +3123,11 @@ struct QpuKernel : Kernel {
         FlagImmaterialVisitor dynBasisVisitor;
         walk(dynBasisVisitor);
     }
+    virtual void runDesugaring() override {
+        DesugarVisitor desugarVisitor;
+        walk(desugarVisitor);
+    }
     virtual void runASTVisitorPipeline() override {
-        // Here?
         _runASTVisitorPipeline<QpuTypeCheckVisitor>();
     }
     virtual std::unique_ptr<ASTNode> copy() const override {

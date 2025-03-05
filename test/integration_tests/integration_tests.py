@@ -115,4 +115,7 @@ class IntegrationTests(unittest.TestCase):
 
     def test_syntax_sugar(self):
         from .tests import basis_sugar
-        self.assertEqual(bit[1](0b0), basis_sugar.sweet())
+        n_shots = 1024
+        histo = basis_sugar.sweet(shots=n_shots, histogram=True)
+        histo_expected = {bit[1](0b0): n_shots}
+        self.assertEqual(histo, histo_expected)

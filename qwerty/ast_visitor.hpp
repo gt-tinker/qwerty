@@ -318,55 +318,11 @@ struct ClassicalTypeCheckVisitor : BaseTypeCheckVisitor {
 // Rewrites AST w/o syntax sugar. While technically a form of canonicalization,
 // this visit pass is made distinct to ensure only a very small set of transformations
 // can avoid type-checking.
-struct DesugarVisitor : ASTVisitor {
+struct DesugarVisitor : ObliviousASTVisitor {
     virtual Traversal traversal() override { return Traversal::PREPOSTORDER; }
     virtual void init(ASTNode &root) override {}
 
-    virtual bool visit(ASTVisitContext &ctx, Assign &assign) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, DestructAssign &assign) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Return &ret) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Kernel &kernel) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Variable &var) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Slice &slice) override { return true; }
-    // @qpu nodes
-    virtual bool visit(ASTVisitContext &ctx, Adjoint &adj) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Prepare &prep) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Lift &lift) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, EmbedClassical &embed) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Pipe &pipe) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Instantiate &inst) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Repeat &repeat) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, RepeatTensor &reptens) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Pred &pred) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BiTensor &bitensor) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BroadcastTensor &broadtensor) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, QubitLiteral &lit) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Phase &phase) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, FloatLiteral &float_) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, FloatNeg &neg) override { return true; };
-    virtual bool visit(ASTVisitContext &ctx, FloatBinaryOp &bin) override { return true;}
-    virtual bool visit(ASTVisitContext &ctx, FloatDimVarExpr &fdve) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, TupleLiteral &tuple) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BuiltinBasis &std) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Identity &id) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BasisTranslation &trans) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Discard &discard) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Measure &measure) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Project &proj) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Flip &flip) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Rotate &rot) override { return true; }
-    // This actually does something!
-    virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override;
-    virtual bool visit(ASTVisitContext &ctx, SuperposLiteral &lit) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, Conditional &cond) override { return true; }
-    // @classical nodes
-    virtual bool visit(ASTVisitContext &ctx, BitUnaryOp &unOp) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BitBinaryOp &binOp) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BitReduceOp &reduceOp) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BitConcat &concat) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BitRepeat &concat) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, ModMulOp &mulOp) override { return true; }
-    virtual bool visit(ASTVisitContext &ctx, BitLiteral &bitLit) override { return true; }
+    virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override;
 };
 
 // Simplifies the AST. Performs some basic optimizations (Section 4.2 of the
