@@ -4,6 +4,7 @@ add_executable(qwerty-test support/qwerty-test.cpp
                            support/test_support.cpp
                            test_ast.cpp
                            ast_visitor/test_canonicalize.cpp
+                           ast_visitor/test_desugar.cpp
                            ast_visitor/test_type_checking.cpp
                            ast_visitor/test_flag_immat.cpp)
 target_include_directories(qwerty-test PRIVATE ${GTEST_INCLUDE_PATH} support/)

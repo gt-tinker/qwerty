@@ -315,6 +315,17 @@ struct ClassicalTypeCheckVisitor : BaseTypeCheckVisitor {
     virtual bool visit(ASTVisitContext &ctx, Slice &slice) override;
 };
 
+// Rewrites AST w/o syntax sugar. While technically a form of canonicalization,
+// this visit pass is made distinct to ensure only a very small set of transformations
+// can avoid type-checking.
+struct DesugarVisitor : ObliviousASTVisitor {
+    virtual Traversal traversal() override { return Traversal::PREPOSTORDER; }
+    virtual void init(ASTNode &root) override {}
+
+    virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override { return true; }
+    virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override;
+};
+
 // Simplifies the AST. Performs some basic optimizations (Section 4.2 of the
 // CGO paper) and also replaces some semi-redundant nodes. For example,
 // BroadcastTensors and LiftBits do not survive this visitor.
