@@ -91,7 +91,7 @@ TEST(desugar, ignoreNormalLiteral) {
 
     DesugarVisitor visitor;
     ast.walk(visitor);
-    
+
     EXPECT_EQ(ast, expected_ast);
 }
 

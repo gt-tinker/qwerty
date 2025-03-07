@@ -322,7 +322,8 @@ struct DesugarVisitor : ObliviousASTVisitor {
     virtual Traversal traversal() override { return Traversal::PREPOSTORDER; }
     virtual void init(ASTNode &root) override {}
 
-    virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override;
+    virtual bool visitNode(ASTVisitContext &ctx, ASTNode &node) override { return true; }
+    virtual bool visit(ASTVisitContext &ctx, BasisLiteral &lit) override;
 };
 
 // Simplifies the AST. Performs some basic optimizations (Section 4.2 of the
