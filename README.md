@@ -1,7 +1,8 @@
 # The Compiler for Qwerty, a Basis-Oriented Quantum Programming Language
 
 This is the compiler (and examples) for Qwerty, a quantum programming language
-embedded in Python. It is licensed under the MIT license.
+embedded in Python. It is licensed under the MIT license. If you want to contribute
+or have issues, you can check out [`CONTRIBUTING.md](CONTRIBUTING.md).
 
 Documentation
 -------------
