@@ -43,8 +43,8 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v19.1.6/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz
-          tar -xJvf llvm_mlir_rel_v19_1_6_x86_linux.tar.xz
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
+          tar -xJvf llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
           echo "$GITHUB_WORKSPACE/llvm19/bin" >> $GITHUB_PATH
       - name: Run the tests in virtual environment
         run: |

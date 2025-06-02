@@ -128,7 +128,7 @@ ExternalProject_Add(tweedledum
     # changes for every invocation of `pip install'). So to spare ourselves the
     # grief of trying to monkeypatch the ninja path in CMakeCache.txt, just
     # delete the CMake cache entirely
-    #PATCH_COMMAND cmake -E rm -f -- <BINARY_DIR>/CMakeCache.txt
+    PATCH_COMMAND cmake -E rm -f -- <BINARY_DIR>/CMakeCache.txt
     # The tweedledum build files try to install to /usr/local, which is not
     # necessary. Fix taken from https://stackoverflow.com/a/39811200/321301
     INSTALL_COMMAND cmake -E echo "Skipping install step as we only need the static tweedledum library"

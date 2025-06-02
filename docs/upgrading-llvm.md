@@ -8,13 +8,21 @@ we're compatible with (CIRCT does something similar):
 
     $ git update-index --cacheinfo 160000,e21dc4bd5474d04b8e62d7331362edcc5648d7e5,tpls/llvm
 
-The next step is replacing every occurrence of `llvm19`, `19_1_6`, and `19.1.6`
+The next step is replacing every occurrence of `llvm20`, `20_1_6`, and `20.1.6`
 in `README.md` and all `docs/*.md` files. This command is useful for this task
 (but make sure to check the results are right):
 
     $ git help sed
     'sed' is aliased to '! git ls-files -s -z | grep -z -v '^16' | cut -z -f 2- | xargs -0 sed -i -e'
-    $ git sed 's/\<llvm19\>/llvmXX/g' -e 's/v19_1_6/vXX_Y_Z/g' -e 's/\<19_1_6\>/XX_Y_Z/g' -e 's/\<19\.1\.6/XX.Y.Z/g'
+    $ git sed 's/\<llvm20\>/llvmXX/g' -e 's/v20_1_6/vXX_Y_Z/g' -e 's/\<20_1_6\>/XX_Y_Z/g' -e 's/\<20\.1\.6/XX.Y.Z/g'
+
+Normally these commands should work, but in the case that it does not (or throw bizzare errors), you can configure git to include 'sed' as part of command line tool, with these lines:
+
+For mac:
+    $ git config --global alias.sed '! git ls-files -s | grep -v '\''^16'\'' | cut -f 2- | xargs env LC_ALL=C sed -E -i '\'\'' -e'
+    
+For linux:
+    $ git sed 's/\<llvm20\>/llvmXX/g ; s/v20_1_6/vXX_Y_Z/g ; s/\<20_1_6\>/XX_Y_Z/g ; s/\<20\.1\.6/XX.Y.Z/g'
 
 Then create a new release named "LLVM XX.Y.Z" and with the tag `vXX.Y.Z` here:
 <https://github.com/gt-tinker/qwerty-llvm-builds/releases>. GitHub Actions

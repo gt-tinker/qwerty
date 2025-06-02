@@ -11,9 +11,9 @@ Running Locally
 
 1. To build a manylinux-friendly LLVM build:
    ```
-   $ ./build-manylinux-llvm.sh docker 19.1.6
+   $ ./build-manylinux-llvm.sh docker 20.1.6
    ```
-   Then the result will be in `io/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz`.
+   Then the result will be in `io/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz`.
 
 2. To initially run the Qwerty compiler test suite:
    ```
@@ -50,7 +50,7 @@ Running on Rogues Gallery
 
 2. **Run on RG:** Build LLVM:
    ```
-   $ ./build-manylinux-llvm.sh apptainer 19.1.6
+   $ ./build-manylinux-llvm.sh apptainer 20.1.6
    ```
 
 [1]: https://peps.python.org/pep-0600/
