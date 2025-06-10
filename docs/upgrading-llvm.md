@@ -12,16 +12,14 @@ The next step is replacing every occurrence of `llvm20`, `20_1_6`, and `20.1.6`
 in `README.md` and all `docs/*.md` files. This command is useful for this task
 (but make sure to check the results are right):
 
-    $ git help sed
-    'sed' is aliased to '! git ls-files -s -z | grep -z -v '^16' | cut -z -f 2- | xargs -0 sed -i -e'
-    $ git sed 's/\<llvm20\>/llvmXX/g' -e 's/v20_1_6/vXX_Y_Z/g' -e 's/\<20_1_6\>/XX_Y_Z/g' -e 's/\<20\.1\.6/XX.Y.Z/g'
+    $ git sed 's/\<llvm20\>/llvmXX/g ; s/v20_1_6/vXX_Y_Z/g ; s/\<20_1_6\>/XX_Y_Z/g ; s/\<20\.1\.6/XX.Y.Z/g'
 
-Normally these commands should work, but in the case that it does not (or throw bizzare errors), you can configure git to include 'sed' as part of command line tool, with these lines:
+The git sed command used above is a custom alias. It's not a standard Git command and may not work out of the box on a random machine. To use it, you need to define the alias yourself. Here’s how to set it up:
 
-For mac:
+For macOS:
     $ git config --global alias.sed '! git ls-files -s | grep -v '\''^16'\'' | cut -f 2- | xargs env LC_ALL=C sed -E -i '\'\'' -e'
     
-For linux:
+For Linux:
     $ git sed 's/\<llvm20\>/llvmXX/g ; s/v20_1_6/vXX_Y_Z/g ; s/\<20_1_6\>/XX_Y_Z/g ; s/\<20\.1\.6/XX.Y.Z/g'
 
 Then create a new release named "LLVM XX.Y.Z" and with the tag `vXX.Y.Z` here:

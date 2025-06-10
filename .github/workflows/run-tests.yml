@@ -45,10 +45,10 @@ jobs:
         run: |
           wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
           tar -xJvf llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
-          echo "$GITHUB_WORKSPACE/llvm19/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/llvm20/bin" >> $GITHUB_PATH
       - name: Run the tests in virtual environment
         run: |
-          export MLIR_DIR="$GITHUB_WORKSPACE/llvm19/lib/cmake/mlir"
+          export MLIR_DIR="$GITHUB_WORKSPACE/llvm20/lib/cmake/mlir"
           export QWERTY_BUILD_TESTS=true
           python3 -m venv venv
           . venv/bin/activate

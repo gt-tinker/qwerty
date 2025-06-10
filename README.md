@@ -70,7 +70,7 @@ You can download our builds of LLVM from here:
 
 You can extract it with something like:
 
-    $ export LLVM_INSTALL_DIR=~/bin/llvm19
+    $ export LLVM_INSTALL_DIR=~/bin/llvm20
     $ mkdir -p "$LLVM_INSTALL_DIR"
     $ tar -C "$(dirname "$LLVM_INSTALL_DIR")" -xJvf ~/Downloads/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
     $ export PATH=$PATH:$LLVM_INSTALL_DIR/bin/
@@ -81,10 +81,10 @@ All three `export`s above should probably be in [your `~/.bashrc`][24] (or your
 
 ##### Windows
 
-Download the `.zip` above and put it somewhere like `C:\qwerty\llvm19`. (Avoid
+Download the `.zip` above and put it somewhere like `C:\qwerty\llvm20`. (Avoid
 spaces in the path.) Then press _Start_ and type in "environment variables"
 (either system or user should be fine). Set `MLIR_DIR`
-to `C:\qwerty\llvm19\lib\cmake\mlir` and add `C:\qwerty\llvm19\bin` to `Path`.
+to `C:\qwerty\llvm20\lib\cmake\mlir` and add `C:\qwerty\llvm20\bin` to `Path`.
 
 #### Option 2: Build LLVM Yourself
 
