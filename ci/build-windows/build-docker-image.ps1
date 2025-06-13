@@ -4,6 +4,14 @@
 #    containers. (You can right-click Docker Desktop in the notification area
 #    to swap it over if if needed.)
 # 3. Authenticate with the AWS CLI via `aws configure'
+#
+# Afterward, you can run `.\build-docker-image.ps1`. If you modified the
+# Dockerfile and want to force this script to rebuild it, pass the
+# -ForceRebuild flag, as in `.\build-docker-image -ForceRebuild`.
+
+param(
+	[switch]$ForceRebuild = $false
+)
 
 $aws_account_id = '917270012582'
 $aws_region = 'us-east-1'
@@ -11,10 +19,10 @@ $aws_ecr_repo_name = 'qwerty'
 $image_name = 'qwerty-llvm-vs'
 $image_sha = docker image list -q $image_name
 
-if ($image_sha) {
+if ($image_sha -and -not $ForceRebuild) {
     echo "=====> Image $image_name already exists, $image_sha. Skipping rebuild"
 } else {
-    echo "=====> Image $image_name does not exist, building..."
+    echo "=====> Image $image_name does not exist or rebuild requested, building..."
     docker build -t qwerty-llvm-vs .
     $image_sha = docker image list -q $image_name
 }

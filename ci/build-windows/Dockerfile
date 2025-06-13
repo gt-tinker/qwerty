@@ -36,3 +36,7 @@ RUN `
     `
     # Cleanup
     && del /q vs_buildtools.exe
+
+# Needed by CodeBuild even though that requirement is not documented.
+# "Customer obsession," huh?
+RUN msiexec.exe /i https://awscli.amazonaws.com/AWSCLIV2.msi /qn
