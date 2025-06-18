@@ -66,7 +66,7 @@ struct CalcConstantBinder {
                 return false;
             }
 
-            if (auto attr = llvm::dyn_cast<AttrT>(folded.front().get<mlir::Attribute>())) {
+            if (auto attr = llvm::dyn_cast<AttrT>(llvm::cast<mlir::Attribute> (folded.front()))) {
                 *bind_value = attr;
                 return true;
             }

@@ -101,7 +101,7 @@ public:
                            lattice->join(FuncSpecSet::entryState()));
     }
 
-    void visitOperation(mlir::Operation *op,
+    mlir::LogicalResult visitOperation(mlir::Operation *op,
                         llvm::ArrayRef<const FuncSpecLattice *> operands,
                         llvm::ArrayRef<FuncSpecLattice *> results) override;
 };

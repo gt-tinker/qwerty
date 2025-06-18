@@ -1,5 +1,7 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Analysis/FuncSpecAnalysis.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/Support/LogicalResult.h"
 
 namespace qwerty {
 
@@ -52,7 +54,7 @@ void FuncSpecSet::print(llvm::raw_ostream &os) const {
     }
 }
 
-void FuncSpecAnalysis::visitOperation(
+mlir::LogicalResult FuncSpecAnalysis::visitOperation(
         mlir::Operation *op,
         llvm::ArrayRef<const FuncSpecLattice *> operands,
         llvm::ArrayRef<FuncSpecLattice *> results) {
@@ -89,6 +91,8 @@ void FuncSpecAnalysis::visitOperation(
         // bottom
         setAllToEntryStates(results);
     }
+    //return statement here
+    return mlir::success();
 }
 
 } // namespace qwerty

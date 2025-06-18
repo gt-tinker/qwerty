@@ -1114,7 +1114,7 @@ mlir::CallInterfaceCallable CallOp::getCallableForCallee() {
 }
 
 void CallOp::setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
-    setCalleeAttr(llvm::cast<mlir::FlatSymbolRefAttr>(callee.get<mlir::SymbolRefAttr>()));
+    setCalleeAttr(llvm::cast<mlir::FlatSymbolRefAttr>(llvm::cast<mlir::SymbolRefAttr>(callee)));
 }
 
 mlir::Operation::operand_range CallOp::getArgOperands() {
@@ -1404,7 +1404,7 @@ mlir::CallInterfaceCallable CallIndirectOp::getCallableForCallee() {
 }
 
 void CallIndirectOp::setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
-    getCalleeMutable().assign(callee.get<mlir::Value>());
+    getCalleeMutable().assign(llvm::cast<mlir::Value>(callee));
 }
 
 /// Get the argument callOperands in the called function.
