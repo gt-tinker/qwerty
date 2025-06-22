@@ -3,6 +3,7 @@
 use crate::ast::*;
 use crate::error::{TypeError, TypeErrorKind};
 use std::collections::HashMap;
+use std::iter::zip;
 
 //
 // ─── TYPE ENVIRONMENT ───────────────────────────────────────────────────────────
@@ -302,6 +303,104 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 //
 // ─── QLIT, VECTOR, BASIS HELPERS ──────────────────────────────────────────────
 //
+
+fn qlit_dim(qlit: &QLit) -> Option<usize> {
+    match qlit {
+        QLit::ZeroQubit{..} | QLit::OneQubit{..} => Some(1),
+        QLit::QubitTilt{q: inner_qlit, ..} => qlit_dim(inner_qlit),
+        QLit::UniformSuperpos{q1: inner_qlit1, q2: inner_qlit2, ..} =>
+            match (qlit_dim(inner_qlit1), qlit_dim(inner_qlit2)) {
+                (Some(inner_dim1), Some(inner_dim2))
+                    if inner_dim1 == inner_dim2
+                    => Some(inner_dim1),
+                _ => None,
+            }
+        QLit::QubitTensor{qs: inner_qlits, ..} =>
+            if inner_qlits.len() == 0 {
+                None
+            } else {
+                inner_qlits.iter().try_fold(0, |acc, ql| qlit_dim(ql).map(|dim| acc + dim))
+            }
+    }
+}
+
+fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
+    if qlits1.len() != qlits2.len() {
+       return false // Malformed, probably
+    } else if qlits1.is_empty() {
+       return false // That is even more likely to be malformed
+    }
+
+    // First, make sure dimension line up so that our orthogonality check even
+    // makes sense. This assumes that there are no nested tensors
+    for (qlit1, qlit2) in zip(qlits1, qlits2) {
+        match (qlit_dim(qlit1), qlit_dim(qlit2)) {
+            (Some(dim1), Some(dim2)) if dim1 == dim2 => {
+                // keep going
+            },
+            _ => {
+                return false;
+            },
+        }
+    }
+
+    // Now search for some orthogonality
+
+    for (qlit1, qlit2) in zip(qlits1, qlits2) {
+        if qlits_are_ortho(qlit1, qlit2) {
+            return true
+        }
+    }
+
+    // Couldn't find any orthogonality. Conservatively assume there ain't any
+    return false
+}
+
+fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let modulo = diff % (2.0 * std::f64::consts::PI);
+    modulo.abs() < 1e9
+}
+
+fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let mut modulo = diff % (2.0 * std::f64::consts::PI);
+    if modulo < 0.0 {
+        modulo = -modulo;
+    }
+    (modulo - 180.0).abs() < 1e9
+}
+
+// TODO: need to normalize first, i.e., remove nested tensors
+fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
+    match (qlit1, qlit2) {
+        (QLit::ZeroQubit{..}, QLit::OneQubit{..}) => true, // O-Std
+        (QLit::OneQubit{..}, QLit::ZeroQubit{..}) => true, // O-Std + O-Com
+        (QLit::QubitTilt{q: inner_qlit1, ..}, _) => qlits_are_ortho(inner_qlit1, qlit2), // O-Tilt
+        (_, QLit::QubitTilt{q: inner_qlit2, ..}) => qlits_are_ortho(qlit1, inner_qlit2), // O-Tilt + O-Com
+        (QLit::QubitTensor{qs: inner_qlits1, ..},
+         QLit::QubitTensor{qs: inner_qlits2, ..}) => tensors_are_ortho(&inner_qlits1, &inner_qlits2), // O-Tens + O-Shuf
+        (QLit::UniformSuperpos{q1: QLit::QubitTilt{q: inner_qlit1a, angle_deg: angle_deg_1a, ..},
+                               q2: QLit::QubitTilt{q: inner_qlit2a, angle_deg: angle_deg_2a, ..}, ..},
+         QLit::UniformSuperpos{q1: QLit::QubitTilt{q: inner_qlit1b, angle_deg: angle_deg_1b, ..},
+                               q2: QLit::QubitTilt{q: inner_qlit2b, angle_deg: angle_deg_2b, ..}, ..})
+        if inner_qlit1a == inner_qlit1b
+           && inner_qlit2a == inner_qlit2b
+           && qlits_are_ortho(inner_qlit1a, inner_qlit2a)
+           && (on_phase(angle_deg_1a, angle_deg_1b) && off_phase(angle_deg_2a, angle_deg_2b))
+              || (off_phase(angle_deg_1a, angle_deg_1b) && on_phase(angle_deg_2a, angle_deg_2b)) => true, // O-SupNeg
+        // TODO: need to handle cases where angle_deg is effectively 0 when there is no outer tilt
+        (QLit::UniformSuperpos{q1: inner_qlit1, q2: inner_qlit2, ..},
+         QLit::UniformSuperpos{q1: inner_qlit3, q2: inner_qlit4, ..}) => // O-Sup
+            qlits_are_ortho(inner_qlit1, inner_qlit2)
+            && qlits_are_ortho(inner_qlit1, inner_qlit3)
+            && qlits_are_ortho(inner_qlit1, inner_qlit4)
+            && qlits_are_ortho(inner_qlit2, inner_qlit3)
+            && qlits_are_ortho(inner_qlit2, inner_qlit4)
+            && qlits_are_ortho(inner_qlit3, inner_qlit4),
+        _ => false,
+    }
+}
 
 /// Typecheck a QLit node.
 /// TODO: Enforce Qwerty rules about QLit types and quantum registers.

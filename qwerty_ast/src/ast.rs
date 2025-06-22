@@ -45,6 +45,7 @@ pub enum QLit {
     OneQubit { span: Option<SourceSpan> },
     QubitTilt {
         q: Box<QLit>,
+        angle_deg: f64,
         span: Option<SourceSpan>,
     },
     UniformSuperpos {
@@ -68,6 +69,7 @@ pub enum Vector {
     TargetVector { span: Option<SourceSpan> },
     VectorTilt {
         q: Box<QLit>,
+        angle_deg: f64,
         span: Option<SourceSpan>,
     },
     UniformVectorSuperpos {
