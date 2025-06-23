@@ -25,4 +25,15 @@ The way the dimension variable expression solver works is as follows:
     3. (Within the `solve` function) Simplify two candidate constraints and move all constant values to one side, then create a matrix representing a system of equations for our constraints and solve it, yielding values for our dimension variables.
 
 
+## Coverage
+To get coverage, run:
+```
+$ cargo llvm-cov --html
+```
+Then you can open `qwerty_ast/target/llvm-cov/html/index.html` (relative to the
+repo root) in your browser.
 
+You may need to install `cargo-llvm-cov` first with:
+```
+$ cargo +stable install cargo-llvm-cov --locked
+```
