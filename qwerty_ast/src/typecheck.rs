@@ -304,6 +304,29 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 // ─── QLIT, VECTOR, BASIS HELPERS ──────────────────────────────────────────────
 //
 
+/// Tolerance for floating point comparison
+const ATOL: f64 = 1e-12;
+
+/// Returns true iff the two phases are the same angle (up to a multiple of 360)
+fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let modulo = diff % 360.0;
+    modulo.abs() < ATOL
+}
+
+/// Returns true iff the two phases differ by 180 degrees (up to a multiple of
+/// 360)
+fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let mut modulo = diff % 360.0;
+    if modulo < 0.0 {
+        modulo = -modulo;
+    }
+    (modulo - 180.0).abs() < ATOL
+}
+
+/// Returns number of qubits represented by a qubit literal (|ql| in the
+/// Appendix) or None if the qubit literal is malformed.
 fn qlit_dim(qlit: &QLit) -> Option<usize> {
     match qlit {
         QLit::ZeroQubit { .. } | QLit::OneQubit { .. } => Some(1),
@@ -330,7 +353,11 @@ fn qlit_dim(qlit: &QLit) -> Option<usize> {
     }
 }
 
-// O-Shuf + O-Tens
+/// Implements the O-Shuf and O-Tens rules by scanning a pair of tensor
+/// products elementwise for any pair of orthogonal vectors. If it finds one,
+/// that pair is sufficient to conclude that the overall tensor products are
+/// orthogonal. Conservatively requires that all dimensions are equal in both
+/// tensor products.
 fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
     if qlits1.len() != qlits2.len() {
         return false; // Malformed, probably
@@ -361,27 +388,6 @@ fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
 
     // Couldn't find any orthogonality. Conservatively assume there ain't any
     return false;
-}
-
-/// Tolerance for floating point comparison
-const ATOL: f64 = 1e-12;
-
-/// Returns true iff the two phases are the same angle (up to a multiple of 360)
-fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
-    let diff = angle_deg1 - angle_deg2;
-    let modulo = diff % 360.0;
-    modulo.abs() < ATOL
-}
-
-/// Returns true iff the two phases differ by 180 degrees (up to a multiple of
-/// 360)
-fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
-    let diff = angle_deg1 - angle_deg2;
-    let mut modulo = diff % 360.0;
-    if modulo < 0.0 {
-        modulo = -modulo;
-    }
-    (modulo - 180.0).abs() < ATOL
 }
 
 /// Checks the O-SupNeg rule. In other words, verifies the following:
@@ -591,9 +597,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
         QLit::UniformSuperpos { q1, q2, .. } => {
             let t1 = typecheck_qlit(q1, _env)?;
             let t2 = typecheck_qlit(q2, _env)?;
-            if t1 == t2 {
-                Ok(t1)
-            } else {
+            if t1 != t2 {
                 Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
                         expected: format!("{:?}", t1),
