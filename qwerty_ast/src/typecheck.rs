@@ -591,7 +591,9 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
         QLit::UniformSuperpos { q1, q2, .. } => {
             let t1 = typecheck_qlit(q1, _env)?;
             let t2 = typecheck_qlit(q2, _env)?;
-            if t1 != t2 {
+            if t1 == t2 {
+                Ok(t1)
+            } else {
                 Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
                         expected: format!("{:?}", t1),
@@ -616,10 +618,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
             // TODO: Combine types; for now, just check all are Qubits.
             for q in qs {
                 let t = typecheck_qlit(q, _env)?;
-                if t != (Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim: 1,
-                }) {
+                if t != (Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }) {
                     return Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
                         span: None,
@@ -664,10 +663,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         Vector::VectorTensor { qs, .. } => {
             for q in qs {
                 let t = typecheck_qlit(q, _env)?;
-                if t != (Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim: 1,
-                }) {
+                if t != (Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }) {
                     return Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
                         span: None,
