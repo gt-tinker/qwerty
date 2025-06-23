@@ -26,6 +26,7 @@ pub enum TypeErrorKind {
     InvalidType(String),
     InvalidOperation { op: String, ty: String },
     TypeInferenceFailure,
+    NotOrthogonal { left: String, right: String },
     // Quantum-specific errors:
     QuantumMeasurementOnClassical(String),
     InvalidQubitOperation(String),

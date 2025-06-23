@@ -357,14 +357,18 @@ fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
     return false
 }
 
+/// Tolerance for floating point comparison
 const ATOL: f64 = 1e-12;
 
+/// Returns true iff the two phases are the same angle (up to a multiple of 360)
 fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let modulo = diff % 360.0;
     modulo.abs() < ATOL
 }
 
+/// Returns true iff the two phases differ by 180 degrees (up to a multiple of
+/// 360)
 fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let mut modulo = diff % 360.0;
@@ -374,8 +378,10 @@ fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     (modulo - 180.0).abs() < ATOL
 }
 
-// O-SupNeg. In other words, verifies that
-// qlit1a@angle_deg1a + qlit2a@angle_deg2a _|_ qlit1b@angle_deg1b + qlit2b@angle_deg2b
+/// Checks the O-SupNeg rule. In other words, verifies the following:
+/// ```ignore
+/// qlit1a@angle_deg1a + qlit2a@angle_deg2a _|_ qlit1b@angle_deg1b + qlit2b@angle_deg2b
+/// ```
 fn supneg_ortho(qlit1a: &QLit, angle_deg_1a: f64,
                 qlit2a: &QLit, angle_deg_2a: f64,
                 qlit1b: &QLit, angle_deg_1b: f64,
@@ -387,7 +393,9 @@ fn supneg_ortho(qlit1a: &QLit, angle_deg_1a: f64,
             || off_phase(angle_deg_1a, angle_deg_2a) && on_phase(angle_deg_1b, angle_deg_2b))
 }
 
-// Expected to be called on the q1 and q2 of a QLit::Superpos
+/// Checks whether `(qlit1a + qlit2a) _|_ (qlit1b + qlit2b)` using the O-Sup
+/// and O-SupNeg rules (_not_ any structural rules such as O-Com). That is,
+/// this is expected to be called on the `q1` and `q2` of a `QLit::Superpos`.
 fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
     match ((qlit1a, qlit2a), (qlit1b, qlit2b)) {
         ((QLit::QubitTilt{q: inner_qlit1a, angle_deg: angle_deg_1a, ..},
@@ -425,7 +433,8 @@ fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit
     }
 }
 
-// O-Com + O-SupCom
+/// Apply the structural rules (O-Com and O-SupCom) to attempt
+/// `superpos_are_ortho()` with different / orderings of the superpos operands.
 fn superpos_are_ortho_comm(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
     superpos_are_ortho(qlit1a, qlit2a, qlit1b, qlit2b)
     || superpos_are_ortho(qlit1a, qlit2a, qlit2b, qlit1b)
@@ -433,8 +442,9 @@ fn superpos_are_ortho_comm(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: 
     || superpos_are_ortho(qlit2a, qlit1a, qlit2b, qlit1b)
 }
 
-// TODO: need to normalize first, i.e., remove nested tensors
+/// Determine if qubit literals are orthogonal without using O-Com
 fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
+    // TODO: need to normalize first, i.e., remove nested tensors
     match (qlit1, qlit2) {
         (QLit::ZeroQubit{..}, QLit::OneQubit{..}) => true, // O-Std
         (QLit::QubitTilt{q: inner_qlit1, ..}, _) if qlits_are_ortho_comm(inner_qlit1, qlit2) => true, // O-Tilt
@@ -447,6 +457,7 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     }
 }
 
+/// Try `qlits_are_ortho()` and then try again after applying O-Com
 fn qlits_are_ortho_comm(qlit1: &QLit, qlit2: &QLit) -> bool {
     qlits_are_ortho(qlit1, qlit2)
     || qlits_are_ortho(qlit2, qlit1) // O-Com
@@ -466,9 +477,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
         QLit::UniformSuperpos { q1, q2, .. } => {
             let t1 = typecheck_qlit(q1, _env)?;
             let t2 = typecheck_qlit(q2, _env)?;
-            if t1 == t2 {
-                Ok(t1)
-            } else {
+            if t1 != t2 {
                 Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
                         expected: format!("{:?}", t1),
@@ -476,6 +485,16 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                     },
                     span: None,
                 })
+            } else if !qlits_are_ortho_comm(q1, q2) {
+                Err(TypeError {
+                    kind: TypeErrorKind::NotOrthogonal {
+                        left: format!("{:?}", q1),
+                        right: format!("{:?}", q2),
+                    },
+                    span: None,
+                })
+            } else {
+                Ok(t1)
             }
         }
 
@@ -861,6 +880,161 @@ mod tests {
                     span: None}),
                 span: None
             }));
+
+        // ('0'*'0' + '0'*'1') * '0' !_|_ '0'*'0'*'0'
+        assert!(!qlits_are_ortho_comm(
+            &QLit::QubitTensor{
+                qs: vec![
+                    QLit::UniformSuperpos{
+                        q1: Box::new(QLit::QubitTensor{qs: vec![
+                            QLit::ZeroQubit{span: None},
+                            QLit::ZeroQubit{span: None},
+                        ], span: None}),
+                        q2: Box::new(QLit::QubitTensor{qs: vec![
+                            QLit::ZeroQubit{span: None},
+                            QLit::OneQubit{span: None},
+                        ], span: None}),
+                        span: None},
+                    QLit::ZeroQubit{span: None}
+                ],
+                span: None},
+            &QLit::QubitTensor{
+                qs: vec![
+                    QLit::ZeroQubit{span: None},
+                    QLit::ZeroQubit{span: None},
+                    QLit::ZeroQubit{span: None}
+                ],
+                span: None}));
+
+        // ('0'*'0' + '0'*'1') * '0' !_|_ '0'*'0'
+        assert!(!qlits_are_ortho_comm(
+            &QLit::QubitTensor{
+                qs: vec![
+                    QLit::UniformSuperpos{
+                        q1: Box::new(QLit::QubitTensor{qs: vec![
+                            QLit::ZeroQubit{span: None},
+                            QLit::ZeroQubit{span: None},
+                        ], span: None}),
+                        q2: Box::new(QLit::QubitTensor{qs: vec![
+                            QLit::ZeroQubit{span: None},
+                            QLit::OneQubit{span: None},
+                        ], span: None}),
+                        span: None},
+                    QLit::ZeroQubit{span: None}
+                ],
+                span: None},
+            &QLit::QubitTensor{
+                qs: vec![
+                    QLit::ZeroQubit{span: None},
+                    QLit::ZeroQubit{span: None}
+                ],
+                span: None}));
+
+        // _ * _ !_|_ _ * _
+        // \___/      \____/
+        //   \           /
+        //  empty tensor products
+        assert!(!qlits_are_ortho_comm(
+            &QLit::QubitTensor{
+                qs: vec![],
+                span: None},
+            &QLit::QubitTensor{
+                qs: vec![],
+                span: None}));
+
+        // '0'*'0' _|_ ('0'@45)*'1'
+        assert!(qlits_are_ortho_comm(
+            &QLit::QubitTensor{qs: vec![
+                QLit::ZeroQubit{span: None},
+                QLit::ZeroQubit{span: None},
+            ], span: None},
+            &QLit::QubitTensor{qs: vec![
+                QLit::QubitTilt{
+                    q: Box::new(QLit::ZeroQubit{span: None}),
+                    angle_deg: 45.0,
+                    span: None},
+                QLit::OneQubit{span: None},
+            ], span: None},
+        ));
+
+        // ('0'+'1')*'0' _|_ ('0'+-'1')*'0'
+        assert!(qlits_are_ortho_comm(
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::ZeroQubit{span: None}),
+                    q2: Box::new(QLit::OneQubit{span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::ZeroQubit{span: None}),
+                    q2: Box::new(QLit::QubitTilt{
+                        q: Box::new(QLit::OneQubit{span: None}),
+                        angle_deg: 180.0,
+                        span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+        ));
+
+        // (('0'*'0')+'1')*'0' !_|_ ('0'+-'1')*'0'
+        assert!(!qlits_are_ortho_comm(
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::QubitTensor{
+                        qs: vec![
+                            QLit::ZeroQubit{span: None},
+                            QLit::ZeroQubit{span: None}
+                        ],
+                        span: None}),
+                    q2: Box::new(QLit::OneQubit{span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::ZeroQubit{span: None}),
+                    q2: Box::new(QLit::QubitTilt{
+                        q: Box::new(QLit::OneQubit{span: None}),
+                        angle_deg: 180.0,
+                        span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+        ));
+
+        // ((_ * _)+'1')*'0' !_|_ ('0'+-'1')*'0'
+        //  \_____/
+        //     \
+        //      empty tensor product
+        assert!(!qlits_are_ortho_comm(
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::QubitTensor{
+                        qs: vec![],
+                        span: None}),
+                    q2: Box::new(QLit::OneQubit{span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+            &QLit::QubitTensor{qs: vec![
+                QLit::UniformSuperpos{
+                    q1: Box::new(QLit::ZeroQubit{span: None}),
+                    q2: Box::new(QLit::QubitTilt{
+                        q: Box::new(QLit::OneQubit{span: None}),
+                        angle_deg: 180.0,
+                        span: None}),
+                    span: None
+                },
+                QLit::ZeroQubit{span: None}
+            ], span: None},
+        ));
     }
 
     // TODO: Add more tests for all language constructs! In separate test file? Later
