@@ -616,8 +616,8 @@ fn basis_vectors_are_ortho_nocomm(bv_1: &Vector, bv_2: &Vector) -> bool {
 /// orthogonality rules. Practically, this means attempting
 /// `basis_vectors_are_ortho()` and then trying again after applying O-Sym.
 fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
-    basis_vectors_are_ortho_nocomm(bv_1, bv_2) || basis_vectors_are_ortho_nocomm(bv_2, bv_1)
     // O-Sym
+    basis_vectors_are_ortho_nocomm(bv_1, bv_2) || basis_vectors_are_ortho_nocomm(bv_2, bv_1)
 }
 
 fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
@@ -691,7 +691,10 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         Vector::ZeroVector { .. }
         | Vector::OneVector { .. }
         | Vector::PadVector { .. }
-        | Vector::TargetVector { .. } => Ok(Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }),
+        | Vector::TargetVector { .. } => Ok(Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim: 1,
+        }),
 
         Vector::VectorTilt { q, .. } => typecheck_vector(q, _env),
 
@@ -738,7 +741,10 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
     match basis {
         Basis::BasisLiteral { vecs, span } => {
             if vecs.is_empty() {
-                return Err(TypeError { kind: TypeErrorKind::EmptyLiteral, span: span.clone() });
+                return Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    span: span.clone(),
+                });
             }
 
             let first_ty = typecheck_vector(&vecs[0], env)?;
@@ -746,31 +752,55 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
             if let Type::RegType { elem_ty, dim } = &first_ty {
                 // TODO: use span of vecs[0], not span of basis literal
                 if *elem_ty != RegKind::Qubit {
-                    return Err(TypeError { kind: TypeErrorKind::InvalidBasis, span: span.clone()});
+                    return Err(TypeError {
+                        kind: TypeErrorKind::InvalidBasis,
+                        span: span.clone(),
+                    });
                 }
                 if *dim < 1 {
-                    return Err(TypeError { kind: TypeErrorKind::EmptyLiteral, span: span.clone()});
+                    return Err(TypeError {
+                        kind: TypeErrorKind::EmptyLiteral,
+                        span: span.clone(),
+                    });
                 }
 
-                vecs.iter().try_for_each(|v| typecheck_vector(v, env).and_then(|ty|
-                    if ty == first_ty {
-                        Ok(())
-                    } else {
-                        // TODO: use span of v, not span of basis literal
-                        Err(TypeError{ kind: TypeErrorKind::DimMismatch, span: span.clone()})
-                    }))?;
+                vecs.iter().try_for_each(|v| {
+                    typecheck_vector(v, env).and_then(|ty| {
+                        if ty == first_ty {
+                            Ok(())
+                        } else {
+                            // TODO: use span of v, not span of basis literal
+                            Err(TypeError {
+                                kind: TypeErrorKind::DimMismatch,
+                                span: span.clone(),
+                            })
+                        }
+                    })
+                })?;
 
                 for (i, v_1) in vecs.iter().enumerate() {
-                    for v_2 in &vecs[i+1..] {
+                    for v_2 in &vecs[i + 1..] {
                         if !basis_vectors_are_ortho(v_1, v_2) {
-                            return Err(TypeError { kind: TypeErrorKind::NotOrthogonal {left: format!("{:?}", v_1), right: format!("{:?}", v_2) }, span: span.clone()});
+                            return Err(TypeError {
+                                kind: TypeErrorKind::NotOrthogonal {
+                                    left: format!("{:?}", v_1),
+                                    right: format!("{:?}", v_2),
+                                },
+                                span: span.clone(),
+                            });
                         }
                     }
                 }
 
-                Ok(Type::RegType {elem_ty: RegKind::Basis, dim: *dim }) // TODO: Should this return a Basis type?
+                Ok(Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim: *dim,
+                }) // TODO: Should this return a Basis type?
             } else {
-                Err(TypeError{ kind: TypeErrorKind::InvalidBasis, span: span.clone()})
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidBasis,
+                    span: span.clone(),
+                })
             }
         }
 
