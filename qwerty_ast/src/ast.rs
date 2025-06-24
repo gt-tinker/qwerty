@@ -72,17 +72,17 @@ pub enum Vector {
         dbg: Option<DebugLoc>,
     },
     VectorTilt {
-        q: Box<QLit>,
+        q: Box<Vector>,
         angle_deg: f64,
         dbg: Option<DebugLoc>,
     },
     UniformVectorSuperpos {
-        q1: Box<QLit>,
-        q2: Box<QLit>,
+        q1: Box<Vector>,
+        q2: Box<Vector>,
         dbg: Option<DebugLoc>,
     },
     VectorTensor {
-        qs: Vec<QLit>,
+        qs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
 }

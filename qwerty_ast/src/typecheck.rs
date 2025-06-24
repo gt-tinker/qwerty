@@ -651,11 +651,11 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         | Vector::PadVector { .. }
         | Vector::TargetVector { .. } => Ok(Type::UnitType), // TODO: clarify
 
-        Vector::VectorTilt { q, .. } => typecheck_qlit(q, _env),
+        Vector::VectorTilt { q, .. } => typecheck_vector(q, _env),
 
         Vector::UniformVectorSuperpos { q1, q2, .. } => {
-            let t1 = typecheck_qlit(q1, _env)?;
-            let t2 = typecheck_qlit(q2, _env)?;
+            let t1 = typecheck_vector(q1, _env)?;
+            let t2 = typecheck_vector(q2, _env)?;
             if t1 == t2 {
                 Ok(t1)
             } else {
@@ -671,7 +671,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
 
         Vector::VectorTensor { qs, .. } => {
             for q in qs {
-                let t = typecheck_qlit(q, _env)?;
+                let t = typecheck_vector(q, _env)?;
                 if t != (Type::RegType {
                     elem_ty: RegKind::Qubit,
                     dim: 1,
