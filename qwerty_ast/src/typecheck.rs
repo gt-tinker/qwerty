@@ -327,29 +327,57 @@ fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     (modulo - 180.0).abs() < ATOL
 }
 
+/// Converts a qubit literal to a basis vector since in Appendix A, every ql is
+/// a bv.
+fn convert_qlit_to_basis_vector(qlit: &QLit) -> Vector {
+    match qlit {
+        QLit::ZeroQubit { dbg } => Vector::ZeroVector { dbg: dbg.clone() },
+        QLit::OneQubit { dbg } => Vector::OneVector { dbg: dbg.clone() },
+        QLit::QubitTilt { q, angle_deg, dbg } => Vector::VectorTilt {
+            q: Box::new(convert_qlit_to_basis_vector(&**q)),
+            angle_deg: *angle_deg,
+            dbg: dbg.clone(),
+        },
+        QLit::UniformSuperpos { q1, q2, dbg } => Vector::UniformVectorSuperpos {
+            q1: Box::new(convert_qlit_to_basis_vector(&**q1)),
+            q2: Box::new(convert_qlit_to_basis_vector(&**q2)),
+            dbg: dbg.clone(),
+        },
+        QLit::QubitTensor { qs, dbg } => Vector::VectorTensor {
+            qs: qs.iter().map(convert_qlit_to_basis_vector).collect(),
+            dbg: dbg.clone(),
+        },
+    }
+}
+
 /// Returns number of qubits represented by a qubit literal (|ql| in the
 /// Appendix) or None if the qubit literal is malformed.
 fn qlit_dim(qlit: &QLit) -> Option<usize> {
-    match qlit {
-        QLit::ZeroQubit { .. } | QLit::OneQubit { .. } => Some(1),
-        QLit::QubitTilt { q: inner_qlit, .. } => qlit_dim(inner_qlit),
-        QLit::UniformSuperpos {
-            q1: inner_qlit1,
-            q2: inner_qlit2,
+    basis_vector_dim(&convert_qlit_to_basis_vector(qlit))
+}
+
+/// Returns number of non-target and non-padding qubits represented by a basis
+/// vector (⌊bv⌋ in the Appendix) or None if the basis vector is malformed.
+fn basis_vector_dim(bv: &Vector) -> Option<usize> {
+    match bv {
+        Vector::ZeroVector { .. } | Vector::OneVector { .. } => Some(1),
+        Vector::PadVector { .. } | Vector::TargetVector { .. } => Some(0),
+        Vector::VectorTilt { q: inner_bv, .. } => basis_vector_dim(inner_bv),
+        Vector::UniformVectorSuperpos {
+            q1: inner_bv_1,
+            q2: inner_bv_2,
             ..
-        } => match (qlit_dim(inner_qlit1), qlit_dim(inner_qlit2)) {
+        } => match (basis_vector_dim(inner_bv_1), basis_vector_dim(inner_bv_2)) {
             (Some(inner_dim1), Some(inner_dim2)) if inner_dim1 == inner_dim2 => Some(inner_dim1),
             _ => None,
         },
-        QLit::QubitTensor {
-            qs: inner_qlits, ..
-        } => {
-            if inner_qlits.len() == 0 {
+        Vector::VectorTensor { qs: inner_bvs, .. } => {
+            if inner_bvs.len() == 0 {
                 None
             } else {
-                inner_qlits
+                inner_bvs
                     .iter()
-                    .try_fold(0, |acc, ql| qlit_dim(ql).map(|dim| acc + dim))
+                    .try_fold(0, |acc, ql| basis_vector_dim(ql).map(|dim| acc + dim))
             }
         }
     }
@@ -360,17 +388,17 @@ fn qlit_dim(qlit: &QLit) -> Option<usize> {
 /// that pair is sufficient to conclude that the overall tensor products are
 /// orthogonal. Conservatively requires that all dimensions are equal in both
 /// tensor products.
-fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
-    if qlits1.len() != qlits2.len() {
+fn tensors_are_ortho(bvs1: &[Vector], bvs2: &[Vector]) -> bool {
+    if bvs1.len() != bvs2.len() {
         return false; // Malformed, probably
-    } else if qlits1.is_empty() {
+    } else if bvs1.is_empty() {
         return false; // That is even more likely to be malformed
     }
 
     // First, make sure dimension line up so that our orthogonality check even
     // makes sense. This assumes that there are no nested tensors
-    for (qlit1, qlit2) in zip(qlits1, qlits2) {
-        match (qlit_dim(qlit1), qlit_dim(qlit2)) {
+    for (bv_1, bv_2) in zip(bvs1, bvs2) {
+        match (basis_vector_dim(bv_1), basis_vector_dim(bv_2)) {
             (Some(dim1), Some(dim2)) if dim1 == dim2 => {
                 // keep going
             }
@@ -382,8 +410,8 @@ fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
 
     // Now search for some orthogonality
 
-    for (qlit1, qlit2) in zip(qlits1, qlits2) {
-        if qlits_are_ortho_sym(qlit1, qlit2) {
+    for (bv_1, bv_2) in zip(bvs1, bvs2) {
+        if basis_vectors_are_ortho(bv_1, bv_2) {
             return true;
         }
     }
@@ -394,63 +422,64 @@ fn tensors_are_ortho(qlits1: &[QLit], qlits2: &[QLit]) -> bool {
 
 /// Checks the O-SupNeg rule. In other words, verifies the following:
 /// ```ignore
-/// qlit1a@angle_deg1a + qlit2a@angle_deg2a _|_ qlit1b@angle_deg1b + qlit2b@angle_deg2b
+/// bv_1a@angle_deg1a + bv_2a@angle_deg2a _|_ bv_1b@angle_deg1b + bv_2b@angle_deg2b
 /// ```
 fn supneg_ortho(
-    qlit1a: &QLit,
+    bv_1a: &Vector,
     angle_deg_1a: f64,
-    qlit2a: &QLit,
+    bv_2a: &Vector,
     angle_deg_2a: f64,
-    qlit1b: &QLit,
+    bv_1b: &Vector,
     angle_deg_1b: f64,
-    qlit2b: &QLit,
+    bv_2b: &Vector,
     angle_deg_2b: f64,
 ) -> bool {
-    qlit1a == qlit1b
-        && qlit2a == qlit2b
-        && qlits_are_ortho_sym(qlit1a, qlit2a)
+    bv_1a == bv_1b
+        && bv_2a == bv_2b
+        && basis_vectors_are_ortho(bv_1a, bv_2a)
         && (on_phase(angle_deg_1a, angle_deg_2a) && off_phase(angle_deg_1b, angle_deg_2b)
             || off_phase(angle_deg_1a, angle_deg_2a) && on_phase(angle_deg_1b, angle_deg_2b))
 }
 
-/// Checks whether `(qlit1a + qlit2a) _|_ (qlit1b + qlit2b)` using the O-Sup
+/// Checks whether `(bv_1a + bv_2a) _|_ (bv_1b + bv_2b)` using the O-Sup
 /// and O-SupNeg rules (_not_ any structural rules such as O-Sym). That is,
-/// this is expected to be called on the `q1` and `q2` of a `QLit::Superpos`.
-fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
-    match ((qlit1a, qlit2a), (qlit1b, qlit2b)) {
+/// this is expected to be called on the `q1` and `q2` of a
+/// `Vector::UniformVectorSuperpos`.
+fn superpos_are_ortho(bv_1a: &Vector, bv_2a: &Vector, bv_1b: &Vector, bv_2b: &Vector) -> bool {
+    match ((bv_1a, bv_2a), (bv_1b, bv_2b)) {
         (
             (
-                QLit::QubitTilt {
-                    q: inner_qlit1a,
+                Vector::VectorTilt {
+                    q: inner_bv_1a,
                     angle_deg: angle_deg_1a,
                     ..
                 },
-                QLit::QubitTilt {
-                    q: inner_qlit2a,
+                Vector::VectorTilt {
+                    q: inner_bv_2a,
                     angle_deg: angle_deg_2a,
                     ..
                 },
             ),
             (
-                QLit::QubitTilt {
-                    q: inner_qlit1b,
+                Vector::VectorTilt {
+                    q: inner_bv_1b,
                     angle_deg: angle_deg_1b,
                     ..
                 },
-                QLit::QubitTilt {
-                    q: inner_qlit2b,
+                Vector::VectorTilt {
+                    q: inner_bv_2b,
                     angle_deg: angle_deg_2b,
                     ..
                 },
             ),
         ) if supneg_ortho(
-            inner_qlit1a,
+            inner_bv_1a,
             *angle_deg_1a,
-            inner_qlit2a,
+            inner_bv_2a,
             *angle_deg_2a,
-            inner_qlit1b,
+            inner_bv_1b,
             *angle_deg_1b,
-            inner_qlit2b,
+            inner_bv_2b,
             *angle_deg_2b,
         ) =>
         {
@@ -460,21 +489,21 @@ fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit
         (
             (
                 _,
-                QLit::QubitTilt {
-                    q: inner_qlit2a,
+                Vector::VectorTilt {
+                    q: inner_bv_2a,
                     angle_deg: angle_deg_2a,
                     ..
                 },
             ),
             _,
         ) if supneg_ortho(
-            qlit1a,
+            bv_1a,
             0.0,
-            inner_qlit2a,
+            inner_bv_2a,
             *angle_deg_2a,
-            qlit1b,
+            bv_1b,
             0.0,
-            qlit2b,
+            bv_2b,
             0.0,
         ) =>
         {
@@ -484,41 +513,41 @@ fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit
         (
             (
                 _,
-                QLit::QubitTilt {
-                    q: inner_qlit2a,
+                Vector::VectorTilt {
+                    q: inner_bv_2a,
                     angle_deg: angle_deg_2a,
                     ..
                 },
             ),
             (
-                QLit::QubitTilt {
-                    q: inner_qlit1b,
+                Vector::VectorTilt {
+                    q: inner_bv_1b,
                     angle_deg: angle_deg_1b,
                     ..
                 },
                 _,
             ),
         ) if supneg_ortho(
-            qlit1a,
+            bv_1a,
             0.0,
-            inner_qlit2a,
+            inner_bv_2a,
             *angle_deg_2a,
-            inner_qlit1b,
+            inner_bv_1b,
             *angle_deg_1b,
-            qlit2b,
+            bv_2b,
             0.0,
         ) =>
         {
             true
         } // O-SupNeg + O-SupNoTilt
 
-        ((inner_qlit1, inner_qlit2), (inner_qlit3, inner_qlit4))
-            if qlits_are_ortho_sym(inner_qlit1, inner_qlit2)
-                && qlits_are_ortho_sym(inner_qlit1, inner_qlit3)
-                && qlits_are_ortho_sym(inner_qlit1, inner_qlit4)
-                && qlits_are_ortho_sym(inner_qlit2, inner_qlit3)
-                && qlits_are_ortho_sym(inner_qlit2, inner_qlit4)
-                && qlits_are_ortho_sym(inner_qlit3, inner_qlit4) =>
+        ((inner_bv_1, inner_bv_2), (inner_bv_3, inner_bv_4))
+            if basis_vectors_are_ortho(inner_bv_1, inner_bv_2)
+                && basis_vectors_are_ortho(inner_bv_1, inner_bv_3)
+                && basis_vectors_are_ortho(inner_bv_1, inner_bv_4)
+                && basis_vectors_are_ortho(inner_bv_2, inner_bv_3)
+                && basis_vectors_are_ortho(inner_bv_2, inner_bv_4)
+                && basis_vectors_are_ortho(inner_bv_3, inner_bv_4) =>
         {
             true
         } // O-Sup,
@@ -529,48 +558,51 @@ fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit
 
 /// Apply the structural rules (O-Sym and O-SupShuf) to attempt
 /// `superpos_are_ortho()` with different / orderings of the superpos operands.
-fn superpos_are_ortho_comm(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
-    superpos_are_ortho(qlit1a, qlit2a, qlit1b, qlit2b)
-        || superpos_are_ortho(qlit1a, qlit2a, qlit2b, qlit1b)
-        || superpos_are_ortho(qlit2a, qlit1a, qlit1b, qlit2b)
-        || superpos_are_ortho(qlit2a, qlit1a, qlit2b, qlit1b)
+fn superpos_are_ortho_comm(
+    vec_1a: &Vector,
+    vec_2a: &Vector,
+    vec_1b: &Vector,
+    vec_2b: &Vector,
+) -> bool {
+    superpos_are_ortho(vec_1a, vec_2a, vec_1b, vec_2b)
+        || superpos_are_ortho(vec_1a, vec_2a, vec_2b, vec_1b)
+        || superpos_are_ortho(vec_2a, vec_1a, vec_1b, vec_2b)
+        || superpos_are_ortho(vec_2a, vec_1a, vec_2b, vec_1b)
 }
 
-/// Determine if qubit literals are orthogonal without using O-Sym
-fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
+/// Determine if basis vectors are orthogonal without using O-Sym
+fn basis_vectors_are_ortho_nocomm(bv_1: &Vector, bv_2: &Vector) -> bool {
     // TODO: need to normalize first, i.e., remove nested tensors
-    match (qlit1, qlit2) {
-        (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => true, // O-Std
+    match (bv_1, bv_2) {
+        (Vector::ZeroVector { .. }, Vector::OneVector { .. }) => true, // O-Std
 
-        (QLit::QubitTilt { q: inner_qlit1, .. }, _) if qlits_are_ortho_sym(inner_qlit1, qlit2) => {
+        (Vector::VectorTilt { q: inner_bv_1, .. }, _)
+            if basis_vectors_are_ortho(inner_bv_1, bv_2) =>
+        {
             true
         } // O-Tilt
 
         (
-            QLit::QubitTensor {
-                qs: inner_qlits1, ..
-            },
-            QLit::QubitTensor {
-                qs: inner_qlits2, ..
-            },
-        ) if tensors_are_ortho(&inner_qlits1, &inner_qlits2) => true, // O-Tens + O-Shuf
+            Vector::VectorTensor { qs: inner_bvs1, .. },
+            Vector::VectorTensor { qs: inner_bvs2, .. },
+        ) if tensors_are_ortho(&inner_bvs1, &inner_bvs2) => true, // O-Tens + O-Shuf
 
         (
-            QLit::UniformSuperpos {
-                q1: inner_qlit1a,
-                q2: inner_qlit2a,
+            Vector::UniformVectorSuperpos {
+                q1: inner_bv_1a,
+                q2: inner_bv_2a,
                 ..
             },
-            QLit::UniformSuperpos {
-                q1: inner_qlit1b,
-                q2: inner_qlit2b,
+            Vector::UniformVectorSuperpos {
+                q1: inner_bv_1b,
+                q2: inner_bv_2b,
                 ..
             },
         ) if superpos_are_ortho_comm(
-            &*inner_qlit1a,
-            &*inner_qlit2a,
-            &*inner_qlit1b,
-            &*inner_qlit2b,
+            &*inner_bv_1a,
+            &*inner_bv_2a,
+            &*inner_bv_1b,
+            &*inner_bv_2b,
         ) =>
         {
             true
@@ -580,9 +612,19 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     }
 }
 
-/// Try `qlits_are_ortho()` and then try again after applying O-Sym
-fn qlits_are_ortho_sym(qlit1: &QLit, qlit2: &QLit) -> bool {
-    qlits_are_ortho(qlit1, qlit2) || qlits_are_ortho(qlit2, qlit1) // O-Sym
+/// Determine if two basis vectors are orthogonal using all available
+/// orthogonality rules. Practically, this means attempting
+/// `basis_vectors_are_ortho()` and then trying again after applying O-Sym.
+fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
+    basis_vectors_are_ortho_nocomm(bv_1, bv_2) || basis_vectors_are_ortho_nocomm(bv_2, bv_1)
+    // O-Sym
+}
+
+fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
+    basis_vectors_are_ortho(
+        &convert_qlit_to_basis_vector(qlit1),
+        &convert_qlit_to_basis_vector(qlit2),
+    )
 }
 
 /// Typecheck a QLit node.
@@ -607,7 +649,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                     },
                     dbg: None,
                 })
-            } else if !qlits_are_ortho_sym(q1, q2) {
+            } else if !qlits_are_ortho(q1, q2) {
                 Err(TypeError {
                     kind: TypeErrorKind::NotOrthogonal {
                         left: format!("{:?}", q1),
@@ -747,21 +789,21 @@ mod tests {
     #[test]
     fn test_qlits_are_ortho_comm() {
         // Base cases: '0' _|_ '1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::ZeroQubit { dbg: None },
             &QLit::OneQubit { dbg: None }
         ));
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::OneQubit { dbg: None },
             &QLit::ZeroQubit { dbg: None }
         ));
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::ZeroQubit { dbg: None },
             &QLit::ZeroQubit { dbg: None }
         ));
 
         // '0' and '1' _|_ '0' and -'1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::ZeroQubit { dbg: None }),
                 q2: Box::new(QLit::OneQubit { dbg: None }),
@@ -778,7 +820,7 @@ mod tests {
             }
         ));
         // '0' and -'1' _|_ '0' and '1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::ZeroQubit { dbg: None }),
                 q2: Box::new(QLit::QubitTilt {
@@ -795,7 +837,7 @@ mod tests {
             }
         ));
         // '0' and '1' !_|_ '0' and '1'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::ZeroQubit { dbg: None }),
                 q2: Box::new(QLit::OneQubit { dbg: None }),
@@ -809,7 +851,7 @@ mod tests {
         ));
 
         // '0'@45 and '1'@45 _|_ '0'@45 and '1'@225
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTilt {
                     q: Box::new(QLit::ZeroQubit { dbg: None }),
@@ -839,7 +881,7 @@ mod tests {
         ));
 
         // '0' and '1'@0 _|_ '0'@180 and '1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::ZeroQubit { dbg: None }),
                 q2: Box::new(QLit::QubitTilt {
@@ -861,7 +903,7 @@ mod tests {
         ));
 
         // '0' and '1'@5 !_|_ '0'@180 and '1'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::ZeroQubit { dbg: None }),
                 q2: Box::new(QLit::QubitTilt {
@@ -883,7 +925,7 @@ mod tests {
         ));
 
         // '0'@45 + '1'@225 _|_ '0'@135 + '1'@135
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTilt {
                     q: Box::new(QLit::ZeroQubit { dbg: None }),
@@ -912,7 +954,7 @@ mod tests {
             }
         ));
         // '0'@45 + '1'@225 !_|_ '0'@0 + '1'@180
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTilt {
                     q: Box::new(QLit::ZeroQubit { dbg: None }),
@@ -941,7 +983,7 @@ mod tests {
             }
         ));
         // '0'@45 + '1'@225 !_|_ '0' + '1'@180
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTilt {
                     q: Box::new(QLit::ZeroQubit { dbg: None }),
@@ -966,7 +1008,7 @@ mod tests {
             }
         ));
         // '0'@45 + '1'@225 !_|_ '0' + '1'@37
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTilt {
                     q: Box::new(QLit::ZeroQubit { dbg: None }),
@@ -992,7 +1034,7 @@ mod tests {
         ));
 
         // '0'*'1' _|_ '0'*'0'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![QLit::ZeroQubit { dbg: None }, QLit::OneQubit { dbg: None },],
                 dbg: None
@@ -1004,7 +1046,7 @@ mod tests {
         ));
 
         // '0'*'1' !_|_ '0'*'1'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![QLit::ZeroQubit { dbg: None }, QLit::OneQubit { dbg: None },],
                 dbg: None
@@ -1016,7 +1058,7 @@ mod tests {
         ));
 
         // '0'*'1' _|_ ('0'*'0')@45
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![QLit::ZeroQubit { dbg: None }, QLit::OneQubit { dbg: None },],
                 dbg: None
@@ -1032,7 +1074,7 @@ mod tests {
         ));
 
         // '0'*'0' + '0'*'1' _|_ '1'*'0' + '1'*'1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTensor {
                     qs: vec![QLit::ZeroQubit { dbg: None }, QLit::ZeroQubit { dbg: None },],
@@ -1058,7 +1100,7 @@ mod tests {
         ));
 
         // '0'*'0' + '1'*'1' !_|_ '1'*'0' + '1'*'1'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTensor {
                     qs: vec![QLit::ZeroQubit { dbg: None }, QLit::ZeroQubit { dbg: None },],
@@ -1084,7 +1126,7 @@ mod tests {
         ));
 
         // '0'*'0' + '0'*'1' _|_ '1'*'0' + ('1'*'1')@45
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::UniformSuperpos {
                 q1: Box::new(QLit::QubitTensor {
                     qs: vec![QLit::ZeroQubit { dbg: None }, QLit::ZeroQubit { dbg: None },],
@@ -1114,7 +1156,7 @@ mod tests {
         ));
 
         // ('0'*'0' + '0'*'1') * '0' !_|_ '0'*'0'*'0'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![
                     QLit::UniformSuperpos {
@@ -1143,7 +1185,7 @@ mod tests {
         ));
 
         // ('0'*'0' + '0'*'1') * '0' !_|_ '0'*'0'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![
                     QLit::UniformSuperpos {
@@ -1171,7 +1213,7 @@ mod tests {
         // \___/      \____/
         //   \           /
         //  empty tensor products
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![],
                 dbg: None
@@ -1183,7 +1225,7 @@ mod tests {
         ));
 
         // '0'*'0' _|_ ('0'@45)*'1'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![QLit::ZeroQubit { dbg: None }, QLit::ZeroQubit { dbg: None },],
                 dbg: None
@@ -1202,7 +1244,7 @@ mod tests {
         ));
 
         // ('0'+'1')*'0' _|_ ('0'+-'1')*'0'
-        assert!(qlits_are_ortho_sym(
+        assert!(qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![
                     QLit::UniformSuperpos {
@@ -1232,7 +1274,7 @@ mod tests {
         ));
 
         // (('0'*'0')+'1')*'0' !_|_ ('0'+-'1')*'0'
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![
                     QLit::UniformSuperpos {
@@ -1268,7 +1310,7 @@ mod tests {
         //  \_____/
         //     \
         //      empty tensor product
-        assert!(!qlits_are_ortho_sym(
+        assert!(!qlits_are_ortho(
             &QLit::QubitTensor {
                 qs: vec![
                     QLit::UniformSuperpos {
