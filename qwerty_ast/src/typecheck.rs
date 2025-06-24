@@ -412,7 +412,7 @@ fn supneg_ortho(
 }
 
 /// Checks whether `(qlit1a + qlit2a) _|_ (qlit1b + qlit2b)` using the O-Sup
-/// and O-SupNeg rules (_not_ any structural rules such as O-Com). That is,
+/// and O-SupNeg rules (_not_ any structural rules such as O-Sym). That is,
 /// this is expected to be called on the `q1` and `q2` of a `QLit::Superpos`.
 fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
     match ((qlit1a, qlit2a), (qlit1b, qlit2b)) {
@@ -525,7 +525,7 @@ fn superpos_are_ortho(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit
     }
 }
 
-/// Apply the structural rules (O-Com and O-SupCom) to attempt
+/// Apply the structural rules (O-Sym and O-SupShuf) to attempt
 /// `superpos_are_ortho()` with different / orderings of the superpos operands.
 fn superpos_are_ortho_comm(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: &QLit) -> bool {
     superpos_are_ortho(qlit1a, qlit2a, qlit1b, qlit2b)
@@ -534,7 +534,7 @@ fn superpos_are_ortho_comm(qlit1a: &QLit, qlit2a: &QLit, qlit1b: &QLit, qlit2b: 
         || superpos_are_ortho(qlit2a, qlit1a, qlit2b, qlit1b)
 }
 
-/// Determine if qubit literals are orthogonal without using O-Com
+/// Determine if qubit literals are orthogonal without using O-Sym
 fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     // TODO: need to normalize first, i.e., remove nested tensors
     match (qlit1, qlit2) {
@@ -578,9 +578,9 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     }
 }
 
-/// Try `qlits_are_ortho()` and then try again after applying O-Com
+/// Try `qlits_are_ortho()` and then try again after applying O-Sym
 fn qlits_are_ortho_comm(qlit1: &QLit, qlit2: &QLit) -> bool {
-    qlits_are_ortho(qlit1, qlit2) || qlits_are_ortho(qlit2, qlit1) // O-Com
+    qlits_are_ortho(qlit1, qlit2) || qlits_are_ortho(qlit2, qlit1) // O-Sym
 }
 
 /// Typecheck a QLit node.
