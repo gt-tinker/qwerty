@@ -691,7 +691,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         Vector::ZeroVector { .. }
         | Vector::OneVector { .. }
         | Vector::PadVector { .. }
-        | Vector::TargetVector { .. } => Ok(Type::UnitType), // TODO: clarify
+        | Vector::TargetVector { .. } => Ok(Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }),
 
         Vector::VectorTilt { q, .. } => typecheck_vector(q, _env),
 
@@ -736,11 +736,42 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
 /// TODO: Enforce more quantum rules as per Qwerty basis specification.
 fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> {
     match basis {
-        Basis::BasisLiteral { vecs, .. } => {
-            for v in vecs {
-                typecheck_vector(v, env)?;
+        Basis::BasisLiteral { vecs, span } => {
+            if vecs.is_empty() {
+                return Err(TypeError { kind: TypeErrorKind::EmptyLiteral, span: span.clone() });
             }
-            Ok(Type::UnitType) // TODO: Should this return a Basis type?
+
+            let first_ty = typecheck_vector(&vecs[0], env)?;
+
+            if let Type::RegType { elem_ty, dim } = &first_ty {
+                // TODO: use span of vecs[0], not span of basis literal
+                if *elem_ty != RegKind::Qubit {
+                    return Err(TypeError { kind: TypeErrorKind::InvalidBasis, span: span.clone()});
+                }
+                if *dim < 1 {
+                    return Err(TypeError { kind: TypeErrorKind::EmptyLiteral, span: span.clone()});
+                }
+
+                vecs.iter().try_for_each(|v| typecheck_vector(v, env).and_then(|ty|
+                    if ty == first_ty {
+                        Ok(())
+                    } else {
+                        // TODO: use span of v, not span of basis literal
+                        Err(TypeError{ kind: TypeErrorKind::DimMismatch, span: span.clone()})
+                    }))?;
+
+                for (i, v_1) in vecs.iter().enumerate() {
+                    for v_2 in &vecs[i+1..] {
+                        if !basis_vectors_are_ortho(v_1, v_2) {
+                            return Err(TypeError { kind: TypeErrorKind::NotOrthogonal {left: format!("{:?}", v_1), right: format!("{:?}", v_2) }, span: span.clone()});
+                        }
+                    }
+                }
+
+                Ok(Type::RegType {elem_ty: RegKind::Basis, dim: *dim }) // TODO: Should this return a Basis type?
+            } else {
+                Err(TypeError{ kind: TypeErrorKind::InvalidBasis, span: span.clone()})
+            }
         }
 
         Basis::EmptyBasisLiteral { .. } => Ok(Type::UnitType),

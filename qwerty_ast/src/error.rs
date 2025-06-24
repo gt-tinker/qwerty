@@ -26,8 +26,11 @@ pub enum TypeErrorKind {
     InvalidType(String),
     InvalidOperation { op: String, ty: String },
     TypeInferenceFailure,
-    NotOrthogonal { left: String, right: String },
+    EmptyLiteral,
+    DimMismatch,
     // Quantum-specific errors:
+    InvalidBasis,
+    NotOrthogonal { left: String, right: String },
     QuantumMeasurementOnClassical(String),
     InvalidQubitOperation(String),
     // Python-DSL/AST-specific errors:
