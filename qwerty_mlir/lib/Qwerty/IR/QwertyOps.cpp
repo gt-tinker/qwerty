@@ -848,11 +848,10 @@ mlir::LogicalResult FuncOp::verifyBody() {
     }
 
     // Now we just check if all values that need to be linear are, in fact, linear.
-    for (mlir::Block& le_bloque : getBody()) {
-        // We *do* want to consider all MLIR ops because
-        // we want to check the results of `scf.if` and any future additions.
-        for (mlir::Operation& op : le_bloque.getOperations()) {
-            // OpResult <: Value
+    for (mlir::Block& b : getBody()) {
+        // We *do* want to consider all MLIR ops so we can verify ops that 
+        // come from dialects we don't own!
+        for (mlir::Operation& op : b.getOperations()) {
             for (auto [idx, result] : llvm::enumerate(op.getResults())) {
                 // NOTE: Presently, these are the only two linear types in the IR.
                 // What could also be nicer is if we pointed to the usage locations.
