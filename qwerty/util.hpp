@@ -17,6 +17,4 @@
 // Rz(theta))
 #define ATOL 1e-12
 
-// Span-checking logic
-
 #endif
