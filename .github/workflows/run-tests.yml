@@ -55,7 +55,8 @@ jobs:
           pip install -v .
           pip install numpy
           test/run-tests.sh
-macos: # ADDED macOS job, adapted from deploy2.yml
+
+  macos: # ADDED macOS job, adapted from deploy2.yml
     runs-on: macos-14
     steps:
       - name: Checkout the repo
@@ -102,6 +103,7 @@ macos: # ADDED macOS job, adapted from deploy2.yml
           pip install -v .
           pip install numpy
           test/run-tests.sh
+
   windows: # ADDED windows job, adapted from deploy2.yml
     runs-on: windows-latest
     steps:
