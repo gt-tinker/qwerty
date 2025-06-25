@@ -23,10 +23,10 @@ cmake.verbose = false
 # It's useful to change the following two options to false and Debug
 # (respectively) when debugging, but heads up, that will significantly slow
 # down compilation time
-install.strip = false
-cmake.build-type = "Debug"
+install.strip = true
+cmake.build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 # Set this to true if you want to run unit tests
-BUILD_TESTS = {env="QWERTY_BUILD_TESTS", default=true}
+BUILD_TESTS = {env="QWERTY_BUILD_TESTS", default=false}
 USE_QIREE = {env="QWERTY_USE_QIREE", default=false}
