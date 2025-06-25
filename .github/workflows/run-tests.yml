@@ -55,3 +55,101 @@ jobs:
           pip install -v .
           pip install numpy
           test/run-tests.sh
+macos: # ADDED macOS job, adapted from deploy2.yml
+    runs-on: macos-14
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: brew install ninja cmake
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install python dependencies
+        run: python -m pip install --upgrade pip setuptools
+      - name: Clone Tweedledum
+        uses: actions/checkout@v4
+        with:
+          repository: gt-tinker/tweedledum
+          ref: qwerty
+          path: tpls/tweedledum
+      - name: Clone QIR-Runner
+        uses: actions/checkout@v4
+        with:
+          repository: gt-tinker/qir-runner
+          ref: qwerty
+          path: tpls/qir-runner
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }} # Added for consistency with linux job
+      - name: Clone gtest
+        uses: actions/checkout@v4
+        with:
+          repository: google/googletest
+          ref: d83fee138a9ae6cb7c03688a2d08d4043a39815d
+          path: tpls/googletest
+      - name: Setting up LLVM and MLIR
+        run: |
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_aarch64_macos.tar.xz
+          tar -xJvf llvm_mlir_rel_v20_1_6_aarch64_macos.tar.xz
+          echo "$GITHUB_WORKSPACE/llvm20/bin" >> $GITHUB_PATH
+      - name: Run tests in the virtual environment # MODIFIED final test step
+        run: |
+          export MLIR_DIR="$GITHUB_WORKSPACE/llvm20/lib/cmake/mlir"
+          export CMAKE_GENERATOR=Ninja
+          export QWERTY_BUILD_TESTS=true
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install -v .
+          pip install numpy
+          test/run-tests.sh
+
+  windows: # ADDED windows job, adapted from deploy2.yml
+    runs-on: windows-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install python dependencies
+        run: python -m pip install --upgrade pip setuptools
+      - name: Clone Tweedledum
+        uses: actions/checkout@v4
+        with:
+          repository: gt-tinker/tweedledum
+          ref: qwerty
+          path: tpls/tweedledum
+      - name: Clone QIR-Runner
+        uses: actions/checkout@v4
+        with:
+          repository: gt-tinker/qir-runner
+          ref: qwerty
+          path: tpls/qir-runner
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }} # Added for consistency with linux job
+      - name: Clone gtest
+        uses: actions/checkout@v4
+        with:
+          repository: google/googletest
+          ref: d83fee138a9ae6cb7c03688a2d08d4043a39815d
+          path: tpls/googletest
+      - name: Setting up LLVM and MLIR
+        run: |
+          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_6_x86_windows.zip
+          Expand-Archive -Path llvm_mlir_rel_v20_1_6_x86_windows.zip -DestinationPath .
+          Add-Content -Path $Env:GITHUB_PATH -Value "$Env:GITHUB_WORKSPACE\llvm20\bin"
+      - name: Set up Visual Studio environment
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
+      - name: Run tests in the virtual environment # MODIFIED final test step
+        shell: pwsh
+        run: |
+          $Env:MLIR_DIR = "$Env:GITHUB_WORKSPACE\llvm20\lib\cmake\mlir"
+          $Env:CMAKE_GENERATOR = "Ninja"
+          $Env:QWERTY_BUILD_TESTS = "true"
+          python3 -m venv venv
+          .\venv\Scripts\Activate.ps1
+          pip install -v .
+          pip install numpy
+          test\run-tests.bat # NOTE: Uses the .bat script for Windows
