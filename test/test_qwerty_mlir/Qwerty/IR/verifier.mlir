@@ -52,3 +52,68 @@ module {
     qwerty.return %17 : !qwerty<bitbundle[4]>
   }
 }
+
+// -----
+
+module {
+  qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
+    %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+    // expected-error@+1 {{Bundle qubits is not linear with this IR instruction}}
+    %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
+    %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    %3 = qwerty.bitunpack %2 : (!qwerty<bitbundle[1]>) -> i1
+    %4 = scf.if %3 -> (!qwerty<qbundle[1]>) {
+      %7 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      %8 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      scf.yield %7 : !qwerty<qbundle[1]>
+    } else {
+      %7 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Y[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      scf.yield %7 : !qwerty<qbundle[1]>
+    }
+    %5 = qwerty.qbmeas %4 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    %6 = qwerty.qbmeas %4 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    qwerty.return %5 : !qwerty<bitbundle[1]>
+  }
+}
+
+// -----
+
+module {
+  qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
+    %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+    %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
+    %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    %3 = qwerty.bitunpack %2 : (!qwerty<bitbundle[1]>) -> i1
+    // expected-error@+1 {{Bundle qubits is not linear with this IR instruction}}
+    %4 = scf.if %3 -> (!qwerty<qbundle[1]>) {
+      %12 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      scf.yield %12 : !qwerty<qbundle[1]>
+    } else {
+      %12 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Y[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      scf.yield %12 : !qwerty<qbundle[1]>
+    }
+    %5 = qwerty.qbprep Z<MINUS>[1] : () -> !qwerty<qbundle[1]>
+    %6 = qwerty.qbmeas %5 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    %7 = qwerty.qbprep X<MINUS>[1] : () -> !qwerty<qbundle[1]>
+    %8 = qwerty.qbmeas %7 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    %9 = qwerty.bitunpack %6 : (!qwerty<bitbundle[1]>) -> i1
+    %10 = scf.if %9 -> (!qwerty<qbundle[1]>) {
+      %12 = qwerty.qbtrans %4 by {std: Y[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      scf.yield %12 : !qwerty<qbundle[1]>
+    } else {
+      %12 = qwerty.bitunpack %8 : (!qwerty<bitbundle[1]>) -> i1
+      %13 = scf.if %12 -> (!qwerty<qbundle[1]>) {
+        %14 = qwerty.qbtrans %4 by {std: Z[1]} >> {std: Y[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+        scf.yield %14 : !qwerty<qbundle[1]>
+      } else {
+        %14 = qwerty.qbtrans %4 by {std: X[1]} >> {std: Y[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+        %15 = qwerty.qbtrans %4 by {std: X[1]} >> {std: Y[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+        scf.yield %14 : !qwerty<qbundle[1]>
+      }
+      scf.yield %13 : !qwerty<qbundle[1]>
+    }
+    %11 = qwerty.qbmeas %10 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+    qwerty.return %11 : !qwerty<bitbundle[1]>
+  }
+}
+

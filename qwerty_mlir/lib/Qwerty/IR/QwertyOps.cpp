@@ -1988,14 +1988,6 @@ mlir::LogicalResult QBundlePackOp::inferReturnTypes(
 }
 
 mlir::LogicalResult QBundlePackOp::verify() {
-#if RETAIN_OLD_VERIFIERS
-    auto bundle = getQbundle();
-
-    if (!(bundle.hasOneUse() || linearCheckForManyUses(bundle))) {
-        return this->emitOpError("QBundlePackOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
     return mlir::success();
 }
 
@@ -2028,20 +2020,6 @@ mlir::LogicalResult QBundleUnpackOp::inferReturnTypes(
 }
 
 mlir::LogicalResult QBundleUnpackOp::verify() {
-#if RETAIN_OLD_VERIFIERS
-    auto qubits = getQubits();
-
-    for (auto indexedResult : llvm::enumerate(qubits)) {
-        mlir::Value qubit = indexedResult.value();
-
-        if (!(qubit.hasOneUse() || linearCheckForManyUses(qubit))) {
-            return this->emitOpError("QBundleUnpackOp: ")
-                << "Qubit(" << indexedResult.index()
-                << ") is not linear with this IR instruction (gate)";
-        }
-    }
-#endif
-
     return mlir::success();
 }
 
@@ -2208,15 +2186,6 @@ void QBundleDiscardZeroOp::buildAdjoint(
 }
 
 mlir::LogicalResult QBundleIdentityOp::verify() {
-#if RETAIN_OLD_VERFIERS
-    auto bundle = getQbundleOut();
-
-    if (!(bundle.hasOneUse() || linearCheckForManyUses(bundle))) {
-        return this->emitOpError("QBundleIdentityOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
-
     return mlir::success();
 }
 
@@ -2244,15 +2213,6 @@ mlir::LogicalResult QBundlePhaseOp::inferReturnTypes(
 }
 
 mlir::LogicalResult QBundlePhaseOp::verify() {
-#if RETAIN_OLD_VERIFIERS
-    auto bundle = getQbundleOut();
-
-    if (!(bundle.hasOneUse() || linearCheckForManyUses(bundle))) {
-        return this->emitOpError("QBundlePhaseOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
-
     return mlir::success();
 }
 
@@ -2363,9 +2323,6 @@ mlir::LogicalResult QBundleBasisTranslationOp::verify() {
     uint64_t basis_in_dim = getBasisIn().getDim();
     uint64_t qbundle_dim = getQbundleIn().getType().getDim();
     uint64_t basis_out_dim = getBasisOut().getDim();
-#if RETAIN_OLD_VERIFIERS
-    auto bundle = getQbundleOut();
-#endif
 
     if (basis_in_dim != qbundle_dim) {
         return this->emitOpError("QBundleBasisTranslationOp: ")
@@ -2384,13 +2341,6 @@ mlir::LogicalResult QBundleBasisTranslationOp::verify() {
     if (n_total_phases != getBasisPhases().size()) {
         return emitOpError("Mismatch in number of basis phases");
     }
-
-#if RETAIN_OLD_VERIFIERS
-    if (!(bundle.hasOneUse() || linearCheckForManyUses(bundle))) {
-        return this->emitOpError("QBundleBasisTranslationOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
 
     return mlir::success();
 }
@@ -2563,14 +2513,6 @@ mlir::LogicalResult QBundleFlipOp::verify() {
         return emitOpError("Mismatch in number of basis phases");
     }
 
-#if RETAIN_OLD_VERIFIERS
-    auto bundle_out = getQbundleOut();
-    if (!(bundle_out.hasOneUse() || linearCheckForManyUses(bundle_out))) {
-        return emitOpError("QBundleFlipOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
-
     return mlir::success();
 }
 
@@ -2689,14 +2631,6 @@ mlir::LogicalResult QBundleRotateOp::verify() {
         return this->emitOpError("Rotate basis must fully span");
     }
 
-
-#if RETAIN_OLD_VERIFIERS
-    auto bundle_out = getQbundleOut();
-    if (!(bundle_out.hasOneUse() || linearCheckForManyUses(bundle_out))) {
-        return this->emitOpError("QBundleRotateOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-#endif
 
     return mlir::success();
 }
