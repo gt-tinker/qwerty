@@ -105,7 +105,8 @@ jobs:
           test/run-tests.sh
 
   windows: # ADDED windows job, adapted from deploy2.yml
-    runs-on: windows-latest
+    runs-on: codebuild-qwerty-llvm-build-windows-${{ github.run_id }}-${{ github.run_attempt }}
+
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
