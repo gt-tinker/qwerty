@@ -7,9 +7,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$root = "C:\qwerty"
-$visual_studio_install_path = 'C:\Program Files\Microsoft Visual Studio\2022\Community'
+if ($Env:GITHUB_WORKSPACE) {
+    $root = $Env:GITHUB_WORKSPACE
+} else {
+    $root = "C:\qwerty"
+}
 
+$visual_studio_install_path = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise'
+
+if (-not (Test-Path $visual_studio_install_path)) {
+    $visual_studio_install_path = 'C:\Program Files\Microsoft Visual Studio\2022\Community'
+}
 if (-not (Test-Path $visual_studio_install_path)) {
     $visual_studio_install_path = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
 }
