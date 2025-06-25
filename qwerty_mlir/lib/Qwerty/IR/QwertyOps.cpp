@@ -855,9 +855,12 @@ mlir::LogicalResult FuncOp::verifyBody() {
             // OpResult <: Value
             for (auto [idx, result] : llvm::enumerate(op.getResults())) {
                 // NOTE: Presently, these are the only two linear types in the IR.
+                // What could also be nicer is if we pointed to the usage locations.
+                // Actually, that doesn't sound too hard, since that's exactly what `linearCheckForManyUses`
+                // does.
                 if (mlir::isa<qwerty::QBundleType>(result.getType())) {
                     if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-                        return op.emitOpError("-- Bundle qubits is not linear with this IR instruction");
+                        return op.emitOpError("Bundle qubits is not linear with this IR instruction");
                     }
                 }
 
