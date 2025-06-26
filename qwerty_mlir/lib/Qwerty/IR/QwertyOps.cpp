@@ -854,7 +854,6 @@ mlir::LogicalResult FuncOp::verifyBody() {
             // does.
             if (mlir::isa<qcirc::NonStationaryTypeInterface>(result.getType())) {
                 if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-                    // We're just going to emit this error eagerly for now.
                     op->emitOpError("Result (") 
                         << idx
                         << ") is not linear with this IR instruction";
