@@ -860,7 +860,7 @@ mlir::LogicalResult FuncOp::verifyBody() {
                     if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
                         return op.emitOpError("Result (") 
                             << idx
-                            << ") is not linear with this IR instruction (gate)";
+                            << ") is not linear with this IR instruction";
                     }
                 }
             }
