@@ -847,27 +847,27 @@ mlir::LogicalResult FuncOp::verifyBody() {
         return mlir::failure();
     }
 
-    // Now we just check if all values that need to be linear are, in fact, linear.
-    for (mlir::Block& b : getBody()) {
-        // We *do* want to consider all MLIR ops so we can verify ops that 
-        // come from dialects we don't own!
-        for (mlir::Operation& op : b.getOperations()) {
-            for (auto [idx, result] : llvm::enumerate(op.getResults())) {
-                // NOTE: What could also be nicer is if we pointed to the usage locations.
-                // Actually, that doesn't sound too hard, since that's exactly what `linearCheckForManyUses`
-                // does.
-                if (mlir::isa<qcirc::NonStationaryTypeInterface>(result.getType())) {
-                    if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-                        return op.emitOpError("Result (") 
-                            << idx
-                            << ") is not linear with this IR instruction";
-                    }
+    mlir::WalkResult result = getBody().walk([&](mlir::Operation *op){
+        for (auto [idx, result] : llvm::enumerate(op->getResults())) {
+            // NOTE: What could also be nicer is if we pointed to the usage locations.
+            // Actually, that doesn't sound too hard, since that's exactly what `linearCheckForManyUses`
+            // does.
+            if (mlir::isa<qcirc::NonStationaryTypeInterface>(result.getType())) {
+                if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
+                    // We're just going to emit this error eagerly for now.
+                    op->emitOpError("Result (") 
+                        << idx
+                        << ") is not linear with this IR instruction";
+                    return mlir::WalkResult::interrupt();
                 }
             }
         }
-    }
+        return mlir::WalkResult::advance();
+    });
 
-    return mlir::success();
+    return result.wasInterrupted() 
+            ? mlir::failure() 
+            : mlir::success();
 }
 
 // CallableOpInterfaceMethods
@@ -1941,13 +1941,6 @@ mlir::LogicalResult QBundlePrepOp::inferReturnTypes(
 }
 
 mlir::LogicalResult QBundlePrepOp::verify() {
-    auto result = getResult();
-
-    if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-        return this->emitOpError("QBundlePrepOp: ")
-            << "Bundle qubits is not linear with this IR instruction";
-    }
-
     return mlir::success();
 }
 

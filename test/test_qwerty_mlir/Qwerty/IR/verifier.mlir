@@ -1,7 +1,7 @@
 // RUN: qwerty-opt %s --split-input-file --verify-diagnostics
 
 module {
-  qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
+  qwerty.func @linearity_using_scf_if_result[]() irrev-> !qwerty<bitbundle[1]> {
     %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
@@ -23,12 +23,7 @@ module {
 // -----
 
 module {
-  qwerty.func @no_cloning_0[]() irrev-> !qwerty<bitbundle[1]> {
-    %0 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
-    %1 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-    qwerty.return %1 : !qwerty<bitbundle[1]>
-  }
-  qwerty.func @unpack_this_1[]() irrev-> !qwerty<bitbundle[4]> {
+  qwerty.func @linearity_check_qcirc_types[]() irrev-> !qwerty<bitbundle[4]> {
     %0 = qwerty.qbprep Z<PLUS>[2] : () -> !qwerty<qbundle[2]>
     %1 = qwerty.qbprep X<PLUS>[2] : () -> !qwerty<qbundle[2]>
     // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
@@ -56,7 +51,7 @@ module {
 // -----
 
 module {
-  qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
+  qwerty.func @linearity_scf_if_used_twice_in_nested_block[]() irrev-> !qwerty<bitbundle[1]> {
     %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
     // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
@@ -71,7 +66,6 @@ module {
       scf.yield %7 : !qwerty<qbundle[1]>
     }
     %5 = qwerty.qbmeas %4 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-    %6 = qwerty.qbmeas %4 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
     qwerty.return %5 : !qwerty<bitbundle[1]>
   }
 }
@@ -79,7 +73,7 @@ module {
 // -----
 
 module {
-  qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
+  qwerty.func @linearity_scf_if_used_twice_in_doubly_nested_block[]() irrev-> !qwerty<bitbundle[1]> {
     %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
@@ -117,3 +111,22 @@ module {
   }
 }
 
+// -----
+
+module {
+  qwerty.func @linearity_qprep_in_nested_block[](%arg0: i1) irrev-> !qwerty<qbundle[2]> {
+    %0 = scf.if %arg0 -> (!qwerty<qbundle[2]>) {
+      // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
+      %1 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+      %2 = qwerty.qbflip %1 by {std: X[1]} with () : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+      %3 = qwerty.qbunpack %1 : (!qwerty<qbundle[1]>) -> !qcirc<qubit>
+      %4 = qwerty.qbunpack %2 : (!qwerty<qbundle[1]>) -> !qcirc<qubit>
+      %5 = qwerty.qbpack(%3, %4) : (!qcirc<qubit>, !qcirc<qubit>) -> !qwerty<qbundle[2]>
+      scf.yield %5 : !qwerty<qbundle[2]>
+    } else {
+      %6 = qwerty.qbprep X<PLUS>[2] : () -> !qwerty<qbundle[2]>
+      scf.yield %6 : !qwerty<qbundle[2]>
+    }
+    qwerty.return %0 : !qwerty<qbundle[2]>
+  }
+}
