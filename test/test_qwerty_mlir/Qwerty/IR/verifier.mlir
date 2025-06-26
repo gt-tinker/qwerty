@@ -6,7 +6,7 @@ module {
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
     %3 = qwerty.bitunpack %2 : (!qwerty<bitbundle[1]>) -> i1
-    // expected-error@+1 {{Bundle qubits is not linear with this IR instruction}}
+    // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
     %4 = scf.if %3 -> (!qwerty<qbundle[1]>) {
       %7 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
       scf.yield %7 : !qwerty<qbundle[1]>
@@ -31,7 +31,7 @@ module {
   qwerty.func @unpack_this_1[]() irrev-> !qwerty<bitbundle[4]> {
     %0 = qwerty.qbprep Z<PLUS>[2] : () -> !qwerty<qbundle[2]>
     %1 = qwerty.qbprep X<PLUS>[2] : () -> !qwerty<qbundle[2]>
-    // expected-error@+1 {{Qubit(0) is not linear with this IR instruction (gate)}}
+    // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
     %2:2 = qwerty.qbunpack %0 : (!qwerty<qbundle[2]>) -> (!qcirc.qubit, !qcirc.qubit)
     %3:2 = qwerty.qbunpack %1 : (!qwerty<qbundle[2]>) -> (!qcirc.qubit, !qcirc.qubit)
     %4 = qwerty.qbpack(%2#0) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
@@ -58,7 +58,7 @@ module {
 module {
   qwerty.func @sciff_iff_0[]() irrev-> !qwerty<bitbundle[1]> {
     %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
-    // expected-error@+1 {{Bundle qubits is not linear with this IR instruction}}
+    // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
     %3 = qwerty.bitunpack %2 : (!qwerty<bitbundle[1]>) -> i1
@@ -84,7 +84,7 @@ module {
     %1 = qwerty.qbprep X<PLUS>[1] : () -> !qwerty<qbundle[1]>
     %2 = qwerty.qbmeas %0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
     %3 = qwerty.bitunpack %2 : (!qwerty<bitbundle[1]>) -> i1
-    // expected-error@+1 {{Bundle qubits is not linear with this IR instruction}}
+    // expected-error@+1 {{Result (0) is not linear with this IR instruction}}
     %4 = scf.if %3 -> (!qwerty<qbundle[1]>) {
       %12 = qwerty.qbtrans %1 by {std: X[1]} >> {std: Z[1]} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
       scf.yield %12 : !qwerty<qbundle[1]>

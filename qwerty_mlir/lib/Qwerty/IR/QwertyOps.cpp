@@ -853,19 +853,12 @@ mlir::LogicalResult FuncOp::verifyBody() {
         // come from dialects we don't own!
         for (mlir::Operation& op : b.getOperations()) {
             for (auto [idx, result] : llvm::enumerate(op.getResults())) {
-                // NOTE: Presently, these are the only two linear types in the IR.
-                // What could also be nicer is if we pointed to the usage locations.
+                // NOTE: What could also be nicer is if we pointed to the usage locations.
                 // Actually, that doesn't sound too hard, since that's exactly what `linearCheckForManyUses`
                 // does.
-                if (mlir::isa<qwerty::QBundleType>(result.getType())) {
+                if (mlir::isa<qcirc::NonStationaryTypeInterface>(result.getType())) {
                     if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-                        return op.emitOpError("Bundle qubits is not linear with this IR instruction");
-                    }
-                }
-
-                if (mlir::isa<qcirc::QubitType>(result.getType())) {
-                    if (!(result.hasOneUse() || linearCheckForManyUses(result))) {
-                        return op.emitOpError("Qubit(") 
+                        return op.emitOpError("Result (") 
                             << idx
                             << ") is not linear with this IR instruction (gate)";
                     }
