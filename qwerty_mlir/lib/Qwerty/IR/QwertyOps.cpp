@@ -12,6 +12,8 @@
 #include "mlir/Interfaces/FunctionImplementation.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/IR/QCircOps.h"
@@ -252,44 +254,47 @@ struct CallIndirectConst : public mlir::OpRewritePattern<qwerty::CallIndirectOp>
     }
 };
 
+bool block_is_duplicatable(mlir::Block &in_block) {
+    for (mlir::Operation &op : in_block) {
+        if (!mlir::isPure(&op)) {
+            return false;
+        }
+        for (mlir::Value operand : op.getOperands()) {
+            if (llvm::isa<qcirc::NonStationaryTypeInterface>(operand.getType()) && operand.getParentBlock() != &in_block) {
+                return false;
+            }
+        }
+    }
+    return true;
+};
+
 struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
+
     using OpRewritePattern<qwerty::CallIndirectOp>::OpRewritePattern;
 
     mlir::LogicalResult matchAndRewrite(qwerty::CallIndirectOp call,
                                         mlir::PatternRewriter &rewriter) const override {
         mlir::scf::IfOp if_op =
             call.getCallee().getDefiningOp<mlir::scf::IfOp>();
-        if (!if_op
-                // If there are many results used all over the place, we can't
-                // safely repurpose it as spitting out the results of the call
-                || if_op.getResults().size() != 1
-                // If there is someone else using the function this is
-                // returning, we can't safely get rid of this scf.if
-                || !if_op.getResults()[0].hasOneUse()) {
+        if (!if_op || if_op.getResults().size() != 1) {
             return mlir::failure();
         }
 
-        if (!call.getCallOperands().empty()) {
-            // One more safety check: if the operands of the call are defined
-            // after the scf.if, it may not be safe to move the call into each
-            // branch of the if
-            mlir::DominanceInfo dom_info;
-            if (!llvm::all_of(call.getCallOperands(),
-                    [&](mlir::Value operand) {
-                        return dom_info.properlyDominates(operand, if_op);
-                    })) {
-                return mlir::failure();
-            }
+        if (!block_is_duplicatable(*if_op.thenBlock())) {
+            return mlir::failure();
+        }
+        if (!block_is_duplicatable(*if_op.elseBlock())) {
+            return mlir::failure();
         }
 
-        rewriter.setInsertionPoint(if_op);
+        rewriter.setInsertionPoint(call);
         mlir::scf::IfOp new_if_op =
             rewriter.create<mlir::scf::IfOp>(
                 if_op.getLoc(), call.getResultTypes(), if_op.getCondition());
-        rewriter.inlineRegionBefore(if_op.getThenRegion(),
+        rewriter.cloneRegionBefore(if_op.getThenRegion(),
                                     new_if_op.getThenRegion(),
                                     new_if_op.getThenRegion().end());
-        rewriter.inlineRegionBefore(if_op.getElseRegion(),
+        rewriter.cloneRegionBefore(if_op.getElseRegion(),
                                     new_if_op.getElseRegion(),
                                     new_if_op.getElseRegion().end());
 
@@ -322,8 +327,24 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
         rewriter.eraseOp(else_yield);
 
         rewriter.replaceOp(call, new_if_op.getResults());
-        // Now that the old scf.if has no uses, we can finally erase it
-        rewriter.eraseOp(if_op);
+        if (if_op.getResults()[0].use_empty()) {
+            rewriter.eraseOp(if_op);
+        } else {
+            mlir::Operation *tgt = nullptr;
+            for (mlir::Operation *user : if_op->getUsers()) {
+                mlir::Operation *op = user;
+                while (op->getBlock() != if_op->getBlock()) {
+                    op = op->getParentOp();
+                } 
+                if (!tgt) {
+                    tgt = op;
+                } else if (op->isBeforeInBlock(tgt)) {
+                    tgt = op;
+                }
+            }
+            assert(tgt);
+            rewriter.moveOpBefore(if_op, tgt);
+        }
         return mlir::success();
     }
 };
