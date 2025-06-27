@@ -20,7 +20,9 @@ coverage = ['coverage==7.6.7']
 # doesn't delete .rsp files. What are those? They are ways that CMake passes
 # enormous command lines to the enemy (aka the Windows linker). This is only to
 # ease debugging.
-build.tool-args = ["-d", "keeprsp"]
+#build.tool-args = ["-d", "keeprsp"]
+#build.tool-args = ["-d", "keeprsp", "-f", "hack.ninja"]
+build.tool-args = ["-f", "../hack.ninja"]
 build-dir = "_skbuild"
 wheel.py-api = "cp310"
 wheel.exclude = ["*.hpp", "*.cpp", ".*.swp"]
