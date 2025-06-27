@@ -1174,7 +1174,7 @@ mlir::LogicalResult CallOp::verifySymbolUses(
     if (getPred()) {
         QBundleType ret_bundle_type;
         QBundleType func_ret_bundle_type;
-        size_t dim_expected;
+        size_t dim_expected = (size_t)-1;
         if (getResultTypes().size() != 1
                 || !(ret_bundle_type = llvm::dyn_cast<QBundleType>(
                      getResultTypes()[0]))
@@ -1185,7 +1185,10 @@ mlir::LogicalResult CallOp::verifySymbolUses(
                        func_ret_bundle_type.getDim()
                        + getPredAttr().getDim())) {
             return emitOpError("expected a single return type of ")
-                               << "!qwerty<qbundle[" << dim_expected << "]> "
+                               << "!qwerty<qbundle["
+                               << (dim_expected == (size_t)-1
+                                   ? "?" : std::to_string(dim_expected))
+                               << "]> "
                                << "for a predicated call but got "
                                << getResultTypes();
         }
