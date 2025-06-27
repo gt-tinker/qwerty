@@ -7,8 +7,10 @@ name = "qwerty"
 version = "1.0.2"
 requires-python = ">= 3.10"
 # Only needed by simon_post.py used in both the integration tests and
-# examples/. But include it here for simplicity
-dependencies = ["numpy==2.3.1"]
+# examples/. But include it here for simplicity.
+# This numpy version was chosen since it seems to be the last to support Python
+# 3.10, which we still support.
+dependencies = ["numpy==2.2.6"]
 
 [project.optional-dependencies]
 coverage = ['coverage==7.6.7']
