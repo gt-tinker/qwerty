@@ -558,7 +558,7 @@ fn superpos_are_ortho(bv_1a: &Vector, bv_2a: &Vector, bv_1b: &Vector, bv_2b: &Ve
 
 /// Apply the structural rules (O-Sym and O-SupShuf) to attempt
 /// `superpos_are_ortho()` with different / orderings of the superpos operands.
-fn superpos_are_ortho_comm(
+fn superpos_are_ortho_sym(
     vec_1a: &Vector,
     vec_2a: &Vector,
     vec_1b: &Vector,
@@ -598,13 +598,7 @@ fn basis_vectors_are_ortho_nosym(bv_1: &Vector, bv_2: &Vector) -> bool {
                 q2: inner_bv_2b,
                 ..
             },
-        ) if superpos_are_ortho_comm(
-            &*inner_bv_1a,
-            &*inner_bv_2a,
-            &*inner_bv_1b,
-            &*inner_bv_2b,
-        ) =>
-        {
+        ) if superpos_are_ortho_sym(&*inner_bv_1a, &*inner_bv_2a, &*inner_bv_1b, &*inner_bv_2b) => {
             true
         }
 
@@ -848,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    fn test_qlits_are_ortho_comm() {
+    fn test_qlits_are_ortho_sym() {
         // Base cases: '0' _|_ '1'
         assert!(qlits_are_ortho(
             &QLit::ZeroQubit { dbg: None },
