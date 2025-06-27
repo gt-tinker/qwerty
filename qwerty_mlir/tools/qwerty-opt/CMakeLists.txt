@@ -35,7 +35,6 @@ set(LIBS
 
 add_llvm_executable(qwerty-opt
   qwerty-opt.cpp
-  epic.cpp
 
   DEPENDS
   ${LIBS}

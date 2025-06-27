@@ -50,11 +50,7 @@ void registerTestQubitIndexAnalysisPass();
 } // namespace qwerty
 #endif
 
-int extremely_epic_wow(int x);
-
 int main(int argc, char **argv) {
-    extremely_epic_wow(3);
-
     mlir::DialectRegistry registry;
     registry.insert<qwerty::QwertyDialect>();
     registry.insert<qcirc::QCircDialect>();
