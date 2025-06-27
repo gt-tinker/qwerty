@@ -101,7 +101,7 @@ jobs:
           test/run-tests.sh
 
   windows:
-    runs-on: codebuild-qwerty-llvm-build-windows-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: windows-latest
 
     steps:
       - name: Checkout the repo
@@ -132,7 +132,7 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_6_x86_windows.zip
+          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_6_x86_windows.zip -TimeoutSec 120
           Expand-Archive -Path llvm_mlir_rel_v20_1_6_x86_windows.zip -DestinationPath .
           Add-Content -Path $Env:GITHUB_PATH -Value "$Env:GITHUB_WORKSPACE\llvm20\bin"
       - name: Set up Visual Studio environment
