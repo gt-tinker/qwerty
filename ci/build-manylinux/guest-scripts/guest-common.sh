@@ -20,7 +20,7 @@ getwheel() {
 extract_llvm_if_needed() {
     pushd "$wheel_outdir" >/dev/null
         if [[ ! -e llvm20 ]]; then
-            time tar -xvf llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
+            time tar -xvf llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
         fi
     popd >/dev/null
 

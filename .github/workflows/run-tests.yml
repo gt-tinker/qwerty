@@ -42,8 +42,8 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
-          tar -xJvf llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
+          tar -xJvf llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
           echo "$GITHUB_WORKSPACE/llvm20/bin" >> $GITHUB_PATH
       - name: Run the tests in virtual environment
         run: |
@@ -87,8 +87,8 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_aarch64_macos.tar.xz
-          tar -xJvf llvm_mlir_rel_v20_1_6_aarch64_macos.tar.xz
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_aarch64_macos.tar.xz
+          tar -xJvf llvm_mlir_rel_v20_1_7_aarch64_macos.tar.xz
           echo "$GITHUB_WORKSPACE/llvm20/bin" >> $GITHUB_PATH
       - name: Run tests in the virtual environment
         run: |
@@ -132,8 +132,8 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.6/llvm_mlir_rel_v20_1_6_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_6_x86_windows.zip -TimeoutSec 120
-          Expand-Archive -Path llvm_mlir_rel_v20_1_6_x86_windows.zip -DestinationPath .
+          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_7_x86_windows.zip -TimeoutSec 120
+          Expand-Archive -Path llvm_mlir_rel_v20_1_7_x86_windows.zip -DestinationPath .
           Add-Content -Path $Env:GITHUB_PATH -Value "$Env:GITHUB_WORKSPACE\llvm20\bin"
       - name: Set up Visual Studio environment
         uses: egor-tensin/vs-shell@v2

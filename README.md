@@ -56,7 +56,7 @@ Building the Compiler on Your Own Machine
 
 [LLVM][25] is a heavy-duty compiler framework we use, along with its
 sub-project [MLIR][26], in the Qwerty compiler.
-Qwerty currently requires LLVM 20.1.6.
+Qwerty currently requires LLVM 20.1.7.
 If you want to build the Qwerty compiler, you have two options to satisfy the
 LLVM dependency: (1) download pre-built LLVM libraries or (2) build LLVM
 yourself. We discuss both options below.
@@ -64,7 +64,7 @@ yourself. We discuss both options below.
 #### Option 1: Use a Pre-Built LLVM Tarball
 
 You can download our builds of LLVM from here:
-<https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v20.1.6>
+<https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v20.1.7>
 
 ##### macOS/Linux
 
@@ -72,7 +72,7 @@ You can extract it with something like:
 
     $ export LLVM_INSTALL_DIR=~/bin/llvm20
     $ mkdir -p "$LLVM_INSTALL_DIR"
-    $ tar -C "$(dirname "$LLVM_INSTALL_DIR")" -xJvf ~/Downloads/llvm_mlir_rel_v20_1_6_x86_linux.tar.xz
+    $ tar -C "$(dirname "$LLVM_INSTALL_DIR")" -xJvf ~/Downloads/llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
     $ export PATH=$PATH:$LLVM_INSTALL_DIR/bin/
     $ export MLIR_DIR=$LLVM_INSTALL_DIR/lib/cmake/mlir/
 
@@ -99,10 +99,10 @@ following commands produce the expected output:
 
     $ mlir-opt --version
     LLVM (http://llvm.org/):
-      LLVM version 20.1.6
+      LLVM version 20.1.7
       Optimized build with assertions.
     $ llvm-config --version
-    20.1.6
+    20.1.7
 
 Next, you need to install [Rust][8] (for [`qir-runner`][10]),
 [`python3-venv`][45] (to make a **v**irtual **env**ironment),
@@ -161,10 +161,10 @@ that LLVM is installed correctly from the previous section:
 
     > mlir-opt --version
     LLVM (http://llvm.org/):
-      LLVM version 20.1.6
+      LLVM version 20.1.7
       Optimized build with assertions.
     > llvm-config --version
-    20.1.6
+    20.1.7
 
 Still inside of `cmd` (_not_ PowerShell), run the following commands inside a
 cloned copy of this repository (`setup-env.bat` configures Visual Studio to

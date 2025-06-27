@@ -70,7 +70,7 @@ stepping through the MLIR code in gdb may be necessary. To do this:
 2. Run the offending Qwerty program with `$QWERTY_DEBUG` set to `1` to generate
    some `module_*.mlir` files ([described above](#debugging))
 3. Clone [the LLVM repository][7] locally and check out the tag
-   `llvmorg-20.1.6`. This way, gdb can print out lines of code as you step
+   `llvmorg-20.1.7`. This way, gdb can print out lines of code as you step
    through the MLIR/LLVM source code.
 4. If you cloned LLVM at `$LLVM_REPO_PATH`, run qwerty-opt in gdb as follows:
    ```
