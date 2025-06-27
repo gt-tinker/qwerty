@@ -104,12 +104,12 @@ following commands produce the expected output:
     $ llvm-config --version
     20.1.7
 
-Next, you need to install [Rust][8] (for [`qir-runner`][10]),
-[`python3-venv`][45] (to make a **v**irtual **env**ironment),
-[`python3-dev`][9] (Python C API headers for the Python C extension), and
-[`libffi-dev`][28] and [`libxml2-dev`][39] (apparently required by
-`qir-runner`, possibly transitively), [`libzstd-dev`][33] (an LLVM dependency).
-You should also install CMake and Ninja if you haven't already,as this frees you from running into common errors.
+Next, you need to install [CMake][51], [Ninja][52], [Rust][8] (for
+[`qir-runner`][10]), [`python3-venv`][45] (to make a **v**irtual
+**env**ironment), [`python3-dev`][9] (Python C API headers for the Python C
+extension), and [`libffi-dev`][28] and [`libxml2-dev`][39] (apparently required
+by `qir-runner`, possibly transitively), [`libzstd-dev`][33] (an LLVM
+dependency).
 
 Finally, to build, run the following in a cloned copy of this repository (the
 first two commands are a one-time thing):
@@ -266,3 +266,5 @@ artifact][50] or on the `cgo25-artifact` branch.
 [48]: https://github.com/scikit-build/scikit-build-core
 [49]: https://github.com/ORNL-QCI/qiree
 [50]: https://doi.org/10.5281/zenodo.14080494
+[51]: https://cmake.org/download/
+[52]: https://ninja-build.org/
