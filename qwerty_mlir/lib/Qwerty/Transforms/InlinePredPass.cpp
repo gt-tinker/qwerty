@@ -49,7 +49,7 @@ struct InlinePredPass : public qwerty::InlinePredBase<InlinePredPass> {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<InlinePredPattern>(&getContext());
 
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
             signalPassFailure();
         }
     }

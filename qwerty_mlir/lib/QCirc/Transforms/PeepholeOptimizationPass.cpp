@@ -769,7 +769,7 @@ struct PeepholeOptimizationPass : public qcirc::PeepholeOptimizationBase<Peephol
             ReplaceRzQallocWithQalloc,
             ReplaceRzWithZ
         >(&getContext());
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patternsPP)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patternsPP)))) {
             signalPassFailure();
         }
 
@@ -779,7 +779,7 @@ struct PeepholeOptimizationPass : public qcirc::PeepholeOptimizationBase<Peephol
         // it happens first then the other simple patterns.
         mlir::RewritePatternSet patternsZ(&getContext());
         patternsZ.add<ReplaceZPattern, ReplaceZZeroPattern>(&getContext());
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patternsZ)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patternsZ)))) {
             signalPassFailure();
         }
 
@@ -790,7 +790,7 @@ struct PeepholeOptimizationPass : public qcirc::PeepholeOptimizationBase<Peephol
             ReplaceHGatesPattern,
             DeleteUnusedQubitsPattern
         >(&getContext());
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
             signalPassFailure();
         }
     }

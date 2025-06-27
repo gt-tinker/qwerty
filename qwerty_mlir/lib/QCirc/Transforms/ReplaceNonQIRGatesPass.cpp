@@ -255,7 +255,7 @@ struct ReplaceNonQIRGatesPass : public qcirc::ReplaceNonQIRGatesBase<ReplaceNonQ
             ReplaceGate2QOpPattern
         >(&getContext());
 
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
             signalPassFailure();
         }
     }
