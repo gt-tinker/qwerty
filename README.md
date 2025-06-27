@@ -109,6 +109,7 @@ Next, you need to install [Rust][8] (for [`qir-runner`][10]),
 [`python3-dev`][9] (Python C API headers for the Python C extension), and
 [`libffi-dev`][28] and [`libxml2-dev`][39] (apparently required by
 `qir-runner`, possibly transitively), [`libzstd-dev`][33] (an LLVM dependency).
+You should also install CMake and Ninja if you haven't already,as this frees you from running into common errors.
 
 Finally, to build, run the following in a cloned copy of this repository (the
 first two commands are a one-time thing):
@@ -116,9 +117,6 @@ first two commands are a one-time thing):
     $ git submodule update --init tpls/tweedledum tpls/qir-runner tpls/googletest
     $ python3 -m venv venv
     $ . venv/bin/activate
-
-You should install CMake and Ninja if you haven't already. This
-frees you from running into common errors like "file not found" or "zsh: command not found".
 
 Then, run the following command:
 
