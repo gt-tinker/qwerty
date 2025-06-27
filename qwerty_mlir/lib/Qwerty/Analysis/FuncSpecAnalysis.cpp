@@ -91,7 +91,6 @@ mlir::LogicalResult FuncSpecAnalysis::visitOperation(
         // bottom
         setAllToEntryStates(results);
     }
-    //return statement here
     return mlir::success();
 }
 
