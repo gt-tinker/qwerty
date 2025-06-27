@@ -148,7 +148,10 @@ jobs:
           python3 -m venv venv
           .\venv\Scripts\Activate.ps1
           pip install -v .
-          Write-Host "!!!!! RSP BEGIN"
+          Write-Host "!!!!! qwerty-test.rsp BEGIN"
           Get-Content _skbuild\CMakeFiles\qwerty-test.rsp
-          Write-Host "!!!!! RSP END"
+          Write-Host "!!!!! qwerty-test.rsp END"
+          Write-Host "!!!!! qwerty-opt.rsp BEGIN"
+          Get-Content _skbuild\CMakeFiles\qwerty-opt.rsp
+          Write-Host "!!!!! qwerty-opt.rsp END"
           test\run-tests.bat
