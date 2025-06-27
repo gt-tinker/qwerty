@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p io
           cd io
-          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v19.1.6/llvm_mlir_rel_v19_1_6_x86_linux.tar.xz
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
       - name: Sanity check (full test suite)
         working-directory: ci/build-manylinux
         run: |
@@ -86,12 +86,12 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v19.1.6/llvm_mlir_rel_v19_1_6_aarch64_macos.tar.xz
-          tar -xJvf llvm_mlir_rel_v19_1_6_aarch64_macos.tar.xz
-          echo "$GITHUB_WORKSPACE/llvm19/bin" >> $GITHUB_PATH
+          wget https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_aarch64_macos.tar.xz
+          tar -xJvf llvm_mlir_rel_v20_1_7_aarch64_macos.tar.xz
+          echo "$GITHUB_WORKSPACE/llvm20/bin" >> $GITHUB_PATH
       - name: Make and install wheel
         run: |
-          export MLIR_DIR="$GITHUB_WORKSPACE/llvm19/lib/cmake/mlir"
+          export MLIR_DIR="$GITHUB_WORKSPACE/llvm20/lib/cmake/mlir"
           export CMAKE_GENERATOR=Ninja
           export QWERTY_BUILD_TESTS=true
           python3 -m venv venv
@@ -141,9 +141,9 @@ jobs:
           path: tpls/googletest
       - name: Setting up LLVM and MLIR
         run: |
-          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v19.1.6/llvm_mlir_rel_v19_1_6_x86_windows.zip -OutFile llvm_mlir_rel_v19_1_6_x86_windows.zip
-          Expand-Archive -Path llvm_mlir_rel_v19_1_6_x86_windows.zip -DestinationPath .
-          Add-Content -Path $Env:GITHUB_PATH -Value "$Env:GITHUB_WORKSPACE\llvm19\bin"
+          Invoke-WebRequest https://github.com/gt-tinker/qwerty-llvm-builds/releases/download/v20.1.7/llvm_mlir_rel_v20_1_7_x86_windows.zip -OutFile llvm_mlir_rel_v20_1_7_x86_windows.zip
+          Expand-Archive -Path llvm_mlir_rel_v20_1_7_x86_windows.zip -DestinationPath .
+          Add-Content -Path $Env:GITHUB_PATH -Value "$Env:GITHUB_WORKSPACE\llvm20\bin"
       - name: Set up Visual Studio environment variables
         uses: egor-tensin/vs-shell@v2
         with:
@@ -151,7 +151,7 @@ jobs:
       - name: Make and install wheel
         shell: pwsh
         run: |
-          $Env:MLIR_DIR = "$Env:GITHUB_WORKSPACE\llvm19\lib\cmake\mlir"
+          $Env:MLIR_DIR = "$Env:GITHUB_WORKSPACE\llvm20\lib\cmake\mlir"
           $Env:CMAKE_GENERATOR = "Ninja"
           $Env:QWERTY_BUILD_TESTS = "true"
           python3 -m venv venv

@@ -41,7 +41,7 @@ struct InlineAdjPass : public qcirc::InlineAdjBase<InlineAdjPass> {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<InlineAdjointPattern>(&getContext());
 
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        if (mlir::failed(mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
             signalPassFailure();
         }
     }

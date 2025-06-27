@@ -14,6 +14,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -86,6 +87,7 @@ MlirHandle::MlirHandle(std::string filename)
 
     mlir::DialectRegistry more_extensions;
     mlir::func::registerInlinerExtension(more_extensions);
+    mlir::LLVM::registerInlinerInterface(more_extensions);
     context.appendDialectRegistry(more_extensions);
 
     //// Setup LLVM

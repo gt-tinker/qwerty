@@ -19,13 +19,13 @@ getwheel() {
 
 extract_llvm_if_needed() {
     pushd "$wheel_outdir" >/dev/null
-        if [[ ! -e llvm19 ]]; then
-            time tar -xvf llvm_mlir_rel_v19_1_6_x86_linux.tar.xz
+        if [[ ! -e llvm20 ]]; then
+            time tar -xvf llvm_mlir_rel_v20_1_7_x86_linux.tar.xz
         fi
     popd >/dev/null
 
-    export PATH=$wheel_outdir/llvm19/bin:$PATH
-    export MLIR_DIR=$wheel_outdir/llvm19/lib/cmake/mlir
+    export PATH=$wheel_outdir/llvm20/bin:$PATH
+    export MLIR_DIR=$wheel_outdir/llvm20/lib/cmake/mlir
 }
 
 export SKBUILD_BUILD_DIR=$wheel_outdir/_skbuild

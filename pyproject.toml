@@ -7,19 +7,26 @@ name = "qwerty"
 version = "1.0.2"
 requires-python = ">= 3.10"
 # Only needed by simon_post.py used in both the integration tests and
-# examples/. But include it here for simplicity
-dependencies = ["numpy==1.26.4"]
+# examples/. But include it here for simplicity.
+# This numpy version was chosen since it seems to be the last to support Python
+# 3.10, which we still support.
+dependencies = ["numpy==2.2.6"]
 
 [project.optional-dependencies]
 coverage = ['coverage==7.6.7']
 
 [tool.scikit-build]
+# This flag build.tool-args specifies flags to Ninja. This commented example
+# passes `-d keeprsp` to stop Ninja from deleting delete .rsp files. What are
+# those? They are ways that CMake passes enormous command lines to the enemy
+# (aka the Windows linker). This is could ease debugging in some cases.
+#build.tool-args = ["-d", "keeprsp"]
 build-dir = "_skbuild"
 wheel.py-api = "cp310"
 wheel.exclude = ["*.hpp", "*.cpp", ".*.swp"]
-# Useful when you are debugging the build system. Makes ninja print out every
-# command (e.g., compiler/linker invocation)
-cmake.verbose = false
+# It's useful to set this to true when you are debugging the build system.
+# Makes ninja print out every command (e.g., compiler/linker invocation)
+build.verbose = false
 # It's useful to change the following two options to false and Debug
 # (respectively) when debugging, but heads up, that will significantly slow
 # down compilation time

@@ -1,0 +1,11 @@
+rule python_update_ninja_script
+    command = cmd.exe /c "python ../ci/build-windows/hack-for-linker-bug/update_ninja_script.py"
+
+build python_update_ninja_script: python_update_ninja_script
+
+rule invoke_real_ninja
+    command = cmd.exe /c "ninja -d keeprsp"
+
+build invoke_real_ninja: invoke_real_ninja | python_update_ninja_script
+
+default invoke_real_ninja

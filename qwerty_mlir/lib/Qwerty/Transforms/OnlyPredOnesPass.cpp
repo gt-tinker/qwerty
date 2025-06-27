@@ -264,7 +264,7 @@ struct OnlyPredOnesPass
         patterns.add<FuncPredNotOnesPattern,
                      CallPredNotOnesPattern>(&getContext());
 
-        if (mlir::failed(mlir::applyPatternsAndFoldGreedily(
+        if (mlir::failed(mlir::applyPatternsGreedily(
                 getOperation(), std::move(patterns)))) {
             signalPassFailure();
         }

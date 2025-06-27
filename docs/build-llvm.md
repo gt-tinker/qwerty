@@ -2,13 +2,13 @@ Building LLVM Yourself
 ======================
 
 First, you need to clone [the LLVM repository][5] and check out the
-`llvmorg-19.1.6` tag. For example, the following commands would check out the
+`llvmorg-20.1.7` tag. For example, the following commands would check out the
 right commit (I would _strongly_ recommend running these outside this
 repository):
 
     $ git clone https://github.com/llvm/llvm-project.git llvm
     $ cd llvm
-    $ git checkout llvmorg-19.1.6
+    $ git checkout llvmorg-20.1.7
 
 There are some scripts for building LLVM on different operating systems under
 `ci/`, but the instructions below guide you through building LLVM by
@@ -47,7 +47,7 @@ some Qwerty-specific advice to complement their guide:
 
 1. Use the `git clone` command above with `C:\qwerty` as your current directory
    (that is, clone LLVM at `C:\qwerty\llvm-project`). Check out the tag
-   `llvmorg-19.1.6`.
+   `llvmorg-20.1.7`.
 2. When you install Python, if you want to do a debug build of the Qwerty
    compiler, you should check "Download debugging symbols" and "Downloaded debug
    binaries" under "Advanced Options" in the installer. This will install
@@ -57,7 +57,7 @@ some Qwerty-specific advice to complement their guide:
 3. I used the following `cmake` command line **inside an _administrator_ "x64
    Native Tools Command Prompt for VS 2022"**:
    ```
-   cmake -S llvm\llvm -B build -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=TRUE -DCMAKE_INSTALL_PREFIX=C:\qwerty\llvm19 -DLLVM_TARGETS_TO_BUILD=Native -DLLVM_ENABLE_DIA_SDK=OFF -Thost=x64 -DLLVM_INSTALL_UTILS=TRUE
+   cmake -S llvm\llvm -B build -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=TRUE -DCMAKE_INSTALL_PREFIX=C:\qwerty\llvm20 -DLLVM_TARGETS_TO_BUILD=Native -DLLVM_ENABLE_DIA_SDK=OFF -Thost=x64 -DLLVM_INSTALL_UTILS=TRUE
    ```
    (Turning off [DIA][3] with `-DLLVM_ENABLE_DIA_SDK=OFF` is more important
    than it looks; without it, the generated LLVM CMake scripts end up making
@@ -76,8 +76,8 @@ some Qwerty-specific advice to complement their guide:
    experience).
 7. Press _Start_ and type in "environment variables" (I would recommend editing
    system variables, not user variables).
-   Set `MLIR_DIR` to `C:\qwerty\llvm19\lib\cmake\mlir` and add
-   `C:\qwerty\llvm19\bin` to `Path`
+   Set `MLIR_DIR` to `C:\qwerty\llvm20\lib\cmake\mlir` and add
+   `C:\qwerty\llvm20\bin` to `Path`
 
 [1]: https://unix.stackexchange.com/q/129143/62375
 [2]: https://llvm.org/docs/GettingStartedVS.html
