@@ -21,7 +21,7 @@ wheel.py-api = "cp310"
 wheel.exclude = ["*.hpp", "*.cpp", ".*.swp"]
 # Useful when you are debugging the build system. Makes ninja print out every
 # command (e.g., compiler/linker invocation)
-cmake.verbose = false
+build.verbose = true
 # It's useful to change the following two options to false and Debug
 # (respectively) when debugging, but heads up, that will significantly slow
 # down compilation time
