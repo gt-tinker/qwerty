@@ -1,10 +1,10 @@
+import os
 import sys
 
 def main():
-    new_lines = []
     just_saw_exec_line = False
 
-    with open('build.ninja', 'r') as fp:
+    with open('build.ninja', 'r') as fp, open('tmp.ninja', 'w') as nfp:
         for line in fp:
             if '.exe: CXX_EXECUTABLE_LINKER' in line:
                 line = line.split('||')[0]
@@ -13,17 +13,17 @@ def main():
                     line += '\n'
                 line = line.replace('|', '')
                 just_saw_exec_line = True
-                new_lines.append(line)
             elif just_saw_exec_line and 'LINK_LIBRARIES = ' in line:
+                # It turns out there are still LINK_LIBRARIES that are not
+                # dependencies. link.exe seems to be able to cope with them
+                # because there's not many
                 only_non_deps = ' '.join(arg for arg in line.split('=')[1].strip().split() if 'LLVM' not in arg and 'qwerty' not in arg)
                 line = '  LINK_LIBRARIES = ' + only_non_deps + '\n'
-                new_lines.append(line)
                 just_saw_exec_line = False
-            else:
-                new_lines.append(line)
 
-    with open('build.ninja', 'w') as fp:
-        fp.writelines(new_lines)
+            nfp.write(line)
+
+    os.replace('tmp.ninja', 'build.ninja')
 
     return 0
 

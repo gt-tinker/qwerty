@@ -145,6 +145,7 @@ jobs:
           $Env:MLIR_DIR = "$Env:GITHUB_WORKSPACE\llvm20\lib\cmake\mlir"
           $Env:CMAKE_GENERATOR = "Ninja"
           $Env:QWERTY_BUILD_TESTS = "true"
+          $Env:SKBUILD_BUILD_TOOL_ARGS = "-f;../ci/build-windows/hack-for-linker-bug/hack.ninja"
           python3 -m venv venv
           .\venv\Scripts\Activate.ps1
           pip install -v .
