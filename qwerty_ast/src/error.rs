@@ -33,7 +33,6 @@ pub enum TypeErrorKind {
     // Python-DSL/AST-specific errors:
     UnsupportedPythonConstruct(String),
     SyntaxError(String),
-    
     // ... TODO: Ask Austin for Quantum/QWERTY specific errors
 }
 

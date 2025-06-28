@@ -18,7 +18,9 @@ pub struct TypeEnv {
 
 impl TypeEnv {
     pub fn new() -> Self {
-        Self { vars: HashMap::new() }
+        Self {
+            vars: HashMap::new(),
+        }
     }
 
     // Allows Shadowing
@@ -29,7 +31,7 @@ impl TypeEnv {
 
     // QWERTY follows Python's variable rules: shadowing is allowed.
     // To disallow shadowing, uncomment the code below and update call sites.
-    
+
     // Disallow Shadowing (TODO: Seems not required, confirm with Austin)
     /*
     pub fn insert_var(&mut self, name: &str, typ: Type) -> Result<(), TypeError> {
@@ -105,7 +107,11 @@ pub fn typecheck_stmt(
             Ok(())
         }
 
-        Stmt::UnpackAssign { lhs: _, rhs, span: _ } => {
+        Stmt::UnpackAssign {
+            lhs: _,
+            rhs,
+            span: _,
+        } => {
             // TODO: Implement tuple/list unpacking logic.
             let _rhs_ty = typecheck_expr(rhs, env)?;
             // Qwerty spec needed: Should rhs_ty be tuple? How to handle arity?
@@ -135,14 +141,10 @@ pub fn typecheck_stmt(
 /// Typecheck an expression and return its type.
 pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError> {
     match expr {
-        Expr::Variable { name, span } => {
-            env.get_var(name)
-                .cloned()
-                .ok_or(TypeError {
-                    kind: TypeErrorKind::UndefinedVariable(name.clone()),
-                    span: span.clone(),
-                })
-        }
+        Expr::Variable { name, span } => env.get_var(name).cloned().ok_or(TypeError {
+            kind: TypeErrorKind::UndefinedVariable(name.clone()),
+            span: span.clone(),
+        }),
 
         Expr::UnitLiteral { span: _ } => Ok(Type::UnitType),
 
@@ -184,11 +186,11 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             Ok(Type::RegType {
                 elem_ty: RegKind::Bit,
                 dim: 1, // TODO: Make dynamic based on basis (Check with Austin about its validation)
-                // Self Note (verify with Austin): Currently this measurement returns a single classical bit
-                // But in real quantum programs, we might measure multiple qubits at once (e.g measuring a register of 3 qubits gives you 3 classical bits, ryt?)
-                // The number of bits returned should depend on the size/dimension of the basis being measured
-                // So, make 'dim' reflect the actual number of qubits measured, as determined by the basis argument
-                // Need to understand and work on dimensions.. Discuss bro!
+                        // Self Note (verify with Austin): Currently this measurement returns a single classical bit
+                        // But in real quantum programs, we might measure multiple qubits at once (e.g measuring a register of 3 qubits gives you 3 classical bits, ryt?)
+                        // The number of bits returned should depend on the size/dimension of the basis being measured
+                        // So, make 'dim' reflect the actual number of qubits measured, as determined by the basis argument
+                        // Need to understand and work on dimensions.. Discuss bro!
             })
         }
 
@@ -622,7 +624,10 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
             // TODO: Combine types; for now, just check all are Qubits.
             for q in qs {
                 let t = typecheck_qlit(q, _env)?;
-                if t != (Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }) {
+                if t != (Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: 1,
+                }) {
                     return Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
                         span: None,
@@ -667,7 +672,10 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         Vector::VectorTensor { qs, .. } => {
             for q in qs {
                 let t = typecheck_qlit(q, _env)?;
-                if t != (Type::RegType { elem_ty: RegKind::Qubit, dim: 1 }) {
+                if t != (Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: 1,
+                }) {
                     return Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
                         span: None,

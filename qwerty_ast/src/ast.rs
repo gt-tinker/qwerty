@@ -1,10 +1,10 @@
 /*
  * QWERTY Programming Language Compiler
  * Abstract Syntax Tree (AST) Definitions
- * 
+ *
  * This module defines the Abstract Syntax Tree (AST) structures
  * used for parsing and representing QWERTY programs.
- * 
+ *
  * Version: 1.0
  */
 
@@ -14,17 +14,9 @@ use crate::span::SourceSpan;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    FuncType {
-        in_ty: Box<Type>,
-        out_ty: Box<Type>,
-    },
-    RevFuncType {
-        in_out_ty: Box<Type>,
-    },
-    RegType {
-        elem_ty: RegKind,
-        dim: u64,
-    },
+    FuncType { in_ty: Box<Type>, out_ty: Box<Type> },
+    RevFuncType { in_out_ty: Box<Type> },
+    RegType { elem_ty: RegKind, dim: u64 },
     UnitType,
 }
 
@@ -32,17 +24,21 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegKind {
-    Bit,    // Classical bit register
-    Qubit,  // Quantum bit register
-    Basis,  // Register for basis states
+    Bit,   // Classical bit register
+    Qubit, // Quantum bit register
+    Basis, // Register for basis states
 }
 
 // ----- Qubit Literals -----
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum QLit {
-    ZeroQubit { span: Option<SourceSpan> },
-    OneQubit { span: Option<SourceSpan> },
+    ZeroQubit {
+        span: Option<SourceSpan>,
+    },
+    OneQubit {
+        span: Option<SourceSpan>,
+    },
     QubitTilt {
         q: Box<QLit>,
         angle_deg: f64,
@@ -63,10 +59,18 @@ pub enum QLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Vector {
-    ZeroVector { span: Option<SourceSpan> },
-    OneVector { span: Option<SourceSpan> },
-    PadVector { span: Option<SourceSpan> },
-    TargetVector { span: Option<SourceSpan> },
+    ZeroVector {
+        span: Option<SourceSpan>,
+    },
+    OneVector {
+        span: Option<SourceSpan>,
+    },
+    PadVector {
+        span: Option<SourceSpan>,
+    },
+    TargetVector {
+        span: Option<SourceSpan>,
+    },
     VectorTilt {
         q: Box<QLit>,
         angle_deg: f64,
@@ -91,7 +95,9 @@ pub enum Basis {
         vecs: Vec<Vector>,
         span: Option<SourceSpan>,
     },
-    EmptyBasisLiteral { span: Option<SourceSpan> },
+    EmptyBasisLiteral {
+        span: Option<SourceSpan>,
+    },
     BasisTensor {
         bases: Vec<Basis>,
         span: Option<SourceSpan>,
