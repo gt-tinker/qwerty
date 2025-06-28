@@ -121,9 +121,19 @@ impl Vector {
             Vector::OneVector { .. } => "'1'".to_string(),
             Vector::PadVector { .. } => "'?'".to_string(),
             Vector::TargetVector { .. } => "'_'".to_string(),
-            Vector::VectorTilt { q, angle_deg, .. } => format!("({} @ {})", q.to_programmer_str(), angle_deg),
-            Vector::UniformVectorSuperpos { q1, q2, .. } => format!("({} + {})", q1.to_programmer_str(), q2.to_programmer_str()),
-            Vector::VectorTensor { qs, .. } => format!("({})", qs.iter().map(|q| q.to_programmer_str()).collect::<Vec<String>>().join(" * "))
+            Vector::VectorTilt { q, angle_deg, .. } => {
+                format!("({} @ {})", q.to_programmer_str(), angle_deg)
+            }
+            Vector::UniformVectorSuperpos { q1, q2, .. } => {
+                format!("({} + {})", q1.to_programmer_str(), q2.to_programmer_str())
+            }
+            Vector::VectorTensor { qs, .. } => format!(
+                "({})",
+                qs.iter()
+                    .map(|q| q.to_programmer_str())
+                    .collect::<Vec<String>>()
+                    .join(" * ")
+            ),
         }
     }
 
@@ -139,7 +149,9 @@ impl Vector {
                 q2: inner_bv_2,
                 ..
             } => match (inner_bv_1.get_dim(), inner_bv_2.get_dim()) {
-                (Some(inner_dim1), Some(inner_dim2)) if inner_dim1 == inner_dim2 => Some(inner_dim1),
+                (Some(inner_dim1), Some(inner_dim2)) if inner_dim1 == inner_dim2 => {
+                    Some(inner_dim1)
+                }
                 _ => None,
             },
             Vector::VectorTensor { qs: inner_bvs, .. } => {

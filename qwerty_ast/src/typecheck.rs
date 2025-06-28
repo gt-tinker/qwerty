@@ -799,10 +799,16 @@ mod tests {
                 Vector::ZeroVector { span: None },
                 Vector::OneVector { span: None },
             ],
-            span: None
+            span: None,
         };
         let result = typecheck_basis(&ast, &mut type_env);
-        assert_eq!(result, Ok(Type::RegType{elem_ty: RegKind::Basis, dim: 1}));
+        assert_eq!(
+            result,
+            Ok(Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim: 1
+            })
+        );
         assert!(type_env.is_empty());
     }
 
@@ -811,7 +817,7 @@ mod tests {
         let span = SourceSpan {
             file: "skippy.py".to_string(),
             line: 42,
-            col: 420
+            col: 420,
         };
         let mut type_env = TypeEnv::new();
         // {'0', '0'} !: basis[1] because '0' !_|_ '0'
@@ -820,10 +826,19 @@ mod tests {
                 Vector::ZeroVector { span: None },
                 Vector::ZeroVector { span: None },
             ],
-            span: Some(span.clone())
+            span: Some(span.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
-        assert_eq!(result, Err(TypeError{kind: TypeErrorKind::NotOrthogonal{left: "'0'".to_string(), right: "'0'".to_string()}, span: Some(span)}));
+        assert_eq!(
+            result,
+            Err(TypeError {
+                kind: TypeErrorKind::NotOrthogonal {
+                    left: "'0'".to_string(),
+                    right: "'0'".to_string()
+                },
+                span: Some(span)
+            })
+        );
         assert!(type_env.is_empty());
     }
 
