@@ -8,7 +8,7 @@
  * Version: 1.0
  */
 
-use crate::span::SourceSpan;
+use crate::dbg::DebugInfo;
 
 // ----- Types -----
 
@@ -34,24 +34,24 @@ pub enum RegKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum QLit {
     ZeroQubit {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     OneQubit {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     QubitTilt {
         q: Box<QLit>,
         angle_deg: f64,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     UniformSuperpos {
         q1: Box<QLit>,
         q2: Box<QLit>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     QubitTensor {
         qs: Vec<QLit>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
 }
 
@@ -60,30 +60,30 @@ pub enum QLit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Vector {
     ZeroVector {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     OneVector {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     PadVector {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     TargetVector {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     VectorTilt {
         q: Box<QLit>,
         angle_deg: f64,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     UniformVectorSuperpos {
         q1: Box<QLit>,
         q2: Box<QLit>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     VectorTensor {
         qs: Vec<QLit>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
 }
 
@@ -93,14 +93,14 @@ pub enum Vector {
 pub enum Basis {
     BasisLiteral {
         vecs: Vec<Vector>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     EmptyBasisLiteral {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     BasisTensor {
         bases: Vec<Basis>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
 }
 
@@ -110,51 +110,51 @@ pub enum Basis {
 pub enum Expr {
     Variable {
         name: String,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     UnitLiteral {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Adjoint {
         func: Box<Expr>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Pipe {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Measure {
         basis: Basis,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Discard {
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Tensor {
         vals: Vec<Expr>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     BasisTranslation {
         bin: Basis,
         bout: Basis,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Predicated {
         then_func: Box<Expr>,
         else_func: Box<Expr>,
         pred: Basis,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     NonUniformSuperpos {
         pairs: Vec<(f64, QLit)>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Conditional {
         then_expr: Box<Expr>,
         else_expr: Box<Expr>,
         cond: Box<Expr>,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     QLit(QLit),
 }
@@ -166,16 +166,16 @@ pub enum Stmt {
     Assign {
         lhs: String,
         rhs: Expr,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     UnpackAssign {
         lhs: Vec<String>,
         rhs: Expr,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
     Return {
         val: Expr,
-        span: Option<SourceSpan>,
+        dbg: Option<DebugInfo>,
     },
 }
 
@@ -187,7 +187,7 @@ pub struct FunctionDef {
     pub args: Vec<(Type, String)>,
     pub ret_type: Type,
     pub body: Vec<Stmt>,
-    pub span: Option<SourceSpan>,
+    pub dbg: Option<DebugInfo>,
 }
 
 // ----- Program -----
@@ -195,5 +195,5 @@ pub struct FunctionDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub funcs: Vec<FunctionDef>,
-    pub span: Option<SourceSpan>,
+    pub dbg: Option<DebugInfo>,
 }

@@ -1,4 +1,4 @@
-use crate::span::SourceSpan;
+use crate::dbg::DebugInfo;
 
 /// UndefinedVariable: Variable is used but not declared or is out of scope.
 /// RedefinedVariable: Variable declared more than once in the same scope.
@@ -39,5 +39,5 @@ pub enum TypeErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeError {
     pub kind: TypeErrorKind,
-    pub span: Option<SourceSpan>,
+    pub dbg: Option<DebugInfo>,
 }
