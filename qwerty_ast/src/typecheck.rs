@@ -675,6 +675,11 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
                 dim: qs.len() as u64,
             })
         }
+
+        Vector::VectorUnit { .. } => Ok(Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim: 0,
+        }),
     }
 }
 
@@ -836,6 +841,123 @@ mod tests {
                     left: "'0'".to_string(),
                     right: "'0'".to_string()
                 },
+                span: Some(span)
+            })
+        );
+        assert!(type_env.is_empty());
+    }
+
+    #[test]
+    fn test_typecheck_basis_not_ortho_tilt() {
+        let span = SourceSpan {
+            file: "skippy.py".to_string(),
+            line: 42,
+            col: 420,
+        };
+        let mut type_env = TypeEnv::new();
+        // {'0', -'0'} !: basis[1] because '0' !_|_ -'0'
+        let ast = Basis::BasisLiteral {
+            vecs: vec![
+                Vector::ZeroVector { span: None },
+                Vector::VectorTilt {
+                    q: Box::new(Vector::ZeroVector { span: None }),
+                    angle_deg: 180.0,
+                    span: None,
+                },
+            ],
+            span: Some(span.clone()),
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(
+            result,
+            Err(TypeError {
+                kind: TypeErrorKind::NotOrthogonal {
+                    left: "'0'".to_string(),
+                    right: "('0' @ 180)".to_string()
+                },
+                span: Some(span)
+            })
+        );
+        assert!(type_env.is_empty());
+    }
+
+    #[test]
+    fn test_typecheck_basis_empty() {
+        let span = SourceSpan {
+            file: "skippy.py".to_string(),
+            line: 42,
+            col: 420,
+        };
+        let mut type_env = TypeEnv::new();
+        // {} !: basis[1] because it's empty
+        let ast = Basis::BasisLiteral {
+            vecs: vec![],
+            span: Some(span.clone()),
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(
+            result,
+            Err(TypeError {
+                kind: TypeErrorKind::EmptyLiteral,
+                span: Some(span)
+            })
+        );
+        assert!(type_env.is_empty());
+    }
+
+    #[test]
+    fn test_typecheck_basis_empty_vector() {
+        let span = SourceSpan {
+            file: "skippy.py".to_string(),
+            line: 42,
+            col: 420,
+        };
+        let mut type_env = TypeEnv::new();
+        // {[]} !: basis[0] because [] is an empty vector
+        let ast = Basis::BasisLiteral {
+            vecs: vec![
+                Vector::VectorUnit { span: None },
+            ],
+            span: Some(span.clone()),
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(
+            result,
+            Err(TypeError {
+                kind: TypeErrorKind::EmptyLiteral,
+                span: Some(span)
+            })
+        );
+        assert!(type_env.is_empty());
+    }
+
+    #[test]
+    fn test_typecheck_basis_mixed_vector_dims() {
+        let span = SourceSpan {
+            file: "skippy.py".to_string(),
+            line: 42,
+            col: 420,
+        };
+        let mut type_env = TypeEnv::new();
+        // {'0', '0'+'1'} !: basis[0] because vector dimensions differ
+        let ast = Basis::BasisLiteral {
+            vecs: vec![
+                Vector::ZeroVector { span: None },
+                Vector::VectorTensor {
+                    qs: vec![
+                        Vector::ZeroVector { span: None },
+                        Vector::OneVector { span: None },
+                    ],
+                    span: None,
+                },
+            ],
+            span: Some(span.clone()),
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(
+            result,
+            Err(TypeError {
+                kind: TypeErrorKind::DimMismatch,
                 span: Some(span)
             })
         );

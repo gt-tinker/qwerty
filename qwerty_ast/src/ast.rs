@@ -110,6 +110,7 @@ pub enum Vector {
         qs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
+    VectorUnit { span: Option<SourceSpan> },
 }
 
 impl Vector {
@@ -134,6 +135,7 @@ impl Vector {
                     .collect::<Vec<String>>()
                     .join(" * ")
             ),
+            Vector::VectorUnit { .. } => "[]".to_string(),
         }
     }
 
@@ -163,6 +165,7 @@ impl Vector {
                         .try_fold(0, |acc, v| v.get_dim().map(|dim| acc + dim))
                 }
             }
+            Vector::VectorUnit { .. } => Some(0),
         }
     }
 }
