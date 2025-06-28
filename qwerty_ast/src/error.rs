@@ -1,4 +1,4 @@
-use crate::dbg::DebugInfo;
+use crate::dbg::DebugLoc;
 
 /// UndefinedVariable: Variable is used but not declared or is out of scope.
 /// RedefinedVariable: Variable declared more than once in the same scope.
@@ -39,5 +39,5 @@ pub enum TypeErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeError {
     pub kind: TypeErrorKind,
-    pub dbg: Option<DebugInfo>,
+    pub dbg: Option<DebugLoc>,
 }

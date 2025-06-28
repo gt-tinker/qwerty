@@ -8,7 +8,7 @@
  * Version: 1.0
  */
 
-use crate::dbg::DebugInfo;
+use crate::dbg::DebugLoc;
 
 // ----- Types -----
 
@@ -34,24 +34,24 @@ pub enum RegKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum QLit {
     ZeroQubit {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     OneQubit {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     QubitTilt {
         q: Box<QLit>,
         angle_deg: f64,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     UniformSuperpos {
         q1: Box<QLit>,
         q2: Box<QLit>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     QubitTensor {
         qs: Vec<QLit>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
 }
 
@@ -60,30 +60,30 @@ pub enum QLit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Vector {
     ZeroVector {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     OneVector {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     PadVector {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     TargetVector {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     VectorTilt {
         q: Box<QLit>,
         angle_deg: f64,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     UniformVectorSuperpos {
         q1: Box<QLit>,
         q2: Box<QLit>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     VectorTensor {
         qs: Vec<QLit>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
 }
 
@@ -93,14 +93,14 @@ pub enum Vector {
 pub enum Basis {
     BasisLiteral {
         vecs: Vec<Vector>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     EmptyBasisLiteral {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     BasisTensor {
         bases: Vec<Basis>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
 }
 
@@ -110,51 +110,51 @@ pub enum Basis {
 pub enum Expr {
     Variable {
         name: String,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     UnitLiteral {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Adjoint {
         func: Box<Expr>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Pipe {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Measure {
         basis: Basis,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Discard {
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Tensor {
         vals: Vec<Expr>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     BasisTranslation {
         bin: Basis,
         bout: Basis,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Predicated {
         then_func: Box<Expr>,
         else_func: Box<Expr>,
         pred: Basis,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     NonUniformSuperpos {
         pairs: Vec<(f64, QLit)>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Conditional {
         then_expr: Box<Expr>,
         else_expr: Box<Expr>,
         cond: Box<Expr>,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     QLit(QLit),
 }
@@ -166,16 +166,16 @@ pub enum Stmt {
     Assign {
         lhs: String,
         rhs: Expr,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     UnpackAssign {
         lhs: Vec<String>,
         rhs: Expr,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
     Return {
         val: Expr,
-        dbg: Option<DebugInfo>,
+        dbg: Option<DebugLoc>,
     },
 }
 
@@ -187,7 +187,7 @@ pub struct FunctionDef {
     pub args: Vec<(Type, String)>,
     pub ret_type: Type,
     pub body: Vec<Stmt>,
-    pub dbg: Option<DebugInfo>,
+    pub dbg: Option<DebugLoc>,
 }
 
 // ----- Program -----
@@ -195,5 +195,5 @@ pub struct FunctionDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub funcs: Vec<FunctionDef>,
-    pub dbg: Option<DebugInfo>,
+    pub dbg: Option<DebugLoc>,
 }
