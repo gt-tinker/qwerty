@@ -55,6 +55,31 @@ pub enum QLit {
     },
 }
 
+impl QLit {
+    /// Converts a qubit literal to a basis vector since in Appendix A, every ql is
+    /// a bv.
+    pub fn convert_to_basis_vector(&self) -> Vector {
+        match self {
+            QLit::ZeroQubit { span } => Vector::ZeroVector { span: span.clone() },
+            QLit::OneQubit { span } => Vector::OneVector { span: span.clone() },
+            QLit::QubitTilt { q, angle_deg, span } => Vector::VectorTilt {
+                q: Box::new(q.convert_to_basis_vector()),
+                angle_deg: *angle_deg,
+                span: span.clone(),
+            },
+            QLit::UniformSuperpos { q1, q2, span } => Vector::UniformVectorSuperpos {
+                q1: Box::new(q1.convert_to_basis_vector()),
+                q2: Box::new(q2.convert_to_basis_vector()),
+                span: span.clone(),
+            },
+            QLit::QubitTensor { qs, span } => Vector::VectorTensor {
+                qs: qs.iter().map(QLit::convert_to_basis_vector).collect(),
+                span: span.clone(),
+            },
+        }
+    }
+}
+
 // ----- Vector -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,6 +110,49 @@ pub enum Vector {
         qs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl Vector {
+    /// Represents a vector in a human-readable form for error messages sent
+    /// back to the programmer.
+    pub fn to_programmer_str(&self) -> String {
+        match self {
+            Vector::ZeroVector { .. } => "'0'".to_string(),
+            Vector::OneVector { .. } => "'1'".to_string(),
+            Vector::PadVector { .. } => "'?'".to_string(),
+            Vector::TargetVector { .. } => "'_'".to_string(),
+            Vector::VectorTilt { q, angle_deg, .. } => format!("({} @ {})", q.to_programmer_str(), angle_deg),
+            Vector::UniformVectorSuperpos { q1, q2, .. } => format!("({} + {})", q1.to_programmer_str(), q2.to_programmer_str()),
+            Vector::VectorTensor { qs, .. } => format!("({})", qs.iter().map(|q| q.to_programmer_str()).collect::<Vec<String>>().join(" * "))
+        }
+    }
+
+    /// Returns number of non-target and non-padding qubits represented by a basis
+    /// vector (⌊bv⌋ in the Appendix) or None if the basis vector is malformed.
+    pub fn get_dim(&self) -> Option<usize> {
+        match self {
+            Vector::ZeroVector { .. } | Vector::OneVector { .. } => Some(1),
+            Vector::PadVector { .. } | Vector::TargetVector { .. } => Some(0),
+            Vector::VectorTilt { q: inner_bv, .. } => inner_bv.get_dim(),
+            Vector::UniformVectorSuperpos {
+                q1: inner_bv_1,
+                q2: inner_bv_2,
+                ..
+            } => match (inner_bv_1.get_dim(), inner_bv_2.get_dim()) {
+                (Some(inner_dim1), Some(inner_dim2)) if inner_dim1 == inner_dim2 => Some(inner_dim1),
+                _ => None,
+            },
+            Vector::VectorTensor { qs: inner_bvs, .. } => {
+                if inner_bvs.len() == 0 {
+                    None
+                } else {
+                    inner_bvs
+                        .iter()
+                        .try_fold(0, |acc, v| v.get_dim().map(|dim| acc + dim))
+                }
+            }
+        }
+    }
 }
 
 // ----- Basis -----

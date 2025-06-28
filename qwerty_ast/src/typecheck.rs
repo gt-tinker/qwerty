@@ -2,6 +2,7 @@
 
 use crate::ast::*;
 use crate::error::{TypeError, TypeErrorKind};
+use crate::span::SourceSpan;
 use std::collections::HashMap;
 use std::iter::zip;
 
@@ -51,6 +52,10 @@ impl TypeEnv {
 
     pub fn get_var(&self, name: &str) -> Option<&Type> {
         self.vars.get(name)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.vars.is_empty()
     }
 }
 
@@ -327,62 +332,6 @@ fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     (modulo - 180.0).abs() < ATOL
 }
 
-/// Converts a qubit literal to a basis vector since in Appendix A, every ql is
-/// a bv.
-fn convert_qlit_to_basis_vector(qlit: &QLit) -> Vector {
-    match qlit {
-        QLit::ZeroQubit { dbg } => Vector::ZeroVector { dbg: dbg.clone() },
-        QLit::OneQubit { dbg } => Vector::OneVector { dbg: dbg.clone() },
-        QLit::QubitTilt { q, angle_deg, dbg } => Vector::VectorTilt {
-            q: Box::new(convert_qlit_to_basis_vector(&**q)),
-            angle_deg: *angle_deg,
-            dbg: dbg.clone(),
-        },
-        QLit::UniformSuperpos { q1, q2, dbg } => Vector::UniformVectorSuperpos {
-            q1: Box::new(convert_qlit_to_basis_vector(&**q1)),
-            q2: Box::new(convert_qlit_to_basis_vector(&**q2)),
-            dbg: dbg.clone(),
-        },
-        QLit::QubitTensor { qs, dbg } => Vector::VectorTensor {
-            qs: qs.iter().map(convert_qlit_to_basis_vector).collect(),
-            dbg: dbg.clone(),
-        },
-    }
-}
-
-/// Returns number of qubits represented by a qubit literal (|ql| in the
-/// Appendix) or None if the qubit literal is malformed.
-fn qlit_dim(qlit: &QLit) -> Option<usize> {
-    basis_vector_dim(&convert_qlit_to_basis_vector(qlit))
-}
-
-/// Returns number of non-target and non-padding qubits represented by a basis
-/// vector (⌊bv⌋ in the Appendix) or None if the basis vector is malformed.
-fn basis_vector_dim(bv: &Vector) -> Option<usize> {
-    match bv {
-        Vector::ZeroVector { .. } | Vector::OneVector { .. } => Some(1),
-        Vector::PadVector { .. } | Vector::TargetVector { .. } => Some(0),
-        Vector::VectorTilt { q: inner_bv, .. } => basis_vector_dim(inner_bv),
-        Vector::UniformVectorSuperpos {
-            q1: inner_bv_1,
-            q2: inner_bv_2,
-            ..
-        } => match (basis_vector_dim(inner_bv_1), basis_vector_dim(inner_bv_2)) {
-            (Some(inner_dim1), Some(inner_dim2)) if inner_dim1 == inner_dim2 => Some(inner_dim1),
-            _ => None,
-        },
-        Vector::VectorTensor { qs: inner_bvs, .. } => {
-            if inner_bvs.len() == 0 {
-                None
-            } else {
-                inner_bvs
-                    .iter()
-                    .try_fold(0, |acc, ql| basis_vector_dim(ql).map(|dim| acc + dim))
-            }
-        }
-    }
-}
-
 /// Implements the O-Shuf and O-Tens rules by scanning a pair of tensor
 /// products elementwise for any pair of orthogonal vectors. If it finds one,
 /// that pair is sufficient to conclude that the overall tensor products are
@@ -398,7 +347,7 @@ fn tensors_are_ortho(bvs1: &[Vector], bvs2: &[Vector]) -> bool {
     // First, make sure dimension line up so that our orthogonality check even
     // makes sense. This assumes that there are no nested tensors
     for (bv_1, bv_2) in zip(bvs1, bvs2) {
-        match (basis_vector_dim(bv_1), basis_vector_dim(bv_2)) {
+        match (bv_1.get_dim(), bv_2.get_dim()) {
             (Some(dim1), Some(dim2)) if dim1 == dim2 => {
                 // keep going
             }
@@ -616,8 +565,8 @@ fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
 
 fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     basis_vectors_are_ortho(
-        &convert_qlit_to_basis_vector(qlit1),
-        &convert_qlit_to_basis_vector(qlit2),
+        &qlit1.convert_to_basis_vector(),
+        &qlit2.convert_to_basis_vector(),
     )
 }
 
@@ -777,8 +726,8 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                         if !basis_vectors_are_ortho(v_1, v_2) {
                             return Err(TypeError {
                                 kind: TypeErrorKind::NotOrthogonal {
-                                    left: format!("{:?}", v_1),
-                                    right: format!("{:?}", v_2),
+                                    left: v_1.to_programmer_str(),
+                                    right: v_2.to_programmer_str(),
                                 },
                                 span: span.clone(),
                             });
@@ -839,6 +788,43 @@ mod tests {
         };
         let result = typecheck_program(&prog);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_typecheck_basis_std() {
+        let mut type_env = TypeEnv::new();
+        // {'0', '1'} : basis[1] because '0' _|_ '1'
+        let ast = Basis::BasisLiteral {
+            vecs: vec![
+                Vector::ZeroVector { span: None },
+                Vector::OneVector { span: None },
+            ],
+            span: None
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(result, Ok(Type::RegType{elem_ty: RegKind::Basis, dim: 1}));
+        assert!(type_env.is_empty());
+    }
+
+    #[test]
+    fn test_typecheck_basis_not_ortho() {
+        let span = SourceSpan {
+            file: "skippy.py".to_string(),
+            line: 42,
+            col: 420
+        };
+        let mut type_env = TypeEnv::new();
+        // {'0', '0'} !: basis[1] because '0' !_|_ '0'
+        let ast = Basis::BasisLiteral {
+            vecs: vec![
+                Vector::ZeroVector { span: None },
+                Vector::ZeroVector { span: None },
+            ],
+            span: Some(span.clone())
+        };
+        let result = typecheck_basis(&ast, &mut type_env);
+        assert_eq!(result, Err(TypeError{kind: TypeErrorKind::NotOrthogonal{left: "'0'".to_string(), right: "'0'".to_string()}, span: Some(span)}));
+        assert!(type_env.is_empty());
     }
 
     #[test]
