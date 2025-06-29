@@ -7,13 +7,6 @@ use std::collections::HashMap;
 use std::iter::zip;
 
 //
-// ─── UNIT TESTS ─────────────────────────────────────────────────────────────────
-//
-
-#[cfg(test)]
-mod core_tests;
-
-//
 // ─── TYPE ENVIRONMENT ───────────────────────────────────────────────────────────
 //
 
@@ -776,3 +769,14 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
         }
     }
 }
+
+//
+// ─── UNIT TESTS ─────────────────────────────────────────────────────────────────
+//
+
+#[cfg(test)]
+mod basis_tests;
+#[cfg(test)]
+mod core_tests;
+#[cfg(test)]
+mod vector_qlit_tests;
