@@ -7,6 +7,13 @@ use std::collections::HashMap;
 use std::iter::zip;
 
 //
+// ─── UNIT TESTS ─────────────────────────────────────────────────────────────────
+//
+
+#[cfg(test)]
+mod core_tests;
+
+//
 // ─── TYPE ENVIRONMENT ───────────────────────────────────────────────────────────
 //
 
@@ -25,30 +32,9 @@ impl TypeEnv {
     }
 
     // Allows Shadowing
-    // (If a variable with the same name as lhs already exists in the environment, this will overwrite (shadow) the previous binding with the new type)
     pub fn insert_var(&mut self, name: &str, typ: Type) {
         self.vars.insert(name.to_string(), typ);
     }
-
-    // QWERTY follows Python's variable rules: shadowing is allowed.
-    // To disallow shadowing, uncomment the code below and update call sites.
-
-    // Disallow Shadowing (TODO: Seems not required, confirm with Austin)
-    /*
-    pub fn insert_var(&mut self, name: &str, typ: Type) -> Result<(), TypeError> {
-        if self.vars.contains_key(name) {
-            return Err(TypeError {
-                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
-                dbg: None,
-            });
-        }
-        self.vars.insert(name.to_string(), typ);
-        Ok(())
-    }
-    // Update Usage:
-    // In typecheck_function and typecheck_stmt:
-    // >>    env.insert_var(name, ty.clone())?;
-    */
 
     pub fn get_var(&self, name: &str) -> Option<&Type> {
         self.vars.get(name)
@@ -790,10 +776,3 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
         }
     }
 }
-
-//
-// ─── UNIT TESTS - TYPECHECK ────────────────────────────────────────────────────────────────
-//
-
-#[cfg(test)]
-mod tests;
