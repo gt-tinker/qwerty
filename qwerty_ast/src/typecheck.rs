@@ -1,8 +1,8 @@
 //! Qwerty typechecker implementation: walks the AST and enforces all typing rules.
 
 use crate::ast::*;
+use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
-use crate::span::SourceSpan;
 use std::collections::HashMap;
 use std::iter::zip;
 
@@ -687,28 +687,28 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
 /// TODO: Enforce more quantum rules as per Qwerty basis specification.
 fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> {
     match basis {
-        Basis::BasisLiteral { vecs, span } => {
+        Basis::BasisLiteral { vecs, dbg } => {
             if vecs.is_empty() {
                 return Err(TypeError {
                     kind: TypeErrorKind::EmptyLiteral,
-                    span: span.clone(),
+                    dbg: dbg.clone(),
                 });
             }
 
             let first_ty = typecheck_vector(&vecs[0], env)?;
 
             if let Type::RegType { elem_ty, dim } = &first_ty {
-                // TODO: use span of vecs[0], not span of basis literal
+                // TODO: use dbg of vecs[0], not dbg of basis literal
                 if *elem_ty != RegKind::Qubit {
                     return Err(TypeError {
                         kind: TypeErrorKind::InvalidBasis,
-                        span: span.clone(),
+                        dbg: dbg.clone(),
                     });
                 }
                 if *dim < 1 {
                     return Err(TypeError {
                         kind: TypeErrorKind::EmptyLiteral,
-                        span: span.clone(),
+                        dbg: dbg.clone(),
                     });
                 }
 
@@ -717,10 +717,10 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                         if ty == first_ty {
                             Ok(())
                         } else {
-                            // TODO: use span of v, not span of basis literal
+                            // TODO: use dbg of v, not dbg of basis literal
                             Err(TypeError {
                                 kind: TypeErrorKind::DimMismatch,
-                                span: span.clone(),
+                                dbg: dbg.clone(),
                             })
                         }
                     })
@@ -734,7 +734,7 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                                     left: v_1.to_programmer_str(),
                                     right: v_2.to_programmer_str(),
                                 },
-                                span: span.clone(),
+                                dbg: dbg.clone(),
                             });
                         }
                     }
@@ -747,7 +747,7 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
             } else {
                 Err(TypeError {
                     kind: TypeErrorKind::InvalidBasis,
-                    span: span.clone(),
+                    dbg: dbg.clone(),
                 })
             }
         }
@@ -801,10 +801,10 @@ mod tests {
         // {'0', '1'} : basis[1] because '0' _|_ '1'
         let ast = Basis::BasisLiteral {
             vecs: vec![
-                Vector::ZeroVector { span: None },
-                Vector::OneVector { span: None },
+                Vector::ZeroVector { dbg: None },
+                Vector::OneVector { dbg: None },
             ],
-            span: None,
+            dbg: None,
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
@@ -819,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_typecheck_basis_not_ortho() {
-        let span = SourceSpan {
+        let dbg = DebugLoc {
             file: "skippy.py".to_string(),
             line: 42,
             col: 420,
@@ -828,10 +828,10 @@ mod tests {
         // {'0', '0'} !: basis[1] because '0' !_|_ '0'
         let ast = Basis::BasisLiteral {
             vecs: vec![
-                Vector::ZeroVector { span: None },
-                Vector::ZeroVector { span: None },
+                Vector::ZeroVector { dbg: None },
+                Vector::ZeroVector { dbg: None },
             ],
-            span: Some(span.clone()),
+            dbg: Some(dbg.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
@@ -841,7 +841,7 @@ mod tests {
                     left: "'0'".to_string(),
                     right: "'0'".to_string()
                 },
-                span: Some(span)
+                dbg: Some(dbg)
             })
         );
         assert!(type_env.is_empty());
@@ -849,7 +849,7 @@ mod tests {
 
     #[test]
     fn test_typecheck_basis_not_ortho_tilt() {
-        let span = SourceSpan {
+        let dbg = DebugLoc {
             file: "skippy.py".to_string(),
             line: 42,
             col: 420,
@@ -858,14 +858,14 @@ mod tests {
         // {'0', -'0'} !: basis[1] because '0' !_|_ -'0'
         let ast = Basis::BasisLiteral {
             vecs: vec![
-                Vector::ZeroVector { span: None },
+                Vector::ZeroVector { dbg: None },
                 Vector::VectorTilt {
-                    q: Box::new(Vector::ZeroVector { span: None }),
+                    q: Box::new(Vector::ZeroVector { dbg: None }),
                     angle_deg: 180.0,
-                    span: None,
+                    dbg: None,
                 },
             ],
-            span: Some(span.clone()),
+            dbg: Some(dbg.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
@@ -875,7 +875,7 @@ mod tests {
                     left: "'0'".to_string(),
                     right: "('0' @ 180)".to_string()
                 },
-                span: Some(span)
+                dbg: Some(dbg)
             })
         );
         assert!(type_env.is_empty());
@@ -883,7 +883,7 @@ mod tests {
 
     #[test]
     fn test_typecheck_basis_empty() {
-        let span = SourceSpan {
+        let dbg = DebugLoc {
             file: "skippy.py".to_string(),
             line: 42,
             col: 420,
@@ -892,14 +892,14 @@ mod tests {
         // {} !: basis[1] because it's empty
         let ast = Basis::BasisLiteral {
             vecs: vec![],
-            span: Some(span.clone()),
+            dbg: Some(dbg.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
             result,
             Err(TypeError {
                 kind: TypeErrorKind::EmptyLiteral,
-                span: Some(span)
+                dbg: Some(dbg)
             })
         );
         assert!(type_env.is_empty());
@@ -907,7 +907,7 @@ mod tests {
 
     #[test]
     fn test_typecheck_basis_empty_vector() {
-        let span = SourceSpan {
+        let dbg = DebugLoc {
             file: "skippy.py".to_string(),
             line: 42,
             col: 420,
@@ -915,17 +915,15 @@ mod tests {
         let mut type_env = TypeEnv::new();
         // {[]} !: basis[0] because [] is an empty vector
         let ast = Basis::BasisLiteral {
-            vecs: vec![
-                Vector::VectorUnit { span: None },
-            ],
-            span: Some(span.clone()),
+            vecs: vec![Vector::VectorUnit { dbg: None }],
+            dbg: Some(dbg.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
             result,
             Err(TypeError {
                 kind: TypeErrorKind::EmptyLiteral,
-                span: Some(span)
+                dbg: Some(dbg)
             })
         );
         assert!(type_env.is_empty());
@@ -933,7 +931,7 @@ mod tests {
 
     #[test]
     fn test_typecheck_basis_mixed_vector_dims() {
-        let span = SourceSpan {
+        let dbg = DebugLoc {
             file: "skippy.py".to_string(),
             line: 42,
             col: 420,
@@ -942,23 +940,23 @@ mod tests {
         // {'0', '0'+'1'} !: basis[0] because vector dimensions differ
         let ast = Basis::BasisLiteral {
             vecs: vec![
-                Vector::ZeroVector { span: None },
+                Vector::ZeroVector { dbg: None },
                 Vector::VectorTensor {
                     qs: vec![
-                        Vector::ZeroVector { span: None },
-                        Vector::OneVector { span: None },
+                        Vector::ZeroVector { dbg: None },
+                        Vector::OneVector { dbg: None },
                     ],
-                    span: None,
+                    dbg: None,
                 },
             ],
-            span: Some(span.clone()),
+            dbg: Some(dbg.clone()),
         };
         let result = typecheck_basis(&ast, &mut type_env);
         assert_eq!(
             result,
             Err(TypeError {
                 kind: TypeErrorKind::DimMismatch,
-                span: Some(span)
+                dbg: Some(dbg)
             })
         );
         assert!(type_env.is_empty());

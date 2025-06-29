@@ -60,21 +60,21 @@ impl QLit {
     /// a bv.
     pub fn convert_to_basis_vector(&self) -> Vector {
         match self {
-            QLit::ZeroQubit { span } => Vector::ZeroVector { span: span.clone() },
-            QLit::OneQubit { span } => Vector::OneVector { span: span.clone() },
-            QLit::QubitTilt { q, angle_deg, span } => Vector::VectorTilt {
+            QLit::ZeroQubit { dbg } => Vector::ZeroVector { dbg: dbg.clone() },
+            QLit::OneQubit { dbg } => Vector::OneVector { dbg: dbg.clone() },
+            QLit::QubitTilt { q, angle_deg, dbg } => Vector::VectorTilt {
                 q: Box::new(q.convert_to_basis_vector()),
                 angle_deg: *angle_deg,
-                span: span.clone(),
+                dbg: dbg.clone(),
             },
-            QLit::UniformSuperpos { q1, q2, span } => Vector::UniformVectorSuperpos {
+            QLit::UniformSuperpos { q1, q2, dbg } => Vector::UniformVectorSuperpos {
                 q1: Box::new(q1.convert_to_basis_vector()),
                 q2: Box::new(q2.convert_to_basis_vector()),
-                span: span.clone(),
+                dbg: dbg.clone(),
             },
-            QLit::QubitTensor { qs, span } => Vector::VectorTensor {
+            QLit::QubitTensor { qs, dbg } => Vector::VectorTensor {
                 qs: qs.iter().map(QLit::convert_to_basis_vector).collect(),
-                span: span.clone(),
+                dbg: dbg.clone(),
             },
         }
     }
@@ -110,7 +110,9 @@ pub enum Vector {
         qs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
-    VectorUnit { span: Option<SourceSpan> },
+    VectorUnit {
+        dbg: Option<DebugLoc>,
+    },
 }
 
 impl Vector {
