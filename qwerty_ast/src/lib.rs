@@ -1,5 +1,5 @@
 // lib entry point
-mod ast;
-mod dbg;
-mod error;
-mod typecheck;
+pub mod ast;
+pub mod dbg;
+pub mod error;
+pub mod typecheck;
