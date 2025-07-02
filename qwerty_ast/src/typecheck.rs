@@ -1,7 +1,6 @@
 //! Qwerty typechecker implementation: walks the AST and enforces all typing rules.
 
 use crate::ast::*;
-use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use std::collections::HashMap;
 use std::iter::zip;
@@ -85,7 +84,7 @@ pub fn typecheck_stmt(
     expected_ret_type: &Type,
 ) -> Result<(), TypeError> {
     match stmt {
-        Stmt::Assign { lhs, rhs, dbg } => {
+        Stmt::Assign { lhs, rhs, dbg: _ } => {
             let rhs_ty = typecheck_expr(rhs, env)?;
             env.insert_var(lhs, rhs_ty); // Shadowing allowed for now.
             Ok(())
@@ -233,18 +232,44 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             Ok(t.unwrap_or(Type::UnitType))
         }
 
-        Expr::BasisTranslation { bin, bout, dbg: _ } => {
-            // TODO: Ensure translation is between compatible bases.
-            /*
-            0) ASK Austin!
-            1) Typecheck both bases (already done)
-            2) Extract relevant info from each basis (e.g. dimension, type).
-            3) Compare the properties we care about (e.g. same dimension, same qubit type).
-            4) Return an error if they are not compatible.
-            */
-            typecheck_basis(bin, env)?;
-            typecheck_basis(bout, env)?;
-            Ok(Type::UnitType)
+        Expr::BasisTranslation { bin, bout, dbg } => {
+            let left_ty = typecheck_basis(bin, env)?;
+            let right_ty = typecheck_basis(bout, env)?;
+
+            let result_ty = if let Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim,
+            } = left_ty
+            {
+                if dim == 0 {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::EmptyLiteral,
+                        dbg: bin.get_dbg(),
+                    });
+                }
+
+                // Type of this basis translation (pending further checks)
+                Type::RevFuncType {
+                    in_out_ty: Box::new(Type::RegType {
+                        elem_ty: RegKind::Qubit,
+                        dim: dim,
+                    }),
+                }
+            } else {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidBasis,
+                    dbg: bin.get_dbg(),
+                });
+            };
+
+            if left_ty != right_ty {
+                return Err(TypeError {
+                    kind: TypeErrorKind::DimMismatch,
+                    dbg: dbg.clone(),
+                });
+            }
+
+            Ok(result_ty)
         }
 
         Expr::Predicated {
@@ -750,7 +775,7 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                 Ok(Type::RegType {
                     elem_ty: RegKind::Basis,
                     dim: *dim,
-                }) // TODO: Should this return a Basis type?
+                })
             } else {
                 Err(TypeError {
                     kind: TypeErrorKind::InvalidBasis,
@@ -759,7 +784,10 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
             }
         }
 
-        Basis::EmptyBasisLiteral { .. } => Ok(Type::UnitType),
+        Basis::EmptyBasisLiteral { .. } => Ok(Type::RegType {
+            elem_ty: RegKind::Basis,
+            dim: 0,
+        }),
 
         Basis::BasisTensor { bases, .. } => {
             for b in bases {

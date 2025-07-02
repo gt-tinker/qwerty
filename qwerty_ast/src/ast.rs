@@ -189,6 +189,16 @@ pub enum Basis {
     },
 }
 
+impl Basis {
+    pub fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            Basis::BasisLiteral { vecs: _, dbg } => dbg.clone(),
+            Basis::EmptyBasisLiteral { dbg } => dbg.clone(),
+            Basis::BasisTensor { bases: _, dbg } => dbg.clone(),
+        }
+    }
+}
+
 // ----- Expressions -----
 
 #[derive(Debug, Clone, PartialEq)]
