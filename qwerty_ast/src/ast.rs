@@ -170,7 +170,7 @@ impl Vector {
                 _ => None,
             },
             Vector::VectorTensor { qs: inner_bvs, .. } => {
-                if inner_bvs.len() == 0 {
+                if inner_bvs.len() < 2 {
                     None
                 } else {
                     inner_bvs
@@ -204,7 +204,7 @@ impl Vector {
                 _ => None,
             },
             Vector::VectorTensor { qs: inner_bvs, .. } => {
-                if inner_bvs.is_empty() {
+                if inner_bvs.len() < 2 {
                     None
                 } else {
                     inner_bvs
@@ -244,7 +244,7 @@ impl Vector {
             }
 
             (Vector::VectorTensor { ref qs, .. }, _) => {
-                if qs.is_empty() {
+                if qs.len() < 2 {
                     None
                 } else {
                     let mut offset = 0;
@@ -315,7 +315,7 @@ impl Basis {
             Basis::EmptyBasisLiteral { .. } => Some(0),
 
             Basis::BasisTensor { ref bases, .. } => {
-                if bases.is_empty() {
+                if bases.len() < 2 {
                     None
                 } else {
                     bases
@@ -355,7 +355,7 @@ impl Basis {
             Basis::EmptyBasisLiteral { .. } => Some(vec![]),
 
             Basis::BasisTensor { ref bases, .. } => {
-                if bases.is_empty() {
+                if bases.len() < 2 {
                     None
                 } else {
                     let mut offset = 0;
