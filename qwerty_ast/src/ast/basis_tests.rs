@@ -294,3 +294,176 @@ fn test_basis_get_atom_indices_basis_tensor_pad() {
         Some(vec![])
     );
 }
+
+#[test]
+fn test_basis_make_explicit_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'?'} -> []
+    let basis = Basis::BasisLiteral {
+        vecs: vec![Vector::PadVector { dbg: dbg.clone() }],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(basis.make_explicit(), Basis::EmptyBasisLiteral { dbg });
+}
+
+#[test]
+fn test_basis_make_explicit_tgt() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'_'} -> []
+    let basis = Basis::BasisLiteral {
+        vecs: vec![Vector::PadVector { dbg: dbg.clone() }],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(basis.make_explicit(), Basis::EmptyBasisLiteral { dbg });
+}
+
+#[test]
+fn test_basis_make_explicit_std() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'0','1'} -> {'0','1'}
+    let basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::ZeroVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg,
+    };
+    assert_eq!(basis.make_explicit(), basis);
+}
+
+#[test]
+fn test_basis_make_explicit_std_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'?'*'0','?'*'1'} -> {'0','1'}
+    let basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::PadVector { dbg: dbg.clone() },
+                    Vector::ZeroVector { dbg: dbg.clone() },
+                ],
+                dbg: dbg.clone(),
+            },
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::PadVector { dbg: dbg.clone() },
+                    Vector::OneVector { dbg: dbg.clone() },
+                ],
+                dbg: dbg.clone(),
+            },
+        ],
+        dbg: dbg.clone(),
+    };
+    let explicit_basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::ZeroVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg,
+    };
+    assert_eq!(basis.make_explicit(), explicit_basis);
+}
+
+#[test]
+fn test_basis_make_explicit_unit() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // [] -> []
+    let basis = Basis::EmptyBasisLiteral { dbg };
+    assert_eq!(basis.make_explicit(), basis);
+}
+
+#[test]
+fn test_basis_make_explicit_tensor_pad1() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'?'} * {'1'} -> {'1'}
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::BasisLiteral {
+                vecs: vec![Vector::PadVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+            Basis::BasisLiteral {
+                vecs: vec![Vector::OneVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+        ],
+        dbg: dbg.clone(),
+    };
+    let explicit_basis = Basis::BasisLiteral {
+        vecs: vec![Vector::OneVector { dbg: dbg.clone() }],
+        dbg: dbg,
+    };
+    assert_eq!(basis.make_explicit(), explicit_basis);
+}
+
+#[test]
+fn test_basis_make_explicit_tensor_pad_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'?'} * {'?'} -> []
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::BasisLiteral {
+                vecs: vec![Vector::PadVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+            Basis::BasisLiteral {
+                vecs: vec![Vector::PadVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+        ],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(basis.make_explicit(), Basis::EmptyBasisLiteral { dbg });
+}
+
+#[test]
+fn test_basis_make_explicit_tensor_01() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // {'0'} * {'1'} -> {'0'} * {'1'}
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::BasisLiteral {
+                vecs: vec![Vector::ZeroVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+            Basis::BasisLiteral {
+                vecs: vec![Vector::OneVector { dbg: dbg.clone() }],
+                dbg: dbg.clone(),
+            },
+        ],
+        dbg: dbg,
+    };
+    assert_eq!(basis.make_explicit(), basis);
+}

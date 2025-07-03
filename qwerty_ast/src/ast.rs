@@ -262,6 +262,62 @@ impl Vector {
             }
         }
     }
+
+    /// Returns a version of this vector without any '?' or '_' atoms.
+    /// The resulting basis is well-typed if the original basis is well-typed.
+    pub fn make_explicit(&self) -> Vector {
+        match self {
+            Vector::ZeroVector { .. } | Vector::OneVector { .. } | Vector::VectorUnit { .. } => {
+                self.clone()
+            }
+            Vector::PadVector { ref dbg } | Vector::TargetVector { ref dbg } => {
+                Vector::VectorUnit { dbg: dbg.clone() }
+            }
+            Vector::VectorTilt {
+                ref q,
+                angle_deg,
+                ref dbg,
+            } => {
+                let q_explicit = q.make_explicit();
+                if let Vector::VectorUnit { .. } = q_explicit {
+                    q_explicit
+                } else {
+                    Vector::VectorTilt {
+                        q: Box::new(q_explicit),
+                        angle_deg: *angle_deg,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
+            Vector::UniformVectorSuperpos {
+                ref q1,
+                ref q2,
+                ref dbg,
+            } => Vector::UniformVectorSuperpos {
+                q1: Box::new(q1.make_explicit()),
+                q2: Box::new(q2.make_explicit()),
+                dbg: dbg.clone(),
+            },
+            Vector::VectorTensor { ref qs, ref dbg } => {
+                let qs_explicit: Vec<_> = qs
+                    .iter()
+                    .map(Vector::make_explicit)
+                    .filter(|vec| !matches!(vec, Vector::VectorUnit { .. }))
+                    .collect();
+                // Make an assumption that this is well-formed
+                if qs_explicit.is_empty() {
+                    Vector::VectorUnit { dbg: dbg.clone() }
+                } else if qs_explicit.len() == 1 {
+                    qs_explicit[0].clone()
+                } else {
+                    Vector::VectorTensor {
+                        qs: qs_explicit,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ----- Basis -----
@@ -369,6 +425,53 @@ impl Basis {
                         offset += basis_dim;
                     }
                     Some(indices)
+                }
+            }
+        }
+    }
+
+    /// Returns a version of this basis without any '?' or '_' atoms.
+    /// The resulting basis is well-typed if the original basis is well-typed.
+    pub fn make_explicit(&self) -> Basis {
+        match self {
+            Basis::BasisLiteral { ref vecs, ref dbg } => {
+                // This is a little bit overpowered: according to the
+                // orthogonality rules, a basis literal can contain at most one
+                // lonely '?' or '_'. (That is, {'?'} would typecheck but {'?',
+                // '?'+'?' would not.) It'll do the job, though.
+                let vecs_explicit: Vec<_> = vecs
+                    .iter()
+                    .map(Vector::make_explicit)
+                    .filter(|vec| !matches!(vec, Vector::VectorUnit { .. }))
+                    .collect();
+                if vecs_explicit.is_empty() {
+                    Basis::EmptyBasisLiteral { dbg: dbg.clone() }
+                } else {
+                    Basis::BasisLiteral {
+                        vecs: vecs_explicit,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
+
+            Basis::EmptyBasisLiteral { .. } => self.clone(),
+
+            Basis::BasisTensor { ref bases, ref dbg } => {
+                let bases_explicit: Vec<_> = bases
+                    .iter()
+                    .map(Basis::make_explicit)
+                    .filter(|basis| !matches!(basis, Basis::EmptyBasisLiteral { .. }))
+                    .collect();
+                // Make an assumption that this is well-formed
+                if bases_explicit.is_empty() {
+                    Basis::EmptyBasisLiteral { dbg: dbg.clone() }
+                } else if bases_explicit.len() == 1 {
+                    bases_explicit[0].clone()
+                } else {
+                    Basis::BasisTensor {
+                        bases: bases_explicit,
+                        dbg: dbg.clone(),
+                    }
                 }
             }
         }

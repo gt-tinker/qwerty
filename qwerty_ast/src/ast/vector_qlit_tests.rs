@@ -418,3 +418,191 @@ fn test_vec_get_atom_indices_empty_tensor() {
     assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), None);
     assert_eq!(vec.get_atom_indices(VectorAtomKind::TargetAtom), None);
 }
+
+#[test]
+fn test_vec_make_explicit_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '?' -> []
+    let vec = Vector::PadVector { dbg: dbg.clone() };
+    assert_eq!(vec.make_explicit(), Vector::VectorUnit { dbg });
+}
+
+#[test]
+fn test_vec_make_explicit_tgt() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '_' -> []
+    let vec = Vector::TargetVector { dbg: dbg.clone() };
+    assert_eq!(vec.make_explicit(), Vector::VectorUnit { dbg });
+}
+
+#[test]
+fn test_vec_make_explicit_zero() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '0' -> '0'
+    let vec = Vector::ZeroVector { dbg: dbg.clone() };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_one() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '1' -> '1'
+    let vec = Vector::OneVector { dbg: dbg.clone() };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_unit() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // [] -> []
+    let vec = Vector::VectorUnit { dbg: dbg.clone() };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_tilt_one() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // -'1' -> -'1'
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::OneVector { dbg: dbg.clone() }),
+        angle_deg: 180.0,
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_tilt_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // -'?' -> []
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::PadVector { dbg: dbg.clone() }),
+        angle_deg: 180.0,
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), Vector::VectorUnit { dbg });
+}
+
+#[test]
+fn test_vec_make_explicit_superpos_p() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '0'+'1' -> '0'+'1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: dbg.clone() }),
+        q2: Box::new(Vector::ZeroVector { dbg: dbg.clone() }),
+        dbg: dbg,
+    };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_tensor_01() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '0'*'1' -> '0'*'1'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), vec);
+}
+
+#[test]
+fn test_vec_make_explicit_tensor_0pad1() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '0'*'?'*'1' -> '0'*'1'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: dbg.clone() },
+            Vector::PadVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg.clone(),
+    };
+    let explicit_vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), explicit_vec);
+}
+
+#[test]
+fn test_vec_make_explicit_tensor_pad() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '?'*'?' -> []
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::PadVector { dbg: dbg.clone() },
+            Vector::PadVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), Vector::VectorUnit { dbg });
+}
+
+#[test]
+fn test_vec_make_explicit_tensor_pad1() {
+    let dbg = Some(DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    });
+    // '?'*'1' -> '1'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::PadVector { dbg: dbg.clone() },
+            Vector::OneVector { dbg: dbg.clone() },
+        ],
+        dbg: dbg.clone(),
+    };
+    assert_eq!(vec.make_explicit(), Vector::OneVector { dbg: dbg.clone() });
+}
