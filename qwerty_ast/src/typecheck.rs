@@ -269,6 +269,44 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 });
             }
 
+            for b in [bin, bout] {
+                if b.get_atom_indices(VectorAtomKind::TargetAtom)
+                    .is_none_or(|indices| !indices.is_empty())
+                {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::MismatchedAtoms {
+                            atom_kind: VectorAtomKind::TargetAtom,
+                        },
+                        dbg: b.get_dbg(),
+                    });
+                }
+            }
+
+            let pad_indices_in =
+                bin.get_atom_indices(VectorAtomKind::PadAtom)
+                    .ok_or(TypeError {
+                        kind: TypeErrorKind::MismatchedAtoms {
+                            atom_kind: VectorAtomKind::PadAtom,
+                        },
+                        dbg: bin.get_dbg(),
+                    })?;
+            let pad_indices_out =
+                bout.get_atom_indices(VectorAtomKind::PadAtom)
+                    .ok_or(TypeError {
+                        kind: TypeErrorKind::MismatchedAtoms {
+                            atom_kind: VectorAtomKind::PadAtom,
+                        },
+                        dbg: bout.get_dbg(),
+                    })?;
+            if pad_indices_in != pad_indices_out {
+                return Err(TypeError {
+                    kind: TypeErrorKind::MismatchedAtoms {
+                        atom_kind: VectorAtomKind::PadAtom,
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
             Ok(result_ty)
         }
 

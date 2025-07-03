@@ -1,3 +1,4 @@
+use crate::ast::VectorAtomKind;
 use crate::dbg::DebugLoc;
 
 /// UndefinedVariable: Variable is used but not declared or is out of scope.
@@ -29,6 +30,7 @@ pub enum TypeErrorKind {
     EmptyLiteral,
     DimMismatch,
     // Quantum-specific errors:
+    MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
     NotOrthogonal { left: String, right: String },
     QuantumMeasurementOnClassical(String),

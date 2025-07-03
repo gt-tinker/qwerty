@@ -331,3 +331,151 @@ fn test_typecheck_expr_btrans_zero_identity() {
     );
     assert!(type_env.is_empty());
 }
+
+#[test]
+fn test_typecheck_expr_btrans_zero_pad_mismatch() {
+    let dbg = DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    };
+    let mut type_env = TypeEnv::new();
+    // {'0'} >> {'?'} !: qubit[1] rev-> qubit[1]
+    // because the indices of pad qubits do not match
+    let ast = Expr::BasisTranslation {
+        bin: Basis::BasisLiteral {
+            vecs: vec![Vector::ZeroVector { dbg: None }],
+            dbg: None,
+        },
+        bout: Basis::BasisLiteral {
+            vecs: vec![Vector::PadVector { dbg: None }],
+            dbg: None,
+        },
+        dbg: Some(dbg.clone()),
+    };
+
+    let result = typecheck_expr(&ast, &mut type_env);
+    assert_eq!(
+        result,
+        Err(TypeError {
+            kind: TypeErrorKind::MismatchedAtoms {
+                atom_kind: VectorAtomKind::PadAtom,
+            },
+            dbg: Some(dbg),
+        })
+    );
+    assert!(type_env.is_empty());
+}
+
+#[test]
+fn test_typecheck_expr_btrans_zero_pad_vec_mismatch() {
+    let dbg = DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    };
+    let mut type_env = TypeEnv::new();
+    // {'0'+'1'} >> {'0'+'?'} !: qubit[1] rev-> qubit[1]
+    // because the indices of pad qubits do not match
+    let ast = Expr::BasisTranslation {
+        bin: Basis::BasisLiteral {
+            vecs: vec![Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::ZeroVector { dbg: None }),
+                q2: Box::new(Vector::OneVector { dbg: None }),
+                dbg: None,
+            }],
+            dbg: None,
+        },
+        bout: Basis::BasisLiteral {
+            vecs: vec![Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::ZeroVector { dbg: None }),
+                q2: Box::new(Vector::PadVector { dbg: None }),
+                dbg: None,
+            }],
+            dbg: Some(dbg.clone()),
+        },
+        dbg: None,
+    };
+
+    let result = typecheck_expr(&ast, &mut type_env);
+    assert_eq!(
+        result,
+        Err(TypeError {
+            kind: TypeErrorKind::MismatchedAtoms {
+                atom_kind: VectorAtomKind::PadAtom,
+            },
+            dbg: Some(dbg),
+        })
+    );
+    assert!(type_env.is_empty());
+}
+
+#[test]
+fn test_typecheck_expr_btrans_tgt_right() {
+    let dbg = DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    };
+    let mut type_env = TypeEnv::new();
+    // {'0'} >> {'_'} !: qubit[1] rev-> qubit[1]
+    // because target atoms are not allowed in basis translations
+    let ast = Expr::BasisTranslation {
+        bin: Basis::BasisLiteral {
+            vecs: vec![Vector::ZeroVector { dbg: None }],
+            dbg: None,
+        },
+        bout: Basis::BasisLiteral {
+            vecs: vec![Vector::TargetVector { dbg: None }],
+            dbg: Some(dbg.clone()),
+        },
+        dbg: None,
+    };
+
+    let result = typecheck_expr(&ast, &mut type_env);
+    assert_eq!(
+        result,
+        Err(TypeError {
+            kind: TypeErrorKind::MismatchedAtoms {
+                atom_kind: VectorAtomKind::TargetAtom,
+            },
+            dbg: Some(dbg),
+        })
+    );
+    assert!(type_env.is_empty());
+}
+
+#[test]
+fn test_typecheck_expr_btrans_tgt_left() {
+    let dbg = DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    };
+    let mut type_env = TypeEnv::new();
+    // {'_'} >> {'0'} !: qubit[1] rev-> qubit[1]
+    // because target atoms are not allowed in basis translations
+    let ast = Expr::BasisTranslation {
+        bin: Basis::BasisLiteral {
+            vecs: vec![Vector::TargetVector { dbg: None }],
+            dbg: Some(dbg.clone()),
+        },
+        bout: Basis::BasisLiteral {
+            vecs: vec![Vector::ZeroVector { dbg: None }],
+            dbg: None,
+        },
+        dbg: None,
+    };
+
+    let result = typecheck_expr(&ast, &mut type_env);
+    assert_eq!(
+        result,
+        Err(TypeError {
+            kind: TypeErrorKind::MismatchedAtoms {
+                atom_kind: VectorAtomKind::TargetAtom,
+            },
+            dbg: Some(dbg),
+        })
+    );
+    assert!(type_env.is_empty());
+}
