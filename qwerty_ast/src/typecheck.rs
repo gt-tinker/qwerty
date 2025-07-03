@@ -379,7 +379,7 @@ fn tensors_are_ortho(bvs1: &[Vector], bvs2: &[Vector]) -> bool {
     // First, make sure dimension line up so that our orthogonality check even
     // makes sense. This assumes that there are no nested tensors
     for (bv_1, bv_2) in zip(bvs1, bvs2) {
-        match (bv_1.get_dim(), bv_2.get_dim()) {
+        match (bv_1.get_explicit_dim(), bv_2.get_explicit_dim()) {
             (Some(dim1), Some(dim2)) if dim1 == dim2 => {
                 // keep going
             }
