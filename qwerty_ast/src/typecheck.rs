@@ -307,6 +307,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 });
             }
 
+            // TODO: Need to check that span(bin) = span(bout)
+
             Ok(result_ty)
         }
 

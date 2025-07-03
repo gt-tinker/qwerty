@@ -153,7 +153,8 @@ impl Vector {
 
     /// Returns number of non-target and non-padding qubits represented by a basis
     /// vector (⌊bv⌋ in the Appendix) or None if the basis vector is malformed
-    /// (currently, if both sides of a superposition have different dimensions).
+    /// (currently, if both sides of a superposition have different dimensions
+    ///  or if a tensor product has less than two vectors).
     pub fn get_explicit_dim(&self) -> Option<usize> {
         match self {
             Vector::ZeroVector { .. } | Vector::OneVector { .. } => Some(1),
@@ -185,7 +186,8 @@ impl Vector {
     /// Returns number of qubits represented by a basis vector, including
     /// padding and target qubits. (This is |bv| in the Appendix.) Returns None
     /// if the basis vector is malformed (currently, if both sides of a
-    /// superposition have different dimensions).
+    /// superposition have different dimensions or if a tensor product has less
+    /// than two vectors).
     pub fn get_dim(&self) -> Option<usize> {
         match self {
             Vector::ZeroVector { .. }
@@ -263,8 +265,8 @@ impl Vector {
         }
     }
 
-    /// Returns a version of this vector without any '?' or '_' atoms.
-    /// The resulting basis is well-typed if the original basis is well-typed.
+    /// Returns a version of this vector without any '?' or '_' atoms. Assumes
+    /// the original vector is well-typed.
     pub fn make_explicit(&self) -> Vector {
         match self {
             Vector::ZeroVector { .. } | Vector::OneVector { .. } | Vector::VectorUnit { .. } => {
@@ -385,8 +387,8 @@ impl Basis {
     /// Returns the zero-indexed qubit positions that are correspond to the
     /// provided atom. This Ξva[bv] in Appendix A. Returning None indicates a
     /// malformed vector (currently, when basis vectors in a basis literal do
-    /// not have matching indices, or if any basis vector contains an empty
-    /// tensor product or a superposition with indices that do not match).
+    /// not have matching indices or when Vector::get_atom_indices() considers
+    /// any vector malformed).
     pub fn get_atom_indices(&self, atom: VectorAtomKind) -> Option<Vec<usize>> {
         match self {
             Basis::BasisLiteral { vecs, .. } => {
@@ -430,15 +432,15 @@ impl Basis {
         }
     }
 
-    /// Returns a version of this basis without any '?' or '_' atoms.
-    /// The resulting basis is well-typed if the original basis is well-typed.
+    /// Returns a version of this basis without any '?' or '_' atoms. Assumes
+    /// the original basis is well-typed.
     pub fn make_explicit(&self) -> Basis {
         match self {
             Basis::BasisLiteral { ref vecs, ref dbg } => {
                 // This is a little bit overpowered: according to the
                 // orthogonality rules, a basis literal can contain at most one
                 // lonely '?' or '_'. (That is, {'?'} would typecheck but {'?',
-                // '?'+'?' would not.) It'll do the job, though.
+                // '?'+'?' would not.) This code will do the job, though.
                 let vecs_explicit: Vec<_> = vecs
                     .iter()
                     .map(Vector::make_explicit)
