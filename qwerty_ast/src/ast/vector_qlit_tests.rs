@@ -272,3 +272,149 @@ fn test_vec_get_dim_vector_unit() {
     let vec = Vector::VectorUnit { dbg: None };
     assert_eq!(vec.get_dim(), Some(0));
 }
+
+#[test]
+fn test_vec_get_atom_indices_zero() {
+    // Ξ'?'['0'] = Ξ'_'['0'] = empty list
+    let vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_one() {
+    // Ξ'?'['1'] = Ξ'_'['1'] = empty list
+    let vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_unit() {
+    // Ξ'?'[[]] = Ξ'_'[[]] = empty list
+    let vec = Vector::VectorUnit { dbg: None };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_pad() {
+    // Ξ'?'['?'] = 0
+    // Ξ'_'['?'] = empty list
+    let vec = Vector::PadVector { dbg: None };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![0]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_tgt() {
+    // Ξ'?'['_'] = empty list
+    // Ξ'_'['_'] = 0
+    let vec = Vector::TargetVector { dbg: None };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![0])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_tilt() {
+    // Ξ'?'[-('1'*'?')] = 1
+    // Ξ'_'[-('1'*'?')] = empty list
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::OneVector { dbg: None },
+                Vector::PadVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        angle_deg: 180.0,
+        dbg: None,
+    };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![1]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_superpos() {
+    // Ξ'?'[('0'*'?') + ('1'*'?')] = 1
+    // Ξ'_'[('0'*'?') + ('1'*'?')] = empty list
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::ZeroVector { dbg: None },
+                Vector::PadVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::OneVector { dbg: None },
+                Vector::PadVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), Some(vec![1]));
+    assert_eq!(
+        vec.get_atom_indices(VectorAtomKind::TargetAtom),
+        Some(vec![])
+    );
+}
+
+#[test]
+fn test_vec_get_atom_indices_superpos_undefined() {
+    // Ξ'?'[('0'*'?') + ('1'*'_')] is undefined
+    // Ξ'_'[('0'*'?') + ('1'*'_')] is undefined
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::ZeroVector { dbg: None },
+                Vector::PadVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::OneVector { dbg: None },
+                Vector::TargetVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), None);
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::TargetAtom), None);
+}
+
+#[test]
+fn test_vec_get_atom_indices_empty_tensor() {
+    // Ξ'?'[( * )] is undefined
+    // Ξ'_'[( * )] is undefined
+    //       ^^^
+    //   empty tensor
+    let vec = Vector::VectorTensor {
+        qs: vec![],
+        dbg: None,
+    };
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::PadAtom), None);
+    assert_eq!(vec.get_atom_indices(VectorAtomKind::TargetAtom), None);
+}
