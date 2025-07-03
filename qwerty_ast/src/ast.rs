@@ -131,7 +131,11 @@ impl Vector {
             Vector::PadVector { .. } => "'?'".to_string(),
             Vector::TargetVector { .. } => "'_'".to_string(),
             Vector::VectorTilt { q, angle_deg, .. } => {
-                format!("({} @ {})", q.to_programmer_str(), angle_deg)
+                if off_phase(0.0, *angle_deg) {
+                    format!("-{}", q.to_programmer_str())
+                } else {
+                    format!("({}@{})", q.to_programmer_str(), angle_deg)
+                }
             }
             Vector::UniformVectorSuperpos { q1, q2, .. } => {
                 format!("({} + {})", q1.to_programmer_str(), q2.to_programmer_str())
@@ -278,6 +282,7 @@ pub enum Basis {
 }
 
 impl Basis {
+    /// Returns the source code location for this node.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
             Basis::BasisLiteral { vecs: _, dbg } => dbg.clone(),
@@ -463,3 +468,33 @@ pub struct Program {
     pub funcs: Vec<FunctionDef>,
     pub dbg: Option<DebugLoc>,
 }
+
+// ----- Miscellaneous angle math -----
+
+/// Tolerance for floating point comparison
+const ATOL: f64 = 1e-12;
+
+/// Returns true iff the two phases are the same angle (up to a multiple of 360)
+pub fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let modulo = diff % 360.0;
+    modulo.abs() < ATOL
+}
+
+/// Returns true iff the two phases differ by 180 degrees (up to a multiple of
+/// 360)
+pub fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+    let diff = angle_deg1 - angle_deg2;
+    let mut modulo = diff % 360.0;
+    if modulo < 0.0 {
+        modulo = -modulo;
+    }
+    (modulo - 180.0).abs() < ATOL
+}
+
+//
+// ─── UNIT TESTS ─────────────────────────────────────────────────────────────────
+//
+
+#[cfg(test)]
+mod vector_qlit_tests;

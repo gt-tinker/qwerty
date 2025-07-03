@@ -81,7 +81,7 @@ fn test_typecheck_basis_not_ortho_tilt() {
         Err(TypeError {
             kind: TypeErrorKind::NotOrthogonal {
                 left: "'0'".to_string(),
-                right: "('0' @ 180)".to_string()
+                right: "-'0'".to_string()
             },
             dbg: Some(dbg)
         })

@@ -343,27 +343,6 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 // ─── QLIT, VECTOR, BASIS HELPERS ──────────────────────────────────────────────
 //
 
-/// Tolerance for floating point comparison
-const ATOL: f64 = 1e-12;
-
-/// Returns true iff the two phases are the same angle (up to a multiple of 360)
-fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
-    let diff = angle_deg1 - angle_deg2;
-    let modulo = diff % 360.0;
-    modulo.abs() < ATOL
-}
-
-/// Returns true iff the two phases differ by 180 degrees (up to a multiple of
-/// 360)
-fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
-    let diff = angle_deg1 - angle_deg2;
-    let mut modulo = diff % 360.0;
-    if modulo < 0.0 {
-        modulo = -modulo;
-    }
-    (modulo - 180.0).abs() < ATOL
-}
-
 /// Implements the O-Shuf and O-Tens rules by scanning a pair of tensor
 /// products elementwise for any pair of orthogonal vectors. If it finds one,
 /// that pair is sufficient to conclude that the overall tensor products are
