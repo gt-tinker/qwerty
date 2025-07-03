@@ -820,8 +820,8 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
 //
 
 #[cfg(test)]
-mod basis_tests;
+mod test_typecheck_basis;
 #[cfg(test)]
-mod core_tests;
+mod test_typecheck_core;
 #[cfg(test)]
-mod vector_qlit_tests;
+mod test_typecheck_vec_qlit;

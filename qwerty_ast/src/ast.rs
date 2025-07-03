@@ -600,6 +600,6 @@ pub fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
 //
 
 #[cfg(test)]
-mod basis_tests;
+mod test_ast_basis;
 #[cfg(test)]
-mod vector_qlit_tests;
+mod test_ast_vec_qlit;
