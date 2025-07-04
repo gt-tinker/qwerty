@@ -320,6 +320,139 @@ impl Vector {
             }
         }
     }
+
+    /// Returns a new vector with () and nested tensor products removed.
+    pub fn canonicalize(&self) -> Vector {
+        match self {
+            Vector::ZeroVector { .. }
+            | Vector::OneVector { .. }
+            | Vector::PadVector { .. }
+            | Vector::TargetVector { .. }
+            | Vector::VectorUnit { .. } => self.clone(),
+            Vector::VectorTilt {
+                ref q,
+                angle_deg,
+                ref dbg,
+            } => {
+                let q_canon = q.canonicalize();
+                if let Vector::VectorTilt {
+                    q: ref q_inner,
+                    angle_deg: angle_deg_inner,
+                    ..
+                } = q_canon
+                {
+                    let angle_deg_sum = angle_deg + angle_deg_inner;
+                    if on_phase(0.0, angle_deg_sum) {
+                        *q_inner.clone()
+                    } else {
+                        Vector::VectorTilt {
+                            q: q_inner.clone(),
+                            angle_deg: angle_deg_sum,
+                            dbg: dbg.clone(),
+                        }
+                    }
+                } else if on_phase(0.0, *angle_deg) {
+                    q_canon
+                } else {
+                    Vector::VectorTilt {
+                        q: Box::new(q_canon),
+                        angle_deg: *angle_deg,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
+            Vector::UniformVectorSuperpos {
+                ref q1,
+                ref q2,
+                ref dbg,
+            } => {
+                let q1_canon = q1.canonicalize();
+                let q2_canon = q2.canonicalize();
+
+                match (&q1_canon, &q2_canon) {
+                    (
+                        Vector::VectorTilt {
+                            q: ref inner_q1,
+                            angle_deg: inner_angle_deg1,
+                            dbg: inner_dbg1,
+                        },
+                        Vector::VectorTilt {
+                            q: ref inner_q2,
+                            angle_deg: inner_angle_deg2,
+                            ..
+                        },
+                    ) if on_phase(*inner_angle_deg1, *inner_angle_deg2) => Vector::VectorTilt {
+                        q: Box::new(Vector::UniformVectorSuperpos {
+                            q1: inner_q1.clone(),
+                            q2: inner_q2.clone(),
+                            dbg: dbg.clone(),
+                        }),
+                        angle_deg: *inner_angle_deg1,
+                        dbg: inner_dbg1.clone(),
+                    },
+                    _ => Vector::UniformVectorSuperpos {
+                        q1: Box::new(q1_canon),
+                        q2: Box::new(q2_canon),
+                        dbg: dbg.clone(),
+                    },
+                }
+            }
+            Vector::VectorTensor { ref qs, ref dbg } => {
+                let vecs_canon: Vec<_> = qs.iter().map(Vector::canonicalize).collect();
+                let mut new_qs = vec![];
+                let mut angle_deg_sum = 0.0;
+                let mut new_tilt_dbg = None;
+                for vec in vecs_canon {
+                    if let Vector::VectorTilt {
+                        ref q,
+                        angle_deg,
+                        dbg: tilt_dbg,
+                    } = vec
+                    {
+                        angle_deg_sum += angle_deg;
+                        new_tilt_dbg = new_tilt_dbg.or(tilt_dbg);
+
+                        if let Vector::VectorUnit { .. } = **q {
+                            // Skip units
+                        } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = **q {
+                            // TODO: look for tilts here too
+                            new_qs.extend_from_slice(inner_qs);
+                        } else {
+                            new_qs.push(*q.clone());
+                        }
+                    } else if let Vector::VectorUnit { .. } = vec {
+                        // Skip units
+                    } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = vec {
+                        // TODO: look for tilts here too
+                        new_qs.extend_from_slice(inner_qs);
+                    } else {
+                        new_qs.push(vec.clone());
+                    }
+                }
+
+                let new_tensor = if new_qs.is_empty() {
+                    Vector::VectorUnit { dbg: dbg.clone() }
+                } else if new_qs.len() == 1 {
+                    new_qs[0].clone()
+                } else {
+                    Vector::VectorTensor {
+                        qs: new_qs,
+                        dbg: dbg.clone(),
+                    }
+                };
+
+                if angle_deg_sum.abs() < ATOL {
+                    new_tensor
+                } else {
+                    Vector::VectorTilt {
+                        q: Box::new(new_tensor),
+                        angle_deg: angle_deg_sum,
+                        dbg: new_tilt_dbg.or_else(|| dbg.clone()),
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ----- Basis -----
