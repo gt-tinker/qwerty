@@ -415,7 +415,9 @@ impl Vector {
                         if let Vector::VectorUnit { .. } = **q {
                             // Skip units
                         } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = **q {
-                            // TODO: look for tilts here too
+                            // No need to look for tilts here because we can
+                            // inductively assume they were moved to the
+                            // outside and we just found them
                             new_qs.extend_from_slice(inner_qs);
                         } else {
                             new_qs.push(*q.clone());
@@ -423,7 +425,9 @@ impl Vector {
                     } else if let Vector::VectorUnit { .. } = vec {
                         // Skip units
                     } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = vec {
-                        // TODO: look for tilts here too
+                        // No need to look for tilts here because we can
+                        // inductively assume they would've been moved to the
+                        // outside and found above
                         new_qs.extend_from_slice(inner_qs);
                     } else {
                         new_qs.push(vec.clone());
