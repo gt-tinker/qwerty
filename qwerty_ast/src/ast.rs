@@ -321,7 +321,13 @@ impl Vector {
         }
     }
 
-    /// Returns a new vector with () and nested tensor products removed.
+    /// Returns an equivalent vector such that:
+    /// 1. No tensor product contains a ()
+    /// 2. No tensor product contains another tensor product
+    /// 3. All @s are propagated to the outside
+    /// 4. All tensor product angles in canon form (i.e., in the interval
+    ///    [0.0, 360.0))
+    /// Assumes this vector is well-typed.
     pub fn canonicalize(&self) -> Vector {
         match self {
             Vector::ZeroVector { .. }
@@ -342,21 +348,21 @@ impl Vector {
                 } = q_canon
                 {
                     let angle_deg_sum = angle_deg + angle_deg_inner;
-                    if on_phase(0.0, angle_deg_sum) {
+                    if angle_is_approx_zero(angle_deg_sum) {
                         *q_inner.clone()
                     } else {
                         Vector::VectorTilt {
                             q: q_inner.clone(),
-                            angle_deg: angle_deg_sum,
+                            angle_deg: canon_angle(angle_deg_sum),
                             dbg: dbg.clone(),
                         }
                     }
-                } else if on_phase(0.0, *angle_deg) {
+                } else if angle_is_approx_zero(*angle_deg) {
                     q_canon
                 } else {
                     Vector::VectorTilt {
                         q: Box::new(q_canon),
-                        angle_deg: *angle_deg,
+                        angle_deg: canon_angle(*angle_deg),
                         dbg: dbg.clone(),
                     }
                 }
@@ -387,7 +393,7 @@ impl Vector {
                             q2: inner_q2.clone(),
                             dbg: dbg.clone(),
                         }),
-                        angle_deg: *inner_angle_deg1,
+                        angle_deg: canon_angle(*inner_angle_deg1),
                         dbg: inner_dbg1.clone(),
                     },
                     _ => Vector::UniformVectorSuperpos {
@@ -445,12 +451,12 @@ impl Vector {
                     }
                 };
 
-                if angle_deg_sum.abs() < ATOL {
+                if angle_is_approx_zero(angle_deg_sum) {
                     new_tensor
                 } else {
                     Vector::VectorTilt {
                         q: Box::new(new_tensor),
-                        angle_deg: angle_deg_sum,
+                        angle_deg: canon_angle(angle_deg_sum),
                         dbg: new_tilt_dbg.or_else(|| dbg.clone()),
                     }
                 }
@@ -716,22 +722,30 @@ pub struct Program {
 /// Tolerance for floating point comparison
 const ATOL: f64 = 1e-12;
 
+/// Returns a canon form of this angle in the range [0.0, 360.0).
+pub fn canon_angle(angle_deg: f64) -> f64 {
+    // angle_deg % 360 could be negative. This will always be nonnegative.
+    angle_deg.rem_euclid(360.0)
+}
+
+/// Returns true if an angle is approximately 0 degrees.
+pub fn angle_is_approx_zero(angle_deg: f64) -> bool {
+    canon_angle(angle_deg).abs() < ATOL
+}
+
 /// Returns true iff the two phases are the same angle (up to a multiple of 360)
 pub fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
-    let modulo = diff % 360.0;
-    modulo.abs() < ATOL
+    let mod360 = canon_angle(diff);
+    mod360.abs() < ATOL
 }
 
 /// Returns true iff the two phases differ by 180 degrees (up to a multiple of
 /// 360)
 pub fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
-    let mut modulo = diff % 360.0;
-    if modulo < 0.0 {
-        modulo = -modulo;
-    }
-    (modulo - 180.0).abs() < ATOL
+    let mod360 = canon_angle(diff);
+    (mod360 - 180.0).abs() < ATOL
 }
 
 //

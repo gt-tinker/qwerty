@@ -606,3 +606,138 @@ fn test_vec_make_explicit_tensor_pad1() {
     };
     assert_eq!(vec.make_explicit(), Vector::OneVector { dbg: dbg.clone() });
 }
+
+#[test]
+fn test_vec_canonicalize_zero() {
+    let vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_one() {
+    let vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_pad() {
+    let vec = Vector::PadVector { dbg: None };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tgt() {
+    let vec = Vector::TargetVector { dbg: None };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_unit() {
+    let vec = Vector::VectorUnit { dbg: None };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tilt_mod360() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::ZeroVector { dbg: None }),
+        angle_deg: -30.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::ZeroVector { dbg: None }),
+        angle_deg: 330.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_nested_tilt() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 20.0,
+            dbg: None
+        }),
+        angle_deg: 10.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::OneVector { dbg: None }),
+        angle_deg: 30.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_nested_tilt_mod_360() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 20.0,
+            dbg: None
+        }),
+        angle_deg: 370.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::OneVector { dbg: None }),
+        angle_deg: 30.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_nested_tilt_cancel_out() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 20.0,
+            dbg: None
+        }),
+        angle_deg: -20.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_nested_tilt_sum_to_360() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 20.0,
+            dbg: None
+        }),
+        angle_deg: 340.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tilt_zero() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::ZeroVector { dbg: None }),
+        angle_deg: 360.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tilt_neg_720() {
+    let vec = Vector::VectorTilt {
+        q: Box::new(Vector::OneVector { dbg: None }),
+        angle_deg: -720.0,
+        dbg: None,
+    };
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
