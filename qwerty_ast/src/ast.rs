@@ -420,7 +420,10 @@ impl Vector {
 
                         if let Vector::VectorUnit { .. } = **q {
                             // Skip units
-                        } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = **q {
+                        } else if let Vector::VectorTensor {
+                            qs: ref inner_qs, ..
+                        } = **q
+                        {
                             // No need to look for tilts here because we can
                             // inductively assume they were moved to the
                             // outside and we just found them
@@ -430,7 +433,10 @@ impl Vector {
                         }
                     } else if let Vector::VectorUnit { .. } = vec {
                         // Skip units
-                    } else if let Vector::VectorTensor { qs: ref inner_qs, .. } = vec {
+                    } else if let Vector::VectorTensor {
+                        qs: ref inner_qs, ..
+                    } = vec
+                    {
                         // No need to look for tilts here because we can
                         // inductively assume they would've been moved to the
                         // outside and found above

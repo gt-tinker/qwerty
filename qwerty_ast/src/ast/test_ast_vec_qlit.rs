@@ -665,7 +665,7 @@ fn test_vec_canonicalize_nested_tilt() {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
             angle_deg: 20.0,
-            dbg: None
+            dbg: None,
         }),
         angle_deg: 10.0,
         dbg: None,
@@ -685,7 +685,7 @@ fn test_vec_canonicalize_nested_tilt_mod_360() {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
             angle_deg: 20.0,
-            dbg: None
+            dbg: None,
         }),
         angle_deg: 370.0,
         dbg: None,
@@ -705,7 +705,7 @@ fn test_vec_canonicalize_nested_tilt_cancel_out() {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
             angle_deg: 20.0,
-            dbg: None
+            dbg: None,
         }),
         angle_deg: -20.0,
         dbg: None,
@@ -721,7 +721,7 @@ fn test_vec_canonicalize_nested_tilt_sum_to_360() {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
             angle_deg: 20.0,
-            dbg: None
+            dbg: None,
         }),
         angle_deg: 340.0,
         dbg: None,
@@ -790,5 +790,212 @@ fn test_vec_canonicalize_superpos_neg_p() {
         angle_deg: 180.0,
         dbg: None,
     };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_01() {
+    // '0'*'1' -> '0'*'1'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_unit() {
+    // '0'*[]*'1' -> '0'*'1'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::VectorUnit { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_unit_tilt() {
+    // '0'*([]@30)*(('1'@10)@90) -> ('0'*'1')@130
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::VectorTilt {
+                q: Box::new(Vector::VectorUnit { dbg: None }),
+                angle_deg: 30.0,
+                dbg: None,
+            },
+            Vector::VectorTilt {
+                q: Box::new(Vector::VectorTilt {
+                    q: Box::new(Vector::OneVector { dbg: None }),
+                    angle_deg: 10.0,
+                    dbg: None,
+                }),
+                angle_deg: 90.0,
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::ZeroVector { dbg: None },
+                Vector::OneVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        angle_deg: 130.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_sum_tilts() {
+    // ('0'@30) * ('1'*60) -> ('0'*'1')@90
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::VectorTilt {
+                q: Box::new(Vector::ZeroVector { dbg: None }),
+                angle_deg: 30.0,
+                dbg: None,
+            },
+            Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 60.0,
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::ZeroVector { dbg: None },
+                Vector::OneVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        angle_deg: 90.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_nested() {
+    // '0'*('1'*'0') -> '0'*'1'*'0'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::OneVector { dbg: None },
+                    Vector::ZeroVector { dbg: None },
+                ],
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+            Vector::ZeroVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_nested_tilt() {
+    // '0'*(('1'*'0')@-30) -> ('0'*'1'*'0')@330
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::VectorTilt {
+                q: Box::new(Vector::VectorTensor {
+                    qs: vec![
+                        Vector::OneVector { dbg: None },
+                        Vector::ZeroVector { dbg: None },
+                    ],
+                    dbg: None,
+                }),
+                angle_deg: -30.0,
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::VectorTensor {
+            qs: vec![
+                Vector::ZeroVector { dbg: None },
+                Vector::OneVector { dbg: None },
+                Vector::ZeroVector { dbg: None },
+            ],
+            dbg: None,
+        }),
+        angle_deg: 330.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_removed() {
+    // []*'0'*[]*[] -> '0'
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::VectorUnit { dbg: None },
+            Vector::ZeroVector { dbg: None },
+            Vector::VectorUnit { dbg: None },
+            Vector::VectorUnit { dbg: None },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_tensor_removed_nested_unit() {
+    // ([]*[])*([]*[]) -> []
+    let vec = Vector::VectorTensor {
+        qs: vec![
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::VectorUnit { dbg: None },
+                    Vector::VectorUnit { dbg: None },
+                ],
+                dbg: None,
+            },
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::VectorUnit { dbg: None },
+                    Vector::VectorUnit { dbg: None },
+                ],
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorUnit { dbg: None };
     assert_eq!(vec.canonicalize(), canon_vec);
 }
