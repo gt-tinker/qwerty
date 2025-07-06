@@ -29,6 +29,8 @@ pub enum TypeErrorKind {
     TypeInferenceFailure,
     EmptyLiteral,
     DimMismatch,
+    // An angle that is either NaN or infinite
+    InvalidFloat { float: f64 },
     // Quantum-specific errors:
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,

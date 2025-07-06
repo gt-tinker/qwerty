@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DebugLoc {
     pub file: String, // Path or file name
     pub line: usize,  // Line number (starting from 1)

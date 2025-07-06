@@ -9,6 +9,7 @@
  */
 
 use crate::dbg::DebugLoc;
+use std::cmp::Ordering;
 
 // ----- Types -----
 
@@ -90,7 +91,8 @@ pub enum VectorAtomKind {
     TargetAtom, // '_'
 }
 
-#[derive(Debug, Clone, PartialEq)]
+//#[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Vector {
     ZeroVector {
         dbg: Option<DebugLoc>,
@@ -321,6 +323,8 @@ impl Vector {
     /// 3. All @s are propagated to the outside
     /// 4. All tensor product angles in canon form (i.e., in the interval
     ///    [0.0, 360.0))
+    /// 5. The terms q1 and q2 of a superposition q1+q2 are ordered such that
+    ///    q1 <= q2.
     /// Assumes this vector is well-typed.
     pub fn canonicalize(&self) -> Vector {
         match self {
@@ -453,6 +457,138 @@ impl Vector {
         }
     }
 }
+
+impl Ord for Vector {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Vector::VectorUnit { dbg: dbgl }, Vector::VectorUnit { dbg: dbgr })
+            | (Vector::ZeroVector { dbg: dbgl }, Vector::ZeroVector { dbg: dbgr })
+            | (Vector::OneVector { dbg: dbgl }, Vector::OneVector { dbg: dbgr })
+            | (Vector::PadVector { dbg: dbgl }, Vector::PadVector { dbg: dbgr })
+            | (Vector::TargetVector { dbg: dbgl }, Vector::TargetVector { dbg: dbgr }) => {
+                dbgl.cmp(dbgr)
+            }
+
+            // [] is the least element
+            (Vector::VectorUnit { .. }, _) => Ordering::Less,
+            (_, Vector::VectorUnit { .. }) => Ordering::Greater,
+
+            // '0' is the next least
+            (Vector::ZeroVector { .. }, _) => Ordering::Less,
+            (_, Vector::ZeroVector { .. }) => Ordering::Greater,
+
+            // Then '1' is the next least
+            (Vector::OneVector { .. }, _) => Ordering::Less,
+            (_, Vector::OneVector { .. }) => Ordering::Greater,
+
+            // Then '?' is the next least
+            (Vector::PadVector { .. }, _) => Ordering::Less,
+            (_, Vector::PadVector { .. }) => Ordering::Greater,
+
+            // Then '_' is the next least
+            (Vector::TargetVector { .. }, _) => Ordering::Less,
+            (_, Vector::TargetVector { .. }) => Ordering::Greater,
+
+            // Then @
+            (
+                Vector::VectorTilt {
+                    q: ql,
+                    angle_deg: angle_degl,
+                    dbg: dbgl,
+                },
+                Vector::VectorTilt {
+                    q: qr,
+                    angle_deg: angle_degr,
+                    dbg: dbgr,
+                },
+            ) => ql
+                .cmp(qr)
+                .then(angle_degl.total_cmp(angle_degr))
+                .then(dbgl.cmp(dbgr)),
+            (Vector::VectorTilt { .. }, _) => Ordering::Less,
+            (_, Vector::VectorTilt { .. }) => Ordering::Greater,
+
+            // Then +
+            (
+                Vector::UniformVectorSuperpos {
+                    q1: q1l,
+                    q2: q2l,
+                    dbg: dbgl,
+                },
+                Vector::UniformVectorSuperpos {
+                    q1: q1r,
+                    q2: q2r,
+                    dbg: dbgr,
+                },
+            ) => q1l.cmp(q1r).then(q2l.cmp(q2r)).then(dbgl.cmp(dbgr)),
+            (Vector::UniformVectorSuperpos { .. }, _) => Ordering::Less,
+            (_, Vector::UniformVectorSuperpos { .. }) => Ordering::Greater,
+
+            // Then *
+            (
+                Vector::VectorTensor { qs: qsl, dbg: dbgl },
+                Vector::VectorTensor { qs: qsr, dbg: dbgr },
+            ) => qsl
+                .iter()
+                .zip(qsr.iter())
+                .fold(Ordering::Equal, |acc, (l, r)| acc.then(l.cmp(r)))
+                .then(dbgl.cmp(dbgr)),
+        }
+    }
+}
+
+impl PartialOrd for Vector {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// Unfortunately, we can't rely on #[derive] to implement this because NaN !=
+// NaN unless we intentionally use f64::total_cmp() as we do below.
+impl PartialEq for Vector {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Vector::ZeroVector { dbg: dbgl }, Vector::ZeroVector { dbg: dbgr }) => dbgl == dbgr,
+            (Vector::OneVector { dbg: dbgl }, Vector::OneVector { dbg: dbgr }) => dbgl == dbgr,
+            (Vector::PadVector { dbg: dbgl }, Vector::PadVector { dbg: dbgr }) => dbgl == dbgr,
+            (Vector::TargetVector { dbg: dbgl }, Vector::TargetVector { dbg: dbgr }) => {
+                dbgl == dbgr
+            }
+            (
+                Vector::VectorTilt {
+                    q: ql,
+                    angle_deg: angle_degl,
+                    dbg: dbgl,
+                },
+                Vector::VectorTilt {
+                    q: qr,
+                    angle_deg: angle_degr,
+                    dbg: dbgr,
+                },
+            ) => ql == qr && angle_degl.total_cmp(angle_degr).is_eq() && dbgl == dbgr,
+            (
+                Vector::UniformVectorSuperpos {
+                    q1: q1l,
+                    q2: q2l,
+                    dbg: dbgl,
+                },
+                Vector::UniformVectorSuperpos {
+                    q1: q1r,
+                    q2: q2r,
+                    dbg: dbgr,
+                },
+            ) => q1l == q1r && q2l == q2r && dbgl == dbgr,
+            (
+                Vector::VectorTensor { qs: qsl, dbg: dbgl },
+                Vector::VectorTensor { qs: qsr, dbg: dbgr },
+            ) => qsl == qsr && dbgl == dbgr,
+            (Vector::VectorUnit { dbg: dbgl }, Vector::VectorUnit { dbg: dbgr }) => dbgl == dbgr,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Vector {}
 
 // ----- Basis -----
 
@@ -667,8 +803,26 @@ impl Basis {
     /// self.get_dim() == n). Behavior is undefined if this basis is not
     /// well-typed.
     pub fn fully_spans(&self) -> bool {
-        // TODO: recursive blah blah
-        false
+        match self {
+            // A matter of definition, but let's say no. You can't write
+            // [] >> [] anyway.
+            Basis::EmptyBasisLiteral { .. } => false,
+
+            Basis::BasisLiteral { ref vecs, .. } => {
+                if let Some(dim) = self.get_dim() {
+                    // Assumes that all vectors are mutually orthogonal, as
+                    // checked by type checking.
+                    // TODO: avoid panicking when there are more than 4.3
+                    //       billion vectors in a basis literal
+                    equals_2_to_the_n(dim, vecs.len().try_into().unwrap())
+                } else {
+                    // Conservatively assume not
+                    false
+                }
+            }
+
+            Basis::BasisTensor { ref bases, .. } => bases.iter().all(Basis::fully_spans),
+        }
     }
 
     /// Removes phases (except those directly inside superpositions) and sorts
@@ -775,7 +929,7 @@ pub struct Program {
     pub dbg: Option<DebugLoc>,
 }
 
-// ----- Miscellaneous angle math -----
+// ----- Miscellaneous math for angles and bits -----
 
 /// Tolerance for floating point comparison
 const ATOL: f64 = 1e-12;
@@ -804,6 +958,21 @@ pub fn anti_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let mod360 = canon_angle(diff);
     (mod360 - 180.0).abs() < ATOL
+}
+
+// Returns true iff the bits of these two angles are the same. This is to work
+// around NaN != NaN, which is quite aggravating because NaN is unimportant
+// for our use cases. This function is usually dramatically more precise than
+// needed, so angle_is_approx_zero() (or similar) should be used instead
+// unless you know what you're doing.
+//fn angle_exactly_eq(angle1: f64, angle2: f64) -> bool {
+//    angle1.to_bits() == angle2.to_bits()
+//    //angle1.is_nan() && angle2.is_nan() || angle1 == angle2
+//}
+
+/// Returns true iff num == 2**n.
+pub fn equals_2_to_the_n(num: usize, n: u32) -> bool {
+    num.count_ones() == 1 && num.trailing_zeros() == n
 }
 
 //

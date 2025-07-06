@@ -731,7 +731,16 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
             dim: 1,
         }),
 
-        Vector::VectorTilt { q, .. } => typecheck_vector(q, _env),
+        Vector::VectorTilt { q, angle_deg, dbg } => {
+            if !angle_deg.is_finite() {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidFloat { float: *angle_deg },
+                    dbg: dbg.clone(),
+                })
+            } else {
+                typecheck_vector(q, _env)
+            }
+        }
 
         Vector::UniformVectorSuperpos { q1, q2, .. } => {
             let t1 = typecheck_vector(q1, _env)?;
