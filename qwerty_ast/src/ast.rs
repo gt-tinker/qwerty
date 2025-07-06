@@ -56,8 +56,8 @@ pub enum QLit {
 }
 
 impl QLit {
-    /// Converts a qubit literal to a basis vector since in Appendix A, every ql is
-    /// a bv.
+    /// Converts a qubit literal to a basis vector since in the spec, every ql
+    /// is a bv.
     pub fn convert_to_basis_vector(&self) -> Vector {
         match self {
             QLit::ZeroQubit { dbg } => Vector::ZeroVector { dbg: dbg.clone() },
@@ -82,6 +82,8 @@ impl QLit {
 
 // ----- Vector -----
 
+/// Represents either a padding ('?') or a target ('_') vector atom. This is
+/// "va" in the spec, except limited to the variants we actually use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VectorAtomKind {
     PadAtom,    // '?'
@@ -152,7 +154,7 @@ impl Vector {
     }
 
     /// Returns number of non-target and non-padding qubits represented by a basis
-    /// vector (⌊bv⌋ in the Appendix) or None if the basis vector is malformed
+    /// vector (⌊bv⌋ in the spec) or None if the basis vector is malformed
     /// (currently, if both sides of a superposition have different dimensions
     ///  or if a tensor product has less than two vectors).
     pub fn get_explicit_dim(&self) -> Option<usize> {
@@ -184,7 +186,7 @@ impl Vector {
     }
 
     /// Returns number of qubits represented by a basis vector, including
-    /// padding and target qubits. (This is |bv| in the Appendix.) Returns None
+    /// padding and target qubits. (This is |bv| in the spec.) Returns None
     /// if the basis vector is malformed (currently, if both sides of a
     /// superposition have different dimensions or if a tensor product has less
     /// than two vectors).
@@ -219,7 +221,7 @@ impl Vector {
     }
 
     /// Returns the zero-indexed qubit positions that are correspond to the
-    /// provided atom. This Ξva[bv] in Appendix A. Returning None indicates a
+    /// provided atom. This Ξva[bv] in the spec. Returning None indicates a
     /// malformed vector (currently, a superposition whose possibilities do not
     /// have matching indices or an empty tensor product).
     pub fn get_atom_indices(&self, atom: VectorAtomKind) -> Option<Vec<usize>> {
@@ -498,7 +500,7 @@ impl Basis {
         }
     }
 
-    /// Returns number of qubits represented by a basis (|b| in the Appendix)
+    /// Returns number of qubits represented by a basis (|b| in the spec)
     /// or None if any basis vector involved is malformed (see Vector::get_dim()).
     pub fn get_dim(&self) -> Option<usize> {
         match self {
@@ -534,7 +536,7 @@ impl Basis {
     }
 
     /// Returns the zero-indexed qubit positions that are correspond to the
-    /// provided atom. This Ξva[bv] in Appendix A. Returning None indicates a
+    /// provided atom. This Ξva[bv] in the spec. Returning None indicates a
     /// malformed vector (currently, when basis vectors in a basis literal do
     /// not have matching indices or when Vector::get_atom_indices() considers
     /// any vector malformed).
