@@ -609,36 +609,42 @@ fn test_vec_make_explicit_tensor_pad1() {
 
 #[test]
 fn test_vec_canonicalize_zero() {
+    // '0' -> '0'
     let vec = Vector::ZeroVector { dbg: None };
     assert_eq!(vec.canonicalize(), vec);
 }
 
 #[test]
 fn test_vec_canonicalize_one() {
+    // '1' -> '1'
     let vec = Vector::OneVector { dbg: None };
     assert_eq!(vec.canonicalize(), vec);
 }
 
 #[test]
 fn test_vec_canonicalize_pad() {
+    // '?' -> '?'
     let vec = Vector::PadVector { dbg: None };
     assert_eq!(vec.canonicalize(), vec);
 }
 
 #[test]
 fn test_vec_canonicalize_tgt() {
+    // '_' -> '_'
     let vec = Vector::TargetVector { dbg: None };
     assert_eq!(vec.canonicalize(), vec);
 }
 
 #[test]
 fn test_vec_canonicalize_unit() {
+    // [] -> []
     let vec = Vector::VectorUnit { dbg: None };
     assert_eq!(vec.canonicalize(), vec);
 }
 
 #[test]
 fn test_vec_canonicalize_tilt_mod360() {
+    // '0'@-30 -> '0'@330
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::ZeroVector { dbg: None }),
         angle_deg: -30.0,
@@ -654,6 +660,7 @@ fn test_vec_canonicalize_tilt_mod360() {
 
 #[test]
 fn test_vec_canonicalize_nested_tilt() {
+    // ('1'@20)@10 -> '1'@30
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
@@ -673,6 +680,7 @@ fn test_vec_canonicalize_nested_tilt() {
 
 #[test]
 fn test_vec_canonicalize_nested_tilt_mod_360() {
+    // ('1'@20)@370 -> '1'@30
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
@@ -692,6 +700,7 @@ fn test_vec_canonicalize_nested_tilt_mod_360() {
 
 #[test]
 fn test_vec_canonicalize_nested_tilt_cancel_out() {
+    // ('1'@20)@-20 -> '1'
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
@@ -707,6 +716,7 @@ fn test_vec_canonicalize_nested_tilt_cancel_out() {
 
 #[test]
 fn test_vec_canonicalize_nested_tilt_sum_to_360() {
+    // ('1'@20)@340 -> '1'@360
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
@@ -722,6 +732,7 @@ fn test_vec_canonicalize_nested_tilt_sum_to_360() {
 
 #[test]
 fn test_vec_canonicalize_tilt_zero() {
+    // '0'@360 -> '0'
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::ZeroVector { dbg: None }),
         angle_deg: 360.0,
@@ -733,11 +744,51 @@ fn test_vec_canonicalize_tilt_zero() {
 
 #[test]
 fn test_vec_canonicalize_tilt_neg_720() {
+    // '1'@-720 -> '1'
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::OneVector { dbg: None }),
         angle_deg: -720.0,
         dbg: None,
     };
     let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_superpos_p() {
+    // '0'+'1' -> '0'+'1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_canonicalize_superpos_neg_p() {
+    // ('0'@180)+('1'@-180) -> ('0'+'1')@180
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::ZeroVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: -180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        angle_deg: 180.0,
+        dbg: None,
+    };
     assert_eq!(vec.canonicalize(), canon_vec);
 }
