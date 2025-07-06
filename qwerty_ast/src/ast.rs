@@ -277,11 +277,7 @@ impl Vector {
             Vector::PadVector { dbg } | Vector::TargetVector { dbg } => {
                 Vector::VectorUnit { dbg: dbg.clone() }
             }
-            Vector::VectorTilt {
-                q,
-                angle_deg,
-                dbg,
-            } => {
+            Vector::VectorTilt { q, angle_deg, dbg } => {
                 let q_explicit = q.make_explicit();
                 if let Vector::VectorUnit { .. } = q_explicit {
                     q_explicit
@@ -293,11 +289,7 @@ impl Vector {
                     }
                 }
             }
-            Vector::UniformVectorSuperpos {
-                q1,
-                q2,
-                dbg,
-            } => Vector::UniformVectorSuperpos {
+            Vector::UniformVectorSuperpos { q1, q2, dbg } => Vector::UniformVectorSuperpos {
                 q1: Box::new(q1.make_explicit()),
                 q2: Box::new(q2.make_explicit()),
                 dbg: dbg.clone(),
@@ -338,11 +330,7 @@ impl Vector {
             | Vector::TargetVector { .. }
             | Vector::VectorUnit { .. } => self.clone(),
 
-            Vector::VectorTilt {
-                q,
-                angle_deg,
-                dbg,
-            } => {
+            Vector::VectorTilt { q, angle_deg, dbg } => {
                 let q_canon = q.canonicalize();
                 if let Vector::VectorTilt {
                     q: q_inner,
@@ -371,11 +359,7 @@ impl Vector {
                 }
             }
 
-            Vector::UniformVectorSuperpos {
-                q1,
-                q2,
-                dbg,
-            } => {
+            Vector::UniformVectorSuperpos { q1, q2, dbg } => {
                 let q1_canon = q1.canonicalize();
                 let q2_canon = q2.canonicalize();
 
@@ -425,10 +409,7 @@ impl Vector {
 
                         if let Vector::VectorUnit { .. } = **q {
                             // Skip units
-                        } else if let Vector::VectorTensor {
-                            qs: inner_qs, ..
-                        } = &**q
-                        {
+                        } else if let Vector::VectorTensor { qs: inner_qs, .. } = &**q {
                             // No need to look for tilts here because we can
                             // inductively assume they were moved to the
                             // outside and we just found them
@@ -438,10 +419,7 @@ impl Vector {
                         }
                     } else if let Vector::VectorUnit { .. } = vec {
                         // Skip units
-                    } else if let Vector::VectorTensor {
-                        qs: inner_qs, ..
-                    } = vec
-                    {
+                    } else if let Vector::VectorTensor { qs: inner_qs, .. } = vec {
                         // No need to look for tilts here because we can
                         // inductively assume they would've been moved to the
                         // outside and found above
