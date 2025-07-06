@@ -643,6 +643,42 @@ impl Basis {
             }
         }
     }
+
+    /// Converts to a vector of basis elements in order.
+    fn to_vec(&self) -> Vec<Basis> {
+        match self {
+            Basis::EmptyBasisLiteral { .. } => vec![],
+
+            Basis::BasisLiteral { .. } => vec![self.clone()],
+
+            Basis::BasisTensor { ref bases, .. } => bases.clone(),
+        }
+    }
+
+    /// Converts to a stack of basis elements such that the first element
+    /// popped is the leftmost.
+    pub fn to_stack(&self) -> Vec<Basis> {
+        let mut vec = self.to_vec();
+        vec.reverse();
+        vec
+    }
+
+    /// Returns true if this basis fully spans the n-qubit space (if
+    /// self.get_dim() == n). Behavior is undefined if this basis is not
+    /// well-typed.
+    pub fn fully_spans(&self) -> bool {
+        // TODO: recursive blah blah
+        false
+    }
+
+    /// Removes phases (except those directly inside superpositions) and sorts
+    /// all vectors in basis literals. The resulting basis has the same span
+    /// but is not necessarily equivalent. This is intended for use in span
+    /// equivalence checking.
+    pub fn normalize(&self) -> Basis {
+        // TODO: implement me :)
+        self.clone()
+    }
 }
 
 // ----- Expressions -----

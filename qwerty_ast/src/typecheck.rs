@@ -307,9 +307,14 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 });
             }
 
-            // TODO: Need to check that span(bin) = span(bout)
-
-            Ok(result_ty)
+            if !basis_span_equiv(bin, bout) {
+                Err(TypeError {
+                    kind: TypeErrorKind::SpanMismatch,
+                    dbg: dbg.clone(),
+                })
+            } else {
+                Ok(result_ty)
+            }
         }
 
         Expr::Predicated {
@@ -606,7 +611,7 @@ fn basis_vectors_are_ortho_nosym(bv_1: &Vector, bv_2: &Vector) -> bool {
     }
 }
 
-/// Determine if two basis vectors are orthogonal using all available
+/// Determines if two basis vectors are orthogonal using all available
 /// orthogonality rules. Practically, this means attempting
 /// `basis_vectors_are_ortho()` and then trying again after applying O-Sym.
 fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
@@ -614,6 +619,42 @@ fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
     basis_vectors_are_ortho_nosym(bv_1, bv_2) || basis_vectors_are_ortho_nosym(bv_2, bv_1)
 }
 
+/// Returns true if both bases have the same span. Assumes that both bases
+/// individually passed type checking.
+fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
+    let mut b1_stack = b1.make_explicit().canonicalize().normalize().to_stack();
+    let mut b2_stack = b2.make_explicit().canonicalize().normalize().to_stack();
+
+    loop {
+        match (b1_stack.pop(), b2_stack.pop()) {
+            (None, None) => break,
+            (Some(_), None) | (None, Some(_)) => return false,
+            (Some(be1), Some(be2)) => {
+                match (be1.get_dim(), be2.get_dim()) {
+                    (None, _) | (_, None) => return false,
+                    (Some(be1_dim), Some(be2_dim)) if be1_dim == be2_dim => {
+                        if be1.fully_spans() && be2.fully_spans() || be1 == be2 {
+                            // Looks good. Keep going
+                        } else {
+                            return false;
+                        }
+                    }
+                    (Some(small_dim), Some(big_dim)) if big_dim > small_dim => {
+                        // TODO: factor be1 from be2
+                    }
+                    (Some(big_dim), Some(small_dim)) if big_dim > small_dim => {
+                        // TODO: factor be2 from be1
+                    }
+                    (Some(_), Some(_)) => unreachable!(),
+                }
+            }
+        }
+    }
+
+    true
+}
+
+/// Returns true if two qubit literals can be proven to be orthogonal.
 fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     basis_vectors_are_ortho(
         &qlit1.convert_to_basis_vector(),

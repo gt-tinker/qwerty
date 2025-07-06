@@ -32,6 +32,7 @@ pub enum TypeErrorKind {
     // Quantum-specific errors:
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
+    SpanMismatch,
     NotOrthogonal { left: String, right: String },
     QuantumMeasurementOnClassical(String),
     InvalidQubitOperation(String),
