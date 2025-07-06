@@ -322,7 +322,7 @@ impl Vector {
     }
 
     /// Returns an equivalent vector such that:
-    /// 1. No tensor product contains a ()
+    /// 1. No tensor product contains a []
     /// 2. No tensor product contains another tensor product
     /// 3. All @s are propagated to the outside
     /// 4. All tensor product angles in canon form (i.e., in the interval
@@ -621,6 +621,39 @@ impl Basis {
                 } else {
                     Basis::BasisTensor {
                         bases: bases_explicit,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns an equivalent basis such that:
+    /// 1. All vectors are in the form promised by Vector::canonicalize()
+    /// 2. No tensor product contains a []
+    /// 3. No tensor product contains another tensor product
+    pub fn canonicalize(&self) -> Basis {
+        match self {
+            Basis::EmptyBasisLiteral { .. } => self.clone(),
+
+            Basis::BasisLiteral { ref vecs, ref dbg } => Basis::BasisLiteral {
+                vecs: vecs.iter().map(Vector::canonicalize).collect(),
+                dbg: dbg.clone(),
+            },
+
+            Basis::BasisTensor { ref bases, ref dbg } => {
+                let bases_canon: Vec<_> = bases
+                    .iter()
+                    .map(Basis::canonicalize)
+                    .filter(|b| !matches!(b, Basis::EmptyBasisLiteral { .. }))
+                    .collect();
+                if bases_canon.is_empty() {
+                    Basis::EmptyBasisLiteral { dbg: dbg.clone() }
+                } else if bases_canon.len() == 1 {
+                    bases_canon[0].clone()
+                } else {
+                    Basis::BasisTensor {
+                        bases: bases_canon,
                         dbg: dbg.clone(),
                     }
                 }

@@ -467,3 +467,120 @@ fn test_basis_make_explicit_tensor_01() {
     };
     assert_eq!(basis.make_explicit(), basis);
 }
+
+#[test]
+fn test_basis_canonicalize_unit() {
+    // [] -> []
+    let basis = Basis::EmptyBasisLiteral { dbg: None };
+    assert_eq!(basis.canonicalize(), basis);
+}
+
+#[test]
+fn test_basis_canonicalize_std() {
+    // {'0','1'} -> {'0','1'}
+    let basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(basis.canonicalize(), basis);
+}
+
+#[test]
+fn test_basis_canonicalize_std_unit() {
+    // {[]+'0','1'+[]} -> {'0','1'}
+    let basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::VectorUnit { dbg: None },
+                    Vector::ZeroVector { dbg: None },
+                ],
+                dbg: None,
+            },
+            Vector::VectorTensor {
+                qs: vec![
+                    Vector::OneVector { dbg: None },
+                    Vector::VectorUnit { dbg: None },
+                ],
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    let canon_basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(basis.canonicalize(), canon_basis);
+}
+
+#[test]
+fn test_basis_canonicalize_tensor_unit() {
+    // {'0','1'}*[] -> {'0','1'}
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::BasisLiteral {
+                vecs: vec![
+                    Vector::ZeroVector { dbg: None },
+                    Vector::OneVector { dbg: None },
+                ],
+                dbg: None,
+            },
+            Basis::EmptyBasisLiteral { dbg: None },
+        ],
+        dbg: None,
+    };
+    let canon_basis = Basis::BasisLiteral {
+        vecs: vec![
+            Vector::ZeroVector { dbg: None },
+            Vector::OneVector { dbg: None },
+        ],
+        dbg: None,
+    };
+    assert_eq!(basis.canonicalize(), canon_basis);
+}
+
+#[test]
+fn test_basis_canonicalize_tensor_unit_unit() {
+    // []*[] -> []
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::EmptyBasisLiteral { dbg: None },
+            Basis::EmptyBasisLiteral { dbg: None },
+        ],
+        dbg: None,
+    };
+    let canon_basis = Basis::EmptyBasisLiteral { dbg: None };
+    assert_eq!(basis.canonicalize(), canon_basis);
+}
+
+#[test]
+fn test_basis_canonicalize_tensor_std_std() {
+    // {'0','1'}*{'0','1'} -> {'0','1'}*{'0','1'}
+    let basis = Basis::BasisTensor {
+        bases: vec![
+            Basis::BasisLiteral {
+                vecs: vec![
+                    Vector::ZeroVector { dbg: None },
+                    Vector::OneVector { dbg: None },
+                ],
+                dbg: None,
+            },
+            Basis::BasisLiteral {
+                vecs: vec![
+                    Vector::ZeroVector { dbg: None },
+                    Vector::OneVector { dbg: None },
+                ],
+                dbg: None,
+            },
+        ],
+        dbg: None,
+    };
+    assert_eq!(basis.canonicalize(), basis);
+}
