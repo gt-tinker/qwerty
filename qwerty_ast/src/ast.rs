@@ -247,7 +247,7 @@ impl Vector {
                 }
             }
 
-            (Vector::VectorTensor { ref qs, .. }, _) => {
+            (Vector::VectorTensor { qs, .. }, _) => {
                 if qs.len() < 2 {
                     None
                 } else {
@@ -274,13 +274,13 @@ impl Vector {
             Vector::ZeroVector { .. } | Vector::OneVector { .. } | Vector::VectorUnit { .. } => {
                 self.clone()
             }
-            Vector::PadVector { ref dbg } | Vector::TargetVector { ref dbg } => {
+            Vector::PadVector { dbg } | Vector::TargetVector { dbg } => {
                 Vector::VectorUnit { dbg: dbg.clone() }
             }
             Vector::VectorTilt {
-                ref q,
+                q,
                 angle_deg,
-                ref dbg,
+                dbg,
             } => {
                 let q_explicit = q.make_explicit();
                 if let Vector::VectorUnit { .. } = q_explicit {
@@ -294,15 +294,15 @@ impl Vector {
                 }
             }
             Vector::UniformVectorSuperpos {
-                ref q1,
-                ref q2,
-                ref dbg,
+                q1,
+                q2,
+                dbg,
             } => Vector::UniformVectorSuperpos {
                 q1: Box::new(q1.make_explicit()),
                 q2: Box::new(q2.make_explicit()),
                 dbg: dbg.clone(),
             },
-            Vector::VectorTensor { ref qs, ref dbg } => {
+            Vector::VectorTensor { qs, dbg } => {
                 let qs_explicit: Vec<_> = qs
                     .iter()
                     .map(Vector::make_explicit)
@@ -337,14 +337,15 @@ impl Vector {
             | Vector::PadVector { .. }
             | Vector::TargetVector { .. }
             | Vector::VectorUnit { .. } => self.clone(),
+
             Vector::VectorTilt {
-                ref q,
+                q,
                 angle_deg,
-                ref dbg,
+                dbg,
             } => {
                 let q_canon = q.canonicalize();
                 if let Vector::VectorTilt {
-                    q: ref q_inner,
+                    q: q_inner,
                     angle_deg: angle_deg_inner,
                     ..
                 } = q_canon
@@ -369,10 +370,11 @@ impl Vector {
                     }
                 }
             }
+
             Vector::UniformVectorSuperpos {
-                ref q1,
-                ref q2,
-                ref dbg,
+                q1,
+                q2,
+                dbg,
             } => {
                 let q1_canon = q1.canonicalize();
                 let q2_canon = q2.canonicalize();
@@ -380,12 +382,12 @@ impl Vector {
                 match (&q1_canon, &q2_canon) {
                     (
                         Vector::VectorTilt {
-                            q: ref inner_q1,
+                            q: inner_q1,
                             angle_deg: inner_angle_deg1,
                             dbg: inner_dbg1,
                         },
                         Vector::VectorTilt {
-                            q: ref inner_q2,
+                            q: inner_q2,
                             angle_deg: inner_angle_deg2,
                             ..
                         },
@@ -405,26 +407,27 @@ impl Vector {
                     },
                 }
             }
-            Vector::VectorTensor { ref qs, ref dbg } => {
+
+            Vector::VectorTensor { qs, dbg } => {
                 let vecs_canon: Vec<_> = qs.iter().map(Vector::canonicalize).collect();
                 let mut new_qs = vec![];
                 let mut angle_deg_sum = 0.0;
                 let mut new_tilt_dbg = None;
-                for vec in vecs_canon {
+                for vec in &vecs_canon {
                     if let Vector::VectorTilt {
-                        ref q,
+                        q,
                         angle_deg,
                         dbg: tilt_dbg,
                     } = vec
                     {
                         angle_deg_sum += angle_deg;
-                        new_tilt_dbg = new_tilt_dbg.or(tilt_dbg);
+                        new_tilt_dbg = new_tilt_dbg.or_else(|| tilt_dbg.clone());
 
                         if let Vector::VectorUnit { .. } = **q {
                             // Skip units
                         } else if let Vector::VectorTensor {
-                            qs: ref inner_qs, ..
-                        } = **q
+                            qs: inner_qs, ..
+                        } = &**q
                         {
                             // No need to look for tilts here because we can
                             // inductively assume they were moved to the
@@ -436,7 +439,7 @@ impl Vector {
                     } else if let Vector::VectorUnit { .. } = vec {
                         // Skip units
                     } else if let Vector::VectorTensor {
-                        qs: ref inner_qs, ..
+                        qs: inner_qs, ..
                     } = vec
                     {
                         // No need to look for tilts here because we can
@@ -504,7 +507,7 @@ impl Basis {
     /// or None if any basis vector involved is malformed (see Vector::get_dim()).
     pub fn get_dim(&self) -> Option<usize> {
         match self {
-            Basis::BasisLiteral { ref vecs, .. } => {
+            Basis::BasisLiteral { vecs, .. } => {
                 if vecs.is_empty() {
                     None
                 } else {
@@ -523,7 +526,7 @@ impl Basis {
 
             Basis::EmptyBasisLiteral { .. } => Some(0),
 
-            Basis::BasisTensor { ref bases, .. } => {
+            Basis::BasisTensor { bases, .. } => {
                 if bases.len() < 2 {
                     None
                 } else {
@@ -563,7 +566,7 @@ impl Basis {
 
             Basis::EmptyBasisLiteral { .. } => Some(vec![]),
 
-            Basis::BasisTensor { ref bases, .. } => {
+            Basis::BasisTensor { bases, .. } => {
                 if bases.len() < 2 {
                     None
                 } else {
@@ -587,7 +590,7 @@ impl Basis {
     /// the original basis is well-typed.
     pub fn make_explicit(&self) -> Basis {
         match self {
-            Basis::BasisLiteral { ref vecs, ref dbg } => {
+            Basis::BasisLiteral { vecs, dbg } => {
                 // This is a little bit overpowered: according to the
                 // orthogonality rules, a basis literal can contain at most one
                 // lonely '?' or '_'. (That is, {'?'} would typecheck but {'?',
@@ -609,7 +612,7 @@ impl Basis {
 
             Basis::EmptyBasisLiteral { .. } => self.clone(),
 
-            Basis::BasisTensor { ref bases, ref dbg } => {
+            Basis::BasisTensor { bases, dbg } => {
                 let bases_explicit: Vec<_> = bases
                     .iter()
                     .map(Basis::make_explicit)
@@ -638,12 +641,12 @@ impl Basis {
         match self {
             Basis::EmptyBasisLiteral { .. } => self.clone(),
 
-            Basis::BasisLiteral { ref vecs, ref dbg } => Basis::BasisLiteral {
+            Basis::BasisLiteral { vecs, dbg } => Basis::BasisLiteral {
                 vecs: vecs.iter().map(Vector::canonicalize).collect(),
                 dbg: dbg.clone(),
             },
 
-            Basis::BasisTensor { ref bases, ref dbg } => {
+            Basis::BasisTensor { bases, dbg } => {
                 let bases_canon: Vec<_> = bases
                     .iter()
                     .map(Basis::canonicalize)
