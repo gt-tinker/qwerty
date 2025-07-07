@@ -379,20 +379,36 @@ impl Vector {
                             angle_deg: inner_angle_deg2,
                             ..
                         },
-                    ) if in_phase(*inner_angle_deg1, *inner_angle_deg2) => Vector::VectorTilt {
-                        q: Box::new(Vector::UniformVectorSuperpos {
-                            q1: inner_q1.clone(),
-                            q2: inner_q2.clone(),
+                    ) if in_phase(*inner_angle_deg1, *inner_angle_deg2) => {
+                        let (first_q, second_q) = if inner_q2 < inner_q1 {
+                            (inner_q2, inner_q1)
+                        } else {
+                            (inner_q1, inner_q2)
+                        };
+
+                        Vector::VectorTilt {
+                            q: Box::new(Vector::UniformVectorSuperpos {
+                                q1: first_q.clone(),
+                                q2: second_q.clone(),
+                                dbg: dbg.clone(),
+                            }),
+                            angle_deg: canon_angle(*inner_angle_deg1),
+                            dbg: inner_dbg1.clone(),
+                        }
+                    }
+                    _ => {
+                        let (first_q, second_q) = if q2_canon < q1_canon {
+                            (q2_canon, q1_canon)
+                        } else {
+                            (q1_canon, q2_canon)
+                        };
+
+                        Vector::UniformVectorSuperpos {
+                            q1: Box::new(first_q),
+                            q2: Box::new(second_q),
                             dbg: dbg.clone(),
-                        }),
-                        angle_deg: canon_angle(*inner_angle_deg1),
-                        dbg: inner_dbg1.clone(),
-                    },
-                    _ => Vector::UniformVectorSuperpos {
-                        q1: Box::new(q1_canon),
-                        q2: Box::new(q2_canon),
-                        dbg: dbg.clone(),
-                    },
+                        }
+                    }
                 }
             }
 

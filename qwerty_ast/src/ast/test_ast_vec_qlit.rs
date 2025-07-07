@@ -766,6 +766,22 @@ fn test_vec_canonicalize_superpos_p() {
 }
 
 #[test]
+fn test_vec_canonicalize_superpos_p_sorted() {
+    // '1'+'0' -> '0'+'1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::OneVector { dbg: None }),
+        q2: Box::new(Vector::ZeroVector { dbg: None }),
+        dbg: None,
+    };
+    let canon_vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
 fn test_vec_canonicalize_superpos_neg_p() {
     // ('0'@180)+('1'@-180) -> ('0'+'1')@180
     let vec = Vector::UniformVectorSuperpos {
@@ -776,6 +792,34 @@ fn test_vec_canonicalize_superpos_neg_p() {
         }),
         q2: Box::new(Vector::VectorTilt {
             q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: -180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        angle_deg: 180.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_superpos_neg_p_sorted() {
+    // ('1'@180)+('0'@-180) -> ('0'+'1')@180
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::ZeroVector { dbg: None }),
             angle_deg: -180.0,
             dbg: None,
         }),
