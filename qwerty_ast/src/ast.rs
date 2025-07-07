@@ -317,6 +317,132 @@ impl Vector {
         }
     }
 
+    //fn do_interference_r(left: (&Vector, &Vector), right: (&Vector, &Vector)) -> Option<(&Vector, &Vector)> {
+    //    match (left, right) {
+    //        ((q1l, q2l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+    //        | ((q1l, q2l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+    //        | ((q2l, q1l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+    //        | ((q2l, q1l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+    //        | ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q1l, q2l))
+    //        | ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q2l, q1l))
+    //        | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q1l, q2l))
+    //        | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q2l, q1l))
+    //        if q1l == q1r && q2l == &**bq2r && angles_are_approx_equal(*angle_deg, 180.0) =>
+    //        {
+    //            Some((q1l, q2l))
+    //        }
+
+    //        _ => None,
+    //    }
+    //}
+
+    /// Suppose left=(l1, l2) and right=(r1, r2). Then this function considers
+    /// (l1 + l2) + (r1 + r2). If r1 = l1@180 and r2 = l2, up to some
+    /// commutation of the terms of the inner superpositions, this returns two
+    /// vectors (cons, dest). cons is the constructively interfering vector,
+    /// and dest was the destructively interfering vector.
+    fn do_interference_r<'v>(left: (&'v Vector, &'v Vector), right: (&'v Vector, &'v Vector)) -> Option<(&'v Vector, &'v Vector)> {
+        match (left, right) {
+            ((q1l, q2l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+            | ((q1l, q2l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+            | ((q2l, q1l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+            | ((q2l, q1l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+            if q1l == q1r && q2l == &**bq2r && angles_are_approx_equal(*angle_deg, 180.0) =>
+            {
+                Some((q1l, q2l))
+            }
+
+            _ => None,
+        }
+    }
+
+    /// Suppose left=(l1, l2) and right=(r1, r2). Then this function considers
+    /// (l1 + l2) + (r1 + r2). If l1 = r1@180 and l2 = r2, up to some
+    /// commutation of the terms of the inner superpositions, this returns two
+    /// vectors (cons, dest). cons is the constructively interfering vector,
+    /// and dest was the destructively interfering vector.
+    fn do_interference_l<'v>(left: (&'v Vector, &'v Vector), right: (&'v Vector, &'v Vector)) -> Option<(&'v Vector, &'v Vector)> {
+        match (left, right) {
+            ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q1l, q2l))
+            | ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q2l, q1l))
+            | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q1l, q2l))
+            | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q2l, q1l))
+            if q1l == q1r && q2l == &**bq2r && angles_are_approx_equal(*angle_deg, 180.0) =>
+            {
+                Some((q1l, q2l))
+            }
+
+            _ => None,
+        }
+    }
+
+    fn interfere(left: &Vector, right: &Vector) -> Option<Vector> {
+        match (left, right) {
+            (Vector::UniformVectorSuperpos { q1: lq1, q2: lq2, .. },
+             Vector::UniformVectorSuperpos { q1: rq1, q2: rq2, .. }) => {
+                Vector::do_interference_l((&**lq1, &**lq2), (&**rq1, &**rq2))
+                .or_else(|| Vector::do_interference_r((&**lq1, &**lq2), (&**rq1, &**rq2)))
+                .map(|(cons, _dest)| cons.clone())
+            }
+                //match ((&**lq1, &**lq2), (&**rq1, &**rq2)) {
+                //    ((q1l, q2l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+                //    | ((q1l, q2l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+                //    | ((q2l, q1l), (q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }))
+                //    | ((q2l, q1l), (Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r))
+                //    | ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q1l, q2l))
+                //    | ((q1r, Vector::VectorTilt { q: bq2r, angle_deg, .. }), (q2l, q1l))
+                //    | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q1l, q2l))
+                //    | ((Vector::VectorTilt { q: bq2r, angle_deg, .. }, q1r), (q2l, q1l))
+                //    if q1l == q1r && q2l == &**bq2r && angles_are_approx_equal(*angle_deg, 180.0) =>
+                //    {
+                //        Some(q1l.clone())
+                //    }
+
+                //    _ => None,
+                //}
+
+            (Vector::UniformVectorSuperpos { q1: lq1, q2: lq2, .. },
+             Vector::VectorTilt { q: rq, angle_deg: rangle_deg, .. })
+            | (Vector::VectorTilt { q: rq, angle_deg: rangle_deg, .. },
+               Vector::UniformVectorSuperpos { q1: lq1, q2: lq2, .. })
+             if angles_are_approx_equal(*rangle_deg, 180.0) => {
+                match &**rq {
+                    Vector::UniformVectorSuperpos { q1: rq1, q2: rq2, .. } => {
+                        match Vector::do_interference_r((&**lq1, &**lq2), (&**rq1, &**rq2)) {
+                            Some((_cons, dest)) => Some(dest.clone()),
+                            None => None,
+                        }
+                    }
+
+                    _ => None,
+                }
+            }
+
+            (Vector::VectorTilt { q: lq, angle_deg: langle_deg, dbg },
+             Vector::UniformVectorSuperpos { q1: rq1, q2: rq2, .. })
+            | (Vector::UniformVectorSuperpos { q1: rq1, q2: rq2, .. },
+               Vector::VectorTilt { q: lq, angle_deg: langle_deg, dbg })
+             if angles_are_approx_equal(*langle_deg, 180.0) => {
+                match &**lq {
+                    Vector::UniformVectorSuperpos { q1: lq1, q2: lq2, .. } => {
+                        match Vector::do_interference_l((&**lq1, &**lq2), (&**rq1, &**rq2)) {
+                            Some((_cons, dest)) => Some(Vector::VectorTilt {
+                                q: Box::new(dest.clone()),
+                                angle_deg: 180.0,
+                                dbg: dbg.clone(),
+                            }),
+                            None => None,
+                        }
+                    }
+
+                    _ => None,
+                }
+            }
+
+            _ => None,
+        }
+    }
+
     /// Returns an equivalent vector such that:
     /// 1. No tensor product contains a []
     /// 2. No tensor product contains another tensor product
@@ -325,6 +451,13 @@ impl Vector {
     ///    [0.0, 360.0))
     /// 5. The terms q1 and q2 of a superposition q1+q2 are ordered such that
     ///    q1 <= q2.
+    /// 6. Superpositions directly contain at most 1 tilt:
+    ///        (q1@a+q2@b) -> (q1 + q2@(b-a))@a
+    ///    where @(b-a) is elided if a=b.
+    /// 7. Basic interference is performed:
+    ///        (q1 + q2) + (q1 - q2) -> q1
+    ///    and
+    ///        (q1 + q2) + -(q1 - q2) -> q1
     /// Assumes this vector is well-typed.
     pub fn canonicalize(&self) -> Vector {
         match self {
@@ -377,25 +510,40 @@ impl Vector {
                         Vector::VectorTilt {
                             q: inner_q2,
                             angle_deg: inner_angle_deg2,
-                            ..
+                            dbg: inner_dbg2,
                         },
-                    ) if in_phase(*inner_angle_deg1, *inner_angle_deg2) => {
-                        let (first_q, second_q) = if inner_q2 < inner_q1 {
-                            (inner_q2, inner_q1)
-                        } else {
-                            (inner_q1, inner_q2)
-                        };
+                    ) => {
+                        // We inductively assume that neither of
+                        // inner_angle_deg{1,2} are approximately 0
 
+                        let new_inner_angle_deg2 =
+                            canon_angle(*inner_angle_deg2 - *inner_angle_deg1);
+                        let new_q2 = if angle_is_approx_zero(new_inner_angle_deg2) {
+                            inner_q2.clone()
+                        } else {
+                            Box::new(Vector::VectorTilt {
+                                q: inner_q2.clone(),
+                                angle_deg: new_inner_angle_deg2,
+                                dbg: inner_dbg2.clone(),
+                            })
+                        };
+                        let new_superpos = Box::new(Vector::UniformVectorSuperpos {
+                            q1: inner_q1.clone(),
+                            q2: new_q2,
+                            dbg: dbg.clone(),
+                        });
+
+                        // The canonicalize() call here is subtle, but it
+                        // triggers the code below as well as making sure that
+                        // any outer VectorTilts end up getting merged.
                         Vector::VectorTilt {
-                            q: Box::new(Vector::UniformVectorSuperpos {
-                                q1: first_q.clone(),
-                                q2: second_q.clone(),
-                                dbg: dbg.clone(),
-                            }),
+                            q: new_superpos,
                             angle_deg: canon_angle(*inner_angle_deg1),
                             dbg: inner_dbg1.clone(),
                         }
+                        .canonicalize()
                     }
+
                     _ => {
                         let (first_q, second_q) = if q2_canon < q1_canon {
                             (q2_canon, q1_canon)
@@ -403,11 +551,28 @@ impl Vector {
                             (q1_canon, q2_canon)
                         };
 
-                        Vector::UniformVectorSuperpos {
-                            q1: Box::new(first_q),
-                            q2: Box::new(second_q),
-                            dbg: dbg.clone(),
+                        //if let (
+                        //    Vector::UniformVectorSuperpos { q1: q1l, q2: q2l, .. },
+                        //    Vector::UniformVectorSuperpos { q1: q1r, q2: q2r, .. },
+                        //) = (&first_q, &second_q) {
+                        if let Some(vec) = Vector::interfere(&first_q, &second_q) {
+                            // Call canonicalize() here in case there is
+                            // e.g. a nested tilt
+                            vec.canonicalize()
+                        } else {
+                            Vector::UniformVectorSuperpos {
+                                q1: Box::new(first_q),
+                                q2: Box::new(second_q),
+                                dbg: dbg.clone(),
+                            }
                         }
+                        //} else {
+                        //    Vector::UniformVectorSuperpos {
+                        //        q1: Box::new(first_q),
+                        //        q2: Box::new(second_q),
+                        //        dbg: dbg.clone(),
+                        //    }
+                        //}
                     }
                 }
             }
