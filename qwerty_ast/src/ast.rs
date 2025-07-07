@@ -812,7 +812,7 @@ impl Basis {
 
             Basis::BasisLiteral { .. } => vec![self.clone()],
 
-            Basis::BasisTensor { ref bases, .. } => bases.clone(),
+            Basis::BasisTensor { bases, .. } => bases.clone(),
         }
     }
 
@@ -833,7 +833,7 @@ impl Basis {
             // [] >> [] anyway.
             Basis::EmptyBasisLiteral { .. } => false,
 
-            Basis::BasisLiteral { ref vecs, .. } => {
+            Basis::BasisLiteral { vecs, .. } => {
                 if let Some(dim) = self.get_dim() {
                     // Assumes that all vectors are mutually orthogonal, as
                     // checked by type checking.
@@ -846,7 +846,7 @@ impl Basis {
                 }
             }
 
-            Basis::BasisTensor { ref bases, .. } => bases.iter().all(Basis::fully_spans),
+            Basis::BasisTensor { bases, .. } => bases.iter().all(Basis::fully_spans),
         }
     }
 
