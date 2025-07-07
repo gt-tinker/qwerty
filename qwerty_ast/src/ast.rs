@@ -433,10 +433,7 @@ impl Vector {
     ///    [0.0, 360.0))
     /// 5. The terms q1 and q2 of a superposition q1+q2 are ordered such that
     ///    q1 <= q2.
-    /// 6. Superpositions directly contain at most 1 tilt:
-    ///        (q1@a+q2@b) -> (q1 + q2@(b-a))@a
-    ///    where @(b-a) is elided if a=b.
-    /// 7. Basic interference is performed:
+    /// 6. Basic interference is performed:
     ///        (q1 + q2) + (q1 - q2) -> q1
     ///    and
     ///        (q1 + q2) + -(q1 - q2) -> q1
@@ -482,68 +479,21 @@ impl Vector {
                 let q1_canon = q1.canonicalize();
                 let q2_canon = q2.canonicalize();
 
-                match (&q1_canon, &q2_canon) {
-                    (
-                        Vector::VectorTilt {
-                            q: inner_q1,
-                            angle_deg: inner_angle_deg1,
-                            dbg: inner_dbg1,
-                        },
-                        Vector::VectorTilt {
-                            q: inner_q2,
-                            angle_deg: inner_angle_deg2,
-                            dbg: inner_dbg2,
-                        },
-                    ) => {
-                        // We inductively assume that neither of
-                        // inner_angle_deg{1,2} are approximately 0
+                let (first_q, second_q) = if q2_canon < q1_canon {
+                    (q2_canon, q1_canon)
+                } else {
+                    (q1_canon, q2_canon)
+                };
 
-                        let new_inner_angle_deg2 =
-                            canon_angle(*inner_angle_deg2 - *inner_angle_deg1);
-                        let new_q2 = if angle_is_approx_zero(new_inner_angle_deg2) {
-                            inner_q2.clone()
-                        } else {
-                            Box::new(Vector::VectorTilt {
-                                q: inner_q2.clone(),
-                                angle_deg: new_inner_angle_deg2,
-                                dbg: inner_dbg2.clone(),
-                            })
-                        };
-                        let new_superpos = Box::new(Vector::UniformVectorSuperpos {
-                            q1: inner_q1.clone(),
-                            q2: new_q2,
-                            dbg: dbg.clone(),
-                        });
-
-                        // The canonicalize() call here is subtle, but it
-                        // triggers the code below as well as making sure that
-                        // any outer VectorTilts end up getting merged.
-                        Vector::VectorTilt {
-                            q: new_superpos,
-                            angle_deg: canon_angle(*inner_angle_deg1),
-                            dbg: inner_dbg1.clone(),
-                        }
-                        .canonicalize()
-                    }
-
-                    _ => {
-                        let (first_q, second_q) = if q2_canon < q1_canon {
-                            (q2_canon, q1_canon)
-                        } else {
-                            (q1_canon, q2_canon)
-                        };
-
-                        if let Some(vec) = Vector::interfere(&first_q, &second_q) {
-                            // Call canonicalize() here in case there is
-                            // e.g. a nested tilt
-                            vec.canonicalize()
-                        } else {
-                            Vector::UniformVectorSuperpos {
-                                q1: Box::new(first_q),
-                                q2: Box::new(second_q),
-                                dbg: dbg.clone(),
-                            }
-                        }
+                if let Some(vec) = Vector::interfere(&first_q, &second_q) {
+                    // Call canonicalize() here in case there is
+                    // e.g. a nested tilt
+                    vec.canonicalize()
+                } else {
+                    Vector::UniformVectorSuperpos {
+                        q1: Box::new(first_q),
+                        q2: Box::new(second_q),
+                        dbg: dbg.clone(),
                     }
                 }
             }
