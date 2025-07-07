@@ -577,7 +577,7 @@ fn superpos_are_ortho_sym(
 
 /// Determine if basis vectors are orthogonal without using O-Sym
 fn basis_vectors_are_ortho_nosym(bv_1: &Vector, bv_2: &Vector) -> bool {
-    // TODO: need to normalize first, i.e., remove nested tensors
+    // TODO: need to canonicalize first, i.e., remove nested tensors
     match (bv_1, bv_2) {
         (Vector::ZeroVector { .. }, Vector::OneVector { .. }) => true, // O-Std
 

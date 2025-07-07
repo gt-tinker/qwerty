@@ -472,6 +472,16 @@ impl Vector {
             }
         }
     }
+
+    /// Removes phases (except those directly inside superpositions). This is
+    /// intended for use in span equivalence checking. The vector should be
+    /// type-checked and canonicalized first.
+    pub fn normalize(&self) -> Vector {
+        match self {
+            Vector::VectorTilt { q, .. } => (**q).clone(),
+            _ => self.clone(),
+        }
+    }
 }
 
 impl Ord for Vector {
@@ -853,10 +863,26 @@ impl Basis {
     /// Removes phases (except those directly inside superpositions) and sorts
     /// all vectors in basis literals. The resulting basis has the same span
     /// but is not necessarily equivalent. This is intended for use in span
-    /// equivalence checking.
+    /// equivalence checking. The basis should be type-checked and
+    /// canonicalized first.
     pub fn normalize(&self) -> Basis {
-        // TODO: implement me :)
-        self.clone()
+        match self {
+            Basis::EmptyBasisLiteral { .. } => self.clone(),
+
+            Basis::BasisLiteral { vecs, dbg } => {
+                let mut norm_vecs: Vec<_> = vecs.iter().map(Vector::normalize).collect();
+                norm_vecs.sort();
+                Basis::BasisLiteral {
+                    vecs: norm_vecs,
+                    dbg: dbg.clone(),
+                }
+            }
+
+            Basis::BasisTensor { bases, dbg } => Basis::BasisTensor {
+                bases: bases.iter().map(Basis::normalize).collect(),
+                dbg: dbg.clone(),
+            },
+        }
     }
 }
 
