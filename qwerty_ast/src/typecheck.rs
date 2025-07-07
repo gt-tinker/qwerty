@@ -619,39 +619,67 @@ fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
     basis_vectors_are_ortho_nosym(bv_1, bv_2) || basis_vectors_are_ortho_nosym(bv_2, bv_1)
 }
 
+/// Attempts to factors the small basis from the big basis and return the
+/// remainder.
+fn factor_basis(small: &Basis, big: &Basis) -> Option<Basis> {
+    // TODO: do actual factoring
+    todo!()
+}
+
 /// Returns true if both bases have the same span. Assumes that both bases
-/// individually passed type checking.
+/// individually passed type checking. This is Algorithm B1 in the CGO '25
+/// paper.
 fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
     let mut b1_stack = b1.make_explicit().canonicalize().normalize().to_stack();
     let mut b2_stack = b2.make_explicit().canonicalize().normalize().to_stack();
 
     loop {
         match (b1_stack.pop(), b2_stack.pop()) {
-            (None, None) => break,
+            // Done
+            (None, None) => return true,
+
+            // Dimension mismatch
             (Some(_), None) | (None, Some(_)) => return false,
+
             (Some(be1), Some(be2)) => {
                 match (be1.get_dim(), be2.get_dim()) {
+                    // Malformed basis
                     (None, _) | (_, None) => return false,
-                    (Some(be1_dim), Some(be2_dim)) if be1_dim == be2_dim => {
-                        if be1.fully_spans() && be2.fully_spans() || be1 == be2 {
-                            // Looks good. Keep going
-                        } else {
-                            return false;
+
+                    (Some(be1_dim), Some(be2_dim)) => {
+                        if be1_dim == be2_dim {
+                            if be1.fully_spans() && be2.fully_spans() || be1 == be2 {
+                                // Looks good. Keep going
+                            } else {
+                                // Nothing to factor. Game over
+                                return false;
+                            }
+                        } else if be1_dim < be2_dim {
+                            match factor_basis(&be1, &be2) {
+                                Some(remainder) => {
+                                    b2_stack.push(remainder);
+                                }
+                                None => {
+                                    // Couldn't factor
+                                    return false;
+                                }
+                            }
+                        } else { // be1_dim > be2_dim
+                            match factor_basis(&be2, &be1) {
+                                Some(remainder) => {
+                                    b1_stack.push(remainder);
+                                }
+                                None => {
+                                    // Couldn't factor
+                                    return false;
+                                }
+                            }
                         }
                     }
-                    (Some(small_dim), Some(big_dim)) if big_dim > small_dim => {
-                        // TODO: factor be1 from be2
-                    }
-                    (Some(big_dim), Some(small_dim)) if big_dim > small_dim => {
-                        // TODO: factor be2 from be1
-                    }
-                    (Some(_), Some(_)) => unreachable!(),
                 }
             }
         }
     }
-
-    true
 }
 
 /// Returns true if two qubit literals can be proven to be orthogonal.
