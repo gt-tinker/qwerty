@@ -620,10 +620,36 @@ fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
 }
 
 /// Attempts to factors the small basis from the big basis and return the
-/// remainder.
-fn factor_basis(small: &Basis, big: &Basis) -> Option<Basis> {
-    // TODO: do actual factoring
-    todo!()
+/// remainder. Based on Algorithm B2 of the CGO '25 paper.
+fn factor_basis(small: &Basis, small_dim: usize, big: &Basis, big_dim: usize) -> Option<Basis> {
+    assert!(
+        big_dim > small_dim,
+        concat!(
+            "Expected to factor a bigger basis from a smaller basis but ",
+            "instead you are asking me to factor a {}-qubit basis from a ",
+            "{}-qubit basis, and {} >= {}."
+        ),
+        small_dim,
+        big_dim,
+        small_dim,
+        big_dim,
+    );
+
+    if small.fully_spans() && big.fully_spans() {
+        let delta = big_dim - small_dim;
+        // Return std[𝛿] as the remainder
+        Some(Basis::std(delta, big.get_dbg().clone()))
+    } else if small.fully_spans() {
+        // big does not fully span and it is a basis literal. We need to try
+        // and factor a fully-spanning 𝛿-qubit basis out of it.
+        todo!()
+        // TODO: implement me
+    } else {
+        // Neither small nor big fully spans. Both are basis literals. Cross
+        // your fingers.
+        todo!()
+        // TODO: implement me
+    }
 }
 
 /// Returns true if both bases have the same span. Assumes that both bases
@@ -655,7 +681,7 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
                                 return false;
                             }
                         } else if be1_dim < be2_dim {
-                            match factor_basis(&be1, &be2) {
+                            match factor_basis(&be1, be1_dim, &be2, be2_dim) {
                                 Some(remainder) => {
                                     b2_stack.push(remainder);
                                 }
@@ -664,8 +690,9 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
                                     return false;
                                 }
                             }
-                        } else { // be1_dim > be2_dim
-                            match factor_basis(&be2, &be1) {
+                        } else {
+                            // be1_dim > be2_dim
+                            match factor_basis(&be2, be2_dim, &be1, be1_dim) {
                                 Some(remainder) => {
                                     b1_stack.push(remainder);
                                 }

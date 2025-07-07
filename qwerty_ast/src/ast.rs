@@ -634,6 +634,21 @@ pub enum Basis {
 }
 
 impl Basis {
+    /// Returns the n-qubit standard basis, where n = dim.
+    pub fn std(dim: usize, dbg: Option<DebugLoc>) -> Basis {
+        let mut bases = vec![];
+        for _ in 0..dim {
+            bases.push(Basis::BasisLiteral {
+                vecs: vec![
+                    Vector::ZeroVector { dbg: dbg.clone() },
+                    Vector::OneVector { dbg: dbg.clone() },
+                ],
+                dbg: dbg.clone(),
+            });
+        }
+        Basis::BasisTensor { bases, dbg: dbg }
+    }
+
     /// Returns the source code location for this node.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
