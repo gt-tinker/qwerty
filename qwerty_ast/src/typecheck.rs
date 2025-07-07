@@ -437,8 +437,8 @@ fn supneg_ortho(
     bv_1a == bv_1b
         && bv_2a == bv_2b
         && basis_vectors_are_ortho(bv_1a, bv_2a)
-        && (on_phase(angle_deg_1a, angle_deg_2a) && off_phase(angle_deg_1b, angle_deg_2b)
-            || off_phase(angle_deg_1a, angle_deg_2a) && on_phase(angle_deg_1b, angle_deg_2b))
+        && (in_phase(angle_deg_1a, angle_deg_2a) && anti_phase(angle_deg_1b, angle_deg_2b)
+            || anti_phase(angle_deg_1a, angle_deg_2a) && in_phase(angle_deg_1b, angle_deg_2b))
 }
 
 /// Checks whether `(bv_1a + bv_2a) _|_ (bv_1b + bv_2b)` using the O-Sup

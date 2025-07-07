@@ -133,7 +133,7 @@ impl Vector {
             Vector::PadVector { .. } => "'?'".to_string(),
             Vector::TargetVector { .. } => "'_'".to_string(),
             Vector::VectorTilt { q, angle_deg, .. } => {
-                if off_phase(0.0, *angle_deg) {
+                if anti_phase(0.0, *angle_deg) {
                     format!("-{}", q.to_programmer_str())
                 } else {
                     format!("({}@{})", q.to_programmer_str(), angle_deg)
@@ -375,7 +375,7 @@ impl Vector {
                             angle_deg: inner_angle_deg2,
                             ..
                         },
-                    ) if on_phase(*inner_angle_deg1, *inner_angle_deg2) => Vector::VectorTilt {
+                    ) if in_phase(*inner_angle_deg1, *inner_angle_deg2) => Vector::VectorTilt {
                         q: Box::new(Vector::UniformVectorSuperpos {
                             q1: inner_q1.clone(),
                             q2: inner_q2.clone(),
@@ -756,7 +756,7 @@ pub fn angle_is_approx_zero(angle_deg: f64) -> bool {
 }
 
 /// Returns true iff the two phases are the same angle (up to a multiple of 360)
-pub fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+pub fn in_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let mod360 = canon_angle(diff);
     mod360.abs() < ATOL
@@ -764,7 +764,7 @@ pub fn on_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
 
 /// Returns true iff the two phases differ by 180 degrees (up to a multiple of
 /// 360)
-pub fn off_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
+pub fn anti_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let mod360 = canon_angle(diff);
     (mod360 - 180.0).abs() < ATOL
