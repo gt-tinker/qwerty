@@ -674,7 +674,9 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
 
                     (Some(be1_dim), Some(be2_dim)) => {
                         if be1_dim == be2_dim {
-                            if be1.fully_spans() && be2.fully_spans() || be1 == be2 {
+                            if be1.fully_spans() && be2.fully_spans()
+                                || be1.strip_dbg() == be2.strip_dbg()
+                            {
                                 // Looks good. Keep going
                             } else {
                                 // Nothing to factor. Game over

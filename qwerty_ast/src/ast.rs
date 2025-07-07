@@ -126,6 +126,32 @@ pub enum Vector {
 }
 
 impl Vector {
+    /// Returns a version of this vector with no debug info. Useful for
+    /// comparing vectors/bases without considering debug info.
+    pub fn strip_dbg(&self) -> Vector {
+        match self {
+            Vector::ZeroVector { .. } => Vector::ZeroVector { dbg: None },
+            Vector::OneVector { .. } => Vector::OneVector { dbg: None },
+            Vector::PadVector { .. } => Vector::PadVector { dbg: None },
+            Vector::TargetVector { .. } => Vector::TargetVector { dbg: None },
+            Vector::VectorTilt { q, angle_deg, .. } => Vector::VectorTilt {
+                q: Box::new(q.strip_dbg()),
+                angle_deg: *angle_deg,
+                dbg: None,
+            },
+            Vector::UniformVectorSuperpos { q1, q2, .. } => Vector::UniformVectorSuperpos {
+                q1: Box::new(q1.strip_dbg()),
+                q2: Box::new(q2.strip_dbg()),
+                dbg: None,
+            },
+            Vector::VectorTensor { qs, .. } => Vector::VectorTensor {
+                qs: qs.iter().map(Vector::strip_dbg).collect(),
+                dbg: None,
+            },
+            Vector::VectorUnit { .. } => Vector::VectorUnit { dbg: None },
+        }
+    }
+
     /// Represents a vector in a human-readable form for error messages sent
     /// back to the programmer.
     pub fn to_programmer_str(&self) -> String {
@@ -733,6 +759,22 @@ impl Basis {
             });
         }
         Basis::BasisTensor { bases, dbg: dbg }
+    }
+
+    /// Returns a version of this basis with no debug info. Useful for
+    /// comparing vectors/bases without considering debug info.
+    pub fn strip_dbg(&self) -> Basis {
+        match self {
+            Basis::BasisLiteral { vecs, .. } => Basis::BasisLiteral {
+                vecs: vecs.iter().map(Vector::strip_dbg).collect(),
+                dbg: None,
+            },
+            Basis::EmptyBasisLiteral { .. } => Basis::EmptyBasisLiteral { dbg: None },
+            Basis::BasisTensor { bases, .. } => Basis::BasisTensor {
+                bases: bases.iter().map(Basis::strip_dbg).collect(),
+                dbg: None,
+            },
+        }
     }
 
     /// Returns the source code location for this node.
