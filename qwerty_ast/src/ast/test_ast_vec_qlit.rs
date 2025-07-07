@@ -1043,3 +1043,310 @@ fn test_vec_canonicalize_tensor_removed_nested_unit() {
     let canon_vec = Vector::VectorUnit { dbg: None };
     assert_eq!(vec.canonicalize(), canon_vec);
 }
+
+#[test]
+fn test_vec_canonicalize_superpos_single_tilt() {
+    // ('0'@35+'1'@45) -> ('0'+'1'@10)@35
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::ZeroVector { dbg: None }),
+            angle_deg: 35.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 45.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 10.0,
+                dbg: None,
+            }),
+            dbg: None,
+        }),
+        angle_deg: 35.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_m() {
+    // ('0'+'1') + ('0'+('1'@180)) -> '0'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_m_perm1() {
+    // ('0'+'1') + (('1'@180)+'0') -> '0'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_m_perm2() {
+    // ('1'+'0') + ('0'+('1'@180)) -> '0'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::OneVector { dbg: None }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_m_perm3() {
+    // ('1'+'0') + (('1'@180)+'0') -> '0'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::OneVector { dbg: None }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::ZeroVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_neg_m() {
+    // ('0'+'1') + (('0'@180)+'1') -> '1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::ZeroVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_minus_m() {
+    // ('0'+'1') + ('0'+('1'@180))@180 -> '1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::ZeroVector { dbg: None }),
+                q2: Box::new(Vector::VectorTilt {
+                    q: Box::new(Vector::OneVector { dbg: None }),
+                    angle_deg: 180.0,
+                    dbg: None,
+                }),
+                dbg: None,
+            }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_minus_m_perm1() {
+    // ('0'+'1') + (('1'@180)+'0')@180 -> '1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::VectorTilt {
+                    q: Box::new(Vector::OneVector { dbg: None }),
+                    angle_deg: 180.0,
+                    dbg: None,
+                }),
+                q2: Box::new(Vector::ZeroVector { dbg: None }),
+                dbg: None,
+            }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_minus_m_perm2() {
+    // ('1'+'0') + ('0'+('1'@180))@180 -> '1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::OneVector { dbg: None }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::ZeroVector { dbg: None }),
+                q2: Box::new(Vector::VectorTilt {
+                    q: Box::new(Vector::OneVector { dbg: None }),
+                    angle_deg: 180.0,
+                    dbg: None,
+                }),
+                dbg: None,
+            }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_p_and_minus_m_perm3() {
+    // ('1'+'0') + (('1'@180)+'0')@180 -> '1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::OneVector { dbg: None }),
+            q2: Box::new(Vector::ZeroVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::VectorTilt {
+                    q: Box::new(Vector::OneVector { dbg: None }),
+                    angle_deg: 180.0,
+                    dbg: None,
+                }),
+                q2: Box::new(Vector::ZeroVector { dbg: None }),
+                dbg: None,
+            }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::OneVector { dbg: None };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
+
+#[test]
+fn test_vec_canonicalize_interfere_minus_p_and_m() {
+    // ('0'+'1')@180 + ('0'+('1'@180)) -> -'1'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::UniformVectorSuperpos {
+                q1: Box::new(Vector::ZeroVector { dbg: None }),
+                q2: Box::new(Vector::OneVector { dbg: None }),
+                dbg: None,
+            }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 180.0,
+                dbg: None,
+            }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+
+    let canon_vec = Vector::VectorTilt {
+        q: Box::new(Vector::OneVector { dbg: None }),
+        angle_deg: 180.0,
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), canon_vec);
+}
