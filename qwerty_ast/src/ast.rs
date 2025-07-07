@@ -767,14 +767,23 @@ impl Basis {
     /// 1. All vectors are in the form promised by Vector::canonicalize()
     /// 2. No tensor product contains a []
     /// 3. No tensor product contains another tensor product
+    /// 4. No basis literal consistingly only of an empty vector, {[]}, are
+    ///    replaced with an empty basis literal []
     pub fn canonicalize(&self) -> Basis {
         match self {
             Basis::EmptyBasisLiteral { .. } => self.clone(),
 
-            Basis::BasisLiteral { vecs, dbg } => Basis::BasisLiteral {
-                vecs: vecs.iter().map(Vector::canonicalize).collect(),
-                dbg: dbg.clone(),
-            },
+            Basis::BasisLiteral { vecs, dbg } => {
+                let canon_vecs: Vec<_> = vecs.iter().map(Vector::canonicalize).collect();
+                if canon_vecs.len() == 1 && matches!(&canon_vecs[0], Vector::VectorUnit { .. }) {
+                    Basis::EmptyBasisLiteral { dbg: dbg.clone() }
+                } else {
+                    Basis::BasisLiteral {
+                        vecs: canon_vecs,
+                        dbg: dbg.clone(),
+                    }
+                }
+            }
 
             Basis::BasisTensor { bases, dbg } => {
                 let bases_canon: Vec<_> = bases
@@ -975,16 +984,6 @@ pub fn anti_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let mod360 = canon_angle(diff);
     (mod360 - 180.0).abs() < ATOL
 }
-
-// Returns true iff the bits of these two angles are the same. This is to work
-// around NaN != NaN, which is quite aggravating because NaN is unimportant
-// for our use cases. This function is usually dramatically more precise than
-// needed, so angle_is_approx_zero() (or similar) should be used instead
-// unless you know what you're doing.
-//fn angle_exactly_eq(angle1: f64, angle2: f64) -> bool {
-//    angle1.to_bits() == angle2.to_bits()
-//    //angle1.is_nan() && angle2.is_nan() || angle1 == angle2
-//}
 
 /// Returns true iff num == 2**n.
 pub fn equals_2_to_the_n(num: usize, n: u32) -> bool {
