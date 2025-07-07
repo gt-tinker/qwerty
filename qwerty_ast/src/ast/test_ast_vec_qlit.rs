@@ -1188,3 +1188,91 @@ fn test_vec_canonicalize_interfere_minus_p_and_m() {
     };
     assert_eq!(vec.canonicalize(), canon_vec);
 }
+
+#[test]
+fn test_vec_canonicalize_interfere_almost_p_and_m() {
+    // ('0'+'1') + ('0'+('1'@170)) -> '0'
+    let vec = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::OneVector { dbg: None }),
+            dbg: None,
+        }),
+        q2: Box::new(Vector::UniformVectorSuperpos {
+            q1: Box::new(Vector::ZeroVector { dbg: None }),
+            q2: Box::new(Vector::VectorTilt {
+                q: Box::new(Vector::OneVector { dbg: None }),
+                angle_deg: 170.0,
+                dbg: None,
+            }),
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    assert_eq!(vec.canonicalize(), vec);
+}
+
+#[test]
+fn test_vec_interfere_superpos_with_non_superpos_tilt() {
+    // This would not type check, and the total on ordering on vectors makes it
+    // never happen for canonicalize(), so test interfere() directly for the
+    // sake of coverage.
+    // ('0'@180) + ('0'+'1') -> ('0'@180) + ('0'+'1')
+    let left = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let right = Vector::VectorTilt {
+        q: Box::new(Vector::ZeroVector { dbg: None }),
+        angle_deg: 180.0,
+        dbg: None,
+    };
+    assert_eq!(Vector::interfere(&left, &right), None);
+}
+
+#[test]
+fn test_vec_interfere_superpos_p_and_neg_m() {
+    // The reordering of vectors by canonicalize() seems to make this
+    // unreachable, but test it directly via interfere() anyway for coverage.
+    // ('0' + '1') + (('0'@180) + '1') -> '1'
+    let left = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let right = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::ZeroVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let expected = Vector::OneVector { dbg: None };
+    assert_eq!(Vector::interfere(&left, &right), Some(expected));
+}
+
+#[test]
+fn test_vec_interfere_superpos_rev_p_and_neg_m() {
+    // The reordering of vectors by canonicalize() also seems to make this
+    // unreachable, but test it directly via interfere() anyway for coverage.
+    // ('1' + '0') + (('0'@180) + '1') -> '1'
+    let left = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::OneVector { dbg: None }),
+        q2: Box::new(Vector::ZeroVector { dbg: None }),
+        dbg: None,
+    };
+    let right = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::ZeroVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let expected = Vector::OneVector { dbg: None };
+    assert_eq!(Vector::interfere(&left, &right), Some(expected));
+}
