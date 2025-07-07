@@ -343,7 +343,7 @@ impl Vector {
                 } = q_canon
                 {
                     let angle_deg_sum = angle_deg + angle_deg_inner;
-                    if angle_is_approx_zero(angle_deg_sum) {
+                    if angle_is_approx_zero(canon_angle(angle_deg_sum)) {
                         *q_inner.clone()
                     } else {
                         Vector::VectorTilt {
@@ -352,7 +352,7 @@ impl Vector {
                             dbg: dbg.clone(),
                         }
                     }
-                } else if angle_is_approx_zero(*angle_deg) {
+                } else if angle_is_approx_zero(canon_angle(*angle_deg)) {
                     q_canon
                 } else {
                     Vector::VectorTilt {
@@ -460,7 +460,7 @@ impl Vector {
                     }
                 };
 
-                if angle_is_approx_zero(angle_deg_sum) {
+                if angle_is_approx_zero(canon_angle(angle_deg_sum)) {
                     new_tensor
                 } else {
                     Vector::VectorTilt {
@@ -529,7 +529,7 @@ impl Ord for Vector {
                 },
             ) => ql
                 .cmp(qr)
-                .then(angle_degl.total_cmp(angle_degr))
+                .then(angle_approx_total_cmp(*angle_degl, *angle_degr))
                 .then(dbgl.cmp(dbgr)),
             (Vector::VectorTilt { .. }, _) => Ordering::Less,
             (_, Vector::VectorTilt { .. }) => Ordering::Greater,
@@ -591,7 +591,7 @@ impl PartialEq for Vector {
                     angle_deg: angle_degr,
                     dbg: dbgr,
                 },
-            ) => ql == qr && angle_degl.total_cmp(angle_degr).is_eq() && dbgl == dbgr,
+            ) => ql == qr && angles_are_approx_equal(*angle_degl, *angle_degr) && dbgl == dbgr,
             (
                 Vector::UniformVectorSuperpos {
                     q1: q1l,
@@ -991,9 +991,14 @@ pub fn canon_angle(angle_deg: f64) -> f64 {
     angle_deg.rem_euclid(360.0)
 }
 
+/// Returns true if two angles are approximately equal.
+pub fn angles_are_approx_equal(angle_deg1: f64, angle_deg2: f64) -> bool {
+    (angle_deg1 - angle_deg2).abs() < ATOL
+}
+
 /// Returns true if an angle is approximately 0 degrees.
 pub fn angle_is_approx_zero(angle_deg: f64) -> bool {
-    canon_angle(angle_deg).abs() < ATOL
+    angles_are_approx_equal(angle_deg, 0.0)
 }
 
 /// Returns true iff the two phases are the same angle (up to a multiple of 360)
@@ -1009,6 +1014,18 @@ pub fn anti_phase(angle_deg1: f64, angle_deg2: f64) -> bool {
     let diff = angle_deg1 - angle_deg2;
     let mod360 = canon_angle(diff);
     (mod360 - 180.0).abs() < ATOL
+}
+
+/// A total ordering of angles that accounts for floats being noisy
+pub fn angle_approx_total_cmp(angle_deg1: f64, angle_deg2: f64) -> Ordering {
+    if angles_are_approx_equal(angle_deg1, angle_deg2) {
+        Ordering::Equal
+    } else if angle_deg1 < angle_deg2 {
+        Ordering::Less
+    } else {
+        // angle_deg1 > angle_deg2
+        Ordering::Greater
+    }
 }
 
 /// Returns true iff num == 2**n.
