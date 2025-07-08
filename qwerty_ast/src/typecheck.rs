@@ -642,13 +642,13 @@ fn factor_basis(small: &Basis, small_dim: usize, big: &Basis, big_dim: usize) ->
     } else if small.fully_spans() {
         // big does not fully span and it is a basis literal. We need to try
         // and factor a fully-spanning 𝛿-qubit basis out of it.
-        todo!()
         // TODO: implement me
+        None
     } else {
         // Neither small nor big fully spans. Both are basis literals. Cross
         // your fingers.
-        todo!()
         // TODO: implement me
+        None
     }
 }
 
