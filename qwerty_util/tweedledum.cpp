@@ -1,3 +1,5 @@
+#include "util.hpp"
+
 #include <fstream>
 
 #include "mockturtle/algorithms/cleanup.hpp"
@@ -17,7 +19,6 @@
 #include "Qwerty/IR/QwertyTypes.h"
 
 #include "tweedledum.hpp"
-#include "util.hpp"
 
 namespace {
 mlir::Value wrapFloatConst(mlir::OpBuilder &builder,
