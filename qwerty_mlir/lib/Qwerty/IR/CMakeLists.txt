@@ -1,6 +1,4 @@
 add_mlir_dialect_library(MLIRQwerty
-        DISABLE_INSTALL
-
         QwertyDialect.cpp
         QwertyOps.cpp
         QwertyInterfaces.cpp

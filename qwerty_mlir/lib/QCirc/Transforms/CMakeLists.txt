@@ -1,6 +1,4 @@
 add_mlir_dialect_library(MLIRQCircTransforms
-  DISABLE_INSTALL
-
   DecomposeMultiControlPass.cpp
   ReplaceNonQIRGatesPass.cpp
   ReplaceNonQasmGatesPass.cpp

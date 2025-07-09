@@ -47,4 +47,4 @@ target_link_libraries(qwerty-opt
 
 llvm_update_compile_flags(qwerty-opt)
 
-install(TARGETS qwerty-opt DESTINATION ${SKBUILD_SCRIPTS_DIR})
+install(TARGETS qwerty-opt)

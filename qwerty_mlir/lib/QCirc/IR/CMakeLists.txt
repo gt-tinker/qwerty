@@ -1,6 +1,4 @@
 add_mlir_dialect_library(MLIRQCirc
-        DISABLE_INSTALL
-
         QCircDialect.cpp
         QCircOps.cpp
         QCircInterfaces.cpp

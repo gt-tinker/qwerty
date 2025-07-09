@@ -78,16 +78,13 @@ ExternalProject_Add(tweedledum
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/tpls/tweedledum
     # Last part is because tweedledum is seemingly built without -fPIC by
     # default despite compiling to a library. Possible MSVC++-ism?
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DTWEEDLEDUM_PYBINDS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DTWEEDLEDUM_PYBINDS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
     # EXTREME hack: For some reason, in its infinite wisdom, setuptools(?) uses
     # an ever-changing symlink to ninja (i.e., the path to ninja actually
     # changes for every invocation of `pip install'). So to spare ourselves the
     # grief of trying to monkeypatch the ninja path in CMakeCache.txt, just
     # delete the CMake cache entirely
     #PATCH_COMMAND cmake -E rm -f -- <BINARY_DIR>/CMakeCache.txt
-    # The tweedledum build files try to install to /usr/local, which is not
-    # necessary. Fix taken from https://stackoverflow.com/a/39811200/321301
-    INSTALL_COMMAND cmake -E echo "Skipping install step as we only need the static tweedledum library"
     # Needed for Ninja to know to build this before linking _qwerty_harness
     BUILD_BYPRODUCTS <BINARY_DIR>/${STATIC_LIBRARY_PREFIX}tweedledum${STATIC_LIBRARY_SUFFIX}
 )
@@ -125,3 +122,5 @@ add_library(qwutil STATIC qwerty_util/tweedledum.cpp)
 target_link_libraries(qwutil ${TWEEDLEDUM_LIB_PATH})
 # Need tablegen-generated header files
 add_dependencies(qwutil MLIRQCircOpsIncGen)
+
+install(TARGETS qwutil)

@@ -33,4 +33,4 @@ target_link_libraries(qwerty-translate
 
 llvm_update_compile_flags(qwerty-translate)
 
-install(TARGETS qwerty-translate DESTINATION ${SKBUILD_SCRIPTS_DIR})
+install(TARGETS qwerty-translate)

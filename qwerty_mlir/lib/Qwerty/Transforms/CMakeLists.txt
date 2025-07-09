@@ -1,6 +1,4 @@
 add_mlir_dialect_library(MLIRQwertyTransforms
-  DISABLE_INSTALL
-
   LiftLambdasPass.cpp
   OnlyPredOnesPass.cpp
   QwertyToQCircConversionPass.cpp

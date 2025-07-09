@@ -2,6 +2,14 @@
 
 We want to leverage some of Rust's type features, pattern matching, and existing infrastructure (see: `pyo3`, `maturin`, `melior`, etc.) to streamline the type checking, etc. This is the first step in making that happen.
 
+## Getting Started
+
+Run the following:
+
+    $ git submodule update --init tpls/tweedledum tpls/qir-runner
+    $ cd qwerty_ast
+    $ cargo build
+
 ## File structure:
 - `main.rs`: This file is currently full of tests that check the functionality of the AST structure, as well as some of the type inference and dimension variable constraint solving functionality
 - `ast.rs`: The `ast` file defines the AST Enum-Struct, as well as all of the relevant impl blocks for helper functions. The latter half is just struct definitions for each of the major AST nodes/major Qwerty types and invariants.
