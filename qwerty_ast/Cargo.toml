@@ -4,6 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pyo3 = {version = "0.22.2", features = ["py-clone"]}
-num = "0.4"
-nalgebra = "0.33.2"
+pyo3 = {version = "0.25.1", features = ["extension-module", "abi3-py310"]}
