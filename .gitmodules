@@ -5,3 +5,7 @@
 	path = tpls/tweedledum
 	url = https://github.com/gt-tinker/tweedledum.git
 	branch = qwerty
+[submodule "tpls/qir-runner"]
+	path = tpls/qir-runner
+	url = https://github.com/gt-tinker/qir-runner.git
+	branch = qwerty
