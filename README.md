@@ -6,7 +6,7 @@ We want to leverage some of Rust's type features, pattern matching, and existing
 
 Run the following:
 
-    $ git submodule update --init tpls/tweedledum tpls/qir-runner
+    $ git submodule update --init
     $ cd qwerty_ast
     $ cargo build
 
