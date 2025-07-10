@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(qwerty_mlir LANGUAGES C CXX)
 
 option(USE_QIREE "Enable QIREE integration" OFF)
+option(DUMP_MLIR_DEPS "Generate mlir-deps.tsv. Useful for linking without CMake" OFF)
 
 # These flags are used if cmake is called with -DCMAKE_BUILD_TYPE=Coverage
 # https://gcovr.com/en/stable/cookbook.html#oos-cmake
@@ -60,7 +61,7 @@ if (USE_QIREE)
     list(APPEND CMAKE_INSTALL_RPATH ${XACC_LIBRARY_DIR})
 endif()
 
-# Used for tweedledum and qir-runner below
+# Used for tweedledum below
 # From: https://github.com/Microsoft/vcpkg/issues/3489#issuecomment-469691199
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(STATIC_LIBRARY_PREFIX "")
@@ -75,7 +76,7 @@ ExternalProject_Add(tweedledum
     # Use a submodule because if we have CMake clone the git url (i.e., provide
     # GIT_REPOSITORY here), CMake will unnecessarily re-clone it for every
     # invocation of cmake
-    SOURCE_DIR ${PROJECT_SOURCE_DIR}/tpls/tweedledum
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/tweedledum
     # Last part is because tweedledum is seemingly built without -fPIC by
     # default despite compiling to a library. Possible MSVC++-ism?
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DTWEEDLEDUM_PYBINDS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -124,3 +125,34 @@ target_link_libraries(qwutil ${TWEEDLEDUM_LIB_PATH})
 add_dependencies(qwutil MLIRQCircOpsIncGen)
 
 install(TARGETS qwutil)
+
+# TODO: document what this is, why it's here, etc
+if (DUMP_MLIR_DEPS)
+    set(dep_file_contents "")
+    get_property(imported_targets DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                 PROPERTY IMPORTED_TARGETS)
+
+    foreach(tgt ${imported_targets})
+        string(FIND ${tgt} "MLIR" pos)
+
+        if (pos EQUAL 0)
+            string(APPEND dep_file_contents "${tgt}")
+
+            get_property(deps TARGET ${tgt}
+                         PROPERTY INTERFACE_LINK_LIBRARIES)
+            foreach(dep ${deps})
+                string(FIND ${dep} "MLIR" pos)
+
+                if (pos EQUAL 0)
+                    string(APPEND dep_file_contents "\t${dep}")
+                endif()
+            endforeach()
+
+            string(APPEND dep_file_contents "\n")
+        endif()
+    endforeach()
+
+    set(dep_file_path "${CMAKE_BINARY_DIR}/mlir-deps.tsv")
+    file(WRITE ${dep_file_path} ${dep_file_contents})
+    install(FILES ${dep_file_path} TYPE LIB)
+endif()
