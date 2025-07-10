@@ -6,3 +6,6 @@
 	path = qir-runner
 	url = https://github.com/gt-tinker/qir-runner.git
 	branch = qwerty
+[submodule "qwerty-mlir-sys"]
+	path = qwerty_mlir_sys
+	url = https://github.com/gt-tinker/qwerty-mlir-sys.git
