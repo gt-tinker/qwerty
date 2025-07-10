@@ -256,26 +256,32 @@ struct CallIndirectConst : public mlir::OpRewritePattern<qwerty::CallIndirectOp>
 
 bool block_is_duplicatable(mlir::Block &in_block) {
     for (mlir::Operation &op : in_block) {
+        llvm::errs() << "Checking op";
         if (!mlir::isPure(&op)) {
+            llvm::errs() << "Op is not Pure";
+            op.dump();
             return false;
         }
         for (mlir::Value operand : op.getOperands()) {
             if (llvm::isa<qcirc::NonStationaryTypeInterface>(operand.getType()) && operand.getParentBlock() != &in_block) {
+                llvm::errs() << "Operand is not defined in the same scope as block";
+                op.dump();
+                operand.dump();
                 return false;
             }
         }
     }
     return true;
-};
+}
 
 struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
-
     using OpRewritePattern<qwerty::CallIndirectOp>::OpRewritePattern;
 
     mlir::LogicalResult matchAndRewrite(qwerty::CallIndirectOp call,
                                         mlir::PatternRewriter &rewriter) const override {
         mlir::scf::IfOp if_op =
             call.getCallee().getDefiningOp<mlir::scf::IfOp>();
+        //TODO: generalize this pattern to include ifOps returning more than 1 value
         if (!if_op || if_op.getResults().size() != 1) {
             return mlir::failure();
         }
@@ -292,11 +298,11 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
             rewriter.create<mlir::scf::IfOp>(
                 if_op.getLoc(), call.getResultTypes(), if_op.getCondition());
         rewriter.cloneRegionBefore(if_op.getThenRegion(),
-                                    new_if_op.getThenRegion(),
-                                    new_if_op.getThenRegion().end());
+                                   new_if_op.getThenRegion(),
+                                   new_if_op.getThenRegion().end());
         rewriter.cloneRegionBefore(if_op.getElseRegion(),
-                                    new_if_op.getElseRegion(),
-                                    new_if_op.getElseRegion().end());
+                                   new_if_op.getElseRegion(),
+                                   new_if_op.getElseRegion().end());
 
         mlir::scf::YieldOp then_yield = new_if_op.thenYield();
         mlir::scf::YieldOp else_yield = new_if_op.elseYield();
@@ -335,6 +341,7 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
                 mlir::Operation *op = user;
                 while (op->getBlock() != if_op->getBlock()) {
                     op = op->getParentOp();
+                    assert(op && "Cannot move scf.if because downstream op has no parent in this block");
                 } 
                 if (!tgt) {
                     tgt = op;
@@ -342,7 +349,7 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
                     tgt = op;
                 }
             }
-            assert(tgt);
+            assert(tgt && "No users of scf.if found, cannot move it");
             rewriter.moveOpBefore(if_op, tgt);
         }
         return mlir::success();

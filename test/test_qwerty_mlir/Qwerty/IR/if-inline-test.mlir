@@ -1,24 +1,24 @@
 // RUN: qwerty-opt -split-input-file -canonicalize %s | FileCheck %s
 
 qwerty.func private @ecsg_0__lambda0[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<bitbundle[1]> {
-%0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-qwerty.return %0 : !qwerty<bitbundle[1]>
+  %0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  qwerty.return %0 : !qwerty<bitbundle[1]>
 }
 qwerty.func private @ecsg_0__lambda1[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
-qwerty.func private @ecsg_0__lambda2[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  qwerty.func private @ecsg_0__lambda2[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @ecsg_0__lambda3[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @ecsg_0__lambda4[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<bitbundle[1]> {
-%0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-qwerty.return %0 : !qwerty<bitbundle[1]>
+  %0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  qwerty.return %0 : !qwerty<bitbundle[1]>
 }
 
 // CHECK-LABEL: qwerty.func @ecsg_0[]() irrev-> !qwerty<bitbundle[1]> {
@@ -69,28 +69,28 @@ qwerty.return %11 : !qwerty<bitbundle[1]>
 // -----
 
 qwerty.func private @decsg_0__lambda0[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<bitbundle[1]> {
-%0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-qwerty.return %0 : !qwerty<bitbundle[1]>
+  %0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  qwerty.return %0 : !qwerty<bitbundle[1]>
 }
 qwerty.func private @decsg_0__lambda1[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @decsg_0__lambda2[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
-qwerty.func private @decsg_0__lambda3[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Y[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  qwerty.func private @decsg_0__lambda3[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
+  %0 = qwerty.qbproj %arg0 by {std: Y[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @decsg_0__lambda4[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @decsg_0__lambda5[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<bitbundle[1]> {
-%0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
-qwerty.return %0 : !qwerty<bitbundle[1]>
+  %0 = qwerty.qbmeas %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  qwerty.return %0 : !qwerty<bitbundle[1]>
 }
 
 // CHECK-LABEL: qwerty.func @decsg_0[]() irrev-> !qwerty<bitbundle[1]> {
@@ -163,20 +163,20 @@ qwerty.return %13 : !qwerty<bitbundle[1]>
 // -----
 
 qwerty.func private @fail_0__lambda2[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: X[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @fail_0__lambda3[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @fail_0__lambda5[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Y[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Y[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 qwerty.func private @fail_0__lambda6[](%arg0: !qwerty<qbundle[1]>) irrev-> !qwerty<qbundle[1]> {
-%0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
-qwerty.return %0 : !qwerty<qbundle[1]>
+  %0 = qwerty.qbproj %arg0 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<qbundle[1]>
+  qwerty.return %0 : !qwerty<qbundle[1]>
 }
 
 // CHECK-LABEL: qwerty.func @fail_0[]() irrev-> !qwerty<bitbundle[1]> {

@@ -250,9 +250,8 @@ def Qwerty_SuperposOp: Qwerty_Op<"superpos", [InferTypeOpAdaptor]> {
 
 //////// QBUNDLE MANAGEMENT ////////
 
-// Not Pure because this has a side effect: allocating a qubit
 def Qwerty_QBundlePrepOp : Qwerty_Op<"qbprep", [
-        InferTypeOpAdaptor,
+        Pure, InferTypeOpAdaptor,
         DeclareOpInterfaceMethods<Adjointable, ["isAdjointable", "getNumOperandsOfAdjoint"]>,
         DeclareOpInterfaceMethods<Predicatable>]> {
     let summary = "Prepare qubits in the specified eigenstate";
