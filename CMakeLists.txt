@@ -126,7 +126,13 @@ add_dependencies(qwutil MLIRQCircOpsIncGen)
 
 install(TARGETS qwutil)
 
-# TODO: document what this is, why it's here, etc
+# This is a degenerate kludge needed by qwerty-mlir-sys. Although LLVM has
+# llvm-config to tell downstream users the order needed for linking LLVM static
+# libs, MLIR has nothing like this at the time of writing; instead, MLIR
+# downstream users are expected to rely on CMake. However, we cannot ask CMake
+# for the right ordering for MLIR static libraries in the build.rs in
+# qwerty-mlir-sys. Instead, we can dump the adjacency list for the MLIR
+# dependency graph to a text file for build.rs to read.
 if (DUMP_MLIR_DEPS)
     set(dep_file_contents "")
     get_property(imported_targets DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
