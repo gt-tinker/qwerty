@@ -3,9 +3,12 @@
 	url = https://github.com/gt-tinker/tweedledum.git
 	branch = qwerty
 [submodule "tpls/qir-runner"]
-	path = qir-runner
+	path = qir_runner
 	url = https://github.com/gt-tinker/qir-runner.git
 	branch = qwerty
 [submodule "qwerty-mlir-sys"]
 	path = qwerty_mlir_sys
 	url = https://github.com/gt-tinker/qwerty-mlir-sys.git
+[submodule "qwerty_melior"]
+	path = qwerty_melior
+	url = git@github.com:gt-tinker/qwerty-melior.git
