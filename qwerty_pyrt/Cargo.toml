@@ -1,0 +1,15 @@
+[package]
+name = "qwerty_pyrt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "qwerty"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.25.0"
+melior = { version = "0.25.0", path = "../qwerty_melior/melior" }
+qwerty_ast = { version = "0.1.0", path = "../qwerty_ast" }
+qir-backend = { version = "0.7.5", path = "../qir_runner/backend" }

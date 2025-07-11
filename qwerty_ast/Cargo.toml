@@ -2,6 +2,3 @@
 name = "qwerty_ast"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
-pyo3 = {version = "0.25.1", features = ["extension-module", "abi3-py310"]}
