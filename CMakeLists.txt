@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.15)
 
 project(qwerty_mlir LANGUAGES C CXX)
 
-option(USE_QIREE "Enable QIREE integration" OFF)
 option(DUMP_MLIR_DEPS "Generate mlir-deps.tsv. Useful for linking without CMake" OFF)
 
 # These flags are used if cmake is called with -DCMAKE_BUILD_TYPE=Coverage
@@ -53,14 +52,6 @@ include_directories(${PROJECT_BINARY_DIR}/qwerty_mlir/include)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
-if (USE_QIREE)
-    find_package(QIREE REQUIRED CONFIG)
-    add_compile_definitions(QWERTY_USE_QIREE=1)
-    # God forgive me for this. https://stackoverflow.com/q/43551483/321301
-    set(CMAKE_MACOSX_RPATH 1)
-    list(APPEND CMAKE_INSTALL_RPATH ${XACC_LIBRARY_DIR})
-endif()
-
 # Used for tweedledum below
 # From: https://github.com/Microsoft/vcpkg/issues/3489#issuecomment-469691199
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -108,12 +99,6 @@ set(TWEEDLEDUM_INCLUDE_PATH
 include_directories(SYSTEM ${TWEEDLEDUM_INCLUDE_PATH})
 # Needed to avoid linker errors related to tweedledum's {fmt} dependency
 add_compile_definitions(FMT_HEADER_ONLY=1)
-
-if (USE_QIREE)
-    set(qiree_libs QIREE::qirxacc QIREE::qiree)
-else()
-    set(qiree_libs "")
-endif()
 
 add_subdirectory(qwerty_mlir)
 
