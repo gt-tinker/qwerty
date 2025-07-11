@@ -1,1 +1,20 @@
-from . import _qwerty_pyrt
+"""
+This is the Python runtime for the Qwerty programming language.
+
+You should import the Qwerty runtime at the beginning of your .py file as
+follows::
+
+    from qwerty import *
+
+This is necessary to use Qwerty syntax, e.g., type annotations on @qpu kernels.
+"""
+
+import string
+from .jit import *
+from .runtime import *
+
+_all_jit = ['qpu', 'classical']
+_all_types = ['bit', 'qfunc', 'cfunc', 'rev_qfunc', 'rev_func', 'dimvar',
+              'qubit', 'func', 'cfrac', 'reversible', 'print_histogram'] + list(string.ascii_uppercase)
+
+__all__ = _all_jit + _all_types
