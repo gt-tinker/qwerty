@@ -10,5 +10,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 dynamic = ["version"]
+
 [tool.maturin]
+python-source = "python"
+module-name = "qwerty._qwerty_pyrt"
 features = ["pyo3/extension-module"]
