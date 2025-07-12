@@ -380,7 +380,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             Ok(t_ty)
         }
 
-        Expr::QLit(qlit) => typecheck_qlit(qlit, env),
+        Expr::QLit { qlit, dbg: _ } => typecheck_qlit(qlit, env),
     }
 }
 

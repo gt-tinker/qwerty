@@ -1081,7 +1081,10 @@ pub enum Expr {
         cond: Box<Expr>,
         dbg: Option<DebugLoc>,
     },
-    QLit(QLit),
+    QLit {
+        qlit: QLit,
+        dbg: Option<DebugLoc>,
+    }
 }
 
 // ----- Statements -----
