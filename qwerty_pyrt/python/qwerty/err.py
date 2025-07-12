@@ -205,7 +205,6 @@ def _cook_programmer_traceback(f):
         try:
             return f(*args, **kwargs)
         except QwertyProgrammerError as e:
-            breakpoint()
             dbg = e.dbg
             if dbg is not None and (frame := _FRAME_MAP.get(dbg)) is not None:
                 frame = _strip_runtime_frames(frame)

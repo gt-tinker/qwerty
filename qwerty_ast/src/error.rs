@@ -46,6 +46,8 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::MismatchedAtoms { atom_kind } => write!(f, "The location of {atom_kind} does not match between both bases."),
             // TODO: needs more details (maybe?)
             TypeErrorKind::InvalidBasis => write!(f, "Invalid basis."),
+            // TODO: need more detail
+            TypeErrorKind::SpanMismatch => write!(f, "Bases do not have matching spans."),
             // TODO: say something more specific than "constructs"?
             TypeErrorKind::NotOrthogonal { left, right } => write!(f, "The constructs '{left}' and '{right}' are not orthogonal."),
             TypeErrorKind::InvalidQubitOperation(op) => write!(f, "Invalid operation '{op}' performed on a qubit."),
