@@ -32,7 +32,7 @@ QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
 QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
 #set_debug(QWERTY_DEBUG)
 #_mlir_handle = MlirHandle(QWERTY_FILE)
-#_global_generation_counter = 0
+_global_func_counter = 0
 
 # No debug info for the Program node since we don't really have a way get it
 program_dbg = None
@@ -61,8 +61,8 @@ class KernelHandle:
     invoke it like a Python function.
     """
 
-    def __init__(self, ast: FunctionDef):
-        self.ast = ast
+    def __init__(self, func_name: str):
+        self.func_name = func_name
 
     @_cook_programmer_traceback
     def __call__(self, *, shots=None):
@@ -77,7 +77,7 @@ class KernelHandle:
 
         # TODO: return an instance of a new Histogram class that iterates over
         #       each observation instead of keys
-        histo = dict(program.call(self.ast.get_name(), 1 if shots is None else shots))
+        histo = dict(program.call(self.func_name, 1 if shots is None else shots))
 
         if shots is not None:
             return histo
@@ -97,7 +97,7 @@ def _jit(ast_kind, func, last_dimvars=None):
     The initial Qwerty AST is cached between each time a Qwerty kernel is
     re-encountered with different captures or explicit dimension variables.
     """
-    global QWERTY_DEBUG
+    global QWERTY_DEBUG, _global_func_counter
 
     if last_dimvars is None:
         last_dimvars = []
@@ -112,9 +112,13 @@ def _jit(ast_kind, func, last_dimvars=None):
     col_offset = _calc_col_offset(func_src, func_src_dedent)
 
     func_ast = ast.parse(func_src_dedent)
-    qwerty_func_def = convert_ast(ast_kind, func_ast, filename, line_offset, col_offset)
+    name_generator = lambda ast_name: f'{ast_name}_{_global_func_counter}'
+    qwerty_func_def = convert_ast(ast_kind, func_ast, name_generator, filename,
+                                  line_offset, col_offset)
     program.add_function_def(qwerty_func_def)
-    return KernelHandle(qwerty_func_def)
+    _global_func_counter += 1
+    func_name = qwerty_func_def.get_name()
+    return KernelHandle(func_name)
 
 class JitProxy(ABC):
     """

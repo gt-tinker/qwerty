@@ -5,6 +5,7 @@ formed by Qwerty syntax.
 
 import ast
 import math
+from collections.abc import Callable
 from enum import Enum
 from typing import List, Tuple, Union
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
@@ -17,8 +18,9 @@ class AstKind(Enum):
     QPU = 1
     CLASSICAL = 2
 
-def convert_ast(ast_kind: AstKind, module: ast.Module, filename: str = '', line_offset: int = 0,
-                col_offset: int = 0) -> FunctionDef:
+def convert_ast(ast_kind: AstKind, module: ast.Module,
+                name_generator: Callable[[str], str], filename: str = '',
+                line_offset: int = 0, col_offset: int = 0) -> FunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -28,7 +30,8 @@ def convert_ast(ast_kind: AstKind, module: ast.Module, filename: str = '', line_
     and the caller may de-indent source code to avoid angering ``ast.parse()``.
     """
     if ast_kind == AstKind.QPU:
-        return convert_qpu_ast(module, filename, line_offset, col_offset)
+        return convert_qpu_ast(module, name_generator, filename, line_offset,
+                               col_offset)
     #elif ast_kind == AstKind.CLASSICAL:
     #    return convert_classical_ast(module, filename, line_offset, col_offset)
     else:
@@ -39,12 +42,15 @@ class BaseVisitor:
     Common Python AST visitor for both ``@classical`` and ``@qpu`` kernels.
     """
 
-    def __init__(self, filename: str = '', line_offset: int = 0, col_offset: int = 0, no_pyframe: bool = False):
+    def __init__(self, name_generator: Callable[[str], str],
+                 filename: str = '', line_offset: int = 0, col_offset: int = 0,
+                 no_pyframe: bool = False):
         """
         Constructor. The ``no_pyframe`` flag is used by the tests to avoid
         including frames (see ``errs.py``) in DebugInfos constructed by
         ``get_debug_info()`` below, since this complicates testing.
         """
+        self.name_generator = name_generator
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
@@ -342,7 +348,8 @@ class BaseVisitor:
         #              capture_types, capture_freevars, arg_names, dim_vars,
         #              body)
 
-        return FunctionDef(func_name, args, ret_type, dbg)
+        generated_func_name = self.name_generator(func_name)
+        return FunctionDef(generated_func_name, args, ret_type, dbg)
 
     #def visit_List(self, nodes: List[ast.AST]):
     #    """
@@ -500,9 +507,11 @@ class QpuVisitor(BaseVisitor):
     Python AST visitor for syntax specific to ``@qpu`` kernels.
     """
 
-    def __init__(self, filename: str = '', line_offset: int = 0,
+    def __init__(self, name_generator: Callable[[str], str],
+                 filename: str = '', line_offset: int = 0,
                  col_offset: int = 0, no_pyframe: bool = False):
-        super().__init__(filename, line_offset, col_offset, no_pyframe)
+        super().__init__(name_generator, filename, line_offset, col_offset,
+                         no_pyframe)
 
     #def extract_float_expr(self, node: ast.AST):
     #    """
@@ -1175,7 +1184,8 @@ class QpuVisitor(BaseVisitor):
         #    return self.base_visit(node)
         return self.base_visit(node)
 
-def convert_qpu_ast(module: ast.Module, filename: str = '', line_offset: int = 0,
+def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
+                    filename: str = '', line_offset: int = 0,
                     col_offset: int = 0) -> FunctionDef:
     """
     Run the ``QpuVisitor`` on the provided Python AST to convert to a Qwerty
@@ -1186,7 +1196,7 @@ def convert_qpu_ast(module: ast.Module, filename: str = '', line_offset: int = 0
         raise QwertySyntaxError('Expected top-level Module node in Python AST',
                                 None) # This should not happen
 
-    visitor = QpuVisitor(filename, line_offset, col_offset)
+    visitor = QpuVisitor(name_generator, filename, line_offset, col_offset)
     return visitor.visit_Module(module)
 
 #def convert_qpu_expr(expr: ast.Expression, filename: str = '',

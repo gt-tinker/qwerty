@@ -119,6 +119,7 @@ impl FunctionDef {
 #[pyclass]
 struct Program {
     program: ast::Program,
+    type_checked: bool,
 }
 
 #[pymethods]
@@ -130,14 +131,26 @@ impl Program {
                 funcs: vec![],
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
+            type_checked: false,
         }
     }
 
     fn add_function_def(&mut self, func: FunctionDef) {
         self.program.funcs.push(func.function_def);
+        self.type_checked = false;
     }
 
-    fn call<'py>(&self, py: Python<'py>, func_name: String, num_shots: usize) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
+    fn type_check(&mut self) -> PyResult<()> {
+        if !self.type_checked {
+            // TODO: need to run type checking
+            self.type_checked = true;
+        }
+        Ok(())
+    }
+
+    fn call<'py>(&mut self, py: Python<'py>, func_name: String, num_shots: usize) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
+        self.type_check()?;
+
         let zero_bit = PyModule::import(py, "qwerty.runtime")?.getattr("bit")?.call1((0, 1))?;
 
         let counts = vec![(zero_bit, num_shots)];
