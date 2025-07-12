@@ -1,7 +1,7 @@
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg};
 
-pyo3::import_exception!(err, QwertyProgrammerError);
+pyo3::import_exception!(qwerty.err, QwertyProgrammerError);
 
 #[pyclass]
 #[derive(Clone)]
@@ -16,6 +16,10 @@ impl DebugLoc {
         Self {
             dbg: dbg::DebugLoc { file, line, col },
         }
+    }
+
+    fn get_col(&self) -> usize {
+        self.dbg.col
     }
 }
 
@@ -107,10 +111,8 @@ impl FunctionDef {
         }
     }
 
-    fn call(&self, num_shots: usize) -> Vec<(PyAny, usize)> {
-        let x = vec![];
-
-        println!("epic");
+    fn get_name(&self) -> String {
+        self.function_def.name.to_string()
     }
 }
 
@@ -133,6 +135,16 @@ impl Program {
 
     fn add_function_def(&mut self, func: FunctionDef) {
         self.program.funcs.push(func.function_def);
+    }
+
+    fn call<'py>(&self, py: Python<'py>, func_name: String, num_shots: usize) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
+        let zero_bit = PyModule::import(py, "qwerty.runtime")?.getattr("bit")?.call1((0, 1))?;
+
+        let counts = vec![(zero_bit, num_shots)];
+
+        println!("imagine we are calling {func_name}()...");
+
+        Ok(counts)
     }
 }
 

@@ -35,8 +35,8 @@ QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
 #_global_generation_counter = 0
 
 # No debug info for the Program node since we don't really have a way get it
-root_node_dbg = None
-root_node = Program(root_node_dbg)
+program_dbg = None
+program = Program(program_dbg)
 
 def _calc_col_offset(before_dedent, after_dedent):
     """
@@ -71,11 +71,13 @@ class KernelHandle:
         function, and call a ``@qpu`` kernel by jumping into the JIT'd code.
         """
 
+        global program
+
         # TODO: call OG function with actual arguments for @classical
 
         # TODO: return an instance of a new Histogram class that iterates over
         #       each observation instead of keys
-        histo = dict(self.ast.call(1 if shots is None else shots))
+        histo = dict(program.call(self.ast.get_name(), 1 if shots is None else shots))
 
         if shots is not None:
             return histo
@@ -111,7 +113,7 @@ def _jit(ast_kind, func, last_dimvars=None):
 
     func_ast = ast.parse(func_src_dedent)
     qwerty_func_def = convert_ast(ast_kind, func_ast, filename, line_offset, col_offset)
-    root_node.add_function_def(qwerty_func_def)
+    program.add_function_def(qwerty_func_def)
     return KernelHandle(qwerty_func_def)
 
 class JitProxy(ABC):

@@ -10,11 +10,11 @@ This is necessary to use Qwerty syntax, e.g., type annotations on @qpu kernels.
 """
 
 import string
-from .jit import *
+from .kernel import *
 from .runtime import *
 
-_all_jit = ['qpu', 'classical']
-_all_types = ['bit', 'qfunc', 'cfunc', 'rev_qfunc', 'rev_func', 'dimvar',
-              'qubit', 'func', 'cfrac', 'reversible', 'print_histogram'] + list(string.ascii_uppercase)
+_all_kernel = ['qpu', 'classical']
+_all_runtime = ['bit', 'qfunc', 'cfunc', 'rev_qfunc', 'rev_func', 'dimvar',
+                'qubit', 'func', 'cfrac', 'reversible', 'print_histogram'] + list(string.ascii_uppercase)
 
-__all__ = _all_jit + _all_types
+__all__ = _all_kernel + _all_runtime
