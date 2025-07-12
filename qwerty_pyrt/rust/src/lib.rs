@@ -89,6 +89,194 @@ impl Type {
 
 #[pyclass]
 #[derive(Clone)]
+struct QLit {
+    qlit: ast::QLit,
+}
+
+#[pymethods]
+impl QLit {
+    #[classmethod]
+    fn new_zero_qubit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            qlit: ast::QLit::ZeroQubit {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_one_qubit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            qlit: ast::QLit::OneQubit {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_uniform_superpos(
+        _cls: &Bound<'_, PyType>,
+        q1: QLit,
+        q2: QLit,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            qlit: ast::QLit::UniformSuperpos {
+                q1: Box::new(q1.qlit),
+                q2: Box::new(q2.qlit),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct Vector {
+    vec: ast::Vector,
+}
+
+#[pymethods]
+impl Vector {
+    #[classmethod]
+    fn new_zero_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::ZeroVector {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_one_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::OneVector {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct Basis {
+    basis: ast::Basis,
+}
+
+#[pymethods]
+impl Basis {
+    #[classmethod]
+    fn new_empty_basis_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            basis: ast::Basis::EmptyBasisLiteral {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_literal(
+        _cls: &Bound<'_, PyType>,
+        vecs: Vec<Vector>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            basis: ast::Basis::BasisLiteral {
+                vecs: vecs.iter().map(|vec| vec.vec.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct Expr {
+    expr: ast::Expr,
+}
+
+#[pymethods]
+impl Expr {
+    #[classmethod]
+    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::QLit {
+                qlit: qlit.qlit,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_measure(_cls: &Bound<'_, PyType>, basis: Basis, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::Measure {
+                basis: basis.basis,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_pipe(_cls: &Bound<'_, PyType>, lhs: Expr, rhs: Expr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::Pipe {
+                lhs: Box::new(lhs.expr),
+                rhs: Box::new(rhs.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct Stmt {
+    stmt: ast::Stmt,
+}
+
+#[pymethods]
+impl Stmt {
+    #[classmethod]
+    fn new_assign(_cls: &Bound<'_, PyType>, lhs: String, rhs: Expr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            stmt: ast::Stmt::Assign {
+                lhs,
+                rhs: rhs.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_unpack_assign(
+        _cls: &Bound<'_, PyType>,
+        lhs: Vec<String>,
+        rhs: Expr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: ast::Stmt::UnpackAssign {
+                lhs,
+                rhs: rhs.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_return(_cls: &Bound<'_, PyType>, val: Expr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            stmt: ast::Stmt::Return {
+                val: val.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
 struct FunctionDef {
     function_def: ast::FunctionDef,
 }
@@ -96,7 +284,13 @@ struct FunctionDef {
 #[pymethods]
 impl FunctionDef {
     #[new]
-    fn new(name: String, args: Vec<(Type, String)>, ret_type: Type, dbg: Option<DebugLoc>) -> Self {
+    fn new(
+        name: String,
+        args: Vec<(Type, String)>,
+        ret_type: Type,
+        body: Vec<Stmt>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             function_def: ast::FunctionDef {
                 name,
@@ -105,7 +299,7 @@ impl FunctionDef {
                     .map(|(arg_ty, arg_name)| (arg_ty.ty.clone(), arg_name.to_string()))
                     .collect(),
                 ret_type: ret_type.ty.clone(),
-                body: vec![],
+                body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -148,10 +342,17 @@ impl Program {
         Ok(())
     }
 
-    fn call<'py>(&mut self, py: Python<'py>, func_name: String, num_shots: usize) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
+    fn call<'py>(
+        &mut self,
+        py: Python<'py>,
+        func_name: String,
+        num_shots: usize,
+    ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
         self.type_check()?;
 
-        let zero_bit = PyModule::import(py, "qwerty.runtime")?.getattr("bit")?.call1((0, 1))?;
+        let zero_bit = PyModule::import(py, "qwerty.runtime")?
+            .getattr("bit")?
+            .call1((0, 1))?;
 
         let counts = vec![(zero_bit, num_shots)];
 
@@ -168,6 +369,11 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<DebugLoc>()?;
     module.add_class::<RegKind>()?;
     module.add_class::<Type>()?;
+    module.add_class::<QLit>()?;
+    module.add_class::<Vector>()?;
+    module.add_class::<Basis>()?;
+    module.add_class::<Expr>()?;
+    module.add_class::<Stmt>()?;
     module.add_class::<FunctionDef>()?;
     module.add_class::<Program>()?;
 

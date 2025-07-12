@@ -10,7 +10,7 @@ from enum import Enum
 from typing import List, Tuple, Union
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  _get_frame
-from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef
+from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, Basis, Stmt, Expr
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -343,29 +343,29 @@ class BaseVisitor:
         dbg = self.get_debug_info(func_def)
 
         # ...except traversing the function body
-        #body = self.visit(func_def.body)
+        body = self.visit(func_def.body)
         #return Kernel(dbg, ast_kind, func_name, func_type, capture_names,
         #              capture_types, capture_freevars, arg_names, dim_vars,
         #              body)
 
         generated_func_name = self.name_generator(func_name)
-        return FunctionDef(generated_func_name, args, ret_type, dbg)
+        return FunctionDef(generated_func_name, args, ret_type, body, dbg)
 
-    #def visit_List(self, nodes: List[ast.AST]):
-    #    """
-    #    Convenience function to visit each node in a ``list`` and return the
-    #    results of each as a new list.
-    #    """
-    #    return [self.visit(node) for node in nodes]
+    def visit_List(self, nodes: List[ast.AST]):
+        """
+        Convenience function to visit each node in a ``list`` and return the
+        results of each as a new list.
+        """
+        return [self.visit(node) for node in nodes]
 
-    #def visit_Return(self, ret: ast.Return):
-    #    """
-    #    Convert a Python ``return`` statement into a Qwerty AST ``Return``
-    #    node.
-    #    """
-    #    dbg = self.get_debug_info(ret)
-    #    expr = self.visit(ret.value)
-    #    return Return(dbg, expr)
+    def visit_Return(self, ret: ast.Return):
+        """
+        Convert a Python ``return`` statement into a Qwerty AST ``Return``
+        node.
+        """
+        dbg = self.get_debug_info(ret)
+        expr = self.visit(ret.value)
+        return Stmt.new_return(expr, dbg)
 
     #def visit_Assign(self, assign: ast.Assign) -> Assign:
     #    """
@@ -460,12 +460,12 @@ class BaseVisitor:
             return self.visit_List(node)
         elif isinstance(node, ast.Return):
             return self.visit_Return(node)
-        elif isinstance(node, ast.Assign):
-            return self.visit_Assign(node)
-        elif isinstance(node, ast.AnnAssign):
-            return self.visit_AnnAssign(node)
-        elif isinstance(node, ast.AugAssign):
-            return self.visit_AugAssign(node)
+        #elif isinstance(node, ast.Assign):
+        #    return self.visit_Assign(node)
+        #elif isinstance(node, ast.AnnAssign):
+        #    return self.visit_AnnAssign(node)
+        #elif isinstance(node, ast.AugAssign):
+        #    return self.visit_AugAssign(node)
         # Commenting these for now, since we can't handle nested functions, and
         # a nested module doesn't make much sense
         #elif isinstance(node, ast.Module):
@@ -512,6 +512,55 @@ class QpuVisitor(BaseVisitor):
                  col_offset: int = 0, no_pyframe: bool = False):
         super().__init__(name_generator, filename, line_offset, col_offset,
                          no_pyframe)
+
+    def extract_qubit_literal(self, node: ast.AST) -> QLit:
+        dbg = self.get_debug_info(node)
+
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left = self.extract_qubit_literal(node.left)
+            right = self.extract_qubit_literal(node.right)
+            # TODO: show a more helpful message when the programmer writes a
+            #       nested superpos
+            return QLit.new_uniform_superpos(left, right, dbg)
+        elif isinstance(node, ast.Constant) and node.value == '0':
+            return QLit.new_zero_qubit(dbg)
+        elif isinstance(node, ast.Constant) and node.value == '1':
+            return QLit.new_one_qubit(dbg)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unknown qubit literal syntax {}'
+                                    .format(node_name), dbg)
+
+    def extract_basis_vector(self, node: ast.AST) -> Vector:
+        dbg = self.get_debug_info(node)
+
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left = self.extract_qubit_literal(node.left)
+            right = self.extract_qubit_literal(node.right)
+            # TODO: show a more helpful message when the programmer writes a
+            #       nested superpos
+            return Vector.new_uniform_superpos(left, right, dbg)
+        elif isinstance(node, ast.Constant) and node.value == '0':
+            return Vector.new_zero_vector(dbg)
+        elif isinstance(node, ast.Constant) and node.value == '1':
+            return Vector.new_one_vector(dbg)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unknown basis vector syntax {}'
+                                    .format(node_name), dbg)
+
+    def extract_basis(self, node: ast.AST) -> Basis:
+        dbg = self.get_debug_info(node)
+
+        if isinstance(node, ast.Set) and not node.elts:
+            return Basis.new_empty_basis_literal(dbg)
+        elif isinstance(node, ast.Set) and node.elts:
+            vecs = [self.extract_basis_vector(elt) for elt in node.elts]
+            return Basis.new_basis_literal(vecs, dbg)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unknown basis syntax {}'
+                                    .format(node_name), dbg)
 
     #def extract_float_expr(self, node: ast.AST):
     #    """
@@ -692,44 +741,39 @@ class QpuVisitor(BaseVisitor):
     #    value_node = self.visit(value)
     #    return BroadcastTensor(dbg, value_node, factor)
 
-    #def visit_BinOp(self, binOp: ast.BinOp):
-    #    if isinstance(binOp.op, ast.Add):
-    #        return self.visit_BinOp_Add(binOp)
-    #    elif isinstance(binOp.op, ast.BitOr):
-    #        return self.visit_BinOp_BitOr(binOp)
-    #    elif isinstance(binOp.op, ast.RShift):
-    #        return self.visit_BinOp_RShift(binOp)
-    #    elif isinstance(binOp.op, ast.BitAnd):
-    #        return self.visit_BinOp_BitAnd(binOp)
-    #    elif isinstance(binOp.op, ast.MatMult):
-    #        return self.visit_BinOp_MatMult(binOp)
-    #    else:
-    #        op_name = type(binOp.op).__name__
-    #        raise QwertySyntaxError('Unknown binary operation {}'
-    #                                .format(op_name),
-    #                                self.get_debug_info(binOp))
+    def visit_BinOp(self, binOp: ast.BinOp):
+        if isinstance(binOp.op, ast.Add):
+            return self.visit_BinOp_Add(binOp)
+        elif isinstance(binOp.op, ast.BitOr):
+            return self.visit_BinOp_BitOr(binOp)
+        #elif isinstance(binOp.op, ast.RShift):
+        #    return self.visit_BinOp_RShift(binOp)
+        #elif isinstance(binOp.op, ast.BitAnd):
+        #    return self.visit_BinOp_BitAnd(binOp)
+        #elif isinstance(binOp.op, ast.MatMult):
+        #    return self.visit_BinOp_MatMult(binOp)
+        else:
+            op_name = type(binOp.op).__name__
+            raise QwertySyntaxError('Unknown binary operation {}'
+                                    .format(op_name),
+                                    self.get_debug_info(binOp))
 
-    #def visit_BinOp_Add(self, binOp: ast.BinOp):
-    #    """
-    #    Convert a Python binary add expression into a Qwerty tensor product AST
-    #    node. For example, ``t1 + t2`` becomes a ``BiTensor`` Qwerty AST node
-    #    with two children.
-    #    """
-    #    left = self.visit(binOp.left)
-    #    right = self.visit(binOp.right)
-    #    dbg = self.get_debug_info(binOp)
-    #    return BiTensor(dbg, left, right)
+    def visit_BinOp_Add(self, binOp: ast.BinOp):
+        # A top-level + expression must be a qubit literal (a superpos)
+        dbg = self.get_debug_info(binOp)
+        qlit = self.extract_qubit_literal(binOp)
+        return Expr.new_qlit(qlit, dbg)
 
-    #def visit_BinOp_BitOr(self, binOp: ast.BinOp):
-    #    """
-    #    Convert a Python bitwise OR expression into a Qwerty ``Pipe`` (function
-    #    call) AST node. For example, ``t1 | t2`` becomes a ``Pipe`` node with
-    #    two children.
-    #    """
-    #    left = self.visit(binOp.left)
-    #    right = self.visit(binOp.right)
-    #    dbg = self.get_debug_info(binOp)
-    #    return Pipe(dbg, left, right)
+    def visit_BinOp_BitOr(self, binOp: ast.BinOp):
+        """
+        Convert a Python bitwise OR expression into a Qwerty ``Pipe`` (function
+        call) AST node. For example, ``t1 | t2`` becomes a ``Pipe`` node with
+        two children.
+        """
+        left = self.visit(binOp.left)
+        right = self.visit(binOp.right)
+        dbg = self.get_debug_info(binOp)
+        return Expr.new_pipe(left, right, dbg)
 
     #def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
     #    """
@@ -1010,55 +1054,55 @@ class QpuVisitor(BaseVisitor):
     #    elts = self.visit(tuple_.elts)
     #    return TupleLiteral(dbg, elts)
 
-    #def visit_Attribute(self, attr: ast.Attribute):
-    #    """
-    #    Convert a Python attribute access AST node into Qwerty AST nodes for
-    #    primitives such as ``.measure`` or ``.flip``. For example,
-    #    ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
-    #    child node.
-    #    """
-    #    dbg = self.get_debug_info(attr)
-    #    attr_lhs = attr.value
-    #    attr_rhs = attr.attr
+    def visit_Attribute(self, attr: ast.Attribute):
+        """
+        Convert a Python attribute access AST node into Qwerty AST nodes for
+        primitives such as ``.measure`` or ``.flip``. For example,
+        ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
+        child node.
+        """
+        dbg = self.get_debug_info(attr)
+        attr_lhs = attr.value
+        attr_rhs = attr.attr
 
-    #    if attr_rhs == 'measure':
-    #        basis = self.visit(attr_lhs)
-    #        return Measure(dbg, basis)
-    #    elif attr_rhs == 'project':
-    #        basis = self.visit(attr_lhs)
-    #        return Project(dbg, basis)
-    #    elif attr_rhs == 'q':
-    #        bits = self.visit(attr_lhs)
-    #        return Lift(dbg, bits)
-    #    elif attr_rhs == 'prep':
-    #        operand = self.visit(attr_lhs)
-    #        return Prepare(dbg, operand)
-    #    elif attr_rhs == 'flip':
-    #        operand = self.visit(attr_lhs)
-    #        return Flip(dbg, operand)
-    #    elif attr_rhs in EMBEDDING_KEYWORDS:
-    #        if isinstance(attr_lhs, ast.Name):
-    #            name = attr_lhs
-    #            classical_func_name = name.id
-    #        else:
-    #            raise QwertySyntaxError('Keyword {} must be applied to an '
-    #                                    'identifier, not a {}'
-    #                                    .format(attr_rhs,
-    #                                            type(attr_lhs).__name__),
-    #                                    self.get_debug_info(attr))
+        if attr_rhs == 'measure':
+            basis = self.extract_basis(attr_lhs)
+            return Expr.new_measure(basis, dbg)
+        #elif attr_rhs == 'project':
+        #    basis = self.visit(attr_lhs)
+        #    return Project(dbg, basis)
+        #elif attr_rhs == 'q':
+        #    bits = self.visit(attr_lhs)
+        #    return Lift(dbg, bits)
+        #elif attr_rhs == 'prep':
+        #    operand = self.visit(attr_lhs)
+        #    return Prepare(dbg, operand)
+        #elif attr_rhs == 'flip':
+        #    operand = self.visit(attr_lhs)
+        #    return Flip(dbg, operand)
+        #elif attr_rhs in EMBEDDING_KEYWORDS:
+        #    if isinstance(attr_lhs, ast.Name):
+        #        name = attr_lhs
+        #        classical_func_name = name.id
+        #    else:
+        #        raise QwertySyntaxError('Keyword {} must be applied to an '
+        #                                'identifier, not a {}'
+        #                                .format(attr_rhs,
+        #                                        type(attr_lhs).__name__),
+        #                                self.get_debug_info(attr))
 
-    #        embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
+        #    embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
 
-    #        if embedding_kind_has_operand(embedding_kind):
-    #            raise QwertySyntaxError('Keyword {} requires an operand, '
-    #                                    'specified with .{}(...)'
-    #                                    .format(attr_rhs, attr_rhs),
-    #                                    self.get_debug_info(attr))
+        #    if embedding_kind_has_operand(embedding_kind):
+        #        raise QwertySyntaxError('Keyword {} requires an operand, '
+        #                                'specified with .{}(...)'
+        #                                .format(attr_rhs, attr_rhs),
+        #                                self.get_debug_info(attr))
 
-    #        return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
-    #    else:
-    #        raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
-    #                                self.get_debug_info(attr))
+        #    return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
+        else:
+            raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
+                                    self.get_debug_info(attr))
 
     #def visit_IfExp(self, ifExp: ast.IfExp):
     #    """
@@ -1161,7 +1205,8 @@ class QpuVisitor(BaseVisitor):
         #elif isinstance(node, ast.Subscript):
         #    return self.visit_Subscript(node)
         #elif isinstance(node, ast.BinOp):
-        #    return self.visit_BinOp(node)
+        if isinstance(node, ast.BinOp):
+            return self.visit_BinOp(node)
         #elif isinstance(node, ast.UnaryOp):
         #    return self.visit_UnaryOp(node)
         #elif isinstance(node, ast.Set):
@@ -1174,15 +1219,14 @@ class QpuVisitor(BaseVisitor):
         #    return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):
         #    return self.visit_Tuple(node)
-        #elif isinstance(node, ast.Attribute):
-        #    return self.visit_Attribute(node)
+        elif isinstance(node, ast.Attribute):
+            return self.visit_Attribute(node)
         #elif isinstance(node, ast.IfExp):
         #    return self.visit_IfExp(node)
         #elif isinstance(node, ast.BoolOp):
         #    return self.visit_BoolOp(node)
-        #else:
-        #    return self.base_visit(node)
-        return self.base_visit(node)
+        else:
+            return self.base_visit(node)
 
 def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
                     filename: str = '', line_offset: int = 0,
