@@ -24,7 +24,6 @@ The way the dimension variable expression solver works is as follows:
     2. After we have recursed through the function's AST nodes, generate constraints based on the stored `DimExpr`s, 
     3. (Within the `solve` function) Simplify two candidate constraints and move all constant values to one side, then create a matrix representing a system of equations for our constraints and solve it, yielding values for our dimension variables.
 
-
 ## Coverage
 To get coverage, run:
 ```
@@ -37,3 +36,13 @@ You may need to install `cargo-llvm-cov` first with:
 ```
 $ cargo +stable install cargo-llvm-cov --locked
 ```
+
+# Qwerty MLIR dialects
+
+To build the MLIR code in `qwerty_mlir` (and the other C++ code in
+`qwerty_util`), make sure `llvm-config` is in your `$PATH`. Then run:
+
+    $ git submodule update --init tpls/tweedledum
+    $ mkdir build && cd build
+    $ cmake -G Ninja ..
+    $ ninja

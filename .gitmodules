@@ -1,0 +1,7 @@
+[submodule "tpls/llvm"]
+	path = tpls/llvm
+	url = https://github.com/llvm/llvm-project.git
+[submodule "tpls/tweedledum"]
+	path = tpls/tweedledum
+	url = https://github.com/gt-tinker/tweedledum.git
+	branch = qwerty
