@@ -11,11 +11,15 @@ import sys
 from types import FrameType, TracebackType
 from typing import Optional
 
-from ._qwerty_harness import QwertyProgrammerError
-
 # Used to exclude code in this file (or a file that imports this) from showing
 # up in compiler error tracebacks. See _cook_programmer_traceback() below
 EXCLUDE_ME_FROM_STACK_TRACE_PLEASE = 1
+
+class QwertyProgrammerError(Exception):
+    def __init__(self, msg, dbg=None):
+        self.dbg = dbg
+
+        super().__init__(msg)
 
 class QwertySyntaxError(QwertyProgrammerError):
     """
@@ -35,8 +39,7 @@ class QwertySyntaxError(QwertyProgrammerError):
         # arrow to point at the offending column
         super().__init__(msg + " (at column " + str(col) + ")"
                          if dbg is not None and (col := dbg.get_col()) > 0
-                         else msg)
-        self.dbg = dbg
+                         else msg, dbg)
 
 def _get_frame() -> Optional[FrameType]:
     """

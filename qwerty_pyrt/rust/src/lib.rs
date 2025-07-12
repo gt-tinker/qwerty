@@ -1,6 +1,8 @@
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg};
 
+pyo3::import_exception!(err, QwertyProgrammerError);
+
 #[pyclass]
 #[derive(Clone)]
 struct DebugLoc {
@@ -104,6 +106,12 @@ impl FunctionDef {
             },
         }
     }
+
+    fn call(&self, num_shots: usize) -> Vec<(PyAny, usize)> {
+        let x = vec![];
+
+        println!("epic");
+    }
 }
 
 #[pyclass]
@@ -131,14 +139,12 @@ impl Program {
 /// A Python module implemented in Rust.
 #[pymodule]
 #[pyo3(name = "_qwerty_pyrt")]
-fn qwerty_pyrt(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
-    let ast_submodule = PyModule::new(py, "ast")?;
-    ast_submodule.add_class::<DebugLoc>()?;
-    ast_submodule.add_class::<RegKind>()?;
-    ast_submodule.add_class::<Type>()?;
-    ast_submodule.add_class::<FunctionDef>()?;
-    ast_submodule.add_class::<Program>()?;
+fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<DebugLoc>()?;
+    module.add_class::<RegKind>()?;
+    module.add_class::<Type>()?;
+    module.add_class::<FunctionDef>()?;
+    module.add_class::<Program>()?;
 
-    module.add_submodule(&ast_submodule)?;
     Ok(())
 }

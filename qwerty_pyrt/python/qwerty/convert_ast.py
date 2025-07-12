@@ -9,7 +9,7 @@ from enum import Enum
 from typing import List, Tuple, Union
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  _get_frame
-from .qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, Program
+from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -18,7 +18,7 @@ class AstKind(Enum):
     CLASSICAL = 2
 
 def convert_ast(ast_kind: AstKind, module: ast.Module, filename: str = '', line_offset: int = 0,
-                col_offset: int = 0) -> Kernel:
+                col_offset: int = 0) -> FunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -29,8 +29,8 @@ def convert_ast(ast_kind: AstKind, module: ast.Module, filename: str = '', line_
     """
     if ast_kind == AstKind.QPU:
         return convert_qpu_ast(module, filename, line_offset, col_offset)
-    elif ast_kind == AstKind.CLASSICAL:
-        return convert_classical_ast(module, filename, line_offset, col_offset)
+    #elif ast_kind == AstKind.CLASSICAL:
+    #    return convert_classical_ast(module, filename, line_offset, col_offset)
     else:
         raise ValueError('unknown AST type {}'.format(ast_kind))
 
@@ -58,7 +58,7 @@ class BaseVisitor:
         else:
             return None, None
 
-    def get_debug_info(self, node: ast.AST) -> DebugInfo:
+    def get_debug_info(self, node: ast.AST) -> DebugLoc:
         """
         Extract line and column number from a Python AST node and return a
         Qwerty DebugInfo instance.
@@ -155,55 +155,54 @@ class BaseVisitor:
                 raise QwertySyntaxError('Unknown type name {} found'
                                         .format(type_name),
                                         self.get_debug_info(node))
-            # TODO:  =============> LEFT OFF HERE
-        elif isinstance(node, ast.Subscript) \
-                and isinstance(node.value, ast.Name) \
-                and (node.value.id in func_type_aliases
-                     or node.value.id == 'func'
-                     or node.value.id == 'rev_func'):
-            type_name = node.value.id
-            if type_name in func_type_aliases:
-                dims = self.extract_comma_sep_dimvar_expr(node.slice)
-                new_val, new_func = func_type_aliases[type_name]
-                in_type = new_val(dims[0])
-                if len(dims) == 1:
-                    out_type = in_type.copy()
-                elif len(dims) == 2:
-                    out_type = new_val(dims[1])
-                else:
-                    raise QwertySyntaxError('Unsupported number of {} args '
-                                            '{}. Expected 1 or 2'
-                                            .format(type_name, len(dims)),
-                                            self.get_debug_info(node))
-                return new_func(in_type, out_type)
-            elif type_name in ('func', 'rev_func'):
-                if not isinstance(node.slice, ast.Tuple) \
-                        or len(node.slice.elts) != 2 \
-                        or not isinstance(node.slice.elts[0], ast.List):
-                    raise QwertySyntaxError('Invalid form of func[[arg1,arg2,...,argn], ret] '
-                                            'found', self.get_debug_info(node))
-                args_list, ret = node.slice.elts
-                args = args_list.elts
-                if len(args) == 0:
-                    arg_type = Type.new_tuple()
-                elif len(args) == 1:
-                    arg_type = self.extract_type_literal(args[0])
-                else:
-                    arg_type = Type.new_tuple([self.extract_type_literal(arg) for arg in args])
-                ret_type = self.extract_type_literal(ret)
-                if type_name == 'rev_func':
-                    new_func = Type.new_rev_func
-                else:
-                    new_func = Type.new_func
-                return new_func(arg_type, ret_type)
-            else:
-                raise QwertySyntaxError('Unknown alias {}[...] found'
-                                        .format(type_name),
-                                        self.get_debug_info(node))
-        elif isinstance(node, ast.Subscript):
-            elem_type = self.extract_type_literal(node.value)
-            factor = self.extract_dimvar_expr(node.slice)
-            return Type.new_broadcast(elem_type, factor)
+        #elif isinstance(node, ast.Subscript) \
+        #        and isinstance(node.value, ast.Name) \
+        #        and (node.value.id in func_type_aliases
+        #             or node.value.id == 'func'
+        #             or node.value.id == 'rev_func'):
+        #    type_name = node.value.id
+        #    if type_name in func_type_aliases:
+        #        dims = self.extract_comma_sep_dimvar_expr(node.slice)
+        #        new_val, new_func = func_type_aliases[type_name]
+        #        in_type = new_val(dims[0])
+        #        if len(dims) == 1:
+        #            out_type = in_type.copy()
+        #        elif len(dims) == 2:
+        #            out_type = new_val(dims[1])
+        #        else:
+        #            raise QwertySyntaxError('Unsupported number of {} args '
+        #                                    '{}. Expected 1 or 2'
+        #                                    .format(type_name, len(dims)),
+        #                                    self.get_debug_info(node))
+        #        return new_func(in_type, out_type)
+        #    elif type_name in ('func', 'rev_func'):
+        #        if not isinstance(node.slice, ast.Tuple) \
+        #                or len(node.slice.elts) != 2 \
+        #                or not isinstance(node.slice.elts[0], ast.List):
+        #            raise QwertySyntaxError('Invalid form of func[[arg1,arg2,...,argn], ret] '
+        #                                    'found', self.get_debug_info(node))
+        #        args_list, ret = node.slice.elts
+        #        args = args_list.elts
+        #        if len(args) == 0:
+        #            arg_type = Type.new_tuple()
+        #        elif len(args) == 1:
+        #            arg_type = self.extract_type_literal(args[0])
+        #        else:
+        #            arg_type = Type.new_tuple([self.extract_type_literal(arg) for arg in args])
+        #        ret_type = self.extract_type_literal(ret)
+        #        if type_name == 'rev_func':
+        #            new_func = Type.new_rev_func
+        #        else:
+        #            new_func = Type.new_func
+        #        return new_func(arg_type, ret_type)
+        #    else:
+        #        raise QwertySyntaxError('Unknown alias {}[...] found'
+        #                                .format(type_name),
+        #                                self.get_debug_info(node))
+        #elif isinstance(node, ast.Subscript) and node.value :
+        #    elem_type = self.extract_type_literal(node.value)
+        #    factor = self.extract_dimvar_expr(node.slice)
+        #    return Type.new_broadcast(elem_type, factor)
         else:
             raise QwertySyntaxError('Unknown type',
                                     self.get_debug_info(node))
@@ -231,8 +230,7 @@ class BaseVisitor:
     #    return self.visit(expr.body)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
-                               decorator_name: str,
-                               ast_kind: int) -> Kernel:
+                               decorator_name: str) -> FunctionDef:
         """
         Common code for processing the function Python AST node for both
         ``@classical`` and ``@qpu`` kernels.
@@ -334,13 +332,6 @@ class BaseVisitor:
                                     .format(func_name),
                                     self.get_debug_info(func_def))
         ret_type = self.extract_type_literal(func_def.returns)
-
-        if len(arg_types) == 0:
-            args_type = Type.new_tuple()
-        elif len(arg_types) == 1:
-            args_type = arg_types[0]
-        else:
-            args_type = Type.new_tuple(arg_types)
 
         # Great, now we have everything we need to build the AST node...
         dbg = self.get_debug_info(func_def)
@@ -569,11 +560,11 @@ class QpuVisitor(BaseVisitor):
     #                                .format(node_name),
     #                                self.get_debug_info(node))
 
-    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> Kernel:
+    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> FunctionDef:
         """
         Convert a ``@qpu`` kernel into a ``QpuKernel`` Qwerty AST node.
         """
-        return super().base_visit_FunctionDef(func_def, 'qpu', AST_QPU)
+        return super().base_visit_FunctionDef(func_def, 'qpu')
 
     ## Variable or reserved keyword
     #def visit_Name(self, name: ast.Name):
@@ -1185,7 +1176,7 @@ class QpuVisitor(BaseVisitor):
         return self.base_visit(node)
 
 def convert_qpu_ast(module: ast.Module, filename: str = '', line_offset: int = 0,
-                    col_offset: int = 0) -> Kernel:
+                    col_offset: int = 0) -> FunctionDef:
     """
     Run the ``QpuVisitor`` on the provided Python AST to convert to a Qwerty
     ``@qpu`` AST and return the result. The return value is the same as
@@ -1198,20 +1189,20 @@ def convert_qpu_ast(module: ast.Module, filename: str = '', line_offset: int = 0
     visitor = QpuVisitor(filename, line_offset, col_offset)
     return visitor.visit_Module(module)
 
-def convert_qpu_expr(expr: ast.Expression, filename: str = '',
-                     line_offset: int = 0, col_offset: int = 0,
-                     no_pyframe: bool = False) -> Expr:
-    """
-    Convert an expression from a @qpu kernel instead of the whole thing.
-    Currently used only in unit tests. Someday could be used in a REPL, for
-    example.
-    """
-    if not isinstance(expr, ast.Expression):
-        raise QwertySyntaxError('Expected top-level Expression node in '
-                                'Python AST', None) # This should not happen
-
-    visitor = QpuVisitor(filename, line_offset, col_offset, no_pyframe)
-    return visitor.visit_Expression(expr)
+#def convert_qpu_expr(expr: ast.Expression, filename: str = '',
+#                     line_offset: int = 0, col_offset: int = 0,
+#                     no_pyframe: bool = False) -> Expr:
+#    """
+#    Convert an expression from a @qpu kernel instead of the whole thing.
+#    Currently used only in unit tests. Someday could be used in a REPL, for
+#    example.
+#    """
+#    if not isinstance(expr, ast.Expression):
+#        raise QwertySyntaxError('Expected top-level Expression node in '
+#                                'Python AST', None) # This should not happen
+#
+#    visitor = QpuVisitor(filename, line_offset, col_offset, no_pyframe)
+#    return visitor.visit_Expression(expr)
 
 #################### @CLASSICAL DSL ####################
 
@@ -1484,17 +1475,17 @@ def convert_qpu_expr(expr: ast.Expression, filename: str = '',
 #        else:
 #            return self.base_visit(node)
 
-def convert_classical_ast(module: ast.Module, filename: str = '', line_offset: int = 0,
-                          col_offset: int = 0) -> Kernel:
-    """
-    Run the ``ClassicalVisitor`` on the provided Python AST to convert to a
-    Qwerty `@classical` AST and return the result. The return value is the same
-    as ``convert_ast()`` above.
-    """
-    if not isinstance(module, ast.Module):
-        raise QwertySyntaxError('Expected top-level Module node in Python AST',
-                                None) # This should not happen
-
-    #visitor = ClassicalVisitor(filename, line_offset, col_offset)
-    #return visitor.visit_Module(module), visitor.tvs_has_explicit_value
-    raise NotImplementedError('coming soon...')
+#def convert_classical_ast(module: ast.Module, filename: str = '', line_offset: int = 0,
+#                          col_offset: int = 0) -> Kernel:
+#    """
+#    Run the ``ClassicalVisitor`` on the provided Python AST to convert to a
+#    Qwerty `@classical` AST and return the result. The return value is the same
+#    as ``convert_ast()`` above.
+#    """
+#    if not isinstance(module, ast.Module):
+#        raise QwertySyntaxError('Expected top-level Module node in Python AST',
+#                                None) # This should not happen
+#
+#    #visitor = ClassicalVisitor(filename, line_offset, col_offset)
+#    #return visitor.visit_Module(module), visitor.tvs_has_explicit_value
+#    raise NotImplementedError('coming soon...')

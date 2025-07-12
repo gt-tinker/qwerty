@@ -24,6 +24,7 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, _get_frame, \
 #                             AST_QPU, AST_CLASSICAL, \
 #                             EMBED_XOR, EMBED_SIGN, EMBED_INPLACE, \
 #                             embedding_kind_name
+from ._qwerty_pyrt import Program, FunctionDef
 from .runtime import dimvar, bit
 from .convert_ast import AstKind, convert_ast
 
@@ -32,6 +33,10 @@ QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
 #set_debug(QWERTY_DEBUG)
 #_mlir_handle = MlirHandle(QWERTY_FILE)
 #_global_generation_counter = 0
+
+# No debug info for the Program node since we don't really have a way get it
+root_node_dbg = None
+root_node = Program(root_node_dbg)
 
 def _calc_col_offset(before_dedent, after_dedent):
     """
@@ -56,7 +61,7 @@ class KernelHandle:
     invoke it like a Python function.
     """
 
-    def __init__(self, ast: Kernel):
+    def __init__(self, ast: FunctionDef):
         self.ast = ast
 
     @_cook_programmer_traceback
@@ -70,7 +75,7 @@ class KernelHandle:
 
         # TODO: return an instance of a new Histogram class that iterates over
         #       each observation instead of keys
-        histo = self.ast.call(1 if shots is None else shots)
+        histo = dict(self.ast.call(1 if shots is None else shots))
 
         if shots is not None:
             return histo
@@ -92,24 +97,8 @@ def _jit(ast_kind, func, last_dimvars=None):
     """
     global QWERTY_DEBUG
 
-    if captures is None:
-        captures = []
-    else:
-        captures = list(captures)
-
     if last_dimvars is None:
         last_dimvars = []
-
-    for i, capture in enumerate(captures):
-        # Special case: Python ints need to be wrapped to simplify code
-        if (qwerty_obj := _to_hybrid_obj(capture)) is not None:
-            captures[i] = qwerty_obj
-        elif (qwerty_tuple := _to_hybrid_tuple(capture)) is not None:
-            captures[i] = qwerty_tuple
-        else:
-            raise QwertySyntaxError('Captures must be Qwerty types such as bit')
-
-    capture_objs = [capture.as_qwerty_obj() for capture in captures]
 
     filename = inspect.getsourcefile(func) or ''
     # Minus one because we want the line offset, not the starting line
@@ -121,8 +110,9 @@ def _jit(ast_kind, func, last_dimvars=None):
     col_offset = _calc_col_offset(func_src, func_src_dedent)
 
     func_ast = ast.parse(func_src_dedent)
-    qwerty_ast = convert_ast(ast_kind, func_ast, filename, line_offset, col_offset)
-    return KernelHandle(qwerty_ast)
+    qwerty_func_def = convert_ast(ast_kind, func_ast, filename, line_offset, col_offset)
+    root_node.add_function_def(qwerty_func_def)
+    return KernelHandle(qwerty_func_def)
 
 class JitProxy(ABC):
     """
@@ -155,6 +145,18 @@ class JitProxy(ABC):
                                     'brackets [M]')
         self._last_dimvars = dimvars
         return self
+
+    @_cook_programmer_traceback
+    def __call__(self, func):
+        """
+        Support the syntax for specifying captures, e.g.,
+        ``@qpu(capture1, capture2)``.
+        """
+        if callable(func) and not isinstance(func, KernelHandle):
+            return self._proxy_to(func, last_dimvars=self._last_dimvars)
+        else:
+            raise QwertySyntaxError('Only functions can be decorated with '
+                                    '@qpu or @classical')
 
 class QpuProxy(JitProxy):
     def _proxy_to(self, func, last_dimvars=None):
