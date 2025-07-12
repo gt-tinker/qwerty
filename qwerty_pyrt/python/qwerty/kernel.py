@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Dict, Iterable, Optional, Callable
 from dataclasses import dataclass
 
-from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, _get_frame, \
+from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  _cook_programmer_traceback, QwertySyntaxError
 #from ._qwerty_harness import set_debug, Kernel, MlirHandle, Bits, Integer, \
 #                             Tuple, DebugInfo, Return, Pipe, Variable, \

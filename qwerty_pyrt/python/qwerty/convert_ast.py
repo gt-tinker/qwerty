@@ -9,7 +9,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import List, Tuple, Union
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
-                 _get_frame
+                 get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, Basis, Stmt, Expr
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
@@ -48,13 +48,13 @@ class BaseVisitor:
         """
         Constructor. The ``no_pyframe`` flag is used by the tests to avoid
         including frames (see ``errs.py``) in DebugInfos constructed by
-        ``get_debug_info()`` below, since this complicates testing.
+        ``get_debug_loc()`` below, since this complicates testing.
         """
         self.name_generator = name_generator
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
-        self.frame = None if no_pyframe else _get_frame()
+        self.frame = None if no_pyframe else get_frame()
 
     def get_node_row_col(self, node: ast.AST):
         if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
@@ -64,14 +64,15 @@ class BaseVisitor:
         else:
             return None, None
 
-    def get_debug_info(self, node: ast.AST) -> DebugLoc:
+    def get_debug_loc(self, node: ast.AST) -> DebugLoc:
         """
         Extract line and column number from a Python AST node and return a
         Qwerty DebugInfo instance.
         """
         row, col = self.get_node_row_col(node)
-        #return DebugLoc(self.filename, row or 0, col or 0, self.frame)
-        return DebugLoc(self.filename, row or 0, col or 0)
+        dbg = DebugLoc(self.filename, row or 0, col or 0)
+        set_dbg_frame(dbg, self.frame)
+        return dbg
 
     #def extract_dimvar_expr(self, node: ast.AST) -> DimVarExpr:
     #    """
@@ -91,7 +92,7 @@ class BaseVisitor:
     #            raise QwertySyntaxError('Unknown type variable {} found in '
     #                                    'constant type expression'
     #                                    .format(dimvar_name),
-    #                                    self.get_debug_info(node))
+    #                                    self.get_debug_loc(node))
     #    elif isinstance(node, ast.Constant) \
     #            and isinstance(node.value, int):
     #        return DimVarExpr('', node.value)
@@ -114,12 +115,12 @@ class BaseVisitor:
     #            raise QwertySyntaxError('Dimvars, or constant type '
     #                                    'expressions containing dimvars, '
     #                                    'cannot be multiplied together',
-    #                                    self.get_debug_info(node))
+    #                                    self.get_debug_loc(node))
     #        left *= right
     #        return left
     #    else:
     #        raise QwertySyntaxError('Unsupported constant type expression',
-    #                                self.get_debug_info(node))
+    #                                self.get_debug_loc(node))
 
     #def extract_comma_sep_dimvar_expr(self, node: ast.AST) -> List[DimVarExpr]:
     #    if isinstance(node, ast.Tuple):
@@ -160,7 +161,7 @@ class BaseVisitor:
             else:
                 raise QwertySyntaxError('Unknown type name {} found'
                                         .format(type_name),
-                                        self.get_debug_info(node))
+                                        self.get_debug_loc(node))
         #elif isinstance(node, ast.Subscript) \
         #        and isinstance(node.value, ast.Name) \
         #        and (node.value.id in func_type_aliases
@@ -179,14 +180,14 @@ class BaseVisitor:
         #            raise QwertySyntaxError('Unsupported number of {} args '
         #                                    '{}. Expected 1 or 2'
         #                                    .format(type_name, len(dims)),
-        #                                    self.get_debug_info(node))
+        #                                    self.get_debug_loc(node))
         #        return new_func(in_type, out_type)
         #    elif type_name in ('func', 'rev_func'):
         #        if not isinstance(node.slice, ast.Tuple) \
         #                or len(node.slice.elts) != 2 \
         #                or not isinstance(node.slice.elts[0], ast.List):
         #            raise QwertySyntaxError('Invalid form of func[[arg1,arg2,...,argn], ret] '
-        #                                    'found', self.get_debug_info(node))
+        #                                    'found', self.get_debug_loc(node))
         #        args_list, ret = node.slice.elts
         #        args = args_list.elts
         #        if len(args) == 0:
@@ -204,14 +205,14 @@ class BaseVisitor:
         #    else:
         #        raise QwertySyntaxError('Unknown alias {}[...] found'
         #                                .format(type_name),
-        #                                self.get_debug_info(node))
+        #                                self.get_debug_loc(node))
         #elif isinstance(node, ast.Subscript) and node.value :
         #    elem_type = self.extract_type_literal(node.value)
         #    factor = self.extract_dimvar_expr(node.slice)
         #    return Type.new_broadcast(elem_type, factor)
         else:
             raise QwertySyntaxError('Unknown type',
-                                    self.get_debug_info(node))
+                                    self.get_debug_loc(node))
 
     def visit_Module(self, module: ast.Module):
         """
@@ -221,12 +222,12 @@ class BaseVisitor:
         if module.type_ignores:
             raise QwertySyntaxError('I do not understand type_ignores, but '
                                     'they were specified in a Python module',
-                                    self.get_debug_info(module))
+                                    self.get_debug_loc(module))
 
         if len(module.body) != 1 or not isinstance(module.body[0], ast.FunctionDef):
             raise QwertySyntaxError('Expected exactly 1 FunctionDef in '
                                     'module body',
-                                    self.get_debug_info(module))
+                                    self.get_debug_loc(module))
 
         func_def = module.body[0]
         return self.visit_FunctionDef(func_def)
@@ -249,14 +250,14 @@ class BaseVisitor:
             if getattr(func_def.args, arg_prop):
                 raise QwertySyntaxError('{}() uses unsupported argument feature {}'
                                         .format(func_name, arg_prop),
-                                        self.get_debug_info(func_def))
+                                        self.get_debug_loc(func_def))
 
         is_rev_dec = lambda dec: isinstance(dec, ast.Name) and dec.id == 'reversible'
         if (n_decorators := len(func_def.decorator_list)) > 2:
             raise QwertySyntaxError('Wrong number of decorators ({} > 2) '
                                     'for {}()'.format(n_decorators,
                                                       func_name),
-                                    self.get_debug_info(func_def))
+                                    self.get_debug_loc(func_def))
         elif n_decorators == 2:
             rev_decorator, our_decorator = func_def.decorator_list
             if not is_rev_dec(rev_decorator):
@@ -266,7 +267,7 @@ class BaseVisitor:
                 raise QwertySyntaxError('Unknown decorator {} on {}()'
                                         .format(rev_decorator,
                                                 func_name),
-                                        self.get_debug_info(func_def))
+                                        self.get_debug_loc(func_def))
             # By this point, one of the decorators is @reversible
             is_rev = True
         elif n_decorators == 1:
@@ -275,7 +276,7 @@ class BaseVisitor:
         else: # n_decorators == 0
             raise QwertySyntaxError('No decorators (e.g., @{}) for {}()'
                                     .format(decorator_name, func_name),
-                                    self.get_debug_info(func_def))
+                                    self.get_debug_loc(func_def))
 
         # Then try to determine this function's type variables
         is_ours = lambda node: isinstance(node, ast.Name) \
@@ -303,7 +304,7 @@ class BaseVisitor:
                                     'capture2) decorator for {}()'
                                     .format(decorator_name,
                                             func_name),
-                                    self.get_debug_info(our_decorator))
+                                    self.get_debug_loc(our_decorator))
 
         # TODO: do soemthing with dim_vars and tvs_has_explicit_value
 
@@ -320,13 +321,13 @@ class BaseVisitor:
                 raise QwertySyntaxError('Unsupported type comment found on {} '
                                         'argument of {}()'
                                         .format(arg_name, func_name),
-                                        self.get_debug_info(arg))
+                                        self.get_debug_loc(arg))
             if not arg_type:
                 raise QwertySyntaxError('Currently, type annotations are '
                                         'required for arguments such as {} '
                                         'argument of {}()'
                                         .format(arg_name, func_name),
-                                        self.get_debug_info(arg))
+                                        self.get_debug_loc(arg))
 
             actual_arg_type = self.extract_type_literal(arg_type)
             args.append((actual_arg_type, arg_name))
@@ -336,11 +337,11 @@ class BaseVisitor:
             raise QwertySyntaxError('Currently, type annotations are '
                                     'required for functions such as {}() '
                                     .format(func_name),
-                                    self.get_debug_info(func_def))
+                                    self.get_debug_loc(func_def))
         ret_type = self.extract_type_literal(func_def.returns)
 
         # Great, now we have everything we need to build the AST node...
-        dbg = self.get_debug_info(func_def)
+        dbg = self.get_debug_loc(func_def)
 
         # ...except traversing the function body
         body = self.visit(func_def.body)
@@ -363,7 +364,7 @@ class BaseVisitor:
         Convert a Python ``return`` statement into a Qwerty AST ``Return``
         node.
         """
-        dbg = self.get_debug_info(ret)
+        dbg = self.get_debug_loc(ret)
         expr = self.visit(ret.value)
         return Stmt.new_return(expr, dbg)
 
@@ -381,7 +382,7 @@ class BaseVisitor:
 
     #    is converted into a ``DestructAssign`` Qwerty AST node.
     #    """
-    #    dbg = self.get_debug_info(assign)
+    #    dbg = self.get_debug_loc(assign)
     #    if len(assign.targets) != 1:
     #        # Something like a = b = c = '0'
     #        raise QwertySyntaxError("Multiple assignments (like a = b = '0') "
@@ -426,7 +427,7 @@ class BaseVisitor:
 
     #        q: qubit = '0'
     #    """
-    #    dbg = self.get_debug_info(assign)
+    #    dbg = self.get_debug_loc(assign)
     #    raise QwertySyntaxError('Typed assignments, i.e.\n'
     #                            '\tsimple -- q: qubit = v\n'
     #                            '\tdestructuring -- (a, b): (qubit, qubit[2]) '
@@ -475,7 +476,7 @@ class BaseVisitor:
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError(f'Unknown Python AST node {node_name}',
-                                    self.get_debug_info(node))
+                                    self.get_debug_loc(node))
 
 #################### @QPU DSL ####################
 
@@ -514,7 +515,7 @@ class QpuVisitor(BaseVisitor):
                          no_pyframe)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
-        dbg = self.get_debug_info(node)
+        dbg = self.get_debug_loc(node)
 
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
             left = self.extract_qubit_literal(node.left)
@@ -532,7 +533,7 @@ class QpuVisitor(BaseVisitor):
                                     .format(node_name), dbg)
 
     def extract_basis_vector(self, node: ast.AST) -> Vector:
-        dbg = self.get_debug_info(node)
+        dbg = self.get_debug_loc(node)
 
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
             left = self.extract_qubit_literal(node.left)
@@ -550,7 +551,7 @@ class QpuVisitor(BaseVisitor):
                                     .format(node_name), dbg)
 
     def extract_basis(self, node: ast.AST) -> Basis:
-        dbg = self.get_debug_info(node)
+        dbg = self.get_debug_loc(node)
 
         if isinstance(node, ast.Set) and not node.elts:
             return Basis.new_empty_basis_literal(dbg)
@@ -569,7 +570,7 @@ class QpuVisitor(BaseVisitor):
     #        '1' @ (3*pi/2)
     #               ^^^^^^
     #    """
-    #    dbg = self.get_debug_info(node)
+    #    dbg = self.get_debug_loc(node)
 
     #    if isinstance(node, ast.Name) and node.id == 'pi':
     #        return FloatLiteral(dbg, math.pi)
@@ -616,7 +617,7 @@ class QpuVisitor(BaseVisitor):
     #        node_name = type(node).__name__
     #        raise QwertySyntaxError('Unsupported float expression {}'
     #                                .format(node_name),
-    #                                self.get_debug_info(node))
+    #                                self.get_debug_loc(node))
 
     def visit_FunctionDef(self, func_def: ast.FunctionDef) -> FunctionDef:
         """
@@ -633,7 +634,7 @@ class QpuVisitor(BaseVisitor):
     #    AST node.
     #    """
     #    var_name = name.id
-    #    dbg = self.get_debug_info(name)
+    #    dbg = self.get_debug_loc(name)
 
     #    if var_name == 'id':
     #        return Identity(dbg, DimVarExpr('', 1))
@@ -655,7 +656,7 @@ class QpuVisitor(BaseVisitor):
     #        raise QwertySyntaxError('fourier is a reserved keyword. The '
     #                                'one-dimensional Fourier basis must be '
     #                                'written as fourier[1]',
-    #                                self.get_debug_info(name))
+    #                                self.get_debug_loc(name))
     #    else:
     #        return Variable(dbg, var_name)
 
@@ -673,7 +674,7 @@ class QpuVisitor(BaseVisitor):
     #        state_chars = value
     #        if not state_chars:
     #            raise QwertySyntaxError('Qubit literal must not be an empty string',
-    #                                    self.get_debug_info(const))
+    #                                    self.get_debug_loc(const))
 
     #        result = None
     #        last_char, last_dim = None, None
@@ -681,7 +682,7 @@ class QpuVisitor(BaseVisitor):
     #        def add_to_tensor_tree():
     #            nonlocal result, last_char, last_dim
 
-    #            dbg = self.get_debug_info(const)
+    #            dbg = self.get_debug_loc(const)
     #            eigenstate, prim_basis = STATE_CHAR_MAPPING[last_char]
     #            vec = QubitLiteral(dbg, eigenstate, prim_basis, last_dim)
 
@@ -690,14 +691,14 @@ class QpuVisitor(BaseVisitor):
     #            else:
     #                # Need to make a second DebugInfo since the last one is going
     #                # to get std::move()'d away by the QubitLiteral constructor above
-    #                dbg = self.get_debug_info(const)
+    #                dbg = self.get_debug_loc(const)
     #                result = BiTensor(dbg, result, vec)
 
     #        for i, c in enumerate(state_chars):
     #            if c not in STATE_CHAR_MAPPING:
     #                raise QwertySyntaxError('Unknown state |{}⟩ in qubit literal'
     #                                        .format(c),
-    #                                        self.get_debug_info(const))
+    #                                        self.get_debug_loc(const))
     #            if last_char == c:
     #                last_dim += DimVarExpr('', 1)
     #            else:
@@ -712,7 +713,7 @@ class QpuVisitor(BaseVisitor):
     #        return result
     #    else:
     #        raise QwertySyntaxError('Unknown constant syntax',
-    #                                self.get_debug_info(const))
+    #                                self.get_debug_loc(const))
 
     ## Broadcast tensor, i.e., tensoring something with itself repeatedly
     #def visit_Subscript(self, subscript: ast.Subscript):
@@ -724,7 +725,7 @@ class QpuVisitor(BaseVisitor):
     #    inseparable bases added in the future.
     #    """
     #    value, slice_ = subscript.value, subscript.slice
-    #    dbg = self.get_debug_info(subscript)
+    #    dbg = self.get_debug_loc(subscript)
 
     #    if isinstance(list_ := slice_, ast.List) and list_.elts:
     #        value_node = self.visit(value)
@@ -756,11 +757,11 @@ class QpuVisitor(BaseVisitor):
             op_name = type(binOp.op).__name__
             raise QwertySyntaxError('Unknown binary operation {}'
                                     .format(op_name),
-                                    self.get_debug_info(binOp))
+                                    self.get_debug_loc(binOp))
 
     def visit_BinOp_Add(self, binOp: ast.BinOp):
         # A top-level + expression must be a qubit literal (a superpos)
-        dbg = self.get_debug_info(binOp)
+        dbg = self.get_debug_loc(binOp)
         qlit = self.extract_qubit_literal(binOp)
         return Expr.new_qlit(qlit, dbg)
 
@@ -772,7 +773,7 @@ class QpuVisitor(BaseVisitor):
         """
         left = self.visit(binOp.left)
         right = self.visit(binOp.right)
-        dbg = self.get_debug_info(binOp)
+        dbg = self.get_debug_loc(binOp)
         return Expr.new_pipe(left, right, dbg)
 
     #def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
@@ -784,7 +785,7 @@ class QpuVisitor(BaseVisitor):
     #    """
     #    basis = self.visit(binOp.left)
     #    body = self.visit(binOp.right)
-    #    dbg = self.get_debug_info(binOp)
+    #    dbg = self.get_debug_loc(binOp)
     #    return Pred(dbg, basis, body)
 
     #def visit_BinOp_MatMult(self, binOp: ast.BinOp):
@@ -803,12 +804,12 @@ class QpuVisitor(BaseVisitor):
     #        if call.keywords:
     #            raise QwertySyntaxError(
     #                'Keyword arguments not supported for {}(...)'.format(unit),
-    #                self.get_debug_info(binOp))
+    #                self.get_debug_loc(binOp))
     #        if len(call.args) != 1:
     #            raise QwertySyntaxError(
     #                'Wrong number of arguments {} != 1 passed to {}(...)'
     #                .format(len(call.args), unit),
-    #                self.get_debug_info(binOp))
+    #                self.get_debug_loc(binOp))
     #        angle = call.args[0]
     #        # Set the debug location for the angle expression code to this
     #        # pseudo-function (deg() or rad())
@@ -820,7 +821,7 @@ class QpuVisitor(BaseVisitor):
 
     #    angle_expr = self.extract_float_expr(angle)
     #    if unit == 'deg':
-    #        angle_conv_dbg = self.get_debug_info(angle_conv_dbg_node)
+    #        angle_conv_dbg = self.get_debug_loc(angle_conv_dbg_node)
     #        # Convert to radians: angle_expr/360 * 2*pi
     #        # The canonicalizer AST pass will fold this
     #        angle_expr = \
@@ -837,7 +838,7 @@ class QpuVisitor(BaseVisitor):
     #                    angle_conv_dbg.copy(),
     #                    2*math.pi))
 
-    #    dbg = self.get_debug_info(binOp)
+    #    dbg = self.get_debug_loc(binOp)
     #    lhs = self.visit(binOp.left)
     #    return Phase(dbg, angle_expr, lhs)
 
@@ -849,7 +850,7 @@ class QpuVisitor(BaseVisitor):
     #    """
     #    basis_in, basis_out = binOp.left, binOp.right
 
-    #    dbg = self.get_debug_info(binOp)
+    #    dbg = self.get_debug_loc(binOp)
     #    basis_in_node = self.visit(basis_in)
     #    basis_out_node = self.visit(basis_out)
     #    return BasisTranslation(dbg, basis_in_node, basis_out_node)
@@ -863,14 +864,14 @@ class QpuVisitor(BaseVisitor):
     #        op_name = type(unaryOp.op).__name__
     #        raise QwertySyntaxError('Unknown unary operation {}'
     #                                .format(op_name),
-    #                                self.get_debug_info(unaryOp))
+    #                                self.get_debug_loc(unaryOp))
 
     #def visit_UnaryOp_USub(self, unaryOp: ast.UnaryOp):
     #    """
     #    Convert a Python unary negation AST node into a Qwerty AST node tilting
     #    the operand by 180 degrees. For example, ``-f`` or ``-'0'``.
     #    """
-    #    dbg = self.get_debug_info(unaryOp)
+    #    dbg = self.get_debug_loc(unaryOp)
     #    value = self.visit(unaryOp.operand)
     #    # Euler's identity, e^{iπ} = -1
     #    return Phase(dbg, FloatLiteral(dbg.copy(), math.pi), value)
@@ -882,7 +883,7 @@ class QpuVisitor(BaseVisitor):
     #    with 1 child (``f``).
     #    """
     #    unary_operand = unaryOp.operand
-    #    dbg = self.get_debug_info(unaryOp)
+    #    dbg = self.get_debug_loc(unaryOp)
     #    operand = self.visit(unary_operand)
     #    return Adjoint(dbg, operand)
 
@@ -892,7 +893,7 @@ class QpuVisitor(BaseVisitor):
     #    AST node. For example, ``{'0', -'1'}`` is a ``BasisLiteral`` node with
     #    two children.
     #    """
-    #    dbg = self.get_debug_info(set_)
+    #    dbg = self.get_debug_loc(set_)
     #    basis_elts = self.visit(set_.elts)
     #    return BasisLiteral(dbg, basis_elts)
 
@@ -901,20 +902,20 @@ class QpuVisitor(BaseVisitor):
     #    Helper used by both ``visit_GeneratorExp()`` and ``visit_ListComp()``,
     #    since both Python AST nodes have near-identical fields.
     #    """
-    #    dbg = self.get_debug_info(gen)
+    #    dbg = self.get_debug_loc(gen)
 
     #    if len(gen.generators) != 1:
     #        raise QwertySyntaxError('Multiple generators are unsupported in '
-    #                                'Qwerty', self.get_debug_info(gen))
+    #                                'Qwerty', self.get_debug_loc(gen))
     #    comp = gen.generators[0]
 
     #    if comp.ifs:
     #        raise QwertySyntaxError('"if" not supported inside repeat '
     #                                'construct',
-    #                                self.get_debug_info(gen))
+    #                                self.get_debug_loc(gen))
     #    if comp.is_async:
     #        raise QwertySyntaxError('async generators not supported',
-    #                                self.get_debug_info(gen))
+    #                                self.get_debug_loc(gen))
 
     #    if not isinstance(comp.target, ast.Name) \
     #            or not isinstance(comp.iter, ast.Call) \
@@ -925,7 +926,7 @@ class QpuVisitor(BaseVisitor):
     #        raise QwertySyntaxError('Unsupported generator syntax (only '
     #                                'basic "x for i in range(N) is '
     #                                'supported")',
-    #                                self.get_debug_info(gen))
+    #                                self.get_debug_loc(gen))
 
     #    loopvar = comp.target.id
 
@@ -933,7 +934,7 @@ class QpuVisitor(BaseVisitor):
     #        raise QwertySyntaxError('Index variable {} collides with the '
     #                                'name of another type variable'
     #                                .format(loopvar),
-    #                                self.get_debug_info(gen))
+    #                                self.get_debug_loc(gen))
     #    self.dim_vars.add(loopvar)
     #    body = self.visit(gen.elt)
     #    self.dim_vars.remove(loopvar)
@@ -984,9 +985,9 @@ class QpuVisitor(BaseVisitor):
     #    """
     #    if call.keywords:
     #        raise QwertySyntaxError('Keyword arguments not supported in '
-    #                                'call', self.get_debug_info(call))
+    #                                'call', self.get_debug_loc(call))
 
-    #    dbg = self.get_debug_info(call)
+    #    dbg = self.get_debug_loc(call)
 
     #    # Handling for b.rotate(theta) and fwd.inplace(rev)
     #    if isinstance(attr := call.func, ast.Attribute):
@@ -995,7 +996,7 @@ class QpuVisitor(BaseVisitor):
     #                raise QwertySyntaxError('Wrong number of operands '
     #                                        '{} != 1 to .rotate'
     #                                        .format(len(call.args)),
-    #                                        self.get_debug_info(attr))
+    #                                        self.get_debug_loc(attr))
     #            arg = call.args[0]
     #            basis = self.visit(attr.value)
     #            theta = self.extract_float_expr(arg)
@@ -1007,7 +1008,7 @@ class QpuVisitor(BaseVisitor):
     #                if embedding_kind_has_operand(embedding_kind):
     #                    raise QwertySyntaxError('Keyword {} requires an '
     #                                            'operand'.format(attr.attr),
-    #                                            self.get_debug_info(attr))
+    #                                            self.get_debug_loc(attr))
     #                classical_func_name = name.id
     #                return EmbedClassical(dbg, classical_func_name, '',
     #                                      embedding_kind)
@@ -1016,21 +1017,21 @@ class QpuVisitor(BaseVisitor):
     #                if not embedding_kind_has_operand(embedding_kind):
     #                    raise QwertySyntaxError('Keyword {} does not require an '
     #                                            'operand'.format(attr.attr),
-    #                                            self.get_debug_info(attr))
+    #                                            self.get_debug_loc(attr))
 
     #                if len(call.args) != 1:
     #                    raise QwertySyntaxError('Wrong number of operands '
     #                                            '{} != 1 to {}'
     #                                            .format(len(call.args),
     #                                                    attr.attr),
-    #                                            self.get_debug_info(attr))
+    #                                            self.get_debug_loc(attr))
     #                arg = call.args[0]
     #                if not isinstance(arg, ast.Name):
     #                    raise QwertySyntaxError('Argument to {} must be an '
     #                                            'identifier, not a {}'
     #                                            .format(attr.attr,
     #                                                    type(arg).__name__),
-    #                                            self.get_debug_info(attr))
+    #                                            self.get_debug_loc(attr))
 
     #                classical_func_name = name.id
     #                classical_func_operand_name = arg.id
@@ -1050,7 +1051,7 @@ class QpuVisitor(BaseVisitor):
     #    Convert a Python tuple literal into a Qwerty tuple literal. Trust me,
     #    this one is thrilling.
     #    """
-    #    dbg = self.get_debug_info(tuple_)
+    #    dbg = self.get_debug_loc(tuple_)
     #    elts = self.visit(tuple_.elts)
     #    return TupleLiteral(dbg, elts)
 
@@ -1061,7 +1062,7 @@ class QpuVisitor(BaseVisitor):
         ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
         child node.
         """
-        dbg = self.get_debug_info(attr)
+        dbg = self.get_debug_loc(attr)
         attr_lhs = attr.value
         attr_rhs = attr.attr
 
@@ -1089,7 +1090,7 @@ class QpuVisitor(BaseVisitor):
         #                                'identifier, not a {}'
         #                                .format(attr_rhs,
         #                                        type(attr_lhs).__name__),
-        #                                self.get_debug_info(attr))
+        #                                self.get_debug_loc(attr))
 
         #    embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
 
@@ -1097,12 +1098,12 @@ class QpuVisitor(BaseVisitor):
         #        raise QwertySyntaxError('Keyword {} requires an operand, '
         #                                'specified with .{}(...)'
         #                                .format(attr_rhs, attr_rhs),
-        #                                self.get_debug_info(attr))
+        #                                self.get_debug_loc(attr))
 
         #    return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
         else:
             raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
-                                    self.get_debug_info(attr))
+                                    self.get_debug_loc(attr))
 
     #def visit_IfExp(self, ifExp: ast.IfExp):
     #    """
@@ -1111,7 +1112,7 @@ class QpuVisitor(BaseVisitor):
     #    Qwerty ``Conditional`` AST node with three children.
     #    """
     #    if_expr, then_expr, else_expr = ifExp.test, ifExp.body, ifExp.orelse
-    #    dbg = self.get_debug_info(ifExp)
+    #    dbg = self.get_debug_loc(ifExp)
 
     #    if_expr_node = self.visit(if_expr)
     #    then_expr_node = self.visit(then_expr)
@@ -1126,7 +1127,7 @@ class QpuVisitor(BaseVisitor):
     #        op_name = type(boolOp.op).__name__
     #        raise QwertySyntaxError('Unknown boolean operation {}'
     #                                .format(op_name),
-    #                                self.get_debug_info(boolOp))
+    #                                self.get_debug_loc(boolOp))
 
     #def visit_BoolOp_Or(self, boolOp: ast.BoolOp):
     #    """
@@ -1134,7 +1135,7 @@ class QpuVisitor(BaseVisitor):
     #    superposition AST node. For example, ``0.25*'0' or 0.75*'1'`` becomes a
     #    ``SuperpositionLiteral`` AST node with two children.
     #    """
-    #    dbg = self.get_debug_info(boolOp)
+    #    dbg = self.get_debug_loc(boolOp)
     #    operands = boolOp.values
     #    if len(operands) < 2:
     #        raise QwertySyntaxError('Superposition needs at least two operands', dbg)
@@ -1166,7 +1167,7 @@ class QpuVisitor(BaseVisitor):
     #        has_prob = prob_node is not None
 
     #        if pairs and has_prob ^ had_prob:
-    #            operand_dbg = self.get_debug_info(operand)
+    #            operand_dbg = self.get_debug_loc(operand)
     #            raise QwertySyntaxError(
     #                'Either all operands of a superposition operator should '
     #                'have explicit probabilities, or none should have '
@@ -1176,7 +1177,7 @@ class QpuVisitor(BaseVisitor):
 
     #        if has_prob:
     #            if not isinstance(prob_node, ast.Constant):
-    #                prob_dbg = self.get_debug_info(prob_node)
+    #                prob_dbg = self.get_debug_loc(prob_node)
     #                raise QwertySyntaxError(
     #                    'Currently, probabilities in a superposition literal '
     #                    'must be integer constants', prob_dbg)
@@ -1185,7 +1186,7 @@ class QpuVisitor(BaseVisitor):
 
     #            if not isinstance(prob_val, float) \
     #                    and not isinstance(prob_val, int):
-    #                prob_dbg = self.get_debug_info(prob_node)
+    #                prob_dbg = self.get_debug_loc(prob_node)
     #                raise QwertySyntaxError(
     #                    'Probabilities in a superposition literal must be '
     #                    'floats, not {}'.format(str(type(prob_val))), prob_dbg)
@@ -1281,7 +1282,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        node. (The ``@classical`` DSL does not have reserved keywords.)
 #        """
 #        var_name = name.id
-#        dbg = self.get_debug_info(name)
+#        dbg = self.get_debug_loc(name)
 #        return Variable(dbg, var_name)
 #
 #    def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
@@ -1291,7 +1292,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #            op_name = type(unaryOp.op).__name__
 #            raise QwertySyntaxError('Unknown unary operation {}'
 #                                    .format(op_name),
-#                                    self.get_debug_info(unaryOp))
+#                                    self.get_debug_loc(unaryOp))
 #
 #    def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
 #        """
@@ -1300,7 +1301,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        node.
 #        """
 #        operand = self.visit(unaryOp.operand)
-#        dbg = self.get_debug_info(unaryOp)
+#        dbg = self.get_debug_loc(unaryOp)
 #        return BitUnaryOp(dbg, BIT_NOT, operand)
 #
 #    def visit_BinOp(self, binOp: ast.BinOp):
@@ -1316,7 +1317,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #            op_name = type(binOp.op).__name__
 #            raise QwertySyntaxError('Unknown binary operation {}'
 #                                    .format(op_name),
-#                                    self.get_debug_info(binOp))
+#                                    self.get_debug_loc(binOp))
 #
 #    def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
 #        """
@@ -1326,7 +1327,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        """
 #        left = self.visit(binOp.left)
 #        right = self.visit(binOp.right)
-#        dbg = self.get_debug_info(binOp)
+#        dbg = self.get_debug_loc(binOp)
 #        return BitBinaryOp(dbg, BIT_AND, left, right)
 #
 #    def visit_BinOp_BitXor(self, binOp: ast.BinOp):
@@ -1337,7 +1338,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        """
 #        left = self.visit(binOp.left)
 #        right = self.visit(binOp.right)
-#        dbg = self.get_debug_info(binOp)
+#        dbg = self.get_debug_loc(binOp)
 #        return BitBinaryOp(dbg, BIT_XOR, left, right)
 #
 #    def visit_BinOp_BitOr(self, binOp: ast.BinOp):
@@ -1348,7 +1349,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        """
 #        left = self.visit(binOp.left)
 #        right = self.visit(binOp.right)
-#        dbg = self.get_debug_info(binOp)
+#        dbg = self.get_debug_loc(binOp)
 #        return BitBinaryOp(dbg, BIT_OR, left, right)
 #
 #    # Modular multiplication: X**2**J*y % N
@@ -1365,7 +1366,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #                or not isinstance((inner_pow := pow_.right), ast.BinOp) \
 #                or not isinstance(inner_pow.op, ast.Pow):
 #            raise QwertySyntaxError('Unknown modulo syntax',
-#                                    self.get_debug_info(mod))
+#                                    self.get_debug_loc(mod))
 #
 #        x = self.extract_dimvar_expr(pow_.left)
 #        exp_base = self.extract_dimvar_expr(inner_pow.left)
@@ -1376,14 +1377,14 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        if not exp_base.is_constant():
 #            raise QwertySyntaxError('Dimvars not allowed in base of exponent in '
 #                                    'modular multiplication',
-#                                    self.get_debug_info(inner_pow.left))
+#                                    self.get_debug_loc(inner_pow.left))
 #        if exp_base.get_value() != 2:
 #            raise QwertySyntaxError('Currently, only 2 is supported as the '
 #                                    'base of the exponent in modular '
 #                                    'multiplication',
-#                                    self.get_debug_info(inner_pow.left))
+#                                    self.get_debug_loc(inner_pow.left))
 #
-#        dbg = self.get_debug_info(mod)
+#        dbg = self.get_debug_loc(mod)
 #        return ModMulOp(dbg, x, j, y, modN)
 #
 #    def visit_Call(self, call: ast.Call):
@@ -1403,14 +1404,14 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #            if len(call.args) != 1:
 #                raise QwertySyntaxError('bit() expects one positional '
 #                                        'argument: the value',
-#                                        self.get_debug_info(call))
+#                                        self.get_debug_loc(call))
 #            if call.keywords:
 #                raise QwertySyntaxError('bit() does not accept keyword '
 #                                        'arguments',
-#                                        self.get_debug_info(call))
+#                                        self.get_debug_loc(call))
 #            val = self.extract_dimvar_expr(call.args[0])
 #            n_bits = self.extract_dimvar_expr(call.func.slice)
-#            dbg = self.get_debug_info(call)
+#            dbg = self.get_debug_loc(call)
 #            return BitLiteral(dbg, val, n_bits)
 #        else: # xor_reduce(), and_reduce(), etc
 #            func = call.func
@@ -1418,7 +1419,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #                raise QwertySyntaxEbrror('I expect function calls to be of the '
 #                                        'form expression.FUNC(), but this call '
 #                                        'is not',
-#                                        self.get_debug_info(call))
+#                                        self.get_debug_loc(call))
 #            attr = func
 #            operand = attr.value
 #            func_name = attr.attr
@@ -1431,8 +1432,8 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #                if call.args or call.keywords:
 #                    raise QwertySyntaxError('Arguments cannot be passed to the '
 #                                            'function call',
-#                                            self.get_debug_info(call))
-#                dbg = self.get_debug_info(call)
+#                                            self.get_debug_loc(call))
+#                dbg = self.get_debug_loc(call)
 #                return BitReduceOp(dbg, reduce_pseudo_funcs[func_name],
 #                                   self.visit(operand))
 #            elif func_name in binary_pseudo_funcs:
@@ -1440,16 +1441,16 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #                    raise QwertySyntaxError('Keywords arguments not '
 #                                            'supported to {}()'
 #                                            .format(func_name),
-#                                            self.get_debug_info(call))
+#                                            self.get_debug_loc(call))
 #                if len(call.args) != 1:
 #                    raise QwertySyntaxError('{}() expects one positional '
 #                                            'argument: the rotation amount'
 #                                            .format(func_name),
-#                                            self.get_debug_info(call))
+#                                            self.get_debug_loc(call))
 #                val = self.visit(operand)
 #                amount_node = call.args[0]
 #                amount = self.visit(amount_node)
-#                dbg = self.get_debug_info(call)
+#                dbg = self.get_debug_loc(call)
 #                return BitBinaryOp(dbg, binary_pseudo_funcs[func_name], val,
 #                                   amount)
 #            elif func_name == 'repeat':
@@ -1457,22 +1458,22 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #                    raise QwertySyntaxError('Keywords arguments not '
 #                                            'supported to {}()'
 #                                            .format(func_name),
-#                                            self.get_debug_info(call))
+#                                            self.get_debug_loc(call))
 #                if len(call.args) != 1:
 #                    raise QwertySyntaxError('{}() expects one positional '
 #                                            'argument: the amount of times to '
 #                                            'repeat'
 #                                            .format(func_name),
-#                                            self.get_debug_info(call))
+#                                            self.get_debug_loc(call))
 #                bits = self.visit(operand)
 #                amount_node = call.args[0]
 #                amount = self.extract_dimvar_expr(amount_node)
-#                dbg = self.get_debug_info(call)
+#                dbg = self.get_debug_loc(call)
 #                return BitRepeat(dbg, bits, amount)
 #            else:
 #                raise QwertySyntaxError('Unknown pseudo-function {}'
 #                                        .format(func_name),
-#                                        self.get_debug_info(call))
+#                                        self.get_debug_loc(call))
 #
 #    def visit_Tuple(self, tup: ast.Tuple):
 #        """
@@ -1481,10 +1482,10 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        """
 #        if not tup.elts:
 #            raise QwertySyntaxError('Empty tuple not supported',
-#                                    self.get_debug_info(tup))
+#                                    self.get_debug_loc(tup))
 #        cur = self.visit(tup.elts[0])
 #        for elt in tup.elts[1:]:
-#            dbg = self.get_debug_info(tup)
+#            dbg = self.get_debug_loc(tup)
 #            cur = BitConcat(dbg, cur, self.visit(elt))
 #        return cur
 #
@@ -1496,7 +1497,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #        if isinstance(sub.slice, ast.Slice):
 #            if sub.slice.step is not None:
 #                raise QwertySyntaxError('[:::] syntax not supported',
-#                                        self.get_debug_info(sub))
+#                                        self.get_debug_loc(sub))
 #            if sub.slice.lower is None:
 #                lower = None
 #            else:
@@ -1510,7 +1511,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 #            lower = self.extract_dimvar_expr(sub.slice)
 #            upper = lower.copy()
 #            upper += DimVarExpr("", 1)
-#        dbg = self.get_debug_info(sub)
+#        dbg = self.get_debug_loc(sub)
 #        return Slice(dbg, val, lower, upper)
 #
 #    def visit(self, node: ast.AST):

@@ -1,10 +1,28 @@
-use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::{ast, dbg};
+use std::collections::hash_map::DefaultHasher;
+use pyo3::{prelude::*, types::PyType, sync::GILOnceCell};
+use qwerty_ast::{ast, dbg, typecheck};
 
-pyo3::import_exception!(qwerty.err, QwertyProgrammerError);
+static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
-#[pyclass]
-#[derive(Clone)]
+fn get_bit_reg<'py>(py: Python<'py>, as_int: usize, n_bits: usize) -> PyResult<Bound<'py, PyAny>> {
+    let bit_type = BIT_TYPE.import(py, "qwerty.runtime", "bit")?;
+    bit_type.call1((as_int, n_bits))
+}
+
+fn get_err<'py>(py: Python<'py>, msg: String, dbg: Option<dbg::DebugLoc>) -> PyErr {
+    let err_ty_res = QWERTY_PROGRAMMER_ERROR_TYPE.import(py, "qwerty.err", "QwertyProgrammerError");
+    match err_ty_res {
+        Err(err) => err,
+        Ok(err_ty) => {
+            let dbg_wrapped = dbg.map(|ast_dbg| DebugLoc { dbg: ast_dbg.clone() });
+            PyErr::from_type(err_ty.clone(), (msg, dbg_wrapped))
+        }
+    }
+}
+
+#[pyclass(eq, hash, frozen)]
+#[derive(Clone, PartialEq, Hash)]
 struct DebugLoc {
     dbg: dbg::DebugLoc,
 }
@@ -334,9 +352,11 @@ impl Program {
         self.type_checked = false;
     }
 
-    fn type_check(&mut self) -> PyResult<()> {
+    fn type_check(&mut self, py: Python<'_>) -> PyResult<()> {
         if !self.type_checked {
-            // TODO: need to run type checking
+            if let Err(type_err) = typecheck::typecheck_program(&self.program) {
+                return Err(get_err(py, type_err.kind.to_string(), type_err.dbg));
+            }
             self.type_checked = true;
         }
         Ok(())
@@ -348,12 +368,9 @@ impl Program {
         func_name: String,
         num_shots: usize,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        self.type_check()?;
+        self.type_check(py)?;
 
-        let zero_bit = PyModule::import(py, "qwerty.runtime")?
-            .getattr("bit")?
-            .call1((0, 1))?;
-
+        let zero_bit = get_bit_reg(py, 0, 1)?;
         let counts = vec![(zero_bit, num_shots)];
 
         println!("imagine we are calling {func_name}()...");

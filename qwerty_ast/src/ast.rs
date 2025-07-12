@@ -8,8 +8,9 @@
  * Version: 1.0
  */
 
-use crate::dbg::DebugLoc;
+use std::fmt;
 use std::cmp::Ordering;
+use crate::dbg::DebugLoc;
 
 // ----- Types -----
 
@@ -89,6 +90,15 @@ impl QLit {
 pub enum VectorAtomKind {
     PadAtom,    // '?'
     TargetAtom, // '_'
+}
+
+impl fmt::Display for VectorAtomKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VectorAtomKind::PadAtom => write!(f, "'?'"),
+            VectorAtomKind::TargetAtom => write!(f, "'_'"),
+        }
+    }
 }
 
 //#[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]

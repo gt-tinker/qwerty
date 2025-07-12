@@ -15,6 +15,9 @@ from typing import Optional
 # up in compiler error tracebacks. See _cook_programmer_traceback() below
 EXCLUDE_ME_FROM_STACK_TRACE_PLEASE = 1
 
+# Mapping of DebugLocs to Frames
+_FRAME_MAP = {}
+
 class QwertyProgrammerError(Exception):
     def __init__(self, msg, dbg=None):
         self.dbg = dbg
@@ -41,7 +44,13 @@ class QwertySyntaxError(QwertyProgrammerError):
                          if dbg is not None and (col := dbg.get_col()) > 0
                          else msg, dbg)
 
-def _get_frame() -> Optional[FrameType]:
+def set_dbg_frame(dbg, frame):
+    global _FRAME_MAP
+
+    if dbg is not None and frame is not None and dbg not in _FRAME_MAP:
+        _FRAME_MAP[dbg] = frame
+
+def get_frame() -> Optional[FrameType]:
     """
     Used to capture the stack frame at the time ``convert_ast()`` is called,
     i.e., when ``@qpu`` is initially called. See
@@ -190,12 +199,15 @@ def _cook_programmer_traceback(f):
     details.
     """
 
+    global _FRAME_MAP
+
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
         except QwertyProgrammerError as e:
+            breakpoint()
             dbg = e.dbg
-            if dbg is not None and (frame := dbg.get_frame()) is not None:
+            if dbg is not None and (frame := _FRAME_MAP.get(dbg)) is not None:
                 frame = _strip_runtime_frames(frame)
                 tb = TracebackType(None, frame, -1, dbg.get_row())
             else:
