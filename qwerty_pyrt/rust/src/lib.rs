@@ -1,4 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
 use pyo3::{prelude::*, types::PyType, sync::GILOnceCell};
 use qwerty_ast::{ast, dbg, typecheck};
 
