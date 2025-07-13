@@ -1,6 +1,6 @@
-use std::fmt;
 use crate::ast::VectorAtomKind;
 use crate::dbg::DebugLoc;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeErrorKind {
@@ -23,6 +23,7 @@ pub enum TypeErrorKind {
     SpanMismatch,
     NotOrthogonal { left: String, right: String },
     InvalidQubitOperation(String),
+    NonReversibleOperationInReversibleFunction(String),
 }
 
 impl fmt::Display for TypeErrorKind {
@@ -51,6 +52,11 @@ impl fmt::Display for TypeErrorKind {
             // TODO: say something more specific than "constructs"?
             TypeErrorKind::NotOrthogonal { left, right } => write!(f, "The constructs '{left}' and '{right}' are not orthogonal."),
             TypeErrorKind::InvalidQubitOperation(op) => write!(f, "Invalid operation '{op}' performed on a qubit."),
+            TypeErrorKind::NonReversibleOperationInReversibleFunction(func_name) => write!(
+                f,
+                "Function '{}' is declared @reversible but contains non-reversible operations.",
+                func_name
+            ),
         }
     }
 }

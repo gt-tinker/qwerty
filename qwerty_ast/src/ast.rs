@@ -5,7 +5,6 @@
  * This module defines the Abstract Syntax Tree (AST) structures
  * used for parsing and representing QWERTY programs.
  *
- * Version: 1.0
  */
 
 use std::fmt;
@@ -18,7 +17,7 @@ use crate::dbg::DebugLoc;
 pub enum Type {
     FuncType { in_ty: Box<Type>, out_ty: Box<Type> },
     RevFuncType { in_out_ty: Box<Type> },
-    RegType { elem_ty: RegKind, dim: u64 },
+    RegType { elem_ty: RegKind, dim: u64 }, // TODO: dim: DimExpr instead of u64
     UnitType,
 }
 
@@ -1101,6 +1100,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    Expr(Expr),
     Assign {
         lhs: String,
         rhs: Expr,
@@ -1125,7 +1125,33 @@ pub struct FunctionDef {
     pub args: Vec<(Type, String)>,
     pub ret_type: Type,
     pub body: Vec<Stmt>,
+    pub is_rev: bool,
     pub dbg: Option<DebugLoc>,
+}
+
+impl FunctionDef {
+    pub fn new(
+        name: String,
+        args: Vec<(Type, String)>,
+        ret_type: Type,
+        body: Vec<Stmt>,
+        is_rev: bool, // passed from the parser
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            name,
+            args,
+            ret_type,
+            body,
+            is_rev,
+            dbg,
+        }
+    }
+
+    /// Returns true if the function was explicitly annotated as reversible.
+    pub fn is_reversible(&self) -> bool {
+        self.is_rev
+    }
 }
 
 // ----- Program -----
