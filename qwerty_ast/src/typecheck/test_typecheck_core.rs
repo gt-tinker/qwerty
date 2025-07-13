@@ -50,7 +50,7 @@ fn test_unpack_assign_typing() {
         }],
         dbg: None,
     };
-    
+
     // The environment must bind payload to a qubit[2] for this to pass
     let mut env = TypeEnv::new();
     env.insert_var(

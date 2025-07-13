@@ -100,12 +100,14 @@ pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
 
     // Single Pass: For each statement, check reversibility BEFORE updating environment
     for stmt in &func.body {
-        // 1. If function is marked reversible, check this statement's reversibility 
+        // 1. If function is marked reversible, check this statement's reversibility
         //    using the CURRENT environment state (before any updates from this statement)
         if is_annotated_reversible {
             if !check_stmt_reversibility(stmt, &env)? {
                 return Err(TypeError {
-                    kind: TypeErrorKind::NonReversibleOperationInReversibleFunction(func.name.clone()),
+                    kind: TypeErrorKind::NonReversibleOperationInReversibleFunction(
+                        func.name.clone(),
+                    ),
                     dbg: func.dbg.clone(),
                 });
             }
@@ -241,7 +243,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                         dbg: dbg.clone(),
                     })
                 }
-                
+
                 _ => Err(TypeError {
                     kind: TypeErrorKind::NotCallable(format!(
                         "Cannot take adjoint of non-function type: {:?}",
@@ -295,7 +297,11 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             // Qwerty: measurement returns classical result; basis must be valid.
             let basis_ty = typecheck_basis(basis, env)?; //  is it a legal quantum basis?
 
-            let basis_dim = if let Type::RegType { elem_ty: RegKind::Basis, dim } = basis_ty {
+            let basis_dim = if let Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim,
+            } = basis_ty
+            {
                 if dim > 0 {
                     Ok(dim)
                 } else {
@@ -452,7 +458,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             let t_ty = typecheck_expr(then_func, env)?;
             let e_ty = typecheck_expr(else_func, env)?;
             let _pred_ty = typecheck_basis(pred, env)?;
-            
+
             // Ensure both operands are reversible functions (Same signature required)
             match (&t_ty, &e_ty) {
                 (Type::RevFuncType { in_out_ty: t_in_out }, Type::RevFuncType { in_out_ty: e_in_out }) => {
@@ -487,7 +493,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                         dbg: None,
                     })
                 }
-                
+
                 (_, _) => {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
@@ -1091,11 +1097,11 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
 fn check_stmt_reversibility(stmt: &Stmt, env: &TypeEnv) -> Result<bool, TypeError> {
     match stmt {
         Stmt::Expr(expr) => is_expr_inherently_reversible(expr, &mut env.clone()),
-        
+
         Stmt::Assign { rhs, .. } => is_expr_inherently_reversible(rhs, &mut env.clone()),
-        
+
         Stmt::UnpackAssign { rhs, .. } => is_expr_inherently_reversible(rhs, &mut env.clone()),
-        
+
         Stmt::Return { val, .. } => {
             if !is_expr_inherently_reversible(val, &mut env.clone())? {
                 return Ok(false);
@@ -1103,7 +1109,10 @@ fn check_stmt_reversibility(stmt: &Stmt, env: &TypeEnv) -> Result<bool, TypeErro
             // A reversible function must return a quantum value (qubit register).
             let val_ty = typecheck_expr(val, &mut env.clone())?;
             match val_ty {
-                Type::RegType { elem_ty: RegKind::Qubit, .. } => Ok(true),
+                Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    ..
+                } => Ok(true),
                 _ => Ok(false),
             }
         }
@@ -1125,7 +1134,7 @@ fn is_expr_inherently_reversible(expr: &Expr, env: &mut TypeEnv) -> Result<bool,
             match rhs_ty {
                 Type::RevFuncType { .. } => Ok(true),
                 Type::FuncType { .. } => Ok(false), // Calling irreversible function breaks reversibility
-                _ => Ok(false), // Invalid function call
+                _ => Ok(false),                     // Invalid function call
             }
         }
 
@@ -1167,8 +1176,6 @@ fn is_expr_inherently_reversible(expr: &Expr, env: &mut TypeEnv) -> Result<bool,
         _ => Ok(true),
     }
 }
-
-
 
 //
 // ─── UNIT TESTS ─────────────────────────────────────────────────────────────────

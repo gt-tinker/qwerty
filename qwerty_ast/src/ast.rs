@@ -7,9 +7,9 @@
  *
  */
 
-use std::fmt;
-use std::cmp::Ordering;
 use crate::dbg::DebugLoc;
+use std::cmp::Ordering;
+use std::fmt;
 
 // ----- Types -----
 
@@ -1093,7 +1093,7 @@ pub enum Expr {
     QLit {
         qlit: QLit,
         dbg: Option<DebugLoc>,
-    }
+    },
 }
 
 // ----- Statements -----
