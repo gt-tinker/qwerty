@@ -1,4 +1,4 @@
-use pyo3::{prelude::*, types::PyType, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::GILOnceCell, types::PyType};
 use qwerty_ast::{ast, dbg, typecheck};
 
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -14,7 +14,9 @@ fn get_err<'py>(py: Python<'py>, msg: String, dbg: Option<dbg::DebugLoc>) -> PyE
     match err_ty_res {
         Err(err) => err,
         Ok(err_ty) => {
-            let dbg_wrapped = dbg.map(|ast_dbg| DebugLoc { dbg: ast_dbg.clone() });
+            let dbg_wrapped = dbg.map(|ast_dbg| DebugLoc {
+                dbg: ast_dbg.clone(),
+            });
             PyErr::from_type(err_ty.clone(), (msg, dbg_wrapped))
         }
     }

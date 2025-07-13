@@ -192,16 +192,33 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 
         Expr::Measure { basis, dbg: _ } => {
             // Qwerty: measurement returns classical result; basis must be valid.
-            typecheck_basis(basis, env)?; //  is it a legal quantum basis?
+            let basis_ty = typecheck_basis(basis, env)?; //  is it a legal quantum basis?
 
-            Ok(Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim: 1, // TODO: Make dynamic based on basis (Check with Austin about its validation)
-                        // Self Note (verify with Austin): Currently this measurement returns a single classical bit
-                        // But in real quantum programs, we might measure multiple qubits at once (e.g measuring a register of 3 qubits gives you 3 classical bits, ryt?)
-                        // The number of bits returned should depend on the size/dimension of the basis being measured
-                        // So, make 'dim' reflect the actual number of qubits measured, as determined by the basis argument
-                        // Need to understand and work on dimensions.. Discuss bro!
+            let basis_dim = if let Type::RegType { elem_ty: RegKind::Basis, dim } = basis_ty {
+                if dim > 0 {
+                    Ok(dim)
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::EmptyLiteral,
+                        dbg: basis.get_dbg().clone(),
+                    })
+                }
+            } else {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidBasis,
+                    dbg: basis.get_dbg().clone(),
+                })
+            }?;
+
+            Ok(Type::FuncType {
+                in_ty: Box::new(Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: basis_dim,
+                }),
+                out_ty: Box::new(Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: basis_dim,
+                }),
             })
         }
 
