@@ -1,3 +1,4 @@
+use crate::mlir::ast_to_mlir;
 use pyo3::{prelude::*, sync::GILOnceCell, types::PyType};
 use qwerty_ast::{ast, dbg, typecheck};
 
@@ -370,6 +371,8 @@ impl Program {
         num_shots: usize,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
         self.type_check(py)?;
+
+        ast_to_mlir(&self.program);
 
         let zero_bit = get_bit_reg(py, 0, 1)?;
         let counts = vec![(zero_bit, num_shots)];

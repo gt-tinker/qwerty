@@ -1,3 +1,4 @@
+mod mlir;
 mod wrap_ast;
 
 use pyo3::prelude::*;
