@@ -9,6 +9,15 @@ extern "C" {
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Qwerty, qwerty);
 
+/// Creates a qwerty::FunctionType
+MLIR_CAPI_EXPORTED MlirType mlirQwertyFunctionTypeGet(MlirContext ctx,
+                                                      MlirType function_type,
+                                                      bool reversible);
+
+/// Creates a qwerty::BitBundleType
+MLIR_CAPI_EXPORTED MlirType mlirQwertyBitBundleTypeGet(MlirContext ctx,
+                                                       uint64_t dim);
+
 #ifdef __cplusplus
 }
 #endif
