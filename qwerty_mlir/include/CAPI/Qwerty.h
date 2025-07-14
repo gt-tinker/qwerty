@@ -9,6 +9,8 @@ extern "C" {
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Qwerty, qwerty);
 
+// Types
+
 /// Creates a qwerty::FunctionType
 MLIR_CAPI_EXPORTED MlirType mlirQwertyFunctionTypeGet(MlirContext ctx,
                                                       MlirType function_type,
@@ -33,6 +35,34 @@ MLIR_CAPI_EXPORTED MlirType mlirQwertyQBundleTypeGet(MlirContext ctx,
 
 /// Returns true if this is a qwerty::QBundleType
 MLIR_CAPI_EXPORTED bool mlirTypeIsAQwertyQBundle(MlirType type);
+
+// Attributes
+
+/// Creates an qwerty::SuperposAttr containing the given list of
+/// qwerty::SuperposElemAttrs
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposAttrGet(
+    MlirContext ctx, intptr_t numElements, MlirAttribute const *elements);
+
+/// Returns true if this is a qwerty::SuperposAttr
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertySuperpos(MlirAttribute attr);
+
+/// Creates an qwerty::SuperposElemAttr containing the given list of
+/// qwerty::BasisVectorAttrs.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposElemAttrGet(
+        MlirContext ctx, MlirAttribute prob, MlirAttribute phase,
+        intptr_t numVectors, MlirAttribute const *vectors);
+
+/// Returns true if this is a qwerty::SuperposElemAttr
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertySuperposElem(MlirAttribute attr);
+
+/// Creates an qwerty::BasisVectorAttr. The eigenbits are passed as llvm::APInt
+/// expects in its "bigVal" constructor, which is little endian.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorAttrGet(
+        MlirContext ctx, int64_t prim_basis, uint64_t dim, bool hasPhase,
+        intptr_t numEigenbitChunks, uint64_t const *eigenbitChunks);
+
+/// Returns true if this is a qwerty::BasisVectorAttr
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr);
 
 #ifdef __cplusplus
 }

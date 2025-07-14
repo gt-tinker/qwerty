@@ -1,3 +1,4 @@
+use dashu::integer::UBig;
 use melior::{
     dialect::{arith, qcirc, qwerty, DialectHandle},
     ir::{
@@ -11,7 +12,7 @@ use melior::{
     Context,
 };
 use qwerty_ast::{
-    ast::{self, Expr, FunctionDef, Program, QLit, RegKind, Stmt},
+    ast::{self, angles_are_approx_equal, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Vector},
     dbg::DebugLoc,
 };
 use std::{collections::HashMap, sync::LazyLock};
@@ -155,10 +156,128 @@ fn mlir_f64_const(
     })
 }
 
+fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eigenstate, f64) {
+    match vec {
+        Vector::ZeroVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus, 0.0),
+
+        Vector::OneVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Minus, 0.0),
+
+        Vector::UniformVectorSuperpos { q1, q2, .. } => match (&**q1, &**q2) {
+            (Vector::ZeroVector { .. }, Vector::OneVector { .. }) => {
+                (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Plus, 0.0)
+            }
+            (Vector::ZeroVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
+                if angles_are_approx_equal(*angle_deg, 180.0)
+                    && matches!(**q, Vector::OneVector { .. }) =>
+            {
+                (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Minus, 0.0)
+            }
+            (Vector::OneVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
+                if angles_are_approx_equal(*angle_deg, 180.0)
+                    && matches!(**q, Vector::ZeroVector { .. }) =>
+            {
+                (
+                    qwerty::PrimitiveBasis::X,
+                    qwerty::Eigenstate::Minus,
+                    std::f64::consts::PI,
+                )
+            }
+            (
+                Vector::VectorTilt {
+                    q: q1,
+                    angle_deg: angle_deg1,
+                    ..
+                },
+                Vector::VectorTilt {
+                    q: q2,
+                    angle_deg: angle_deg2,
+                    ..
+                },
+            ) if angles_are_approx_equal(*angle_deg1, 180.0)
+                && angles_are_approx_equal(*angle_deg2, 180.0)
+                && matches!(**q1, Vector::ZeroVector { .. })
+                && matches!(**q2, Vector::OneVector { .. }) =>
+            {
+                (
+                    qwerty::PrimitiveBasis::X,
+                    qwerty::Eigenstate::Plus,
+                    std::f64::consts::PI,
+                )
+            }
+            _ => todo!("nontrivial superposition"),
+        },
+
+        // TODO: this function should operate on explicit vectors. other
+        //       code can handle shuffling for ? and _
+        Vector::PadVector { .. } | Vector::TargetVector { .. } => todo!("'?' and '_' lowering"),
+
+        // Should be removed by canonicalize()
+        Vector::VectorTilt { .. } | Vector::VectorTensor { .. } | Vector::VectorUnit { .. } => {
+            unreachable!("should have been removed by Vector::canonicalize()")
+        }
+    }
+}
+
+fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>, f64) {
+    let canon_vec = vec.canonicalize();
+    let mut vec_attrs = vec![];
+    let mut eigenbits = UBig::ZERO;
+    let mut prim_basis = None;
+    let mut dim = 0;
+
+    let (root_phase, root_vec) = if let Vector::VectorTilt { q, angle_deg, .. } = &canon_vec {
+        (deg_to_rad(*angle_deg), &**q)
+    } else {
+        (0.0, &canon_vec)
+    };
+    let mut phase = root_phase;
+
+    let vecs = if let Vector::VectorTensor { qs, .. } = root_vec {
+        qs.clone()
+    } else if let Vector::VectorUnit { .. } = root_vec {
+        vec![]
+    } else {
+        vec![canon_vec]
+    };
+
+    for v in &vecs {
+        let (v_prim_basis, v_eigenstate, v_phase) = ast_vec_to_mlir_helper(v);
+        if let Some(pb) = prim_basis {
+            if pb != v_prim_basis {
+                vec_attrs.push(qwerty::BasisVectorAttribute::new(
+                    &MLIR_CTX, pb, eigenbits, dim, false,
+                ));
+                eigenbits = UBig::ZERO;
+                prim_basis = Some(v_prim_basis);
+                dim = 0;
+            }
+        } else {
+            prim_basis = Some(v_prim_basis);
+        }
+
+        eigenbits <<= 1usize;
+        if v_eigenstate == qwerty::Eigenstate::Minus {
+            eigenbits |= 1usize;
+        }
+        phase += v_phase;
+        // For now, the dimension of everything understood by the helper is 1.
+        dim += 1;
+    }
+
+    if let Some(pb) = prim_basis {
+        vec_attrs.push(qwerty::BasisVectorAttribute::new(
+            &MLIR_CTX, pb, eigenbits, dim, false,
+        ));
+    }
+
+    (vec_attrs, phase)
+}
+
 // Convert a QLit to an mlir::Value. Returns None to handle the edge case []
 // (QubitUnit). That is, None does not indicate an error.
 fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static, 'static>> {
     let canon_qlit = qlit.canonicalize();
+
     match &canon_qlit {
         QLit::QubitUnit { dbg } => None,
 
@@ -234,7 +353,36 @@ fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static
             }
         }
 
-        _ => todo!(),
+        QLit::UniformSuperpos { q1, q2, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let (vecs1, phase1) = ast_vec_to_mlir(&q1.convert_to_basis_vector());
+            let (vecs2, phase2) = ast_vec_to_mlir(&q2.convert_to_basis_vector());
+            if vecs1.is_empty() || vecs2.is_empty() {
+                None
+            } else {
+                let uniform_prob = FloatAttribute::new(&MLIR_CTX, Type::float64(&MLIR_CTX), 0.5);
+                let elem1 = qwerty::SuperposElemAttribute::new(
+                    &MLIR_CTX,
+                    uniform_prob,
+                    FloatAttribute::new(&MLIR_CTX, Type::float64(&MLIR_CTX), phase1),
+                    &vecs1,
+                );
+                let elem2 = qwerty::SuperposElemAttribute::new(
+                    &MLIR_CTX,
+                    uniform_prob,
+                    FloatAttribute::new(&MLIR_CTX, Type::float64(&MLIR_CTX), phase2),
+                    &vecs2,
+                );
+                let sup = qwerty::SuperposAttribute::new(&MLIR_CTX, &[elem1, elem2]);
+                Some(
+                    block
+                        .append_operation(qwerty::superpos(&MLIR_CTX, sup, loc))
+                        .result(0)
+                        .unwrap()
+                        .into(),
+                )
+            }
+        }
     }
 }
 
@@ -245,7 +393,8 @@ fn ast_expr_to_mlir(
 ) -> Vec<Value<'static, 'static>> {
     match expr {
         Expr::QLit { qlit, dbg } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
-        _ => todo!(),
+
+        _ => todo!("expression"),
     }
 }
 
@@ -261,7 +410,7 @@ fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
         }
 
         // TODO: for now, unpacking bundles. for tomorrow, unpacking tuples too
-        Stmt::UnpackAssign { lhs, rhs, dbg: _ } => todo!(),
+        Stmt::UnpackAssign { lhs, rhs, dbg: _ } => todo!("unpack"),
 
         Stmt::Return { val, dbg } => {
             let vals = ast_expr_to_mlir(val, ctx, block);

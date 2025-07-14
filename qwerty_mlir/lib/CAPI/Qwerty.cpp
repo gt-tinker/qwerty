@@ -3,8 +3,11 @@
 #include "CAPI/Qwerty.h"
 #include "Qwerty/IR/QwertyDialect.h"
 #include "Qwerty/IR/QwertyTypes.h"
+#include "Qwerty/IR/QwertyAttributes.h"
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Qwerty, qwerty, qwerty::QwertyDialect)
+
+// Types
 
 MlirType mlirQwertyFunctionTypeGet(MlirContext ctx, MlirType function_type, bool reversible) {
     return wrap(qwerty::FunctionType::get(unwrap(ctx), llvm::cast<mlir::FunctionType>(unwrap(function_type)), reversible));
@@ -32,4 +35,59 @@ MlirType mlirQwertyQBundleTypeGet(MlirContext ctx, uint64_t dim) {
 
 bool mlirTypeIsAQwertyQBundle(MlirType type) {
     return llvm::isa<qwerty::QBundleType>(unwrap(type));
+}
+
+// Attributes
+
+MlirAttribute mlirQwertySuperposAttrGet(
+        MlirContext ctx, intptr_t numElements, MlirAttribute const *elements) {
+    llvm::SmallVector<mlir::Attribute> attrs;
+    (void)unwrapList(static_cast<size_t>(numElements), elements, attrs);
+
+    llvm::SmallVector<qwerty::SuperposElemAttr> elems;
+    for (mlir::Attribute attr : attrs) {
+        elems.push_back(llvm::cast<qwerty::SuperposElemAttr>(attr));
+    }
+
+    return wrap(qwerty::SuperposAttr::get(unwrap(ctx), elems));
+}
+
+bool mlirAttributeIsAQwertySuperpos(MlirAttribute attr) {
+    return llvm::isa<qwerty::SuperposAttr>(unwrap(attr));
+}
+
+MlirAttribute mlirQwertySuperposElemAttrGet(
+        MlirContext ctx, MlirAttribute prob, MlirAttribute phase,
+        intptr_t numVectors, MlirAttribute const *vectors) {
+    llvm::SmallVector<mlir::Attribute> attrs;
+    (void)unwrapList(static_cast<size_t>(numVectors), vectors, attrs);
+
+    llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
+    for (mlir::Attribute attr : attrs) {
+        vecs.push_back(llvm::cast<qwerty::BasisVectorAttr>(attr));
+    }
+
+    return wrap(qwerty::SuperposElemAttr::get(
+        unwrap(ctx),
+        llvm::cast<mlir::FloatAttr>(unwrap(prob)),
+        llvm::cast<mlir::FloatAttr>(unwrap(phase)),
+        vecs));
+}
+
+bool mlirAttributeIsAQwertySuperposElem(MlirAttribute attr) {
+    return llvm::isa<qwerty::SuperposElemAttr>(unwrap(attr));
+}
+
+MlirAttribute mlirQwertyBasisVectorAttrGet(
+        MlirContext ctx, int64_t prim_basis, uint64_t dim, bool hasPhase,
+        intptr_t numEigenbitChunks, uint64_t const *eigenbitChunks) {
+    llvm::ArrayRef<uint64_t> chunks(eigenbitChunks, numEigenbitChunks);
+    llvm::APInt eigenbits(dim, chunks);
+
+    return wrap(qwerty::BasisVectorAttr::get(
+        unwrap(ctx), static_cast<qwerty::PrimitiveBasis>(prim_basis), eigenbits, dim, hasPhase));
+}
+
+bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr) {
+    return llvm::isa<qwerty::BasisVectorAttr>(unwrap(attr));
 }

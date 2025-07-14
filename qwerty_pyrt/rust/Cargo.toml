@@ -9,6 +9,7 @@ name = "qwerty"
 crate-type = ["cdylib"]
 
 [dependencies]
+dashu = "0.4.2"
 pyo3 = { version = "0.25.0", features = ["abi3-py310"] }
 melior = { version = "0.25.0", path = "../../qwerty_melior/melior" }
 qwerty_ast = { version = "0.1.0", path = "../../qwerty_ast" }
