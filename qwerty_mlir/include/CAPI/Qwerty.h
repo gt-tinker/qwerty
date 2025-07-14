@@ -88,6 +88,9 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisAttrGet(
 /// Returns true if this is a qwerty::BasisAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasis(MlirAttribute attr);
 
+/// Calls qwerty::BasisAttr::getDim()
+MLIR_CAPI_EXPORTED uint64_t mlirQwertyBasisAttrGetDim(MlirAttribute attr);
+
 #ifdef __cplusplus
 }
 #endif

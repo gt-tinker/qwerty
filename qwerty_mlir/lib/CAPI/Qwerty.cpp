@@ -135,3 +135,7 @@ MlirAttribute mlirQwertyBasisAttrGet(
 bool mlirAttributeIsAQwertyBasis(MlirAttribute attr) {
     return llvm::isa<qwerty::BasisAttr>(unwrap(attr));
 }
+
+uint64_t mlirQwertyBasisAttrGetDim(MlirAttribute attr) {
+    llvm::cast<qwerty::BasisAttr>(unwrap(attr)).getDim();
+}
