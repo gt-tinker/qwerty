@@ -12,7 +12,10 @@ use melior::{
     Context,
 };
 use qwerty_ast::{
-    ast::{self, angles_are_approx_equal, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Vector},
+    ast::{
+        self, angles_are_approx_equal, Basis, Expr, FunctionDef, Program, QLit, RegKind, Stmt,
+        Vector,
+    },
     dbg::DebugLoc,
 };
 use std::{collections::HashMap, sync::LazyLock};
@@ -122,6 +125,10 @@ fn deg_to_rad(angle_deg: f64) -> f64 {
     angle_deg / 360.0 * 2.0 * std::f64::consts::PI
 }
 
+fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64>) {
+    todo!("basis")
+}
+
 /// Creates a wrapper quantum.calc op for the operation(s) of your choosing.
 fn mlir_wrap_calc<F>(
     root_block: &Block<'static>,
@@ -162,6 +169,43 @@ fn mlir_f64_const(
             .unwrap()
             .into()
     })
+}
+
+fn mlir_wrap_lambda<F>(
+    in_tys: &[ir::Type<'static>],
+    out_tys: &[ir::Type<'static>],
+    is_rev: bool,
+    loc: Location<'static>,
+    block: &Block<'static>,
+    f: F,
+) -> Vec<Value<'static, 'static>>
+where
+    F: FnOnce(&Block<'static>) -> Vec<Value<'static, 'static>>,
+{
+    let lambda_ty = qwerty::FunctionType::new(
+        &MLIR_CTX,
+        FunctionType::new(&MLIR_CTX, in_tys, out_tys),
+        is_rev,
+    );
+
+    let lambda_block = Block::new(
+        &in_tys
+            .iter()
+            .map(|arg_ty| (*arg_ty, loc))
+            .collect::<Vec<_>>(),
+    );
+    let vals_to_yield = f(&lambda_block);
+    lambda_block.append_operation(qwerty::r#return(&vals_to_yield, loc));
+
+    let lambda_region = Region::new();
+    lambda_region.append_block(lambda_block);
+
+    let captures = &[];
+    block
+        .append_operation(qwerty::lambda(captures, lambda_ty, lambda_region, loc))
+        .results()
+        .map(OperationResult::into)
+        .collect()
 }
 
 /// Determines the primitive basis, eigenstate, and phase for a basis vector.
@@ -416,6 +460,32 @@ fn ast_expr_to_mlir(
                 .results()
                 .map(OperationResult::into)
                 .collect()
+        }
+
+        Expr::Measure { basis, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let (basis_attr, _basis_phases) = ast_basis_to_mlir(basis);
+            let dim = basis_attr.get_dim();
+
+            let lambda_in_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
+            let lambda_out_tys = &[qwerty::BitBundleType::new(&MLIR_CTX, dim).into()];
+            let is_rev = false;
+            mlir_wrap_lambda(
+                lambda_in_tys,
+                lambda_out_tys,
+                is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    assert_eq!(block.argument_count(), 1);
+                    let qbundle_in = block.argument(0).unwrap().into();
+                    lambda_block
+                        .append_operation(qwerty::qbmeas(&MLIR_CTX, basis_attr, qbundle_in, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect()
+                },
+            )
         }
 
         Expr::QLit { qlit, dbg } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
