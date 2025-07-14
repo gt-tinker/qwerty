@@ -350,7 +350,7 @@ class BaseVisitor:
         #              body)
 
         generated_func_name = self.name_generator(func_name)
-        return FunctionDef(generated_func_name, args, ret_type, body, dbg)
+        return FunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
 
     def visit_List(self, nodes: List[ast.AST]):
         """

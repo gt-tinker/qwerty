@@ -309,6 +309,7 @@ impl FunctionDef {
         args: Vec<(Type, String)>,
         ret_type: Type,
         body: Vec<Stmt>,
+        is_rev: bool,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
@@ -320,6 +321,7 @@ impl FunctionDef {
                     .collect(),
                 ret_type: ret_type.ty.clone(),
                 body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
+                is_rev,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
