@@ -1100,7 +1100,10 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Expr(Expr),
+    Expr {
+        expr: Expr,
+        dbg: Option<DebugLoc>,
+    },
     Assign {
         lhs: String,
         rhs: Expr,
@@ -1152,6 +1155,34 @@ impl FunctionDef {
     pub fn is_reversible(&self) -> bool {
         self.is_rev
     }
+
+    /// Reconstructs the full function type (FuncType or RevFuncType) from the
+    /// FunctionDef's arguments, value return type, and reversibility flag.
+    pub fn get_type(&self) -> Type {
+        let in_ty = if self.args.is_empty() {
+            Type::UnitType
+        } else if self.args.len() == 1 {
+            self.args[0].0.clone()
+        } else {
+            // TODO: For now, if multiple arguments are present and TupleType is not used,
+            // we take the type of the first argument. This needs to be refined
+            // when proper multi-argument function types are introduced (e.g. via TupleType).
+            // TODO: Should fail? Ask Austin
+            self.args[0].0.clone()
+        };
+
+        if self.is_rev {
+            Type::RevFuncType {
+                in_out_ty: Box::new(self.ret_type.clone()),
+            }
+        } else {
+            Type::FuncType {
+                in_ty: Box::new(in_ty),
+                out_ty: Box::new(self.ret_type.clone()),
+            }
+        }
+    }
+
 }
 
 // ----- Program -----

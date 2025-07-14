@@ -51,33 +51,6 @@ pub fn typecheck_program(prog: &Program) -> Result<(), TypeError> {
     Ok(())
 }
 
-/// Helper function to reconstruct the full function type (FuncType or RevFuncType)
-/// from the FunctionDef's arguments, value return type, and reversibility flag.
-fn get_function_type(func: &FunctionDef) -> Type {
-    let in_ty = if func.args.is_empty() {
-        Type::UnitType
-    } else if func.args.len() == 1 {
-        func.args[0].0.clone()
-    } else {
-        // TODO: For now, if multiple arguments are present and TupleType is not used,
-        // we take the type of the first argument. This needs to be refined
-        // when proper multi-argument function types are introduced (e.g. via TupleType).
-        // TODO: Should fail? Ask Austin
-        func.args[0].0.clone()
-    };
-
-    if func.is_rev {
-        Type::RevFuncType {
-            in_out_ty: Box::new(func.ret_type.clone()),
-        }
-    } else {
-        Type::FuncType {
-            in_ty: Box::new(in_ty),
-            out_ty: Box::new(func.ret_type.clone()),
-        }
-    }
-}
-
 /// Typechecks a single function and its body, including reversibility validation.
 pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
     let mut env = TypeEnv::new();
@@ -88,7 +61,7 @@ pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
     }
 
     // Reconstruct and bind the function type for higher-order use (e.g. Adjoint, pipes)
-    let full_func_type = get_function_type(func);
+    let full_func_type = func.get_type();
 
     // CRITICAL FIX: Bind the full function type into the environment under the function's name.
     // This allows expressions like `Adjoint(my_func)` or `q | my_func` to lookup `my_func`
@@ -133,7 +106,7 @@ pub fn typecheck_stmt(
     expected_ret_type: &Type,
 ) -> Result<(), TypeError> {
     match stmt {
-        Stmt::Expr(expr) => {
+        Stmt::Expr { expr, dbg: _ } => {
             typecheck_expr(expr, env)?;
             Ok(())
         }
@@ -1096,7 +1069,7 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
 /// Checks each statement before updating the environment
 fn check_stmt_reversibility(stmt: &Stmt, env: &TypeEnv) -> Result<bool, TypeError> {
     match stmt {
-        Stmt::Expr(expr) => is_expr_inherently_reversible(expr, &mut env.clone()),
+        Stmt::Expr { expr, .. } => is_expr_inherently_reversible(expr, &mut env.clone()),
 
         Stmt::Assign { rhs, .. } => is_expr_inherently_reversible(rhs, &mut env.clone()),
 
