@@ -91,3 +91,47 @@ MlirAttribute mlirQwertyBasisVectorAttrGet(
 bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr) {
     return llvm::isa<qwerty::BasisVectorAttr>(unwrap(attr));
 }
+
+MlirAttribute mlirQwertyBasisVectorListAttrGet(
+        MlirContext ctx, intptr_t numVectors, MlirAttribute const *vectors) {
+    llvm::SmallVector<mlir::Attribute> attrs;
+    (void)unwrapList(static_cast<size_t>(numVectors), vectors, attrs);
+
+    llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
+    for (mlir::Attribute attr : attrs) {
+        vecs.push_back(llvm::cast<qwerty::BasisVectorAttr>(attr));
+    }
+
+    return wrap(qwerty::BasisVectorListAttr::get(unwrap(ctx), vecs));
+}
+
+bool mlirAttributeIsAQwertyBasisVectorList(MlirAttribute attr) {
+    return llvm::isa<qwerty::BasisVectorListAttr>(unwrap(attr));
+}
+
+MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
+        MlirContext ctx, MlirAttribute veclist) {
+    return wrap(qwerty::BasisElemAttr::get(
+        unwrap(ctx), llvm::cast<qwerty::BasisVectorListAttr>(unwrap(veclist))));
+}
+
+bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr) {
+    return llvm::isa<qwerty::BasisElemAttr>(unwrap(attr));
+}
+
+MlirAttribute mlirQwertyBasisAttrGet(
+        MlirContext ctx, intptr_t numElems, MlirAttribute const *elems) {
+    llvm::SmallVector<mlir::Attribute> attrs;
+    (void)unwrapList(static_cast<size_t>(numElems), elems, attrs);
+
+    llvm::SmallVector<qwerty::BasisElemAttr> elemAttrs;
+    for (mlir::Attribute attr : attrs) {
+        elemAttrs.push_back(llvm::cast<qwerty::BasisElemAttr>(attr));
+    }
+
+    return wrap(qwerty::BasisAttr::get(unwrap(ctx), elemAttrs));
+}
+
+bool mlirAttributeIsAQwertyBasis(MlirAttribute attr) {
+    return llvm::isa<qwerty::BasisAttr>(unwrap(attr));
+}

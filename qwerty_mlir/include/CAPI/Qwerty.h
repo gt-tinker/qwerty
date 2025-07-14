@@ -39,11 +39,11 @@ MLIR_CAPI_EXPORTED bool mlirTypeIsAQwertyQBundle(MlirType type);
 // Attributes
 
 /// Creates an qwerty::SuperposAttr containing the given list of
-/// qwerty::SuperposElemAttrs
+/// qwerty::SuperposElemAttrs.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposAttrGet(
     MlirContext ctx, intptr_t numElements, MlirAttribute const *elements);
 
-/// Returns true if this is a qwerty::SuperposAttr
+/// Returns true if this is a qwerty::SuperposAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertySuperpos(MlirAttribute attr);
 
 /// Creates an qwerty::SuperposElemAttr containing the given list of
@@ -52,7 +52,7 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposElemAttrGet(
         MlirContext ctx, MlirAttribute prob, MlirAttribute phase,
         intptr_t numVectors, MlirAttribute const *vectors);
 
-/// Returns true if this is a qwerty::SuperposElemAttr
+/// Returns true if this is a qwerty::SuperposElemAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertySuperposElem(MlirAttribute attr);
 
 /// Creates an qwerty::BasisVectorAttr. The eigenbits are passed as llvm::APInt
@@ -63,6 +63,30 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorAttrGet(
 
 /// Returns true if this is a qwerty::BasisVectorAttr
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr);
+
+/// Creates an qwerty::BasisVectorListAttr containing the given list of
+/// qwerty::BasisVectorAttrs.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorListAttrGet(
+        MlirContext ctx, intptr_t numVectors, MlirAttribute const *vectors);
+
+/// Returns true if this is a qwerty::BasisVectorListAttr.
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVectorList(MlirAttribute attr);
+
+/// Creates an qwerty::BasisElemAttr from the qwerty::BasisVectorListAttr
+/// provided.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
+        MlirContext ctx, MlirAttribute veclist);
+
+/// Returns true if this is a qwerty::BasisElemAttr.
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr);
+
+/// Creates an qwerty::BasisAttr containing the given list of
+/// qwerty::BasisVectorAttrs.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisAttrGet(
+        MlirContext ctx, intptr_t numElems, MlirAttribute const *elems);
+
+/// Returns true if this is a qwerty::BasisAttr.
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasis(MlirAttribute attr);
 
 #ifdef __cplusplus
 }
