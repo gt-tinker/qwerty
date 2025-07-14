@@ -397,7 +397,7 @@ fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static
     }
 }
 
-/// Converts an AST Expr node to mlir::Values by inserting ops in the provided
+/// Converts an AST Expr node to mlir::Values by appending ops to the provided
 /// block.
 fn ast_expr_to_mlir(
     expr: &Expr,
@@ -405,13 +405,26 @@ fn ast_expr_to_mlir(
     block: &Block<'static>,
 ) -> Vec<Value<'static, 'static>> {
     match expr {
+        Expr::Pipe { lhs, rhs, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let lhs_vals = ast_expr_to_mlir(&**lhs, ctx, block);
+            let rhs_vals = ast_expr_to_mlir(&**rhs, ctx, block);
+            assert_eq!(rhs_vals.len(), 1);
+            let callee_val = rhs_vals[0];
+            block
+                .append_operation(qwerty::call_indirect(callee_val, &lhs_vals, loc))
+                .results()
+                .map(OperationResult::into)
+                .collect()
+        }
+
         Expr::QLit { qlit, dbg } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
 
         _ => todo!("expression"),
     }
 }
 
-/// Inserts ops that implement an AST Stmt node into the provided block.
+/// Append ops that implement an AST Stmt node to the provided block.
 fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
     match stmt {
         Stmt::Expr { expr, dbg: _ } => {
