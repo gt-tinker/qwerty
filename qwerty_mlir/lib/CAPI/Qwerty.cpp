@@ -92,6 +92,10 @@ bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr) {
     return llvm::isa<qwerty::BasisVectorAttr>(unwrap(attr));
 }
 
+bool mlirQwertyBasisVectorAttrGetHasPhase(MlirAttribute attr) {
+    return llvm::cast<qwerty::BasisVectorAttr>(unwrap(attr)).getHasPhase();
+}
+
 MlirAttribute mlirQwertyBasisVectorListAttrGet(
         MlirContext ctx, intptr_t numVectors, MlirAttribute const *vectors) {
     llvm::SmallVector<mlir::Attribute> attrs;
@@ -137,5 +141,5 @@ bool mlirAttributeIsAQwertyBasis(MlirAttribute attr) {
 }
 
 uint64_t mlirQwertyBasisAttrGetDim(MlirAttribute attr) {
-    llvm::cast<qwerty::BasisAttr>(unwrap(attr)).getDim();
+    return llvm::cast<qwerty::BasisAttr>(unwrap(attr)).getDim();
 }

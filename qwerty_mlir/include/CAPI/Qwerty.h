@@ -64,6 +64,10 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorAttrGet(
 /// Returns true if this is a qwerty::BasisVectorAttr
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr);
 
+/// Calls qwerty::BasisVectorAttr::getHasPhase(), which experts have called the
+/// greatest-named method of all time.
+MLIR_CAPI_EXPORTED bool mlirQwertyBasisVectorAttrGetHasPhase(MlirAttribute attr);
+
 /// Creates an qwerty::BasisVectorListAttr containing the given list of
 /// qwerty::BasisVectorAttrs.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorListAttrGet(

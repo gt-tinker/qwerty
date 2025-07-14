@@ -13,8 +13,8 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, angles_are_approx_equal, Basis, Expr, FunctionDef, Program, QLit, RegKind, Stmt,
-        Vector,
+        self, angle_is_approx_zero, angles_are_approx_equal, Basis, Expr, FunctionDef, Program,
+        QLit, RegKind, Stmt, Vector,
     },
     dbg::DebugLoc,
 };
@@ -125,10 +125,6 @@ fn deg_to_rad(angle_deg: f64) -> f64 {
     angle_deg / 360.0 * 2.0 * std::f64::consts::PI
 }
 
-fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64>) {
-    todo!("basis")
-}
-
 /// Creates a wrapper quantum.calc op for the operation(s) of your choosing.
 fn mlir_wrap_calc<F>(
     root_block: &Block<'static>,
@@ -171,6 +167,7 @@ fn mlir_f64_const(
     })
 }
 
+/// Creates a wrapper qwerty.lambda op for some operations of your choosing.
 fn mlir_wrap_lambda<F>(
     in_tys: &[ir::Type<'static>],
     out_tys: &[ir::Type<'static>],
@@ -299,8 +296,11 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
         let (v_prim_basis, v_eigenstate, v_phase) = ast_vec_to_mlir_helper(v);
         if let Some(pb) = prim_basis {
             if pb != v_prim_basis {
+                // Set has_phase=true only on the last BasisVectorAttr if we
+                // end up having a nonzero phase
+                let has_phase = false;
                 vec_attrs.push(qwerty::BasisVectorAttribute::new(
-                    &MLIR_CTX, pb, eigenbits, dim, false,
+                    &MLIR_CTX, pb, eigenbits, dim, has_phase,
                 ));
                 eigenbits = UBig::ZERO;
                 prim_basis = Some(v_prim_basis);
@@ -320,12 +320,55 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     }
 
     if let Some(pb) = prim_basis {
+        let has_phase = !angle_is_approx_zero(phase);
         vec_attrs.push(qwerty::BasisVectorAttribute::new(
-            &MLIR_CTX, pb, eigenbits, dim, false,
+            &MLIR_CTX, pb, eigenbits, dim, has_phase,
         ));
     }
 
     (vec_attrs, phase)
+}
+
+/// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
+/// of phases which correspond one-to-one with any vectors that have
+/// hasPhase==true.
+fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64>) {
+    let canon_basis = basis.canonicalize();
+    let basis_elements = match basis {
+        Basis::BasisLiteral { .. } => vec![canon_basis.clone()],
+        Basis::EmptyBasisLiteral { .. } => vec![],
+        Basis::BasisTensor { bases, .. } => bases.clone(),
+    };
+
+    let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
+        .iter()
+        .map(|elem| {
+            match elem {
+                Basis::BasisLiteral { vecs, .. } => {
+                    let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
+                        let (vec_attrs, phase) = ast_vec_to_mlir(vec);
+                        // TODO: Fix this
+                        assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
+                        let vec_attr = vec_attrs[0];
+                        let phase_opt = if vec_attr.has_phase() {
+                            Some(phase)
+                        } else {
+                            None
+                        };
+                        (vec_attr, phase_opt)
+                    }).unzip();
+                    let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
+                    (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
+                },
+
+                Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
+            }
+        })
+        .unzip();
+
+    let basis_attr = qwerty::BasisAttribute::new(&MLIR_CTX, &elems);
+    let phases = phases.iter().flatten().filter_map(|opt| *opt).collect();
+    (basis_attr, phases)
 }
 
 /// Converts a QLit to an mlir::Value. Returns None to handle the edge case []
@@ -334,7 +377,7 @@ fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static
     let canon_qlit = qlit.canonicalize();
 
     match &canon_qlit {
-        QLit::QubitUnit { dbg } => None,
+        QLit::QubitUnit { .. } => None,
 
         QLit::ZeroQubit { dbg } => {
             let loc = dbg_to_loc(dbg.clone());
@@ -477,8 +520,8 @@ fn ast_expr_to_mlir(
                 loc,
                 block,
                 |lambda_block| {
-                    assert_eq!(block.argument_count(), 1);
-                    let qbundle_in = block.argument(0).unwrap().into();
+                    assert_eq!(lambda_block.argument_count(), 1);
+                    let qbundle_in = lambda_block.argument(0).unwrap().into();
                     lambda_block
                         .append_operation(qwerty::qbmeas(&MLIR_CTX, basis_attr, qbundle_in, loc))
                         .results()
@@ -488,7 +531,7 @@ fn ast_expr_to_mlir(
             )
         }
 
-        Expr::QLit { qlit, dbg } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
+        Expr::QLit { qlit, .. } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
 
         _ => todo!("expression"),
     }
@@ -507,7 +550,7 @@ fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
         }
 
         // TODO: for now, unpacking bundles. for tomorrow, unpacking tuples too
-        Stmt::UnpackAssign { lhs, rhs, dbg: _ } => todo!("unpack"),
+        Stmt::UnpackAssign { .. } => todo!("unpack"),
 
         Stmt::Return { val, dbg } => {
             let vals = ast_expr_to_mlir(val, ctx, block);
