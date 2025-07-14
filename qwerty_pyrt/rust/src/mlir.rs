@@ -17,6 +17,7 @@ use qwerty_ast::{
 };
 use std::{collections::HashMap, sync::LazyLock};
 
+/// Holds the MLIR context in static memory, initializing it on first use.
 static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
     let ctx = Context::new();
 
@@ -37,6 +38,7 @@ static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
     ctx
 });
 
+/// Converts an AST debug location to an mlir::Location.
 fn dbg_to_loc(dbg: Option<DebugLoc>) -> Location<'static> {
     dbg.map_or_else(
         || Location::unknown(&MLIR_CTX),
@@ -44,6 +46,8 @@ fn dbg_to_loc(dbg: Option<DebugLoc>) -> Location<'static> {
     )
 }
 
+/// Converts AST types to mlir::Types. Returns a vec to account for tuples,
+/// which will be represented by multiple MLIR values.
 fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
     match ty {
         ast::Type::FuncType { in_ty, out_ty } => {
@@ -94,6 +98,7 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
     }
 }
 
+/// Returns the type of a FunctionDef AST node as an mlir::Type.
 fn ast_func_mlir_ty(func_def: &FunctionDef) -> ir::Type<'static> {
     let mlir_tys = ast_ty_to_mlir_tys(&func_def.get_type());
     assert_eq!(mlir_tys.len(), 1);
@@ -112,10 +117,12 @@ impl Ctx {
     }
 }
 
+/// Converts degrees (used in the AST) to radians (used in MLIR)
 fn deg_to_rad(angle_deg: f64) -> f64 {
     angle_deg / 360.0 * 2.0 * std::f64::consts::PI
 }
 
+/// Creates a wrapper quantum.calc op for the operation(s) of your choosing.
 fn mlir_wrap_calc<F>(
     root_block: &Block<'static>,
     loc: Location<'static>,
@@ -138,6 +145,7 @@ where
         .into()
 }
 
+/// Returns an f64 mlir::Value defined inside a quantum.calc op.
 fn mlir_f64_const(
     theta: f64,
     loc: Location<'static>,
@@ -156,6 +164,8 @@ fn mlir_f64_const(
     })
 }
 
+/// Determines the primitive basis, eigenstate, and phase for a basis vector.
+/// Will break horribly if not run on a canonicalized vector.
 fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eigenstate, f64) {
     match vec {
         Vector::ZeroVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus, 0.0),
@@ -218,6 +228,7 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
     }
 }
 
+/// Returns a sequence of qwerty::BasisVectorAttrs for an AST Vector node.
 fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>, f64) {
     let canon_vec = vec.canonicalize();
     let mut vec_attrs = vec![];
@@ -273,8 +284,8 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     (vec_attrs, phase)
 }
 
-// Convert a QLit to an mlir::Value. Returns None to handle the edge case []
-// (QubitUnit). That is, None does not indicate an error.
+/// Converts a QLit to an mlir::Value. Returns None to handle the edge case []
+/// (QubitUnit). That is, None does not indicate an error.
 fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static, 'static>> {
     let canon_qlit = qlit.canonicalize();
 
@@ -386,6 +397,8 @@ fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static
     }
 }
 
+/// Converts an AST Expr node to mlir::Values by inserting ops in the provided
+/// block.
 fn ast_expr_to_mlir(
     expr: &Expr,
     ctx: &Ctx,
@@ -398,6 +411,7 @@ fn ast_expr_to_mlir(
     }
 }
 
+/// Inserts ops that implement an AST Stmt node into the provided block.
 fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
     match stmt {
         Stmt::Expr { expr, dbg: _ } => {
@@ -420,7 +434,8 @@ fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
     }
 }
 
-pub fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
+/// Converts an AST FunctionDef node into a qwerty::function op.
+fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
     let func_ty = ast_func_mlir_ty(func_def);
     let func_ty_attr = TypeAttribute::new(func_ty);
@@ -441,23 +456,6 @@ pub fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
         ast_stmt_to_mlir(stmt, &mut ctx, &func_block);
     }
 
-    // TODO: use actual node locs
-    //let const0 = func_block
-    //    .append_operation(arith::constant(
-    //        &MLIR_CTX,
-    //        IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 1).into(), 0).into(),
-    //        func_loc,
-    //    ))
-    //    .result(0)
-    //    .unwrap()
-    //    .into();
-    //let bundle = func_block
-    //    .append_operation(qwerty::bitpack(&[const0], func_loc))
-    //    .result(0)
-    //    .unwrap()
-    //    .into();
-    //func_block.append_operation(qwerty::r#return(&[bundle], func_loc));
-
     let func_region = Region::new();
     func_region.append_block(func_block);
 
@@ -471,6 +469,7 @@ pub fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
     )
 }
 
+/// Converts a Qwerty AST into an mlir::ModuleOp.
 pub fn ast_program_to_mlir(prog: &Program) -> Module {
     let loc = dbg_to_loc(prog.dbg.clone());
     let module = Module::new(loc);
