@@ -3,6 +3,7 @@ use melior::{
     ir::{
         self,
         attribute::{FloatAttribute, IntegerAttribute, StringAttribute, TypeAttribute},
+        operation::OperationResult,
         r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
         Value, ValueLike,
@@ -154,26 +155,82 @@ fn mlir_f64_const(
     })
 }
 
+// Convert a QLit to an mlir::Value. Returns None to handle the edge case []
+// (QubitUnit). That is, None does not indicate an error.
 fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static, 'static>> {
     let canon_qlit = qlit.canonicalize();
     match &canon_qlit {
-        QLit::QubitTilt { q, angle_deg, dbg } => {
-            // Edge case: []@42, in which case we have no way to apply
-            // that tilt and ignore it. This simple check works because
-            // canonicalize() guarantees that there are no tensor
-            // products of units or nested tilts.
-            if let QLit::QubitUnit { .. } = **q {
+        QLit::QubitUnit { dbg } => None,
+
+        QLit::ZeroQubit { dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let dim = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), 1);
+            Some(
+                block
+                    .append_operation(qwerty::qbprep(
+                        &MLIR_CTX,
+                        qwerty::PrimitiveBasis::Z,
+                        qwerty::Eigenstate::Plus,
+                        dim,
+                        loc,
+                    ))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            )
+        }
+
+        QLit::OneQubit { dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let dim = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), 1);
+            Some(
+                block
+                    .append_operation(qwerty::qbprep(
+                        &MLIR_CTX,
+                        qwerty::PrimitiveBasis::Z,
+                        qwerty::Eigenstate::Minus,
+                        dim,
+                        loc,
+                    ))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            )
+        }
+
+        QLit::QubitTilt { q, angle_deg, dbg } => ast_qlit_to_mlir(&**q, block).map(|q_val| {
+            let loc = dbg_to_loc(dbg.clone());
+            let theta_val = mlir_f64_const(deg_to_rad(*angle_deg), loc, block);
+            block
+                .append_operation(qwerty::qbphase(theta_val, q_val, loc))
+                .result(0)
+                .unwrap()
+                .into()
+        }),
+
+        QLit::QubitTensor { qs, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let qubits: Vec<_> = qs
+                .iter()
+                .filter_map(|q| ast_qlit_to_mlir(q, block))
+                .flat_map(|q| {
+                    block
+                        .append_operation(qwerty::qbunpack(q, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            if qubits.is_empty() {
                 None
             } else {
-                ast_qlit_to_mlir(&**q, block).map(|q_val| {
-                    let loc = dbg_to_loc(dbg.clone());
-                    let theta_val = mlir_f64_const(deg_to_rad(*angle_deg), loc, block);
+                Some(
                     block
-                        .append_operation(qwerty::qbphase(theta_val, q_val, loc))
+                        .append_operation(qwerty::qbpack(&qubits, loc))
                         .result(0)
                         .unwrap()
-                        .into()
-                })
+                        .into(),
+                )
             }
         }
 
