@@ -1,18 +1,19 @@
 use melior::{
-    dialect::{arith, qwerty, DialectHandle},
+    dialect::{arith, qcirc, qwerty, DialectHandle},
     ir::{
         self,
-        attribute::{IntegerAttribute, StringAttribute, TypeAttribute},
+        attribute::{FloatAttribute, IntegerAttribute, StringAttribute, TypeAttribute},
         r#type::{FunctionType, IntegerType},
-        Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Value
+        Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
+        Value, ValueLike,
     },
     Context,
 };
 use qwerty_ast::{
-    ast::{self, FunctionDef, Program, RegKind, Expr, Stmt},
+    ast::{self, Expr, FunctionDef, Program, QLit, RegKind, Stmt},
     dbg::DebugLoc,
 };
-use std::{sync::LazyLock, collections::HashMap};
+use std::{collections::HashMap, sync::LazyLock};
 
 static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
     let ctx = Context::new();
@@ -103,19 +104,95 @@ struct Ctx {
 
 impl Ctx {
     fn new() -> Self {
-        Self { bindings: HashMap::new() }
+        Self {
+            bindings: HashMap::new(),
+        }
     }
 }
 
-fn ast_expr_to_mlir(expr: &Expr, ctx: &Ctx, block: &Block) -> Vec<Value<'static, 'static>> {
-    match expr {
-        // TODO: left off here
-        Expr::QLit { qlit, dbg } => todo!(),
+fn deg_to_rad(angle_deg: f64) -> f64 {
+    angle_deg / 360.0 * 2.0 * std::f64::consts::PI
+}
+
+fn mlir_wrap_calc<F>(
+    root_block: &Block<'static>,
+    loc: Location<'static>,
+    f: F,
+) -> Value<'static, 'static>
+where
+    F: FnOnce(&Block<'static>) -> Value<'static, 'static>,
+{
+    let calc_block = Block::new(&[]);
+    let val_to_yield = f(&calc_block);
+    calc_block.append_operation(qcirc::calc_yield(&[val_to_yield], loc));
+
+    let calc_region = Region::new();
+    calc_region.append_block(calc_block);
+
+    root_block
+        .append_operation(qcirc::calc(calc_region, &[val_to_yield.r#type()], loc))
+        .result(0)
+        .unwrap()
+        .into()
+}
+
+fn mlir_f64_const(
+    theta: f64,
+    loc: Location<'static>,
+    root_block: &Block<'static>,
+) -> Value<'static, 'static> {
+    mlir_wrap_calc(root_block, loc, |block| {
+        block
+            .append_operation(arith::constant(
+                &MLIR_CTX,
+                FloatAttribute::new(&MLIR_CTX, Type::float64(&MLIR_CTX), theta).into(),
+                loc,
+            ))
+            .result(0)
+            .unwrap()
+            .into()
+    })
+}
+
+fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static, 'static>> {
+    let canon_qlit = qlit.canonicalize();
+    match &canon_qlit {
+        QLit::QubitTilt { q, angle_deg, dbg } => {
+            // Edge case: []@42, in which case we have no way to apply
+            // that tilt and ignore it. This simple check works because
+            // canonicalize() guarantees that there are no tensor
+            // products of units or nested tilts.
+            if let QLit::QubitUnit { .. } = **q {
+                None
+            } else {
+                ast_qlit_to_mlir(&**q, block).map(|q_val| {
+                    let loc = dbg_to_loc(dbg.clone());
+                    let theta_val = mlir_f64_const(deg_to_rad(*angle_deg), loc, block);
+                    block
+                        .append_operation(qwerty::qbphase(theta_val, q_val, loc))
+                        .result(0)
+                        .unwrap()
+                        .into()
+                })
+            }
+        }
+
         _ => todo!(),
     }
 }
 
-fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block) {
+fn ast_expr_to_mlir(
+    expr: &Expr,
+    ctx: &Ctx,
+    block: &Block<'static>,
+) -> Vec<Value<'static, 'static>> {
+    match expr {
+        Expr::QLit { qlit, dbg } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
+        _ => todo!(),
+    }
+}
+
+fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
     match stmt {
         Stmt::Expr { expr, dbg: _ } => {
             ast_expr_to_mlir(expr, ctx, block);
@@ -145,7 +222,12 @@ pub fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
     let func_loc = dbg_to_loc(func_def.dbg.clone());
 
     let qwerty_func_ty: qwerty::FunctionType = func_ty.try_into().unwrap();
-    let block_args: Vec<_> = qwerty_func_ty.get_function_type().inputs().iter().map(|ty| (*ty, func_loc)).collect();
+    let block_args: Vec<_> = qwerty_func_ty
+        .get_function_type()
+        .inputs()
+        .iter()
+        .map(|ty| (*ty, func_loc))
+        .collect();
     let func_block = Block::new(&block_args);
 
     let mut ctx = Ctx::new();

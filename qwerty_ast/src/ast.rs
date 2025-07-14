@@ -54,6 +54,9 @@ pub enum QLit {
         qs: Vec<QLit>,
         dbg: Option<DebugLoc>,
     },
+    QubitUnit {
+        dbg: Option<DebugLoc>,
+    },
 }
 
 impl QLit {
@@ -77,7 +80,20 @@ impl QLit {
                 qs: qs.iter().map(QLit::convert_to_basis_vector).collect(),
                 dbg: dbg.clone(),
             },
+            QLit::QubitUnit { dbg } => Vector::VectorUnit { dbg: dbg.clone() },
         }
+    }
+
+    /// Returns an equivalent qubit literal in canon form (see
+    /// Vector::canonicalize()).
+    pub fn canonicalize(&self) -> QLit {
+        self.convert_to_basis_vector()
+            .canonicalize()
+            .convert_to_qubit_literal()
+            .expect(concat!(
+                "converting a qlit to a basis vector should allow converting ",
+                "back to a qlit"
+            ))
     }
 }
 
@@ -135,6 +151,41 @@ pub enum Vector {
 }
 
 impl Vector {
+    /// Converts this vector into a qubit literal. Returns None if this vector
+    /// contains any padding or target atoms.
+    pub fn convert_to_qubit_literal(&self) -> Option<QLit> {
+        match self {
+            Vector::ZeroVector { dbg } => Some(QLit::ZeroQubit { dbg: dbg.clone() }),
+            Vector::OneVector { dbg } => Some(QLit::OneQubit { dbg: dbg.clone() }),
+            Vector::VectorTilt { q, angle_deg, dbg } => {
+                (**q).convert_to_qubit_literal().map(|qlq| QLit::QubitTilt {
+                    q: Box::new(qlq),
+                    angle_deg: *angle_deg,
+                    dbg: dbg.clone(),
+                })
+            }
+            Vector::UniformVectorSuperpos { q1, q2, dbg } => (**q1)
+                .convert_to_qubit_literal()
+                .zip((**q2).convert_to_qubit_literal())
+                .map(|(qlq1, qlq2)| QLit::UniformSuperpos {
+                    q1: Box::new(qlq1),
+                    q2: Box::new(qlq2),
+                    dbg: dbg.clone(),
+                }),
+            Vector::VectorTensor { qs, dbg } => qs
+                .iter()
+                .map(Vector::convert_to_qubit_literal)
+                .collect::<Option<Vec<QLit>>>()
+                .map(|qlqs| QLit::QubitTensor {
+                    qs: qlqs,
+                    dbg: dbg.clone(),
+                }),
+            Vector::VectorUnit { dbg } => Some(QLit::QubitUnit { dbg: dbg.clone() }),
+
+            Vector::PadVector { .. } | Vector::TargetVector { .. } => None,
+        }
+    }
+
     /// Returns a version of this vector with no debug info. Useful for
     /// comparing vectors/bases without considering debug info.
     pub fn strip_dbg(&self) -> Vector {
@@ -1182,7 +1233,6 @@ impl FunctionDef {
             }
         }
     }
-
 }
 
 // ----- Program -----

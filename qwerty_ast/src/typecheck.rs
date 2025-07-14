@@ -915,6 +915,11 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                 dim: qs.len() as u64,
             })
         }
+
+        QLit::QubitUnit { .. } => Ok(Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim: 0,
+        }),
     }
 }
 
