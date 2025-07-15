@@ -13,4 +13,6 @@ MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(QCirc, qcirc);
 }
 #endif
 
+#include "QCirc/Transforms/QCircPasses.capi.h.inc"
+
 #endif // QWERTY_MLIR_C_DIALECT_QCIRC_H

@@ -1,4 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS QCircPasses.td)
 mlir_tablegen(QCircPasses.h.inc -gen-pass-decls -name QCirc)
+mlir_tablegen(QCircPasses.capi.h.inc -gen-pass-capi-header --prefix QCirc)
+mlir_tablegen(QCircPasses.capi.cpp.inc -gen-pass-capi-impl --prefix QCirc)
 add_public_tablegen_target(MLIRQCircPassIncGen)
 add_dependencies(mlir-headers MLIRQCircPassIncGen)

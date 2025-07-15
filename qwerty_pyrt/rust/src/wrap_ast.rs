@@ -1,13 +1,31 @@
-use crate::mlir::ast_program_to_mlir;
-use pyo3::{prelude::*, sync::GILOnceCell, types::PyType};
+use crate::mlir::run_ast;
+use dashu::integer::UBig;
+use pyo3::{
+    prelude::*,
+    sync::GILOnceCell,
+    types::{PyBytes, PyInt, PyType},
+};
 use qwerty_ast::{ast, dbg, typecheck};
 
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
-fn get_bit_reg<'py>(py: Python<'py>, as_int: usize, n_bits: usize) -> PyResult<Bound<'py, PyAny>> {
+fn get_bit_reg<'py>(
+    py: Python<'py>,
+    as_int: Bound<'py, PyInt>,
+    n_bits: usize,
+) -> PyResult<Bound<'py, PyAny>> {
     let bit_type = BIT_TYPE.import(py, "qwerty.runtime", "bit")?;
     bit_type.call1((as_int, n_bits))
+}
+
+fn ubig_to_pyobject<'py>(py: Python<'py>, ubig: &UBig) -> PyResult<Bound<'py, PyInt>> {
+    let big_endian_bytes = ubig.to_be_bytes();
+    let py_bytes = PyBytes::new(py, &*big_endian_bytes);
+    Ok(py
+        .get_type::<PyInt>()
+        .call_method1("from_bytes", (py_bytes, "big"))?
+        .downcast_into()?)
 }
 
 fn get_err<'py>(py: Python<'py>, msg: String, dbg: Option<dbg::DebugLoc>) -> PyErr {
@@ -374,13 +392,13 @@ impl Program {
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
         self.type_check(py)?;
 
-        ast_program_to_mlir(&self.program);
-
-        let zero_bit = get_bit_reg(py, 0, 1)?;
-        let counts = vec![(zero_bit, num_shots)];
-
-        println!("imagine we are calling {func_name}()...");
-
-        Ok(counts)
+        run_ast(&self.program, &func_name, num_shots)
+            .iter()
+            .map(|shot_result| {
+                ubig_to_pyobject(py, &shot_result.bits)
+                    .and_then(|as_int| get_bit_reg(py, as_int, shot_result.num_bits))
+                    .map(|bit_reg| (bit_reg, shot_result.count))
+            })
+            .collect()
     }
 }

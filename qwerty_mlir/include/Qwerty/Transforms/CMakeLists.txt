@@ -1,4 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS QwertyPasses.td)
 mlir_tablegen(QwertyPasses.h.inc -gen-pass-decls -name Qwerty)
+mlir_tablegen(QwertyPasses.capi.h.inc -gen-pass-capi-header --prefix Qwerty)
+mlir_tablegen(QwertyPasses.capi.cpp.inc -gen-pass-capi-impl --prefix Qwerty)
 add_public_tablegen_target(MLIRQwertyPassIncGen)
 add_dependencies(mlir-headers MLIRQwertyPassIncGen)

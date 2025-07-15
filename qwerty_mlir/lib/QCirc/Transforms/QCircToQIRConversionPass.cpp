@@ -29,20 +29,27 @@
 
 namespace {
 
-// In the Qwerty compiler, symbol visibility is the same as linkage. But
-// FuncToLLVM doesn't know about that if we don't set the necessary
-// discardable attribute on each FuncOp.
-void addLinkageAttrToFuncs(mlir::ModuleOp module_op) {
+// Add some extra LLVM-specific attributes to functions
+void addExtraLLVMAttrsToFuncs(mlir::ModuleOp module_op) {
     for (mlir::func::FuncOp func : module_op.getBodyRegion()
                                             .getOps<mlir::func::FuncOp>()) {
         mlir::SymbolTable::Visibility vis =
             mlir::SymbolTable::getSymbolVisibility(func);
         if (vis == mlir::SymbolTable::Visibility::Private) {
+            // In the Qwerty compiler, symbol visibility is the same as
+            // linkage. But FuncToLLVM doesn't know about that if we don't set
+            // the necessary discardable attribute on each FuncOp.
             func->setDiscardableAttr(
                 "llvm.linkage",
                 mlir::LLVM::LinkageAttr::get(
                     module_op.getContext(),
                     mlir::LLVM::linkage::Linkage::Internal));
+        } else if (vis == mlir::SymbolTable::Visibility::Public) {
+            // This tells LLVM to produce wrapper code needed to call this
+            // function with ExecutionEngine::invokePacked().
+            func->setDiscardableAttr(
+                "llvm.emit_c_interface",
+                mlir::UnitAttr::get(module_op->getContext()));
         }
     }
 }
@@ -2184,7 +2191,7 @@ struct ArrayFreeOpLowering : public mlir::OpConversionPattern<qcirc::ArrayFreeOp
 struct QCircToQIRConversionPass : public qcirc::QCircToQIRConversionBase<QCircToQIRConversionPass> {
     void runOnOperation() override {
         mlir::ModuleOp module_op = getOperation();
-        addLinkageAttrToFuncs(module_op);
+        addExtraLLVMAttrsToFuncs(module_op);
         inlineCalcs(module_op);
         copyAndFreeHeapAllocatedObjects(module_op);
 

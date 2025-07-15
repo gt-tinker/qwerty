@@ -313,6 +313,7 @@ dependencies = [
 name = "melior"
 version = "0.25.0"
 dependencies = [
+ "bitflags",
  "dashu",
  "melior-macro",
  "qwerty-mlir-sys",

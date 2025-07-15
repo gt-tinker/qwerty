@@ -99,4 +99,6 @@ MLIR_CAPI_EXPORTED uint64_t mlirQwertyBasisAttrGetDim(MlirAttribute attr);
 }
 #endif
 
+#include "Qwerty/Transforms/QwertyPasses.capi.h.inc"
+
 #endif // QWERTY_MLIR_C_DIALECT_QWERTY_H
