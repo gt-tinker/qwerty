@@ -687,10 +687,10 @@ def reversible(f):
     """
     return f
 
-def print_histogram(histogram):
+def histogram(histo):
     """
     Print a mapping of ``bit[N]``s to ``int`` counts as percentages to stdout.
     """
-    total = sum(histogram.values())
-    for meas, count in sorted(histogram.items()):
+    total = sum(histo.values())
+    for meas, count in sorted(histo.items()):
         print('{} -> {:.02f}%'.format(str(meas), count/total*100))

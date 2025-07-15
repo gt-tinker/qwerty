@@ -15,6 +15,6 @@ from .runtime import *
 
 _all_kernel = ['qpu', 'classical']
 _all_runtime = ['bit', 'qfunc', 'cfunc', 'rev_qfunc', 'rev_func', 'dimvar',
-                'qubit', 'func', 'cfrac', 'reversible', 'print_histogram'] + list(string.ascii_uppercase)
+                'qubit', 'func', 'cfrac', 'reversible', 'histogram'] + list(string.ascii_uppercase)
 
 __all__ = _all_kernel + _all_runtime
