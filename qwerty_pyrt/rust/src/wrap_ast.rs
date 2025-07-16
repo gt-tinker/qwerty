@@ -59,6 +59,10 @@ impl DebugLoc {
     fn get_col(&self) -> usize {
         self.dbg.col
     }
+
+    fn get_line(&self) -> usize {
+        self.dbg.line
+    }
 }
 
 #[pyclass]
@@ -166,6 +170,31 @@ impl QLit {
             },
         }
     }
+
+    #[classmethod]
+    fn new_qubit_tensor(
+        _cls: &Bound<'_, PyType>,
+        qs: Vec<QLit>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            qlit: ast::QLit::QubitTensor {
+                qs: qs.iter().map(|ql| ql.qlit.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_qubit_tilt(_cls: &Bound<'_, PyType>, q: QLit, angle_deg: f64, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            qlit: ast::QLit::QubitTilt {
+                q: Box::new(q.qlit.clone()),
+                angle_deg,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
 }
 
 #[pyclass]
@@ -189,6 +218,38 @@ impl Vector {
     fn new_one_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             vec: ast::Vector::OneVector {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_uniform_vector_superpos(_cls: &Bound<'_, PyType>, q1: Vector, q2: Vector, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::UniformVectorSuperpos {
+                q1: Box::new(q1.vec.clone()),
+                q2: Box::new(q2.vec.clone()),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_vector_tensor(_cls: &Bound<'_, PyType>, qs: Vec<Vector>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::VectorTensor {
+                qs: qs.iter().map(|vec| vec.vec.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_vector_tilt(_cls: &Bound<'_, PyType>, q: Vector, angle_deg: f64, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::VectorTilt {
+                q: Box::new(q.vec.clone()),
+                angle_deg,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -221,6 +282,20 @@ impl Basis {
         Self {
             basis: ast::Basis::BasisLiteral {
                 vecs: vecs.iter().map(|vec| vec.vec.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_tensor(
+        _cls: &Bound<'_, PyType>,
+        bases: Vec<Basis>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            basis: ast::Basis::BasisTensor {
+                bases: bases.iter().map(|b| b.basis.clone()).collect(),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -261,6 +336,27 @@ impl Expr {
             expr: ast::Expr::Pipe {
                 lhs: Box::new(lhs.expr),
                 rhs: Box::new(rhs.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_tensor(_cls: &Bound<'_, PyType>, vals: Vec<Expr>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::Tensor {
+                vals: vals.iter().map(|v| v.expr.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_translation(_cls: &Bound<'_, PyType>, bin: Basis, bout: Basis, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::BasisTranslation {
+                bin: bin.basis.clone(),
+                bout: bout.basis.clone(),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

@@ -208,7 +208,7 @@ def _cook_programmer_traceback(f):
             dbg = e.dbg
             if dbg is not None and (frame := _FRAME_MAP.get(dbg)) is not None:
                 frame = _strip_runtime_frames(frame)
-                tb = TracebackType(None, frame, -1, dbg.get_row())
+                tb = TracebackType(None, frame, -1, dbg.get_line())
             else:
                 # Special case: if dbg is None, that means the most recent
                 # non-runtime frame in the linked list of frames is

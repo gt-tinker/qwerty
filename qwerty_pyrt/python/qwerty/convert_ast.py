@@ -133,83 +133,51 @@ class BaseVisitor:
         """
         Parse a type annotation and return a Qwerty AST Type.
         """
-        #func_type_aliases = {'qfunc': (Type.new_qubit, Type.new_func),
-        #                     'cfunc': (Type.new_bit, Type.new_func),
-        #                     'rev_qfunc': (Type.new_qubit, Type.new_rev_func)}
-
         if isinstance(node, ast.Name):
             type_name = node.id
             if type_name == 'qubit':
                 return Type.new_reg(RegKind.Qubit, 1)
             elif type_name == 'bit':
                 return Type.new_reg(RegKind.Bit, 1)
-            #elif type_name == 'int':
-            #    return Type.new_int()
-            #elif type_name == 'angle':
-            #    return Type.new_float()
-            #elif type_name == 'ampl':
-            #    return Type.new_complex()
             elif type_name == 'qfunc':
                 return Type.new_func(Type.new_reg(RegKind.Qubit, 1),
                                      Type.new_reg(RegKind.Qubit, 1))
             elif type_name == 'rev_qfunc':
                 return Type.new_rev_func(Type.new_reg(RegKind.Qubit, 1))
-            #elif type_name in func_type_aliases:
-            #    new_val, new_func = func_type_aliases[type_name]
-            #    return new_func(new_val(DimVarExpr('', 1)),
-            #                    new_val(DimVarExpr('', 1)))
             else:
                 raise QwertySyntaxError('Unknown type name {} found'
                                         .format(type_name),
                                         self.get_debug_loc(node))
-        #elif isinstance(node, ast.Subscript) \
-        #        and isinstance(node.value, ast.Name) \
-        #        and (node.value.id in func_type_aliases
-        #             or node.value.id == 'func'
-        #             or node.value.id == 'rev_func'):
-        #    type_name = node.value.id
-        #    if type_name in func_type_aliases:
-        #        dims = self.extract_comma_sep_dimvar_expr(node.slice)
-        #        new_val, new_func = func_type_aliases[type_name]
-        #        in_type = new_val(dims[0])
-        #        if len(dims) == 1:
-        #            out_type = in_type.copy()
-        #        elif len(dims) == 2:
-        #            out_type = new_val(dims[1])
-        #        else:
-        #            raise QwertySyntaxError('Unsupported number of {} args '
-        #                                    '{}. Expected 1 or 2'
-        #                                    .format(type_name, len(dims)),
-        #                                    self.get_debug_loc(node))
-        #        return new_func(in_type, out_type)
-        #    elif type_name in ('func', 'rev_func'):
-        #        if not isinstance(node.slice, ast.Tuple) \
-        #                or len(node.slice.elts) != 2 \
-        #                or not isinstance(node.slice.elts[0], ast.List):
-        #            raise QwertySyntaxError('Invalid form of func[[arg1,arg2,...,argn], ret] '
-        #                                    'found', self.get_debug_loc(node))
-        #        args_list, ret = node.slice.elts
-        #        args = args_list.elts
-        #        if len(args) == 0:
-        #            arg_type = Type.new_tuple()
-        #        elif len(args) == 1:
-        #            arg_type = self.extract_type_literal(args[0])
-        #        else:
-        #            arg_type = Type.new_tuple([self.extract_type_literal(arg) for arg in args])
-        #        ret_type = self.extract_type_literal(ret)
-        #        if type_name == 'rev_func':
-        #            new_func = Type.new_rev_func
-        #        else:
-        #            new_func = Type.new_func
-        #        return new_func(arg_type, ret_type)
-        #    else:
-        #        raise QwertySyntaxError('Unknown alias {}[...] found'
-        #                                .format(type_name),
-        #                                self.get_debug_loc(node))
-        #elif isinstance(node, ast.Subscript) and node.value :
-        #    elem_type = self.extract_type_literal(node.value)
-        #    factor = self.extract_dimvar_expr(node.slice)
-        #    return Type.new_broadcast(elem_type, factor)
+        elif isinstance(node, ast.Subscript) \
+                and isinstance(node.value, ast.Name) \
+                and (type_name := node.value.id) in ('bit', 'qubit', 'qfunc', 'rev_qfunc') \
+                and isinstance((dim_node := node.slice), ast.Constant) \
+                and isinstance((dim := dim_node.value), int):
+            if type_name == 'qubit':
+                return Type.new_reg(RegKind.Qubit, dim)
+            elif type_name == 'bit':
+                return Type.new_reg(RegKind.Bit, dim)
+            elif type_name == 'qfunc':
+                return Type.new_func(Type.new_reg(RegKind.Qubit, dim),
+                                     Type.new_reg(RegKind.Qubit, dim))
+            elif type_name == 'rev_qfunc':
+                return Type.new_rev_func(Type.new_reg(RegKind.Qubit, dim),
+                                         Type.new_reg(RegKind.Qubit, dim))
+            else:
+                raise QwertySyntaxError('Unknown type name {}[N] found'
+                                        .format(type_name),
+                                        self.get_debug_loc(node))
+        elif isinstance(node, ast.Subscript) \
+                and isinstance(node.value, ast.Name) \
+                and (type_name := node.value.id) == 'qfunc' \
+                and isinstance((dims_node := node.slice), ast.Tuple) \
+                and len(dims_node_elts := dims_node.elts) != 2 \
+                and isinstance((in_dim_node := dims_node_elts[0]), ast.Constant) \
+                and isinstance((out_dim_node := dims_node_elts[1]), ast.Constant) \
+                and isinstance((in_dim := in_dim_node.value), int) \
+                and isinstance((out_dim := out_dim_node.value), int):
+            return Type.new_func(Type.new_reg(RegKind.Qubit, in_dim),
+                                 Type.new_reg(RegKind.Qubit, out_dim))
         else:
             raise QwertySyntaxError('Unknown type',
                                     self.get_debug_loc(node))
@@ -523,6 +491,10 @@ class QpuVisitor(BaseVisitor):
             # TODO: show a more helpful message when the programmer writes a
             #       nested superpos
             return QLit.new_uniform_superpos(left, right, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+            left = self.extract_qubit_literal(node.left)
+            right = self.extract_qubit_literal(node.right)
+            return QLit.new_qubit_tensor([left, right], dbg)
         elif isinstance(node, ast.Constant) and node.value == '0':
             return QLit.new_zero_qubit(dbg)
         elif isinstance(node, ast.Constant) and node.value == '1':
@@ -536,11 +508,21 @@ class QpuVisitor(BaseVisitor):
         dbg = self.get_debug_loc(node)
 
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            left = self.extract_qubit_literal(node.left)
-            right = self.extract_qubit_literal(node.right)
-            # TODO: show a more helpful message when the programmer writes a
-            #       nested superpos
-            return Vector.new_uniform_superpos(left, right, dbg)
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
+            return Vector.new_uniform_vector_superpos(left, right, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
+            right_neg = Vector.new_vector_tilt(right, 180.0, dbg)
+            return Vector.new_uniform_vector_superpos(left, right_neg, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
+            return Vector.new_vector_tensor([left, right], dbg)
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            q = self.extract_basis_vector(node.operand)
+            return Vector.new_vector_tilt(q, 180.0, dbg)
         elif isinstance(node, ast.Constant) and node.value == '0':
             return Vector.new_zero_vector(dbg)
         elif isinstance(node, ast.Constant) and node.value == '1':
@@ -558,6 +540,10 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.Set) and node.elts:
             vecs = [self.extract_basis_vector(elt) for elt in node.elts]
             return Basis.new_basis_literal(vecs, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+            left = self.extract_basis(node.left)
+            right = self.extract_basis(node.right)
+            return Basis.new_basis_tensor([left, right], dbg)
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis syntax {}'
@@ -747,8 +733,10 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp_Add(binOp)
         elif isinstance(binOp.op, ast.BitOr):
             return self.visit_BinOp_BitOr(binOp)
-        #elif isinstance(binOp.op, ast.RShift):
-        #    return self.visit_BinOp_RShift(binOp)
+        elif isinstance(binOp.op, ast.Mult):
+            return self.visit_BinOp_Mult(binOp)
+        elif isinstance(binOp.op, ast.RShift):
+            return self.visit_BinOp_RShift(binOp)
         #elif isinstance(binOp.op, ast.BitAnd):
         #    return self.visit_BinOp_BitAnd(binOp)
         #elif isinstance(binOp.op, ast.MatMult):
@@ -775,6 +763,12 @@ class QpuVisitor(BaseVisitor):
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
         return Expr.new_pipe(left, right, dbg)
+
+    def visit_BinOp_Mult(self, binOp: ast.BinOp):
+        left = self.visit(binOp.left)
+        right = self.visit(binOp.right)
+        dbg = self.get_debug_loc(binOp)
+        return Expr.new_tensor([left, right], dbg)
 
     #def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
     #    """
@@ -842,18 +836,16 @@ class QpuVisitor(BaseVisitor):
     #    lhs = self.visit(binOp.left)
     #    return Phase(dbg, angle_expr, lhs)
 
-    #def visit_BinOp_RShift(self, binOp: ast.BinOp):
-    #    """
-    #    Convert a Python right bit shift AST node to a Qwerty
-    #    ``BasisTranslation`` AST node. For example, ``b1 >> b2`` becomes a
-    #    ``BasisTranslation`` AST node with two basis children.
-    #    """
-    #    basis_in, basis_out = binOp.left, binOp.right
-
-    #    dbg = self.get_debug_loc(binOp)
-    #    basis_in_node = self.visit(basis_in)
-    #    basis_out_node = self.visit(basis_out)
-    #    return BasisTranslation(dbg, basis_in_node, basis_out_node)
+    def visit_BinOp_RShift(self, binOp: ast.BinOp):
+        """
+        Convert a Python right bit shift AST node to a Qwerty
+        ``BasisTranslation`` AST node. For example, ``b1 >> b2`` becomes a
+        ``BasisTranslation`` AST node with two basis children.
+        """
+        dbg = self.get_debug_loc(binOp)
+        basis_in = self.extract_basis(binOp.left)
+        basis_out = self.extract_basis(binOp.right)
+        return Expr.new_basis_translation(basis_in, basis_out, dbg)
 
     #def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
     #    if isinstance(unaryOp.op, ast.USub):
