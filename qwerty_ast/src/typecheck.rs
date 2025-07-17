@@ -227,7 +227,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             }
         }
 
-        Expr::Pipe { lhs, rhs, dbg: _ } => {
+        Expr::Pipe { lhs, rhs, dbg } => {
             // Typing rule: lhs type must match rhs function input type.
             let lhs_ty = typecheck_expr(lhs, env)?;
             let rhs_ty = typecheck_expr(rhs, env)?;
@@ -240,7 +240,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                                 expected: format!("{:?}", in_ty),
                                 found: format!("{:?}", lhs_ty),
                             },
-                            dbg: None,
+                            dbg: dbg.clone(),
                         });
                     }
                     Ok((**out_ty).clone())
@@ -253,7 +253,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                                 expected: format!("{:?}", in_out_ty),
                                 found: format!("{:?}", lhs_ty),
                             },
-                            dbg: None,
+                            dbg: dbg.clone(),
                         });
                     }
                     Ok((**in_out_ty).clone())
@@ -261,7 +261,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 
                 _ => Err(TypeError {
                     kind: TypeErrorKind::NotCallable(format!("{:?}", rhs_ty)),
-                    dbg: None,
+                    dbg: dbg.clone(),
                 }),
             }
         }
@@ -313,7 +313,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
         Expr::Discard { dbg: _ } => Ok(Type::UnitType),
 
         // A tensor (often a tensor product) means combining multiple quantum states or registers into a larger, composite system
-        Expr::Tensor { vals, dbg: _ } => {
+        Expr::Tensor { vals, dbg } => {
             // => All sub-expressions in a tensor must have the same type (e.g. all are qubits, or all are bits)
             // Tensor([Qubit, Qubit, Qubit])
             let mut t = None;
@@ -328,7 +328,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                                 expected: format!("{:?}", prev),
                                 found: format!("{:?}", vty),
                             },
-                            dbg: None,
+                            dbg: dbg.clone(),
                         });
                     }
                 }
@@ -426,7 +426,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             then_func,
             else_func,
             pred,
-            dbg: _,
+            dbg,
         } => {
             let t_ty = typecheck_expr(then_func, env)?;
             let e_ty = typecheck_expr(else_func, env)?;
@@ -441,7 +441,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                                 expected: format!("{:?}", t_ty),
                                 found: format!("{:?}", e_ty),
                             },
-                            dbg: None,
+                            dbg: dbg.clone(),
                         });
                     }
                     Ok(t_ty)
@@ -453,7 +453,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                             "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {:?}",
                             e_ty
                         )),
-                        dbg: None,
+                        dbg: dbg.clone(),
                     })
                 }
 
@@ -463,7 +463,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                             "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {:?}",
                             t_ty
                         )),
-                        dbg: None,
+                        dbg: dbg.clone(),
                     })
                 }
 
@@ -473,13 +473,13 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                             "Predicated expression requires both operands to be reversible functions, found: then={:?}, else={:?}",
                             t_ty, e_ty
                         )),
-                        dbg: None,
+                        dbg: dbg.clone(),
                     })
                 }
             }
         }
 
-        Expr::NonUniformSuperpos { pairs, dbg: _ } => {
+        Expr::NonUniformSuperpos { pairs, dbg } => {
             // Each pair is (weight, QLit). All QLits must have same type.
             let mut qt = None;
             for (_, qlit) in pairs {
@@ -491,7 +491,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                                 expected: format!("{:?}", prev),
                                 found: format!("{:?}", qlit_ty),
                             },
-                            dbg: None,
+                            dbg: dbg.clone(),
                         });
                     }
                 }
@@ -504,7 +504,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             then_expr,
             else_expr,
             cond,
-            dbg: _,
+            dbg,
         } => {
             let t_ty = typecheck_expr(then_expr, env)?;
             let e_ty = typecheck_expr(else_expr, env)?;
@@ -515,7 +515,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                         expected: format!("{:?}", t_ty),
                         found: format!("{:?}", e_ty),
                     },
-                    dbg: None,
+                    dbg: dbg.clone(),
                 });
             }
             Ok(t_ty)
@@ -871,7 +871,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
 
         QLit::QubitTilt { q, .. } => typecheck_qlit(q, _env),
 
-        QLit::UniformSuperpos { q1, q2, .. } => {
+        QLit::UniformSuperpos { q1, q2, dbg } => {
             let t1 = typecheck_qlit(q1, _env)?;
             let t2 = typecheck_qlit(q2, _env)?;
             if t1 != t2 {
@@ -880,7 +880,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                         expected: format!("{:?}", t1),
                         found: format!("{:?}", t2),
                     },
-                    dbg: None,
+                    dbg: dbg.clone(),
                 })
             } else if !qlits_are_ortho(q1, q2) {
                 Err(TypeError {
@@ -888,14 +888,14 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                         left: format!("{:?}", q1),
                         right: format!("{:?}", q2),
                     },
-                    dbg: None,
+                    dbg: dbg.clone(),
                 })
             } else {
                 Ok(t1)
             }
         }
 
-        QLit::QubitTensor { qs, .. } => {
+        QLit::QubitTensor { qs, dbg } => {
             let types = qs
                 .iter()
                 .map(|q| typecheck_qlit(q, _env))
@@ -910,7 +910,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                 } else {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
-                        dbg: None,
+                        dbg: dbg.clone(),
                     })
                 }
             })?;
@@ -949,7 +949,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
             }
         }
 
-        Vector::UniformVectorSuperpos { q1, q2, .. } => {
+        Vector::UniformVectorSuperpos { q1, q2, dbg } => {
             let t1 = typecheck_vector(q1, _env)?;
             let t2 = typecheck_vector(q2, _env)?;
             if t1 == t2 {
@@ -960,12 +960,12 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
                         expected: format!("{:?}", t1),
                         found: format!("{:?}", t2),
                     },
-                    dbg: None,
+                    dbg: dbg.clone(),
                 })
             }
         }
 
-        Vector::VectorTensor { qs, .. } => {
+        Vector::VectorTensor { qs, dbg } => {
             let types = qs
                 .iter()
                 .map(|q| typecheck_vector(q, _env))
@@ -980,7 +980,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
                 } else {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
-                        dbg: None,
+                        dbg: dbg.clone(),
                     })
                 }
             })?;
