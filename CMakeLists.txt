@@ -62,6 +62,14 @@ else()
     set(STATIC_LIBRARY_SUFFIX ".a")
 endif()
 
+# This is to make Tweedledum happy below. Without this, it wants to install to
+# /usr/local. We can't disable Tweedledum installing entirely because a
+# consumer of this library (qwerty_mlir+qwutil) will need the static tweedledum
+# libs to link.
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "${CMAKE_BINARY_DIR}/install-dir")
+endif()
+
 # Tweedledum
 ExternalProject_Add(tweedledum
     # Use a submodule because if we have CMake clone the git url (i.e., provide
