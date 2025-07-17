@@ -673,8 +673,8 @@ fn supneg_ortho(
     bv_2b: &Vector,
     angle_deg_2b: f64,
 ) -> bool {
-    bv_1a == bv_1b
-        && bv_2a == bv_2b
+    bv_1a.strip_dbg() == bv_1b.strip_dbg()
+        && bv_2a.strip_dbg() == bv_2b.strip_dbg()
         && basis_vectors_are_ortho(bv_1a, bv_2a)
         && (in_phase(angle_deg_1a, angle_deg_2a) && anti_phase(angle_deg_1b, angle_deg_2b)
             || anti_phase(angle_deg_1a, angle_deg_2a) && in_phase(angle_deg_1b, angle_deg_2b))
