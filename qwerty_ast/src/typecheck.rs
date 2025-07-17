@@ -1164,12 +1164,28 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
             dim: 0,
         }),
 
-        Basis::BasisTensor { bases, .. } => {
-            for b in bases {
-                typecheck_basis(b, env)?;
-            }
-            Ok(Type::UnitType)
-        }
+        Basis::BasisTensor { bases, .. } => bases
+            .iter()
+            .try_fold(0, |acc_dim, basis| {
+                typecheck_basis(basis, env).and_then(|ty| {
+                    if let Type::RegType {
+                        elem_ty: RegKind::Basis,
+                        dim,
+                    } = ty
+                    {
+                        Ok(acc_dim + dim)
+                    } else {
+                        Err(TypeError {
+                            kind: TypeErrorKind::InvalidBasis,
+                            dbg: basis.get_dbg(),
+                        })
+                    }
+                })
+            })
+            .map(|total_dim| Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim: total_dim,
+            }),
     }
 }
 
