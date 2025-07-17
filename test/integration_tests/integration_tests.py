@@ -119,7 +119,7 @@ class IntegrationTests(unittest.TestCase):
         histo = basis_sugar.sweet(shots=n_shots, histogram=True)
         histo_expected = {bit[1](0b0): n_shots}
         self.assertEqual(histo, histo_expected)
-    
+
     def test_arith_select(self):
         from .tests import arith_select
         output = arith_select.test()

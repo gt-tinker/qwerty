@@ -638,7 +638,7 @@ struct ArithSelectOpTypeFix : public mlir::OpConversionPattern<mlir::arith::Sele
     mlir::LogicalResult matchAndRewrite(mlir::arith::SelectOp select,
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
-        rewriter.replaceOpWithNewOp<mlir::arith::SelectOp>(select, adaptor.getCondition(), 
+        rewriter.replaceOpWithNewOp<mlir::arith::SelectOp>(select, adaptor.getCondition(),
                                                            adaptor.getTrueValue(),
                                                            adaptor.getFalseValue());
         return mlir::success();
