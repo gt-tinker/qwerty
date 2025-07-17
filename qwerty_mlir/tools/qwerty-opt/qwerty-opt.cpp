@@ -41,14 +41,13 @@
 #include "QCirc/Transforms/QCircPasses.h"
 #include "mlir/Dialect/Affine/Passes.h"
 
-#ifdef QWERTY_INCLUDE_TESTS
+// Just for testing
 namespace qwerty {
 namespace test {
 void registerTestFuncSpecAnalysisPass();
 void registerTestQubitIndexAnalysisPass();
 } // namespace test
 } // namespace qwerty
-#endif
 
 int main(int argc, char **argv) {
     mlir::DialectRegistry registry;
@@ -66,10 +65,9 @@ int main(int argc, char **argv) {
     qwerty::registerQwertyPasses();
     qcirc::registerQCircPasses();
 
-#ifdef QWERTY_INCLUDE_TESTS
+    // Just for testing
     qwerty::test::registerTestFuncSpecAnalysisPass();
     qwerty::test::registerTestQubitIndexAnalysisPass();
-#endif
 
     return mlir::asMainReturnCode(mlir::MlirOptMain(
         argc, argv, "Qwerty modular optimizer driver", registry));

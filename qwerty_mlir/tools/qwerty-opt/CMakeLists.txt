@@ -7,15 +7,10 @@ set(LLVM_LINK_COMPONENTS
   Support
 )
 
-if (BUILD_TESTS)
-  set(test_libs MLIRQwertyTestAnalysis)
-endif()
-
 set(LIBS
   ${dialect_libs}
   ${conversion_libs}
   ${extension_libs}
-  ${test_libs}
   
   MLIRAffineAnalysis
   MLIRAnalysis
@@ -29,6 +24,7 @@ set(LIBS
   MLIRInferTypeOpInterface
   MLIRQwerty
   MLIRQwertyTransforms
+  MLIRQwertyTestAnalysis
   MLIRQCirc
   MLIRQCircTransforms
 )

@@ -84,6 +84,11 @@ even `tweedledum`):
 Note that the build you just created will not be used by Rust at all. It is
 strictly for your separate personal enjoyment.
 
+You can run the [FileCheck][5] tests by running the following command from the
+root of the repository:
+
+    $ python3 qwerty_mlir/tests/filecheck_tests.py
+
 ### Building the Python Extension
 
 To generate the Python extension, run the following:
@@ -105,3 +110,4 @@ To run the Python unit tests, say:
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://www.rust-lang.org/tools/install
 [4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v20.1.7
+[5]: https://llvm.org/docs/CommandGuide/FileCheck.html
