@@ -97,6 +97,10 @@ To generate the Python extension, run the following:
 This will (re)build _everything_. Passing `-vv` to `maturin develop` can give
 you an idea of what is going on.
 
+To run the Python unit tests, say:
+
+    $ python -m unittest qwerty.tests
+
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://www.rust-lang.org/tools/install

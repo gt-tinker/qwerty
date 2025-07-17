@@ -43,18 +43,17 @@ class BaseVisitor:
     """
 
     def __init__(self, name_generator: Callable[[str], str],
-                 filename: str = '', line_offset: int = 0, col_offset: int = 0,
-                 no_pyframe: bool = False):
+                 filename: str = '', line_offset: int = 0,
+                 col_offset: int = 0):
         """
-        Constructor. The ``no_pyframe`` flag is used by the tests to avoid
-        including frames (see ``errs.py``) in DebugInfos constructed by
-        ``get_debug_loc()`` below, since this complicates testing.
+        Constructor. The name_generator argument mangles the Python AST name to
+        produce a Qwerty AST name.
         """
         self.name_generator = name_generator
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
-        self.frame = None if no_pyframe else get_frame()
+        self.frame = get_frame()
 
     def get_node_row_col(self, node: ast.AST):
         if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
@@ -478,9 +477,8 @@ class QpuVisitor(BaseVisitor):
 
     def __init__(self, name_generator: Callable[[str], str],
                  filename: str = '', line_offset: int = 0,
-                 col_offset: int = 0, no_pyframe: bool = False):
-        super().__init__(name_generator, filename, line_offset, col_offset,
-                         no_pyframe)
+                 col_offset: int = 0):
+        super().__init__(name_generator, filename, line_offset, col_offset)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
         bv = self.extract_basis_vector(node)
@@ -1195,7 +1193,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
     visitor = QpuVisitor(name_generator, filename, line_offset, col_offset)
     return visitor.visit_Module(module)
 
-def convert_qpu_repl_input(root: ast.Interactive, no_pyframe: bool = False) -> Expr:
+def convert_qpu_repl_input(root: ast.Interactive) -> Expr:
     """
     Convert a line from the Qwerty REPL into a Qwerty AST. Right now, this only
     handles expressions (e.g., assignment is not supported).
@@ -1216,10 +1214,9 @@ def convert_qpu_repl_input(root: ast.Interactive, no_pyframe: bool = False) -> E
     expr = statement.value
 
     visitor = QpuVisitor(name_generator=lambda name: name,
-                         filename="<input>",
+                         filename='<input>',
                          line_offset=0,
-                         col_offset=0,
-                         no_pyframe=no_pyframe)
+                         col_offset=0)
     return visitor.visit(expr)
 
 #################### @CLASSICAL DSL ####################
@@ -1229,8 +1226,8 @@ def convert_qpu_repl_input(root: ast.Interactive, no_pyframe: bool = False) -> E
 #    Python AST visitor for syntax specific to ``@classical`` kernels.
 #    """
 #    def __init__(self, filename: str = '', line_offset: int = 0,
-#                 col_offset: int = 0, no_pyframe: bool = False):
-#        super().__init__(filename, line_offset, col_offset, no_pyframe)
+#                 col_offset: int = 0):
+#        super().__init__(filename, line_offset, col_offset)
 #
 #    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> Kernel:
 #        """

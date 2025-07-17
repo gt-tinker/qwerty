@@ -375,8 +375,8 @@ impl Basis {
     }
 }
 
-#[pyclass(str)]
-#[derive(Clone)]
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
 pub struct Expr {
     pub(crate) expr: ast::Expr,
 }
@@ -450,6 +450,10 @@ impl Expr {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
+    }
+
+    pub fn __repr__(&self) -> String {
+        self.to_string()
     }
 }
 

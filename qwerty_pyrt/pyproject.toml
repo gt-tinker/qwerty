@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "qwerty"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -13,4 +13,5 @@ dynamic = ["version"]
 
 [tool.maturin]
 python-source = "python"
+exclude = ["qwerty/tests/**"]
 module-name = "qwerty._qwerty_pyrt"
