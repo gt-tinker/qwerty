@@ -699,64 +699,75 @@ struct RunPassesConfig {
 
 fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     if cfg.dump {
-        eprintln!("Original IR:");
+        eprintln!("Qwerty-dialect IR:");
         module.as_operation().dump();
     }
 
-    let pm = PassManager::new(&MLIR_CTX);
+    {
+        let pm = PassManager::new(&MLIR_CTX);
 
-    // Stage 1: Optimize Qwerty dialect
+        // Stage 1: Optimize Qwerty dialect
 
-    // Running the canonicalizer may introduce lambdas, so run it once first
-    // before the lambda lifter
-    pm.add_pass(transform::create_canonicalizer());
-    pm.add_pass(qwerty::create_lift_lambdas());
-    // Will turn qwerty.call_indirects into qwerty.calls
-    pm.add_pass(transform::create_canonicalizer());
-    pm.add_pass(transform::create_inliner());
-    // It seems the inliner may not run a final round of canonicalization
-    // sometimes, so do it ourselves
-    pm.add_pass(transform::create_canonicalizer());
-    // Remove any leftover symbols
-    pm.add_pass(transform::create_symbol_dce());
+        // Running the canonicalizer may introduce lambdas, so run it once first
+        // before the lambda lifter
+        pm.add_pass(transform::create_canonicalizer());
+        pm.add_pass(qwerty::create_lift_lambdas());
+        // Will turn qwerty.call_indirects into qwerty.calls
+        pm.add_pass(transform::create_canonicalizer());
+        pm.add_pass(transform::create_inliner());
+        // It seems the inliner may not run a final round of canonicalization
+        // sometimes, so do it ourselves
+        pm.add_pass(transform::create_canonicalizer());
+        // Remove any leftover symbols
+        pm.add_pass(transform::create_symbol_dce());
 
-    // Stage 2: Convert to QCirc dialect
+        // Stage 2: Convert to QCirc dialect
 
-    // -only-pred-ones will introduce some lambdas, so lift and inline them too
-    pm.add_pass(qwerty::create_only_pred_ones());
-    pm.add_pass(qwerty::create_lift_lambdas());
-    // Will turn qwerty.call_indirects into qwerty.calls
-    pm.add_pass(transform::create_canonicalizer());
-    pm.add_pass(transform::create_inliner());
-    pm.add_pass(qwerty::create_qwerty_to_q_circ_conversion());
-    // Add canonicalizer pass to prune unused "builtin.unrealized_conversion_cast" ops
-    pm.add_pass(transform::create_canonicalizer());
-
-    // Stage 3: Optimize QCirc dialect
-
-    let func_pm = pm.nested_under("func.func");
-    func_pm.add_pass(qcirc::create_peephole_optimization());
-    if cfg.decompose_multi_ctrl {
-        func_pm.add_pass(qcirc::create_decompose_multi_control());
-        func_pm.add_pass(qcirc::create_peephole_optimization());
-        func_pm.add_pass(qcirc::create_replace_non_qasm_gates());
+        // -only-pred-ones will introduce some lambdas, so lift and inline them too
+        pm.add_pass(qwerty::create_only_pred_ones());
+        pm.add_pass(qwerty::create_lift_lambdas());
+        // Will turn qwerty.call_indirects into qwerty.calls
+        pm.add_pass(transform::create_canonicalizer());
+        pm.add_pass(transform::create_inliner());
+        pm.add_pass(qwerty::create_qwerty_to_q_circ_conversion());
+        // Add canonicalizer pass to prune unused "builtin.unrealized_conversion_cast" ops
+        pm.add_pass(transform::create_canonicalizer());
+        pm.run(module)?;
     }
-
-    // Stage 4: Convert to QIR
-
-    pm.add_pass(qcirc::create_replace_non_qir_gates());
-    if cfg.to_base_profile {
-        pm.add_pass(qcirc::create_base_profile_module_prep());
-        let func_pm2 = pm.nested_under("func.func");
-        func_pm2.add_pass(qcirc::create_base_profile_func_prep());
-    }
-    pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
-    pm.add_pass(transform::create_canonicalizer());
-
-    pm.run(module)?;
 
     if cfg.dump {
-        eprintln!("New IR:");
+        eprintln!("QCirc-dialect IR:");
+        module.as_operation().dump();
+    }
+
+    {
+        let pm = PassManager::new(&MLIR_CTX);
+
+        // Stage 3: Optimize QCirc dialect
+
+        let func_pm = pm.nested_under("func.func");
+        func_pm.add_pass(qcirc::create_peephole_optimization());
+        if cfg.decompose_multi_ctrl {
+            func_pm.add_pass(qcirc::create_decompose_multi_control());
+            func_pm.add_pass(qcirc::create_peephole_optimization());
+            func_pm.add_pass(qcirc::create_replace_non_qasm_gates());
+        }
+
+        // Stage 4: Convert to QIR
+        pm.add_pass(qcirc::create_replace_non_qir_gates());
+        if cfg.to_base_profile {
+            pm.add_pass(qcirc::create_base_profile_module_prep());
+            let func_pm = pm.nested_under("func.func");
+            func_pm.add_pass(qcirc::create_base_profile_func_prep());
+        }
+        pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
+        pm.add_pass(transform::create_canonicalizer());
+
+        pm.run(module)?;
+    }
+
+    if cfg.dump {
+        eprintln!("LLVM-dialect IR:");
         module.as_operation().dump();
     }
 
@@ -786,7 +797,7 @@ pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize) -> Vec<ShotRes
     let cfg = RunPassesConfig {
         decompose_multi_ctrl: false,
         to_base_profile: false,
-        dump: true,
+        dump: false,
     };
     run_passes(&mut module, cfg).unwrap();
 

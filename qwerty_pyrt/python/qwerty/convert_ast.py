@@ -646,60 +646,16 @@ class QpuVisitor(BaseVisitor):
     #    else:
     #        return Variable(dbg, var_name)
 
-    #def visit_Constant(self, const: ast.Constant):
-    #    """
-    #    Convert a Python string literal into a Qwerty ``QubitLiteral`` AST
-    #    node. Since the ``QubitLiteral`` Qwerty AST node supports only one
-    #    eigenstate and primitive basis, this produces a tree of ``BiTensor``s
-    #    concatenating multiple ``QubitLiteral`` nodes as necessary.
-    #    For example, ``'0011'`` becomes a ``BiTensor`` of two different
-    #    ``QubitLiteral`` nodes.
-    #    """
-    #    value = const.value
-    #    if isinstance(value, str):
-    #        state_chars = value
-    #        if not state_chars:
-    #            raise QwertySyntaxError('Qubit literal must not be an empty string',
-    #                                    self.get_debug_loc(const))
-
-    #        result = None
-    #        last_char, last_dim = None, None
-
-    #        def add_to_tensor_tree():
-    #            nonlocal result, last_char, last_dim
-
-    #            dbg = self.get_debug_loc(const)
-    #            eigenstate, prim_basis = STATE_CHAR_MAPPING[last_char]
-    #            vec = QubitLiteral(dbg, eigenstate, prim_basis, last_dim)
-
-    #            if result is None:
-    #                result = vec
-    #            else:
-    #                # Need to make a second DebugInfo since the last one is going
-    #                # to get std::move()'d away by the QubitLiteral constructor above
-    #                dbg = self.get_debug_loc(const)
-    #                result = BiTensor(dbg, result, vec)
-
-    #        for i, c in enumerate(state_chars):
-    #            if c not in STATE_CHAR_MAPPING:
-    #                raise QwertySyntaxError('Unknown state |{}⟩ in qubit literal'
-    #                                        .format(c),
-    #                                        self.get_debug_loc(const))
-    #            if last_char == c:
-    #                last_dim += DimVarExpr('', 1)
-    #            else:
-    #                if last_char is not None:
-    #                    add_to_tensor_tree()
-    #                last_char = c
-    #                last_dim = DimVarExpr('', 1)
-
-    #            if i+1 == len(state_chars):
-    #                add_to_tensor_tree()
-
-    #        return result
-    #    else:
-    #        raise QwertySyntaxError('Unknown constant syntax',
-    #                                self.get_debug_loc(const))
+    def visit_Constant(self, const: ast.Constant):
+        value = const.value
+        if isinstance(value, str):
+            # A top-level string must be a qubit literal
+            dbg = self.get_debug_loc(const)
+            qlit = self.extract_qubit_literal(const)
+            return Expr.new_qlit(qlit, dbg)
+        else:
+            raise QwertySyntaxError('Unknown constant syntax',
+                                    self.get_debug_loc(const))
 
     ## Broadcast tensor, i.e., tensoring something with itself repeatedly
     #def visit_Subscript(self, subscript: ast.Subscript):
@@ -1193,12 +1149,12 @@ class QpuVisitor(BaseVisitor):
     def visit(self, node: ast.AST):
         #if isinstance(node, ast.Name):
         #    return self.visit_Name(node)
-        #elif isinstance(node, ast.Constant):
-        #    return self.visit_Constant(node)
+        if isinstance(node, ast.Constant):
+            return self.visit_Constant(node)
         #elif isinstance(node, ast.Subscript):
         #    return self.visit_Subscript(node)
         #elif isinstance(node, ast.BinOp):
-        if isinstance(node, ast.BinOp):
+        elif isinstance(node, ast.BinOp):
             return self.visit_BinOp(node)
         #elif isinstance(node, ast.UnaryOp):
         #    return self.visit_UnaryOp(node)

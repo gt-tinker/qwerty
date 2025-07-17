@@ -2953,6 +2953,7 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
 
         // Now apply conditional standardizations. Note that the span check in
         // type checking guarantees that predicates will always be unconditional.
+        // TODO: THIS IS NOT TRUE.
         standardizeCond(rewriter, loc, left_stdize, /*left=*/true, qubits,
                         left_rebuilt);
 
