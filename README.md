@@ -23,7 +23,31 @@ git submodules:
 
 ## Getting Started
 
-How to get started depends on what portion of the compiler you want to work on.
+### Dependencies
+
+Unless you are working only on the AST, you need to install only [Rust][3].
+
+Otherwise, you need to install [Rust][3] _and_ the following:
+
+1. LLVM 20.1.7 (with MLIR). First, download the LLVM build archive that is
+   appropriate for your OS [from our repository][4]. Then you need to set both
+   of the following environment variables (assuming `$HOME/bin` is where you
+   extracted the LLVM archive, for example):
+   ```
+   $ export PATH=$PATH:$HOME/bin/llvm20/bin/
+   $ export MLIR_DIR=$HOME/bin/llvm20/lib/cmake/mlir/
+   ```
+   You should set these persistently, e.g. in your `~/.bashrc` or `~/.zshrc`.
+
+2. The following Debian/Ubuntu packages are also needed to build:
+   ```
+   $ sudo apt install build-essential cmake ninja-build zlib1g-dev libclang-dev
+   ```
+   If you are not a Debian/Ubuntu user, you can interpret `build-essential`
+   above as "a C++ compiler."
+
+The remaining steps on getting started depend on what portion of the compiler
+you want to work on.
 
 ### Building Just the AST
 
@@ -36,16 +60,15 @@ follows:
 #### Coverage
 
 To get coverage for the AST code, run:
-```
-$ cargo llvm-cov --html
-```
+
+    $ cargo llvm-cov --html
+
 Then you can open `qwerty_ast/target/llvm-cov/html/index.html` (relative to the
 repo root) in your browser.
 
 You may need to install `cargo-llvm-cov` first with:
-```
-$ cargo +stable install cargo-llvm-cov --locked
-```
+
+    $ cargo +stable install cargo-llvm-cov --locked
 
 ### Fiddling with MLIR
 
@@ -75,3 +98,5 @@ you an idea of what is going on.
 
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
+[3]: https://www.rust-lang.org/tools/install
+[4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v20.1.7
