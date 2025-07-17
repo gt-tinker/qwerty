@@ -1093,7 +1093,13 @@ impl Basis {
                 let bases_canon: Vec<_> = bases
                     .iter()
                     .map(Basis::canonicalize)
-                    .filter(|b| !matches!(b, Basis::EmptyBasisLiteral { .. }))
+                    .flat_map(|basis| {
+                        match basis {
+                            Basis::BasisLiteral { .. } => vec![basis],
+                            Basis::EmptyBasisLiteral { .. } => vec![],
+                            Basis::BasisTensor { bases: inner_bases, .. } => inner_bases,
+                        }
+                    })
                     .collect();
                 if bases_canon.is_empty() {
                     Basis::EmptyBasisLiteral { dbg: dbg.clone() }
