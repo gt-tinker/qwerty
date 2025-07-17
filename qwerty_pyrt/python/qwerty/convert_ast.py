@@ -483,26 +483,26 @@ class QpuVisitor(BaseVisitor):
                          no_pyframe)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
-        dbg = self.get_debug_loc(node)
-
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            left = self.extract_qubit_literal(node.left)
-            right = self.extract_qubit_literal(node.right)
-            # TODO: show a more helpful message when the programmer writes a
-            #       nested superpos
-            return QLit.new_uniform_superpos(left, right, dbg)
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-            left = self.extract_qubit_literal(node.left)
-            right = self.extract_qubit_literal(node.right)
-            return QLit.new_qubit_tensor([left, right], dbg)
-        elif isinstance(node, ast.Constant) and node.value == '0':
-            return QLit.new_zero_qubit(dbg)
-        elif isinstance(node, ast.Constant) and node.value == '1':
-            return QLit.new_one_qubit(dbg)
+        bv = self.extract_basis_vector(node)
+        qlit = bv.convert_to_qubit_literal()
+        if qlit is None:
+            dbg = self.get_debug_loc(node)
+            raise QwertySyntaxError(f"The symbols '?' and '_' are not allowed"
+                                    "in qubit literals.", dbg)
         else:
-            node_name = type(node).__name__
-            raise QwertySyntaxError('Unknown qubit literal syntax {}'
-                                    .format(node_name), dbg)
+            return qlit
+
+    def convert_vector_atom(self, sym: str, dbg: DebugLoc) -> QLit:
+        if sym == '0':
+            return Vector.new_zero_vector(dbg)
+        elif sym == '1':
+            return Vector.new_one_vector(dbg)
+        elif sym == '?':
+            return Vector.new_pad_vector(dbg)
+        elif sym == '_':
+            return Vector.new_target_vector(dbg)
+        else:
+            raise QwertySyntaxError(f'Unknown qubit symbol {sym}', dbg)
 
     def extract_basis_vector(self, node: ast.AST) -> Vector:
         dbg = self.get_debug_loc(node)
@@ -523,13 +523,16 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
             q = self.extract_basis_vector(node.operand)
             return Vector.new_vector_tilt(q, 180.0, dbg)
-        elif isinstance(node, ast.Constant) and node.value == '0':
-            return Vector.new_zero_vector(dbg)
-        elif isinstance(node, ast.Constant) and node.value == '1':
-            return Vector.new_one_vector(dbg)
+        elif isinstance(node, ast.Constant) and node.value == '':
+            return Vector.new_vector_unit(dbg)
+        elif isinstance(node, ast.Constant) and len(node.value) == 1:
+            return self.convert_vector_atom(node.value, dbg)
+        elif isinstance(node, ast.Constant): # len(node.value) > 1
+            return Vector.new_vector_tensor([self.convert_vector_atom(sym, dbg)
+                                             for sym in node.value], dbg)
         else:
             node_name = type(node).__name__
-            raise QwertySyntaxError('Unknown basis vector syntax {}'
+            raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
                                     .format(node_name), dbg)
 
     def extract_basis(self, node: ast.AST) -> Basis:

@@ -216,6 +216,15 @@ impl QLit {
             },
         }
     }
+
+    #[classmethod]
+    fn new_qubit_unit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            qlit: ast::QLit::QubitUnit {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
 }
 
 #[pyclass]
@@ -239,6 +248,24 @@ impl Vector {
     fn new_one_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             vec: ast::Vector::OneVector {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_pad_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::PadVector {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_target_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::TargetVector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -284,6 +311,21 @@ impl Vector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
+    }
+
+    #[classmethod]
+    fn new_vector_unit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: ast::Vector::VectorUnit {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    fn convert_to_qubit_literal(&self) -> Option<QLit> {
+        self.vec
+            .convert_to_qubit_literal()
+            .map(|qlit| QLit { qlit })
     }
 }
 
