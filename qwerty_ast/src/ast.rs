@@ -97,6 +97,27 @@ impl QLit {
     }
 }
 
+impl fmt::Display for QLit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QLit::ZeroQubit { .. } => write!(f, "'0'"),
+            QLit::OneQubit { .. } => write!(f, "'1'"),
+            QLit::QubitTilt { q, angle_deg, .. } => write!(f, "({})@{}", **q, *angle_deg),
+            QLit::UniformSuperpos { q1, q2, .. } => write!(f, "({}) + ({})", **q1, **q2),
+            QLit::QubitTensor { qs, .. } => {
+                for (i, q) in qs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "({})", q)?;
+                }
+                Ok(())
+            }
+            QLit::QubitUnit { .. } => write!(f, "''"),
+        }
+    }
+}
+
 // ----- Vector -----
 
 /// Represents either a padding ('?') or a target ('_') vector atom. This is
@@ -788,6 +809,29 @@ impl PartialEq for Vector {
 
 impl Eq for Vector {}
 
+impl fmt::Display for Vector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Vector::ZeroVector { .. } => write!(f, "'0'"),
+            Vector::OneVector { .. } => write!(f, "'1'"),
+            Vector::PadVector { .. } => write!(f, "'?'"),
+            Vector::TargetVector { .. } => write!(f, "'_'"),
+            Vector::VectorTilt { q, angle_deg, .. } => write!(f, "({})@{}", **q, *angle_deg),
+            Vector::UniformVectorSuperpos { q1, q2, .. } => write!(f, "({}) + ({})", **q1, **q2),
+            Vector::VectorTensor { qs, .. } => {
+                for (i, q) in qs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "({})", q)?;
+                }
+                Ok(())
+            }
+            Vector::VectorUnit { .. } => write!(f, "''"),
+        }
+    }
+}
+
 // ----- Basis -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1089,6 +1133,33 @@ impl Basis {
     }
 }
 
+impl fmt::Display for Basis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Basis::BasisLiteral { vecs, .. } => {
+                write!(f, "{{")?;
+                for (i, vec) in vecs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", vec)?;
+                }
+                write!(f, "}}")
+            }
+            Basis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
+            Basis::BasisTensor { bases, .. } => {
+                for (i, b) in bases.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "({})", b)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 // ----- Expressions -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1145,6 +1216,51 @@ pub enum Expr {
         qlit: QLit,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Variable { name, .. } => write!(f, "{}", name),
+            Expr::UnitLiteral { .. } => write!(f, "[]"),
+            Expr::Adjoint { func, .. } => write!(f, "~({})", **func),
+            Expr::Pipe { lhs, rhs, .. } => write!(f, "({}) | ({})", **lhs, **rhs),
+            Expr::Measure { basis, .. } => write!(f, "({}).measure", basis),
+            Expr::Discard { .. } => write!(f, "discard"),
+            Expr::Tensor { vals, .. } => {
+                for (i, val) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "{}", val)?;
+                }
+                Ok(())
+            }
+            Expr::BasisTranslation { bin, bout, .. } => write!(f, "({}) >> ({})", bin, bout),
+            Expr::Predicated {
+                then_func,
+                else_func,
+                pred,
+                ..
+            } => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
+            Expr::NonUniformSuperpos { pairs, .. } => {
+                for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " + ")?;
+                    }
+                    write!(f, "{}*({})", prob, qlit)?;
+                }
+                Ok(())
+            }
+            Expr::Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                ..
+            } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
+            Expr::QLit { qlit, .. } => write!(f, "{}", qlit),
+        }
+    }
 }
 
 // ----- Statements -----

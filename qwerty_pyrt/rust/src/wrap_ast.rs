@@ -6,6 +6,7 @@ use pyo3::{
     types::{PyBytes, PyInt, PyType},
 };
 use qwerty_ast::{ast, dbg, typecheck};
+use std::fmt;
 
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -172,11 +173,7 @@ impl QLit {
     }
 
     #[classmethod]
-    fn new_qubit_tensor(
-        _cls: &Bound<'_, PyType>,
-        qs: Vec<QLit>,
-        dbg: Option<DebugLoc>,
-    ) -> Self {
+    fn new_qubit_tensor(_cls: &Bound<'_, PyType>, qs: Vec<QLit>, dbg: Option<DebugLoc>) -> Self {
         Self {
             qlit: ast::QLit::QubitTensor {
                 qs: qs.iter().map(|ql| ql.qlit.clone()).collect(),
@@ -186,7 +183,12 @@ impl QLit {
     }
 
     #[classmethod]
-    fn new_qubit_tilt(_cls: &Bound<'_, PyType>, q: QLit, angle_deg: f64, dbg: Option<DebugLoc>) -> Self {
+    fn new_qubit_tilt(
+        _cls: &Bound<'_, PyType>,
+        q: QLit,
+        angle_deg: f64,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             qlit: ast::QLit::QubitTilt {
                 q: Box::new(q.qlit.clone()),
@@ -224,7 +226,12 @@ impl Vector {
     }
 
     #[classmethod]
-    fn new_uniform_vector_superpos(_cls: &Bound<'_, PyType>, q1: Vector, q2: Vector, dbg: Option<DebugLoc>) -> Self {
+    fn new_uniform_vector_superpos(
+        _cls: &Bound<'_, PyType>,
+        q1: Vector,
+        q2: Vector,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             vec: ast::Vector::UniformVectorSuperpos {
                 q1: Box::new(q1.vec.clone()),
@@ -245,7 +252,12 @@ impl Vector {
     }
 
     #[classmethod]
-    fn new_vector_tilt(_cls: &Bound<'_, PyType>, q: Vector, angle_deg: f64, dbg: Option<DebugLoc>) -> Self {
+    fn new_vector_tilt(
+        _cls: &Bound<'_, PyType>,
+        q: Vector,
+        angle_deg: f64,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             vec: ast::Vector::VectorTilt {
                 q: Box::new(q.vec.clone()),
@@ -302,10 +314,22 @@ impl Basis {
     }
 }
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Clone)]
 pub struct Expr {
-    expr: ast::Expr,
+    pub(crate) expr: ast::Expr,
+}
+
+impl Expr {
+    pub fn new(expr: ast::Expr) -> Self {
+        Self { expr }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.expr)
+    }
 }
 
 #[pymethods]
@@ -352,7 +376,12 @@ impl Expr {
     }
 
     #[classmethod]
-    fn new_basis_translation(_cls: &Bound<'_, PyType>, bin: Basis, bout: Basis, dbg: Option<DebugLoc>) -> Self {
+    fn new_basis_translation(
+        _cls: &Bound<'_, PyType>,
+        bin: Basis,
+        bout: Basis,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             expr: ast::Expr::BasisTranslation {
                 bin: bin.basis.clone(),

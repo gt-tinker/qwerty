@@ -589,6 +589,9 @@ dependencies = [
 [[package]]
 name = "qwerty_ast"
 version = "0.1.0"
+dependencies = [
+ "quantum-sparse-sim",
+]
 
 [[package]]
 name = "qwerty_pyrt"

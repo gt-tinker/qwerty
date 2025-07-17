@@ -19,10 +19,30 @@ EXCLUDE_ME_FROM_STACK_TRACE_PLEASE = 1
 _FRAME_MAP = {}
 
 class QwertyProgrammerError(Exception):
-    def __init__(self, msg, dbg=None):
-        self.dbg = dbg
+    """
+    An error triggered by a programmer mistake and not a compiler author
+    skill issue. Instances of this exception will be caught by
+    ``@_cook_programmer_traceback`` below.
+    """
 
-        super().__init__(msg)
+    def __init__(self, msg, dbg=None):
+        """
+        Create a ``QwertySyntaxError`` with the given error message. When the
+        keyword argument ``dbg==None``, that means "when ``err.py`` intercepts
+        this exception, the first frame not in the Qwerty runtime is actually
+        what we want — no need to mess around with the line number."
+        """
+        self.dbg = dbg
+        # _qwerty_harness.cpp does this in qwerty_programmer_error() as well.
+        # The reason is that our stack trace hack is not able to draw a little
+        # arrow to point at the offending column
+        super().__init__(msg + " (at column " + str(col) + ")"
+                         if dbg is not None and (col := dbg.get_col()) > 0
+                         else msg)
+
+    def kind(self) -> str:
+        """Return a user-friendly description of what time of error this is."""
+        return 'Error'
 
 class QwertySyntaxError(QwertyProgrammerError):
     """
@@ -31,18 +51,10 @@ class QwertySyntaxError(QwertyProgrammerError):
     ``err.py``.
     """
     def __init__(self, msg, dbg=None):
-        """
-        Create a ``QwertySyntaxError`` with the given error message. When the
-        keyword argument ``dbg=None``, that means "when ``err.py`` intercepts
-        this exception, the first frame not in the Qwerty runtime is actually
-        what we want — no need to mess around with the line number."
-        """
-        # _qwerty_harness.cpp does this in qwerty_programmer_error() as well.
-        # The reason is that our stack trace hack is not able to draw a little
-        # arrow to point at the offending column
-        super().__init__(msg + " (at column " + str(col) + ")"
-                         if dbg is not None and (col := dbg.get_col()) > 0
-                         else msg, dbg)
+        super().__init__(msg, dbg)
+
+    def kind(self) -> str:
+        return 'Syntax Error'
 
 def set_dbg_frame(dbg, frame):
     global _FRAME_MAP

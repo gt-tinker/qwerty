@@ -1236,20 +1236,32 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
     visitor = QpuVisitor(name_generator, filename, line_offset, col_offset)
     return visitor.visit_Module(module)
 
-#def convert_qpu_expr(expr: ast.Expression, filename: str = '',
-#                     line_offset: int = 0, col_offset: int = 0,
-#                     no_pyframe: bool = False) -> Expr:
-#    """
-#    Convert an expression from a @qpu kernel instead of the whole thing.
-#    Currently used only in unit tests. Someday could be used in a REPL, for
-#    example.
-#    """
-#    if not isinstance(expr, ast.Expression):
-#        raise QwertySyntaxError('Expected top-level Expression node in '
-#                                'Python AST', None) # This should not happen
-#
-#    visitor = QpuVisitor(filename, line_offset, col_offset, no_pyframe)
-#    return visitor.visit_Expression(expr)
+def convert_qpu_repl_input(root: ast.Interactive, no_pyframe: bool = False) -> Expr:
+    """
+    Convert a line from the Qwerty REPL into a Qwerty AST. Right now, this only
+    handles expressions (e.g., assignment is not supported).
+    """
+
+    if not isinstance(root, ast.Interactive):
+        raise QwertySyntaxError('Expected top-level Interactive node in '
+                                'Python AST')
+    if len(root.body) != 1:
+        raise QwertySyntaxError('Expected one statement as input, not '
+                                f'{len(root.body)} statements')
+    
+    statement = root.body[0]
+
+    if not isinstance(statement, ast.Expr):
+        raise QwertySyntaxError('Statement is not an expression')
+    
+    expr = statement.value
+
+    visitor = QpuVisitor(name_generator=lambda name: name,
+                         filename="<input>",
+                         line_offset=0,
+                         col_offset=0,
+                         no_pyframe=no_pyframe)
+    return visitor.visit(expr)
 
 #################### @CLASSICAL DSL ####################
 
