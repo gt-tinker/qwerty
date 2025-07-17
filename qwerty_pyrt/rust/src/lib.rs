@@ -3,9 +3,9 @@ mod wrap_ast;
 mod wrap_repl;
 
 use crate::wrap_ast::{
-    Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, Vector,
+    Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, Vector, TypeEnv
 };
-use crate::wrap_repl::{ReplState, TypeEnv};
+use crate::wrap_repl::ReplState;
 use pyo3::prelude::*;
 
 /// The Python extension module allowing the Python portion of the Qwerty

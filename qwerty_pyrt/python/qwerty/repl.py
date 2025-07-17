@@ -12,7 +12,7 @@ qwerty_ast::repl to actually run the code.
 import ast
 from .convert_ast import convert_qpu_repl_input
 from .err import QwertyProgrammerError
-from ._qwerty_pyrt import ReplState, TypeEnv
+from ._qwerty_pyrt import ReplState, TypeEnv, Expr
 
 def repl():
     """Run the Qwerty REPL."""
@@ -30,7 +30,7 @@ def repl():
 
         try:
             qwerty = convert_qpu_repl_input(ast.parse(cmd, mode='single'))
-            env.typecheck_expr(qwerty)
+            qwerty.typecheck_expr(env)
             # TODO: type check qwerty AST right here
 
         except QwertyProgrammerError as err:
