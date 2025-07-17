@@ -29,8 +29,27 @@ fn ubig_to_pyobject<'py>(py: Python<'py>, ubig: &UBig) -> PyResult<Bound<'py, Py
         .downcast_into()?)
 }
 
-fn get_err<'py>(py: Python<'py>, msg: String, dbg: Option<dbg::DebugLoc>) -> PyErr {
-    let err_ty_res = QWERTY_PROGRAMMER_ERROR_TYPE.import(py, "qwerty.err", "QwertyProgrammerError");
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ProgErrKind {
+    Type,
+}
+
+fn get_err_ty<'py>(py: Python<'py>, kind: ProgErrKind) -> PyResult<Bound<'py, PyType>> {
+    match kind {
+        ProgErrKind::Type => {
+            QWERTY_PROGRAMMER_ERROR_TYPE.import(py, "qwerty.err", "QwertyTypeError")
+        }
+    }
+    .cloned()
+}
+
+fn get_err<'py>(
+    py: Python<'py>,
+    kind: ProgErrKind,
+    msg: String,
+    dbg: Option<dbg::DebugLoc>,
+) -> PyErr {
+    let err_ty_res = get_err_ty(py, kind);
     match err_ty_res {
         Err(err) => err,
         Ok(err_ty) => {
@@ -502,7 +521,12 @@ impl Program {
     fn type_check(&mut self, py: Python<'_>) -> PyResult<()> {
         if !self.type_checked {
             if let Err(type_err) = typecheck::typecheck_program(&self.program) {
-                return Err(get_err(py, type_err.kind.to_string(), type_err.dbg));
+                return Err(get_err(
+                    py,
+                    ProgErrKind::Type,
+                    type_err.kind.to_string(),
+                    type_err.dbg,
+                ));
             }
             self.type_checked = true;
         }

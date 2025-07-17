@@ -896,23 +896,27 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
         }
 
         QLit::QubitTensor { qs, .. } => {
-            // TODO: Combine types; for now, just check all are Qubits.
-            for q in qs {
-                let t = typecheck_qlit(q, _env)?;
-                if t != (Type::RegType {
+            let types = qs
+                .iter()
+                .map(|q| typecheck_qlit(q, _env))
+                .collect::<Result<Vec<Type>, TypeError>>()?;
+            let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
+                if let Type::RegType {
                     elem_ty: RegKind::Qubit,
-                    dim: 1,
-                }) {
-                    return Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
+                    dim,
+                } = ty
+                {
+                    Ok(dim_acc + dim)
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
                         dbg: None,
-                    });
+                    })
                 }
-            }
+            })?;
             Ok(Type::RegType {
                 elem_ty: RegKind::Qubit,
-                // dim: qs.len() as u32,
-                dim: qs.len() as u64,
+                dim: total_dim,
             })
         }
 
@@ -962,21 +966,27 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
         }
 
         Vector::VectorTensor { qs, .. } => {
-            for q in qs {
-                let t = typecheck_vector(q, _env)?;
-                if t != (Type::RegType {
+            let types = qs
+                .iter()
+                .map(|q| typecheck_vector(q, _env))
+                .collect::<Result<Vec<Type>, TypeError>>()?;
+            let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
+                if let Type::RegType {
                     elem_ty: RegKind::Qubit,
-                    dim: 1,
-                }) {
-                    return Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", t)),
+                    dim,
+                } = ty
+                {
+                    Ok(dim_acc + dim)
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
                         dbg: None,
-                    });
+                    })
                 }
-            }
+            })?;
             Ok(Type::RegType {
                 elem_ty: RegKind::Qubit,
-                dim: qs.len() as u64,
+                dim: total_dim,
             })
         }
 

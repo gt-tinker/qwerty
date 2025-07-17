@@ -44,11 +44,18 @@ class QwertyProgrammerError(Exception):
         """Return a user-friendly description of what time of error this is."""
         return 'Error'
 
+class QwertyTypeError(QwertyProgrammerError):
+    """
+    A typing problem (practically, a problem encountered during the Rust type
+    checking code).
+    """
+    def __init__(self, msg, dbg=None):
+        super().__init__(msg, dbg)
+
 class QwertySyntaxError(QwertyProgrammerError):
     """
-    This is a subclass of QwertyProgrammerError so that thrown instances of
-    this exception will be caught by ``@_cook_programmer_traceback`` in
-    ``err.py``.
+    A syntax mistake or unsupported Python syntax (practically, a problem
+    encountered during the Python convert_ast() code).
     """
     def __init__(self, msg, dbg=None):
         super().__init__(msg, dbg)
