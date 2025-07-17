@@ -106,4 +106,4 @@ coverage.css
 .DS_Store
 
 # Hacky symlink to qwerty-opt
-/bin
+/dev/bin

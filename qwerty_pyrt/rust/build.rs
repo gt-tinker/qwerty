@@ -3,7 +3,7 @@
 //! with the path to where it installed qwerty-opt and qwerty-translate. Then,
 //! if the `qwerty-opt` feature is enabled, this crate depends on
 //! `qwerty-mlir-sys`, so our `build.rs` recieves that piece of metadata. From
-//! there, we can symlink that binary dir to /bin in the repo root. This is
+//! there, we can symlink that binary dir to /dev/bin in the repo root. This is
 //! intended only for local development; the final wheel should be built with
 //! `--no-default-features`.
 
@@ -13,7 +13,7 @@ fn main() {
     let manifest_dir_str = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = Path::new(&manifest_dir_str);
     let repo_root = manifest_dir.parent().unwrap().parent().unwrap();
-    let bin_dir_link = repo_root.join("bin");
+    let bin_dir_link = repo_root.join("dev").join("bin");
 
     if fs::exists(&bin_dir_link).unwrap() {
         fs::remove_dir_all(&bin_dir_link).unwrap();

@@ -14,12 +14,12 @@ whereami = os.path.dirname(__file__)
 def lookup_binary(exec_name):
     repo_root = os.path.dirname(os.path.dirname(whereami))
     # Three options for where our binaries like qwerty-opt could be:
-    # 1. Built via qwerty_pyrt: $repo_root/bin/
+    # 1. Built via qwerty_pyrt: $repo_root/dev/bin/
     # 2. Built separately: $repo_root/build/bin/
     # 3. Built separately elsewhere: $repo_root/qwerty_mlir/build/bin/
     # Let's choose the one with the latest modification time on disk.
     candidate_dirs = [
-        os.path.join(repo_root, 'bin'),
+        os.path.join(repo_root, 'dev', 'bin'),
         os.path.join(repo_root, 'build', 'bin'),
         os.path.join(repo_root, 'qwerty_mlir', 'build', 'bin'),
     ]

@@ -106,6 +106,11 @@ To run the Python unit tests, say:
 
     $ python -m unittest qwerty.tests -v
 
+To run _all_ tests across the compiler, run the following at the root of the
+repository:
+
+    $ dev/run-tests.sh
+
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://www.rust-lang.org/tools/install
