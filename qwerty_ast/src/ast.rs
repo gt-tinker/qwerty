@@ -21,6 +21,68 @@ pub enum Type {
     UnitType,
 }
 
+impl fmt::Display for Type {
+    /// Returns a string representation of a type that matches the syntax for
+    /// the Python DSL.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::FuncType { in_ty, out_ty } => match (&**in_ty, &**out_ty) {
+                (
+                    Type::RegType {
+                        elem_ty: in_elem_ty,
+                        dim: in_dim,
+                    },
+                    Type::RegType {
+                        elem_ty: out_elem_ty,
+                        dim: out_dim,
+                    },
+                ) if *in_elem_ty != RegKind::Basis && *out_elem_ty != RegKind::Basis => {
+                    let prefix = match (in_elem_ty, out_elem_ty) {
+                        (RegKind::Qubit, RegKind::Qubit) => "q",
+                        (RegKind::Qubit, RegKind::Bit) => "qb",
+                        (RegKind::Bit, RegKind::Qubit) => "bq",
+                        (RegKind::Bit, RegKind::Bit) => "b",
+                        (RegKind::Basis, _) | (_, RegKind::Basis) => {
+                            unreachable!("bases cannot be function arguments/results")
+                        }
+                    };
+                    write!(f, "{}func[", prefix)?;
+                    if in_elem_ty == out_elem_ty && in_dim == out_dim {
+                        write!(f, "{}]", in_dim)
+                    } else {
+                        write!(f, "{},{}]", in_dim, out_dim)
+                    }
+                }
+                _ => write!(f, "func[{},{}]", in_ty, out_ty),
+            },
+            Type::RevFuncType { in_out_ty } => match &**in_out_ty {
+                Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim,
+                } => write!(f, "rev_qfunc[{}]", dim),
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } => write!(f, "rev_bfunc[{}]", dim),
+                _ => write!(f, "rev_func[{}]", in_out_ty),
+            },
+            Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim,
+            } => write!(f, "qubit[{}]", dim),
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim,
+            } => write!(f, "bit[{}]", dim),
+            Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim,
+            } => write!(f, "basis[{}]", dim),
+            Type::UnitType => write!(f, "None"),
+        }
+    }
+}
+
 // ----- Registers -----
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -149,7 +149,7 @@ pub fn typecheck_stmt(
                 }
                 _ => Err(TypeError {
                     kind: TypeErrorKind::InvalidType(format!(
-                        "Can only unpack from register type, found: {:?}",
+                        "Can only unpack from register type, found: {}",
                         rhs_ty
                     )),
                     dbg: dbg.clone(),
@@ -163,8 +163,8 @@ pub fn typecheck_stmt(
             if &val_ty != expected_ret_type {
                 return Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
-                        expected: format!("{:?}", expected_ret_type),
-                        found: format!("{:?}", val_ty),
+                        expected: expected_ret_type.to_string(),
+                        found: val_ty.to_string(),
                     },
                     dbg: dbg.clone(),
                 });
@@ -198,7 +198,7 @@ fn tensor_product_func_ins_outs(
             Type::RegType { .. } => Err(TypeError {
                 kind: TypeErrorKind::MismatchedTypes {
                     expected: "a function".to_string(),
-                    found: format!("{:?}", ty),
+                    found: ty.to_string(),
                 },
                 dbg: dbg.clone(),
             }),
@@ -241,8 +241,8 @@ fn tensor_product_types(
                     Type::RegType { .. } | Type::FuncType { .. } | Type::RevFuncType { .. } => {
                         Err(TypeError {
                             kind: TypeErrorKind::MismatchedTypes {
-                                expected: format!("{:?}", head),
-                                found: format!("{:?}", ty),
+                                expected: head.to_string(),
+                                found: ty.to_string(),
                             },
                             dbg: dbg.clone(),
                         })
@@ -309,7 +309,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     }
                     _ => Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
-                            "Adjoint only valid for reversible quantum functions of type qubit[m] (m > 0), found: {:?}",
+                            "Adjoint only valid for reversible quantum functions of type qubit[m] (m > 0), found: {}",
                             in_out_ty
                         )),
                         dbg: dbg.clone(),
@@ -320,7 +320,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     // Classical functions cannot have an adjoint
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
-                            "Cannot take adjoint of non-reversible function: {:?}",
+                            "Cannot take adjoint of non-reversible function: {}",
                             func_ty
                         )),
                         dbg: dbg.clone(),
@@ -329,7 +329,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 
                 _ => Err(TypeError {
                     kind: TypeErrorKind::NotCallable(format!(
-                        "Cannot take adjoint of non-function type: {:?}",
+                        "Cannot take adjoint of non-function type: {}",
                         func_ty
                     )),
                     dbg: dbg.clone(),
@@ -347,8 +347,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     if **in_ty != lhs_ty {
                         return Err(TypeError {
                             kind: TypeErrorKind::MismatchedTypes {
-                                expected: format!("{:?}", in_ty),
-                                found: format!("{:?}", lhs_ty),
+                                expected: in_ty.to_string(),
+                                found: lhs_ty.to_string(),
                             },
                             dbg: dbg.clone(),
                         });
@@ -360,8 +360,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     if **in_out_ty != lhs_ty {
                         return Err(TypeError {
                             kind: TypeErrorKind::MismatchedTypes {
-                                expected: format!("{:?}", in_out_ty),
-                                found: format!("{:?}", lhs_ty),
+                                expected: in_out_ty.to_string(),
+                                found: lhs_ty.to_string(),
                             },
                             dbg: dbg.clone(),
                         });
@@ -370,7 +370,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 }
 
                 _ => Err(TypeError {
-                    kind: TypeErrorKind::NotCallable(format!("{:?}", rhs_ty)),
+                    kind: TypeErrorKind::NotCallable(rhs_ty.to_string()),
                     dbg: dbg.clone(),
                 }),
             }
@@ -531,8 +531,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     if t_in_out != e_in_out {
                         return Err(TypeError {
                             kind: TypeErrorKind::MismatchedTypes {
-                                expected: format!("{:?}", t_ty),
-                                found: format!("{:?}", e_ty),
+                                expected: t_ty.to_string(),
+                                found: e_ty.to_string(),
                             },
                             dbg: dbg.clone(),
                         });
@@ -543,7 +543,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 (Type::RevFuncType { .. }, _) => {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {:?}",
+                            "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {}",
                             e_ty
                         )),
                         dbg: dbg.clone(),
@@ -553,7 +553,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 (_, Type::RevFuncType { .. }) => {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {:?}",
+                            "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {}",
                             t_ty
                         )),
                         dbg: dbg.clone(),
@@ -563,7 +563,7 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 (_, _) => {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, found: then={:?}, else={:?}",
+                            "Predicated expression requires both operands to be reversible functions, found: then={}, else={}",
                             t_ty, e_ty
                         )),
                         dbg: dbg.clone(),
@@ -581,8 +581,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                     if &qlit_ty != prev {
                         return Err(TypeError {
                             kind: TypeErrorKind::MismatchedTypes {
-                                expected: format!("{:?}", prev),
-                                found: format!("{:?}", qlit_ty),
+                                expected: prev.to_string(),
+                                found: qlit_ty.to_string(),
                             },
                             dbg: dbg.clone(),
                         });
@@ -605,8 +605,8 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
             if t_ty != e_ty {
                 return Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
-                        expected: format!("{:?}", t_ty),
-                        found: format!("{:?}", e_ty),
+                        expected: t_ty.to_string(),
+                        found: e_ty.to_string(),
                     },
                     dbg: dbg.clone(),
                 });
@@ -970,16 +970,16 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
             if t1 != t2 {
                 Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
-                        expected: format!("{:?}", t1),
-                        found: format!("{:?}", t2),
+                        expected: t1.to_string(),
+                        found: t2.to_string(),
                     },
                     dbg: dbg.clone(),
                 })
             } else if !qlits_are_ortho(q1, q2) {
                 Err(TypeError {
                     kind: TypeErrorKind::NotOrthogonal {
-                        left: format!("{:?}", q1),
-                        right: format!("{:?}", q2),
+                        left: q1.to_string(),
+                        right: q2.to_string(),
                     },
                     dbg: dbg.clone(),
                 })
@@ -1002,7 +1002,7 @@ fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
                     Ok(dim_acc + dim)
                 } else {
                     Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
+                        kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
                         dbg: dbg.clone(),
                     })
                 }
@@ -1050,8 +1050,8 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
             } else {
                 Err(TypeError {
                     kind: TypeErrorKind::MismatchedTypes {
-                        expected: format!("{:?}", t1),
-                        found: format!("{:?}", t2),
+                        expected: t1.to_string(),
+                        found: t2.to_string(),
                     },
                     dbg: dbg.clone(),
                 })
@@ -1072,7 +1072,7 @@ fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeErr
                     Ok(dim_acc + dim)
                 } else {
                     Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(format!("{:?}", ty)),
+                        kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
                         dbg: dbg.clone(),
                     })
                 }
@@ -1138,8 +1138,8 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                         if !basis_vectors_are_ortho(v_1, v_2) {
                             return Err(TypeError {
                                 kind: TypeErrorKind::NotOrthogonal {
-                                    left: format!("{}", v_1),
-                                    right: format!("{}", v_2),
+                                    left: v_1.to_string(),
+                                    right: v_2.to_string(),
                                 },
                                 dbg: dbg.clone(),
                             });
