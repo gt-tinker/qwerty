@@ -8,7 +8,7 @@ use melior::{
         operation::OperationResult,
         r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
-        Value, ValueLike,
+        TypeLike, Value, ValueLike,
     },
     pass::{transform, PassManager},
     utility::register_inliner_extensions,
@@ -343,12 +343,7 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
 fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64>) {
-    let canon_basis = basis.canonicalize();
-    let basis_elements = match basis {
-        Basis::BasisLiteral { .. } => vec![canon_basis.clone()],
-        Basis::EmptyBasisLiteral { .. } => vec![],
-        Basis::BasisTensor { bases, .. } => bases.clone(),
-    };
+    let basis_elements = basis.canonicalize().to_vec();
 
     let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
         .iter()
@@ -517,8 +512,11 @@ fn ast_expr_to_mlir(
 
         Expr::Measure { basis, dbg } => {
             let loc = dbg_to_loc(dbg.clone());
-            let (basis_attr, _basis_phases) = ast_basis_to_mlir(basis);
-            let dim = basis_attr.get_dim();
+            let dim: u64 = basis
+                .get_dim()
+                .expect("type checking should guarantee a valid measurement basis")
+                .try_into()
+                .unwrap();
 
             let lambda_in_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
             let lambda_out_tys = &[qwerty::BitBundleType::new(&MLIR_CTX, dim).into()];
@@ -532,6 +530,7 @@ fn ast_expr_to_mlir(
                 |lambda_block| {
                     assert_eq!(lambda_block.argument_count(), 1);
                     let qbundle_in = lambda_block.argument(0).unwrap().into();
+                    let (basis_attr, _basis_phases) = ast_basis_to_mlir(basis);
                     lambda_block
                         .append_operation(qwerty::qbmeas(&MLIR_CTX, basis_attr, qbundle_in, loc))
                         .results()
@@ -541,9 +540,80 @@ fn ast_expr_to_mlir(
             )
         }
 
+        Expr::Tensor { vals, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let unpacked: Vec<_> = vals
+                .iter()
+                .flat_map(|val| ast_expr_to_mlir(val, ctx, block))
+                .flat_map(|val| {
+                    if !val.r#type().is_qwerty_q_bundle() {
+                        todo!("i can only tensor qubits");
+                    }
+                    block
+                        .append_operation(qwerty::qbunpack(val, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+
+            block
+                .append_operation(qwerty::qbpack(&unpacked, loc))
+                .results()
+                .map(OperationResult::into)
+                .collect()
+        }
+
+        Expr::BasisTranslation { bin, bout, dbg } => {
+            let loc = dbg_to_loc(dbg.clone());
+            let dim_in = bin
+                .get_dim()
+                .expect("type checking should guarantee a valid input basis");
+            assert_eq!(
+                dim_in,
+                bout.get_dim()
+                    .expect("type checking should guarantee a valid output basis")
+            );
+            let dim: u64 = dim_in.try_into().unwrap();
+
+            let lambda_in_out_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
+            let is_rev = true;
+            mlir_wrap_lambda(
+                lambda_in_out_tys,
+                lambda_in_out_tys,
+                is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    assert_eq!(lambda_block.argument_count(), 1);
+                    let qbundle_in = lambda_block.argument(0).unwrap().into();
+                    let (bin_attr, bin_phases) = ast_basis_to_mlir(bin);
+                    let (bout_attr, bout_phases) = ast_basis_to_mlir(bout);
+                    let phase_vals: Vec<_> = bin_phases
+                        .into_iter()
+                        .chain(bout_phases.into_iter())
+                        .map(|phase| mlir_f64_const(phase, loc, lambda_block))
+                        .collect();
+
+                    lambda_block
+                        .append_operation(qwerty::qbtrans(
+                            &MLIR_CTX,
+                            bin_attr,
+                            bout_attr,
+                            &phase_vals,
+                            qbundle_in,
+                            loc,
+                        ))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect()
+                },
+            )
+        }
+
         Expr::QLit { qlit, .. } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
 
-        _ => todo!("expression"),
+        _ => todo!("expression {}", expr),
     }
 }
 
@@ -716,7 +786,7 @@ pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize) -> Vec<ShotRes
     let cfg = RunPassesConfig {
         decompose_multi_ctrl: false,
         to_base_profile: false,
-        dump: false,
+        dump: true,
     };
     run_passes(&mut module, cfg).unwrap();
 

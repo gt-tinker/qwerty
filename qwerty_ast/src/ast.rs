@@ -1093,12 +1093,12 @@ impl Basis {
                 let bases_canon: Vec<_> = bases
                     .iter()
                     .map(Basis::canonicalize)
-                    .flat_map(|basis| {
-                        match basis {
-                            Basis::BasisLiteral { .. } => vec![basis],
-                            Basis::EmptyBasisLiteral { .. } => vec![],
-                            Basis::BasisTensor { bases: inner_bases, .. } => inner_bases,
-                        }
+                    .flat_map(|basis| match basis {
+                        Basis::BasisLiteral { .. } => vec![basis],
+                        Basis::EmptyBasisLiteral { .. } => vec![],
+                        Basis::BasisTensor {
+                            bases: inner_bases, ..
+                        } => inner_bases,
                     })
                     .collect();
                 if bases_canon.is_empty() {
@@ -1116,7 +1116,7 @@ impl Basis {
     }
 
     /// Converts to a vector of basis elements in order.
-    fn to_vec(&self) -> Vec<Basis> {
+    pub fn to_vec(&self) -> Vec<Basis> {
         match self {
             Basis::EmptyBasisLiteral { .. } => vec![],
 
@@ -1283,7 +1283,7 @@ impl fmt::Display for Expr {
                     if i > 0 {
                         write!(f, "*")?;
                     }
-                    write!(f, "{}", val)?;
+                    write!(f, "({})", val)?;
                 }
                 Ok(())
             }
