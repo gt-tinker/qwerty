@@ -5,7 +5,7 @@ mod wrap_repl;
 use crate::wrap_ast::{
     Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, Vector,
 };
-use crate::wrap_repl::ReplState;
+use crate::wrap_repl::{ReplState, TypeEnv};
 use pyo3::prelude::*;
 
 /// The Python extension module allowing the Python portion of the Qwerty
@@ -27,6 +27,8 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<FunctionDef>()?;
     module.add_class::<Program>()?;
     module.add_class::<ReplState>()?;
+    module.add_class::<TypeEnv>()?;
+    module.add_class::<Type>()?;
 
     Ok(())
 }

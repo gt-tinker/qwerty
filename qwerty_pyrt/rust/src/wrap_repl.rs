@@ -2,6 +2,8 @@
 //! run the Qwerty REPL.
 
 use crate::wrap_ast::Expr;
+use qwerty_ast::ast::{Type as RustType};
+use qwerty_ast::typecheck::{TypeEnv as RustTypeEnv, typecheck_expr};
 use pyo3::prelude::*;
 use qwerty_ast::repl;
 use std::sync::Mutex;
@@ -27,4 +29,34 @@ impl ReplState {
     fn run(&self, expr: Expr) -> Expr {
         Expr::new(self.state.lock().unwrap().run(&expr.expr))
     }
+
+}
+
+
+#[pyclass]
+pub struct TypeEnv {
+    check: RustTypeEnv,
+}
+
+#[pymethods]
+impl TypeEnv {
+    #[new]
+    pub fn new() -> Self {
+        TypeEnv {
+            check: RustTypeEnv::new(),
+        }
+    }
+
+    pub fn typecheck_expr(&mut self, expr: &Expr) -> PyResult<Type> {
+        match typecheck_expr(&expr.expr, &mut self.check) {
+            Ok(ty) => Ok(Type { check: ty }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{e:?}"))),
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct Type {
+    pub check: RustType,
 }
