@@ -3,61 +3,61 @@
 use super::*;
 
 #[test]
-fn test_vec_to_programmer_str_zero() {
+fn test_vec_to_string_zero() {
     let vec = Vector::ZeroVector { dbg: None };
-    assert_eq!(vec.to_programmer_str(), "'0'");
+    assert_eq!(vec.to_string(), "'0'");
 }
 
 #[test]
-fn test_vec_to_programmer_str_one() {
+fn test_vec_to_string_one() {
     let vec = Vector::OneVector { dbg: None };
-    assert_eq!(vec.to_programmer_str(), "'1'");
+    assert_eq!(vec.to_string(), "'1'");
 }
 
 #[test]
-fn test_vec_to_programmer_str_pad() {
+fn test_vec_to_string_pad() {
     let vec = Vector::PadVector { dbg: None };
-    assert_eq!(vec.to_programmer_str(), "'?'");
+    assert_eq!(vec.to_string(), "'?'");
 }
 
 #[test]
-fn test_vec_to_programmer_str_tgt() {
+fn test_vec_to_string_tgt() {
     let vec = Vector::TargetVector { dbg: None };
-    assert_eq!(vec.to_programmer_str(), "'_'");
+    assert_eq!(vec.to_string(), "'_'");
 }
 
 #[test]
-fn test_vec_to_programmer_str_tilt_180() {
+fn test_vec_to_string_tilt_180() {
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::OneVector { dbg: None }),
         angle_deg: 180.0,
         dbg: None,
     };
-    assert_eq!(vec.to_programmer_str(), "-'1'");
+    assert_eq!(vec.to_string(), "-'1'");
 }
 
 #[test]
-fn test_vec_to_programmer_str_tilt_non_180() {
+fn test_vec_to_string_tilt_non_180() {
     let vec = Vector::VectorTilt {
         q: Box::new(Vector::OneVector { dbg: None }),
         angle_deg: 1.23456,
         dbg: None,
     };
-    assert_eq!(vec.to_programmer_str(), "('1'@1.23456)");
+    assert_eq!(vec.to_string(), "('1')@1.23456");
 }
 
 #[test]
-fn test_vec_to_programmer_str_superpos() {
+fn test_vec_to_string_superpos() {
     let vec = Vector::UniformVectorSuperpos {
         q1: Box::new(Vector::ZeroVector { dbg: None }),
         q2: Box::new(Vector::OneVector { dbg: None }),
         dbg: None,
     };
-    assert_eq!(vec.to_programmer_str(), "('0' + '1')");
+    assert_eq!(vec.to_string(), "('0') + ('1')");
 }
 
 #[test]
-fn test_vec_to_programmer_str_tensor_01() {
+fn test_vec_to_string_tensor_01() {
     let vec = Vector::VectorTensor {
         qs: vec![
             Vector::ZeroVector { dbg: None },
@@ -65,11 +65,11 @@ fn test_vec_to_programmer_str_tensor_01() {
         ],
         dbg: None,
     };
-    assert_eq!(vec.to_programmer_str(), "('0' * '1')");
+    assert_eq!(vec.to_string(), "('0')*('1')");
 }
 
 #[test]
-fn test_vec_to_programmer_str_tensor_01pad() {
+fn test_vec_to_string_tensor_01pad() {
     let vec = Vector::VectorTensor {
         qs: vec![
             Vector::ZeroVector { dbg: None },
@@ -78,13 +78,13 @@ fn test_vec_to_programmer_str_tensor_01pad() {
         ],
         dbg: None,
     };
-    assert_eq!(vec.to_programmer_str(), "('0' * '1' * '?')");
+    assert_eq!(vec.to_string(), "('0')*('1')*('?')");
 }
 
 #[test]
-fn test_vec_to_programmer_str_vector_unit() {
+fn test_vec_to_string_vector_unit() {
     let vec = Vector::VectorUnit { dbg: None };
-    assert_eq!(vec.to_programmer_str(), "[]");
+    assert_eq!(vec.to_string(), "''");
 }
 
 #[test]

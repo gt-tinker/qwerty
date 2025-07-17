@@ -102,7 +102,13 @@ impl fmt::Display for QLit {
         match self {
             QLit::ZeroQubit { .. } => write!(f, "'0'"),
             QLit::OneQubit { .. } => write!(f, "'1'"),
-            QLit::QubitTilt { q, angle_deg, .. } => write!(f, "({})@{}", **q, *angle_deg),
+            QLit::QubitTilt { q, angle_deg, .. } => {
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-{}", **q)
+                } else {
+                    write!(f, "({})@{}", **q, *angle_deg)
+                }
+            }
             QLit::UniformSuperpos { q1, q2, .. } => write!(f, "({}) + ({})", **q1, **q2),
             QLit::QubitTensor { qs, .. } => {
                 for (i, q) in qs.iter().enumerate() {
@@ -789,7 +795,13 @@ impl fmt::Display for Vector {
             Vector::OneVector { .. } => write!(f, "'1'"),
             Vector::PadVector { .. } => write!(f, "'?'"),
             Vector::TargetVector { .. } => write!(f, "'_'"),
-            Vector::VectorTilt { q, angle_deg, .. } => write!(f, "({})@{}", **q, *angle_deg),
+            Vector::VectorTilt { q, angle_deg, .. } => {
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-{}", **q)
+                } else {
+                    write!(f, "({})@{}", **q, *angle_deg)
+                }
+            }
             Vector::UniformVectorSuperpos { q1, q2, .. } => write!(f, "({}) + ({})", **q1, **q2),
             Vector::VectorTensor { qs, .. } => {
                 for (i, q) in qs.iter().enumerate() {
