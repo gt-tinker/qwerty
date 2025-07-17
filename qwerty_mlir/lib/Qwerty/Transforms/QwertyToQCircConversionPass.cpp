@@ -631,6 +631,20 @@ struct SCFYieldOpTypeFix : public mlir::OpConversionPattern<mlir::scf::YieldOp> 
     }
 };
 
+// We have to manually convert the result type of arith.select ops too
+struct ArithSelectOpTypeFix : public mlir::OpConversionPattern<mlir::arith::SelectOp> {
+    using mlir::OpConversionPattern<mlir::arith::SelectOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(mlir::arith::SelectOp select,
+                                        OpAdaptor adaptor,
+                                        mlir::ConversionPatternRewriter &rewriter) const final {
+        rewriter.replaceOpWithNewOp<mlir::arith::SelectOp>(select, adaptor.getCondition(),
+                                                           adaptor.getTrueValue(),
+                                                           adaptor.getFalseValue());
+        return mlir::success();
+    }
+};
+
 // We also have to manually convert the result type of a qcirc.calc
 struct CalcOpTypeFix : public mlir::OpConversionPattern<qcirc::CalcOp> {
     using mlir::OpConversionPattern<qcirc::CalcOp>::OpConversionPattern;
@@ -3390,6 +3404,7 @@ struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<
         // the right types
         target.addDynamicallyLegalOp<mlir::scf::IfOp,
                                      mlir::scf::YieldOp,
+                                     mlir::arith::SelectOp,
                                      qcirc::CalcOp,
                                      qcirc::CalcYieldOp>(
             [&](mlir::Operation *op) {
@@ -3399,6 +3414,7 @@ struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<SCFIfOpTypeFix,
                      SCFYieldOpTypeFix,
+                     ArithSelectOpTypeFix,
                      CalcOpTypeFix,
                      CalcYieldOpTypeFix,
                      QBundlePackOpLowering,

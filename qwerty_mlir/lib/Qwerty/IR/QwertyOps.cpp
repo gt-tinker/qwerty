@@ -256,17 +256,21 @@ struct CallIndirectConst : public mlir::OpRewritePattern<qwerty::CallIndirectOp>
 
 bool block_is_duplicatable(mlir::Block &in_block) {
     for (mlir::Operation &op : in_block) {
-        llvm::errs() << "Checking op";
+        DEBUG_WITH_TYPE("duplicatable", llvm::errs() << "Checking op");
         if (!mlir::isPure(&op)) {
-            llvm::errs() << "Op is not Pure";
-            op.dump();
+            DEBUG_WITH_TYPE("duplicatable", {
+                llvm::errs() << "Op is not Pure";
+                op.dump();
+            });
             return false;
         }
         for (mlir::Value operand : op.getOperands()) {
             if (llvm::isa<qcirc::NonStationaryTypeInterface>(operand.getType()) && operand.getParentBlock() != &in_block) {
-                llvm::errs() << "Operand is not defined in the same scope as block";
-                op.dump();
-                operand.dump();
+                DEBUG_WITH_TYPE("duplicatable", {
+                    llvm::errs() << "Operand is not defined in the same scope as block";
+                    op.dump();
+                    operand.dump();
+                });
                 return false;
             }
         }
