@@ -99,7 +99,7 @@ you an idea of what is going on.
 
 To run the Python unit tests, say:
 
-    $ python -m unittest qwerty.tests
+    $ python -m unittest qwerty.tests -v
 
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/

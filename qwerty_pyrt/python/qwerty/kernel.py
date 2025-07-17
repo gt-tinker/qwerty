@@ -38,6 +38,15 @@ _global_func_counter = 0
 program_dbg = None
 program = Program(program_dbg)
 
+def _reset_compiler_state():
+    """
+    Used by unit tests to start over with a fresh program.
+    """
+    global program, _global_func_counter
+    # TODO: also wipe _FRAME_MAP err.py
+    program = Program(program_dbg)
+    _global_func_counter = 0
+
 def _calc_col_offset(before_dedent, after_dedent):
     """
     Recalculate how many leading characters we removed by ``textwrap.dedent()``
