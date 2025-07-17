@@ -601,6 +601,7 @@ dependencies = [
  "melior",
  "pyo3",
  "qir-backend",
+ "qwerty-mlir-sys",
  "qwerty_ast",
 ]
 

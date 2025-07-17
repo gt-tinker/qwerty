@@ -104,3 +104,6 @@ coverage.css
 
 # macOS metadata
 .DS_Store
+
+# Hacky symlink to qwerty-opt
+/bin
