@@ -1,6 +1,7 @@
 //! Qwerty typechecker implementation: walks the AST and enforces all typing rules.
 
 use crate::ast::*;
+use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use std::collections::HashMap;
 use std::iter::zip;
@@ -177,6 +178,115 @@ pub fn typecheck_stmt(
 // ─── EXPRESSIONS ────────────────────────────────────────────────────────────────
 //
 
+/// Takes a list of function types and returns the tensor product of all their
+/// inputs and all their outputs. The presence of a register type is an
+/// TypeError, and the presence of a unit is a panic.
+fn tensor_product_func_ins_outs(
+    tail: &[Type],
+    dbg: &Option<DebugLoc>,
+) -> Result<(Type, Type), TypeError> {
+    let input_output_ty_pairs: Vec<_> = tail
+        .iter()
+        .map(|ty| match ty {
+            Type::FuncType {
+                in_ty: ty_in_ty,
+                out_ty: ty_out_ty,
+            } => Ok(((**ty_in_ty).clone(), (**ty_out_ty).clone())),
+            Type::RevFuncType {
+                in_out_ty: ty_in_out_ty,
+            } => Ok(((**ty_in_out_ty).clone(), (**ty_in_out_ty).clone())),
+            Type::RegType { .. } => Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: "a function".to_string(),
+                    found: format!("{:?}", ty),
+                },
+                dbg: dbg.clone(),
+            }),
+
+            Type::UnitType => unreachable!("units removed in tensor_product_types()"),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let (input_tys, output_tys): (Vec<_>, Vec<_>) = input_output_ty_pairs.into_iter().unzip();
+    let merged_input_ty = tensor_product_types(input_tys, false, dbg)?;
+    let merged_output_ty = tensor_product_types(output_tys, false, dbg)?;
+    Ok((merged_input_ty, merged_output_ty))
+}
+
+/// Takes the tensor product of a list of types, returning either the new type
+/// or a TypeError. The argument allow_func determines whether function types
+/// are allowed to be present. (The reason why this argument exists is because
+/// this function is called recursively on function types, and we want only to
+/// take the tensor product of register types across two function types.)
+fn tensor_product_types(
+    types: Vec<Type>,
+    allow_func: bool,
+    dbg: &Option<DebugLoc>,
+) -> Result<Type, TypeError> {
+    // TODO: this allows e.g. []+id. Is that a good idea?
+    let nonunit_tys: Vec<_> = types
+        .into_iter()
+        .filter(|ty| !matches!(ty, Type::UnitType { .. }))
+        .collect();
+
+    match &nonunit_tys[..] {
+        [] => Ok(Type::UnitType),
+        [head_ty] => Ok((*head_ty).clone()),
+        [head, tail @ ..] => match &head {
+            Type::RegType { elem_ty, dim } => {
+                let total_dim = tail.iter().try_fold(*dim, |dim_acc, ty| match ty {
+                    Type::RegType {
+                        elem_ty: ty_elem_ty,
+                        dim: ty_dim,
+                    } if elem_ty == ty_elem_ty => Ok(dim_acc + *ty_dim),
+                    Type::RegType { .. } | Type::FuncType { .. } | Type::RevFuncType { .. } => {
+                        Err(TypeError {
+                            kind: TypeErrorKind::MismatchedTypes {
+                                expected: format!("{:?}", head),
+                                found: format!("{:?}", ty),
+                            },
+                            dbg: dbg.clone(),
+                        })
+                    }
+                    Type::UnitType => unreachable!("units removed above"),
+                })?;
+                Ok(Type::RegType {
+                    elem_ty: elem_ty.clone(),
+                    dim: total_dim,
+                })
+            }
+            Type::FuncType { .. } if allow_func => {
+                let (merged_input_ty, merged_output_ty) =
+                    tensor_product_func_ins_outs(&nonunit_tys[..], dbg)?;
+                Ok(Type::FuncType {
+                    in_ty: Box::new(merged_input_ty),
+                    out_ty: Box::new(merged_output_ty),
+                })
+            }
+            Type::RevFuncType { .. } if allow_func => {
+                let is_rev = tail.iter().all(|ty| matches!(ty, Type::RevFuncType { .. }));
+                let (merged_input_ty, merged_output_ty) =
+                    tensor_product_func_ins_outs(&nonunit_tys[..], dbg)?;
+                if is_rev {
+                    assert_eq!(merged_input_ty, merged_output_ty);
+                    Ok(Type::RevFuncType {
+                        in_out_ty: Box::new(merged_input_ty),
+                    })
+                } else {
+                    Ok(Type::FuncType {
+                        in_ty: Box::new(merged_input_ty),
+                        out_ty: Box::new(merged_output_ty),
+                    })
+                }
+            }
+            Type::FuncType { .. } | Type::RevFuncType { .. } => Err(TypeError {
+                kind: TypeErrorKind::UnsupportedTensorProduct,
+                dbg: dbg.clone(),
+            }),
+            Type::UnitType => unreachable!("units removed above"),
+        },
+    }
+}
+
 /// Typecheck an expression and return its type.
 pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError> {
     match expr {
@@ -312,99 +422,12 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
 
         Expr::Discard { dbg: _ } => Ok(Type::UnitType),
 
-        // A tensor (often a tensor product) means combining multiple quantum states or registers into a larger, composite system
         Expr::Tensor { vals, dbg } => {
-            match &vals[..] {
-                [] => Ok(Type::UnitType),
-                [ref head] => typecheck_expr(head, env),
-                [ref head, ref tail @ ..] => {
-                    let head_ty = typecheck_expr(head, env)?;
-                    match &head_ty {
-                        Type::RegType { elem_ty, dim } => {
-                            let total_dim = tail.iter().try_fold(*dim, |dim_acc, val| {
-                                let val_ty = typecheck_expr(val, env)?;
-                                match &val_ty {
-                                    Type::RegType { elem_ty: val_elem_ty, dim: val_dim} if elem_ty == val_elem_ty => Ok(dim_acc + *val_dim),
-                                    Type::UnitType => Ok(dim_acc),
-                                    Type::RegType {..} | Type::FuncType { .. } | Type::RevFuncType { .. } => Err(TypeError {
-                                        kind: TypeErrorKind::MismatchedTypes {
-                                            expected: format!("{:?}", head_ty),
-                                            found: format!("{:?}", val_ty),
-                                        },
-                                        dbg: dbg.clone(),
-                                    })
-                                }
-                            })?;
-                            Ok(Type::RegType { elem_ty: elem_ty.clone(), dim: total_dim })
-                        }
-                        Type::FuncType { in_ty, out_ty } => {
-                            match (&**in_ty, &**out_ty) {
-                                (Type::RegType { elem_ty: in_elem_ty, dim: in_dim},
-                                 Type::RegType { elem_ty: out_elem_ty, dim: out_dim}) => {
-                                    let (total_in_dim, total_out_dim) = tail.iter().try_fold((*in_dim, *out_dim), |(in_dim_acc, out_dim_acc), val| {
-                                        let val_ty = typecheck_expr(val, env)?;
-                                        match &val_ty {
-                                            Type::FuncType { in_ty: val_in_ty, out_ty: val_out_ty} => {
-                                                let new_in_dim_acc = match &**val_in_ty {
-                                                    Type::RegType { elem_ty: val_in_elem_ty, dim: val_in_dim } if in_elem_ty == val_in_elem_ty => Ok(in_dim_acc + val_in_dim),
-                                                    Type::UnitType => Ok(in_dim_acc),
-                                                    Type::RegType { .. } | Type::FuncType {..} | Type::RevFuncType { ..} => Err(TypeError {
-                                                        kind: TypeErrorKind::MismatchedTypes {
-                                                            expected: format!("{:?}", head_ty),
-                                                            found: format!("{:?}", val_ty),
-                                                        },
-                                                        dbg: dbg.clone(),
-                                                    }),
-                                                }?;
-                                                let new_out_dim_acc = match &**val_out_ty {
-                                                    Type::RegType { elem_ty: val_out_elem_ty, dim: val_out_dim } if out_elem_ty == val_out_elem_ty => Ok(out_dim_acc + val_out_dim),
-                                                    Type::UnitType => Ok(out_dim_acc),
-                                                    Type::RegType { .. } | Type::FuncType {..} | Type::RevFuncType { ..} => Err(TypeError {
-                                                        kind: TypeErrorKind::MismatchedTypes {
-                                                            expected: format!("{:?}", head_ty),
-                                                            found: format!("{:?}", val_ty),
-                                                        },
-                                                        dbg: dbg.clone(),
-                                                    }),
-                                                }?;
-                                                Ok((new_in_dim_acc, new_out_dim_acc))
-                                            }
-                                            Type::RevFuncType { in_out_ty: val_in_out_ty } => {
-                                                match &**val_in_out_ty {
-                                                    Type::RegType { elem_ty: val_in_out_elem_ty, dim: val_in_out_dim } if in_elem_ty == val_in_out_elem_ty && out_elem_ty == val_in_out_elem_ty => Ok((in_dim_acc + val_in_out_dim, out_dim_acc + val_in_out_dim)),
-                                                    Type::UnitType => Ok((in_dim_acc, out_dim_acc)),
-                                                    Type::RegType { .. } | Type::FuncType {..} | Type::RevFuncType { ..}  => Err(TypeError {
-                                                        kind: TypeErrorKind::MismatchedTypes {
-                                                            expected: format!("{:?}", head_ty),
-                                                            found: format!("{:?}", val_ty),
-                                                        },
-                                                        dbg: dbg.clone(),
-                                                    }),
-                                                }
-                                            }
-                                            Type::RegType { ..} | Type::UnitType => Err(TypeError {
-                                                kind: TypeErrorKind::MismatchedTypes {
-                                                    expected: format!("{:?}", head_ty),
-                                                    found: format!("{:?}", val_ty),
-                                                },
-                                                dbg: dbg.clone(),
-                                            })
-                                        }
-                                    })?;
-                                    Ok(Type::FuncType {
-                                        in_ty: Box::new(Type::RegType { elem_ty: in_elem_ty.clone(), dim: total_in_dim }),
-                                        out_ty: Box::new(Type::RegType { elem_ty: out_elem_ty.clone(), dim: total_out_dim }),
-                                    })
-                                }
-                                _ => todo!("tensor func types"),
-                            }
-                        }
-                        Type::RevFuncType { in_out_ty } => todo!("tensor rev func types"),
-                        // Canonicalization should get rid of this, but handle anyway
-                        Type::UnitType => typecheck_expr(&Expr::Tensor { vals: tail.to_vec(), dbg: dbg.clone() }, env),
-                    }
-                }
-            }
+            let val_tys = vals
+                .iter()
+                .map(|val| typecheck_expr(val, env))
+                .collect::<Result<Vec<Type>, TypeError>>()?;
+            tensor_product_types(val_tys, true, &dbg)
         }
 
         Expr::BasisTranslation { bin, bout, dbg } => {

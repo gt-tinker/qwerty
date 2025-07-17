@@ -21,6 +21,7 @@ pub enum TypeErrorKind {
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
     SpanMismatch,
+    UnsupportedTensorProduct,
     NotOrthogonal { left: String, right: String },
     InvalidQubitOperation(String),
     NonReversibleOperationInReversibleFunction(String),
@@ -49,8 +50,12 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::InvalidBasis => write!(f, "Invalid basis."),
             // TODO: need more detail
             TypeErrorKind::SpanMismatch => write!(f, "Bases do not have matching spans."),
+            // TODO: need more detail. not quite a mismatch but something like
+            //       f*f where f : (qubit[1]->bit[1]) -> unit. The types match
+            //       but that's not a valid tensor product.
+            TypeErrorKind::UnsupportedTensorProduct => write!(f, "Unsupported tensor product"),
             // TODO: say something more specific than "constructs"?
-            TypeErrorKind::NotOrthogonal { left, right } => write!(f, "The constructs '{left}' and '{right}' are not orthogonal."),
+            TypeErrorKind::NotOrthogonal { left, right } => write!(f, "The constructs `{left}` and `{right}` are not orthogonal."),
             TypeErrorKind::InvalidQubitOperation(op) => write!(f, "Invalid operation '{op}' performed on a qubit."),
             TypeErrorKind::NonReversibleOperationInReversibleFunction(func_name) => write!(
                 f,
