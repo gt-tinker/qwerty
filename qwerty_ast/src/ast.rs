@@ -1147,9 +1147,7 @@ impl Basis {
                 if let Some(dim) = self.get_dim() {
                     // Assumes that all vectors are mutually orthogonal, as
                     // checked by type checking.
-                    // TODO: avoid panicking when there are more than 4.3
-                    //       billion vectors in a basis literal
-                    equals_2_to_the_n(dim, vecs.len().try_into().unwrap())
+                    equals_2_to_the_n(vecs.len(), dim.try_into().unwrap())
                 } else {
                     // Conservatively assume not
                     false
