@@ -233,35 +233,6 @@ impl Vector {
         }
     }
 
-    /// Represents a vector in a human-readable form for error messages sent
-    /// back to the programmer.
-    pub fn to_programmer_str(&self) -> String {
-        match self {
-            Vector::ZeroVector { .. } => "'0'".to_string(),
-            Vector::OneVector { .. } => "'1'".to_string(),
-            Vector::PadVector { .. } => "'?'".to_string(),
-            Vector::TargetVector { .. } => "'_'".to_string(),
-            Vector::VectorTilt { q, angle_deg, .. } => {
-                if anti_phase(0.0, *angle_deg) {
-                    format!("-{}", q.to_programmer_str())
-                } else {
-                    format!("({}@{})", q.to_programmer_str(), angle_deg)
-                }
-            }
-            Vector::UniformVectorSuperpos { q1, q2, .. } => {
-                format!("({} + {})", q1.to_programmer_str(), q2.to_programmer_str())
-            }
-            Vector::VectorTensor { qs, .. } => format!(
-                "({})",
-                qs.iter()
-                    .map(|q| q.to_programmer_str())
-                    .collect::<Vec<String>>()
-                    .join(" * ")
-            ),
-            Vector::VectorUnit { .. } => "[]".to_string(),
-        }
-    }
-
     /// Returns number of non-target and non-padding qubits represented by a basis
     /// vector (⌊bv⌋ in the spec) or None if the basis vector is malformed
     /// (currently, if both sides of a superposition have different dimensions
@@ -810,6 +781,8 @@ impl PartialEq for Vector {
 impl Eq for Vector {}
 
 impl fmt::Display for Vector {
+    /// Represents a vector in a human-readable form for error messages sent
+    /// back to the programmer.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Vector::ZeroVector { .. } => write!(f, "'0'"),

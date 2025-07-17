@@ -1138,8 +1138,8 @@ fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> 
                         if !basis_vectors_are_ortho(v_1, v_2) {
                             return Err(TypeError {
                                 kind: TypeErrorKind::NotOrthogonal {
-                                    left: v_1.to_programmer_str(),
-                                    right: v_2.to_programmer_str(),
+                                    left: format!("{}", v_1),
+                                    right: format!("{}", v_2),
                                 },
                                 dbg: dbg.clone(),
                             });
