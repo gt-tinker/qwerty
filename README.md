@@ -25,9 +25,10 @@ git submodules:
 
 ### Dependencies
 
-Unless you are working only on the AST, you need to install only [Rust][3].
+If you are working only on the AST, you need to install only [Rust][3].
 
-Otherwise, you need to install [Rust][3] _and_ the following:
+Otherwise (e.g., to build the full compiler/runtime), you need to install
+[Rust][3] _and_ the following:
 
 1. LLVM 20.1.7 (with MLIR). First, download the LLVM build archive that is
    appropriate for your OS [from our repository][4]. Then you need to set both
