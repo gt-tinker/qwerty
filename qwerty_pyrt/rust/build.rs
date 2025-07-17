@@ -19,30 +19,18 @@ fn main() {
         fs::remove_dir_all(&bin_dir_link).unwrap();
     }
 
-    if let Err(_) = env::var("CARGO_FEATURE_QWERTY_OPT") {
-        println!("cargo::warning=Not symlinking bin dir because qwerty-opt feature is not enabled");
-    } else {
+    if let Ok(_) = env::var("CARGO_FEATURE_QWERTY_OPT") {
         let env_var = "DEP_MLIR_BIN_DIR";
         if let Ok(bin_dir_str) = env::var(env_var) {
             let bin_dir = Path::new(&bin_dir_str);
 
             #[cfg(unix)]
             {
-                std::os::unix::fs::symlink(&bin_dir, &bin_dir_link).unwrap();
-                println!(
-                    "cargo::warning=Linked {} -> {}",
-                    bin_dir_link.display(),
-                    bin_dir.display()
-                );
+                std::os::unix::fs::symlink(bin_dir, bin_dir_link).unwrap();
             }
             #[cfg(windows)]
             {
-                std::os::windows::fs::symlink_dir(&bin_dir, &bin_dir_link).unwrap();
-                println!(
-                    "cargo::warning=Linked {} -> {}",
-                    bin_dir_link.display(),
-                    bin_dir.display()
-                );
+                std::os::windows::fs::symlink_dir(bin_dir, bin_dir_link).unwrap();
             }
             #[cfg(not(any(unix, windows)))]
             {
