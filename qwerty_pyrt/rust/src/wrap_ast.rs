@@ -615,7 +615,7 @@ impl TypeEnv {
     #[new]
     pub fn new() -> Self {
         TypeEnv {
-            check: RustTypeEnv::new(),
+            env: typecheck::TypeEnv::new(),
         }
     }
 }
