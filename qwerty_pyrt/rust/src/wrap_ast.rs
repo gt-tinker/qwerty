@@ -607,7 +607,7 @@ impl Program {
 
 #[pyclass]
 pub struct TypeEnv {
-    check: RustTypeEnv,
+    check: typecheck::TypeEnv,
 }
 
 #[pymethods]
