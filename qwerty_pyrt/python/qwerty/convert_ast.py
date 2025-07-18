@@ -545,6 +545,9 @@ class QpuVisitor(BaseVisitor):
             left = self.extract_basis(node.left)
             right = self.extract_basis(node.right)
             return Basis.new_basis_tensor([left, right], dbg)
+        elif (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)) \
+                or (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            return Basis.new_basis_literal([self.extract_basis_vector(node)], dbg)
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis syntax {}'
