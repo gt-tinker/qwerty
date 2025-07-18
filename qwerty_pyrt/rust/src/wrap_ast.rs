@@ -7,7 +7,7 @@ use pyo3::{
 };
 use qwerty_ast::{ast, dbg, typecheck};
 use std::fmt;
-use qwerty_ast::typecheck::{TypeEnv as RustTypeEnv, typecheck_expr};
+use qwerty_ast::typecheck;
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
