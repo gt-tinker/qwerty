@@ -31,8 +31,6 @@ def repl():
         try:
             qwerty = convert_qpu_repl_input(ast.parse(cmd, mode='single'))
             qwerty.typecheck_expr(env)
-            # TODO: type check qwerty AST right here
-
         except QwertyProgrammerError as err:
             print(f'{err.kind()}: {err}')
             continue
