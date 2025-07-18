@@ -28,7 +28,6 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Program>()?;
     module.add_class::<ReplState>()?;
     module.add_class::<TypeEnv>()?;
-    module.add_class::<Type>()?;
 
     Ok(())
 }
