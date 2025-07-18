@@ -27,6 +27,4 @@ impl ReplState {
     fn run(&self, expr: Expr) -> Expr {
         Expr::new(self.state.lock().unwrap().run(&expr.expr))
     }
-
 }
-
