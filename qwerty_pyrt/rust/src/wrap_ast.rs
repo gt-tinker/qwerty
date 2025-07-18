@@ -456,11 +456,10 @@ impl Expr {
         self.to_string()
     }
 
-    pub fn typecheck_expr(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<Type> {
-        match typecheck_expr(&self.expr, &mut env.check) {
-            Ok(ty) => Ok(Type { ty }),
-            Err(e) => Err(get_err(py, e.kind.to_string(), e.dbg)),
-        }
+    pub fn type_check(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<Type> {
+        typecheck::typecheck_expr(&self.expr, &mut env.check)
+            .map(|ty| Type { ty })
+            .map_err(|err| get_err(py, err.kind.to_string(), err.dbg))
     }
 }
 
