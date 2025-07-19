@@ -144,3 +144,29 @@ class ConvertAstTests(unittest.TestCase):
             dbg_assign)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_basis_translation_elementwise_sugar(self):
+        actual_qw_ast = self.convert_expr("""
+            {'0'>>'0', '1'>>-'1'}
+        """)
+        dbg_set = self.dbg(1, 1)
+        dbg_str1 = self.dbg(1, 2)
+        dbg_str2 = self.dbg(1, 7)
+        dbg_str3 = self.dbg(1, 12)
+        dbg_neg = self.dbg(1, 17)
+        dbg_str4 = self.dbg(1, 18)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_basis_translation(
+                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str1),
+                                         Vector.new_one_vector(dbg_str3)],
+                                        dbg_set),
+                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str2),
+                                         Vector.new_vector_tilt(
+                                             Vector.new_one_vector(dbg_str4),
+                                             180.0,
+                                             dbg_neg)],
+                                        dbg_set),
+                dbg_set),
+            dbg_set)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

@@ -475,8 +475,10 @@ impl Expr {
     }
 
 
+    /// Return the Debug form of this Expr from __repr__(). By contrast,
+    /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {
-        self.to_string()
+        format!("{:?}", self.expr)
     }
 
     pub fn type_check(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<Type> {
@@ -547,8 +549,10 @@ impl Stmt {
         }
     }
 
+    /// Return the Debug form of this Stmt from __repr__(). By contrast,
+    /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {
-        self.to_string()
+        format!("{:?}", self.stmt)
     }
 }
 
