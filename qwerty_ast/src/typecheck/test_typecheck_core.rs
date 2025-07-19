@@ -63,7 +63,7 @@ fn test_unpack_assign_typing() {
 
     // The typechecker expects to build the environment itself, so let's test the stmt directly:
     let stmt = &legal_prog.funcs[0].body[0];
-    let result = super::typecheck_stmt(stmt, &mut env, &Type::UnitType);
+    let result = super::typecheck_stmt(stmt, &mut env, Some(Type::UnitType));
     assert!(result.is_ok(), "Legal unpack failed typechecking");
 
     // Case 2: Illegal unpack (3 variables, qubit[2])
@@ -84,7 +84,7 @@ fn test_unpack_assign_typing() {
         },
     );
 
-    let result2 = super::typecheck_stmt(&illegal_stmt, &mut env2, &Type::UnitType);
+    let result2 = super::typecheck_stmt(&illegal_stmt, &mut env2, Some(Type::UnitType));
     assert!(
         matches!(
             result2,
@@ -113,7 +113,7 @@ fn test_unpack_assign_non_register_rhs() {
     let mut env = TypeEnv::new();
     env.insert_var("not_a_reg", Type::UnitType);
 
-    let result = super::typecheck_stmt(&stmt, &mut env, &Type::UnitType);
+    let result = super::typecheck_stmt(&stmt, &mut env, Some(Type::UnitType));
     assert!(
         matches!(
             result,
