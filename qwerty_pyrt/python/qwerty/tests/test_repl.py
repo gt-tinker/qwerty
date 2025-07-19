@@ -53,3 +53,12 @@ class ReplTests(unittest.TestCase):
                                           '(<unknown>, line 1)'),
                                      call("'0'"),
                                      call()])
+
+    def test_input_return(self):
+        prompt_func = Mock(side_effect=["return '0'", EOFError()])
+        print_func = Mock()
+        repl(prompt_func, print_func)
+        prompt_func.assert_has_calls([call(self.PROMPT), call(self.PROMPT)])
+        print_func.assert_has_calls([call("Type Error: The return statement "
+                                          "can only be written inside a "
+                                          "function. (at column 1)"), call()])

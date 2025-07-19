@@ -535,18 +535,12 @@ impl Expr {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.expr)
     }
-
-    pub fn type_check(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<Type> {
-        typecheck::typecheck_expr(&self.expr, &mut env.env)
-            .map(|ty| Type { ty })
-            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
-    }
 }
 
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct Stmt {
-    stmt: ast::Stmt,
+    pub(crate) stmt: ast::Stmt,
 }
 
 impl fmt::Display for Stmt {
@@ -608,6 +602,16 @@ impl Stmt {
     /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.stmt)
+    }
+
+    pub fn type_check(
+        &self,
+        py: Python<'_>,
+        env: &mut TypeEnv,
+        expected_ret_type: Option<Type>,
+    ) -> PyResult<()> {
+        typecheck::typecheck_stmt(&self.stmt, &mut env.env, expected_ret_type.map(|ty| ty.ty))
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
     }
 }
 

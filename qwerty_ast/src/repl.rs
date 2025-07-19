@@ -2,7 +2,7 @@
 //! of evaluation are taken. The latter is based loosely on Appendix A of
 //! arXiv:2404.12603.
 
-use crate::ast::Expr;
+use crate::ast::{Expr, Stmt};
 use quantum_sparse_sim::QuantumSim;
 use std::collections::HashMap;
 
@@ -22,12 +22,16 @@ impl ReplState {
     }
 
     /// Evaluates an expression and returns a value.
-    pub fn run(&mut self, expr: &Expr) -> Expr {
+    pub fn run(&mut self, stmt: &Stmt) -> Expr {
         // TODO: should this return a Value (if that exists) instead of an Expr? depends on the choice above
 
         // TODO: run this expression
 
         // TODO: return the value resulting from evaluation instead of copying the input
-        expr.clone()
+        if let Stmt::Expr { expr, .. } = stmt {
+            expr.clone()
+        } else {
+            Expr::UnitLiteral { dbg: None }
+        }
     }
 }

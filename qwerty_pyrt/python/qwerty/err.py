@@ -52,6 +52,9 @@ class QwertyTypeError(QwertyProgrammerError):
     def __init__(self, msg, dbg=None):
         super().__init__(msg, dbg)
 
+    def kind(self) -> str:
+        return 'Type Error'
+
 class QwertySyntaxError(QwertyProgrammerError):
     """
     A syntax mistake or unsupported Python syntax (practically, a problem

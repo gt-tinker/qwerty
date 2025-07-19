@@ -47,11 +47,11 @@ def repl(prompt_func: Callable[[], str] = input,
             continue
 
         try:
-            expr_ast = convert_qpu_repl_input(py_ast)
-            expr_ast.type_check(env)
+            stmt_ast = convert_qpu_repl_input(py_ast)
+            stmt_ast.type_check(env, None)
         except QwertyProgrammerError as err:
             print_func(f'{err.kind()}: {err}')
             continue
 
-        result_expr_ast = state.run(expr_ast)
+        result_expr_ast = state.run(stmt_ast)
         print_func(str(result_expr_ast))

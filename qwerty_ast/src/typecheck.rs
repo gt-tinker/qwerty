@@ -70,7 +70,7 @@ pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
     // and retrieve its callable type (FuncType/RevFuncType).
     env.insert_var(&func.name, full_func_type.clone());
 
-    let expected_ret_type = &func.ret_type;
+    let expected_ret_type = Some(func.ret_type.clone());
     let is_annotated_reversible = func.is_rev;
 
     // Single Pass: For each statement, check reversibility BEFORE updating environment
@@ -89,7 +89,7 @@ pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
         }
 
         // 2. Then typecheck the statement and update the environment
-        typecheck_stmt(stmt, &mut env, expected_ret_type)?;
+        typecheck_stmt(stmt, &mut env, expected_ret_type.clone())?;
     }
 
     Ok(())
@@ -101,11 +101,12 @@ pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
 
 /// Typecheck a statement.
 /// - env: The current variable/type environment.
-/// - expected_ret_type: Used to check Return statements.
+/// - expected_ret_type: Used to check Return statements. If None, we are
+///   outside a function and returns should nto be allowed.
 pub fn typecheck_stmt(
     stmt: &Stmt,
     env: &mut TypeEnv,
-    expected_ret_type: &Type,
+    expected_ret_type: Option<Type>,
 ) -> Result<(), TypeError> {
     match stmt {
         Stmt::Expr { expr, dbg: _ } => {
@@ -161,16 +162,24 @@ pub fn typecheck_stmt(
         Stmt::Return { val, dbg } => {
             let val_ty = typecheck_expr(val, env)?;
             // TODO: Comparison needs to handle DimExpr equality
-            if &val_ty != expected_ret_type {
-                return Err(TypeError {
-                    kind: TypeErrorKind::MismatchedTypes {
-                        expected: expected_ret_type.to_string(),
-                        found: val_ty.to_string(),
-                    },
+            if let Some(expected_ret_ty) = expected_ret_type {
+                if val_ty != expected_ret_ty {
+                    Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: expected_ret_ty.to_string(),
+                            found: val_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
+            } else {
+                Err(TypeError {
+                    kind: TypeErrorKind::ReturnOutsideFunction,
                     dbg: dbg.clone(),
-                });
+                })
             }
-            Ok(())
         }
     }
 }
