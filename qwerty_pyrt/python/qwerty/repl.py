@@ -29,11 +29,11 @@ def repl():
             return
 
         try:
-            qwerty = convert_qpu_repl_input(ast.parse(cmd, mode='single'))
-            qwerty.typecheck_expr(env)
+            expr_ast = convert_qpu_repl_input(ast.parse(cmd, mode='single'))
+            expr_ast.type_check(env)
         except QwertyProgrammerError as err:
             print(f'{err.kind()}: {err}')
             continue
 
-        result = state.run(qwerty)
+        result = state.run(expr_ast)
         print(result)

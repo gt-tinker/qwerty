@@ -3,7 +3,7 @@ mod wrap_ast;
 mod wrap_repl;
 
 use crate::wrap_ast::{
-    Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, Vector, TypeEnv
+    Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, TypeEnv, Vector,
 };
 use crate::wrap_repl::ReplState;
 use pyo3::prelude::*;

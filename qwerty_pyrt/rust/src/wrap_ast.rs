@@ -7,7 +7,6 @@ use pyo3::{
 };
 use qwerty_ast::{ast, dbg, typecheck};
 use std::fmt;
-use qwerty_ast::typecheck;
 
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
@@ -458,9 +457,9 @@ impl Expr {
     }
 
     pub fn type_check(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<Type> {
-        typecheck::typecheck_expr(&self.expr, &mut env.check)
+        typecheck::typecheck_expr(&self.expr, &mut env.env)
             .map(|ty| Type { ty })
-            .map_err(|err| get_err(py, err.kind.to_string(), err.dbg))
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
     }
 }
 
@@ -607,7 +606,7 @@ impl Program {
 
 #[pyclass]
 pub struct TypeEnv {
-    check: typecheck::TypeEnv,
+    env: typecheck::TypeEnv,
 }
 
 #[pymethods]
