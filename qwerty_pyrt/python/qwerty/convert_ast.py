@@ -199,9 +199,13 @@ class BaseVisitor:
         func_def = module.body[0]
         return self.visit_FunctionDef(func_def)
 
-    # Root note for a single expression
-    #def visit_Expression(self, expr: ast.Expression):
-    #    return self.visit(expr.body)
+    def visit_Expr(self, expr_stmt: ast.Expr):
+        """
+        Statement that consists only of an expression
+        """
+        dbg = self.get_debug_loc(expr_stmt)
+        expr = self.visit(expr_stmt.value)
+        return Stmt.new_expr(expr, dbg)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
                                decorator_name: str) -> FunctionDef:
@@ -335,57 +339,47 @@ class BaseVisitor:
         expr = self.visit(ret.value)
         return Stmt.new_return(expr, dbg)
 
-    #def visit_Assign(self, assign: ast.Assign) -> Assign:
-    #    """
-    #    Convert a Python assignment statement::
+    def visit_Assign(self, assign: ast.Assign) -> Stmt:
+        """
+        Convert a Python assignment statement::
 
-    #        q = '0'
+            q = '0'
 
-    #    into an ``Assign`` Qwerty AST node.
+        into an ``Assign`` Qwerty AST node.
 
-    #    A destructuring assignment::
+        A destructuring assignment::
 
-    #        q1, q2 = '01'
+            q1, q2 = '01'
 
-    #    is converted into a ``DestructAssign`` Qwerty AST node.
-    #    """
-    #    dbg = self.get_debug_loc(assign)
-    #    if len(assign.targets) != 1:
-    #        # Something like a = b = c = '0'
-    #        raise QwertySyntaxError("Multiple assignments (like a = b = '0') "
-    #                                "are not supported. Please write a = '0' "
-    #                                "and then b = '0' instead", dbg)
-    #    tgt, = assign.targets
+        is converted into a ``UnpackAssign`` Qwerty AST node.
+        """
+        dbg = self.get_debug_loc(assign)
+        if len(assign.targets) != 1:
+            # Something like a = b = c = '0'
+            raise QwertySyntaxError("Assigning to multiple targets (e.g., "
+                                    "`a = b = '0'`) are not supported. Please "
+                                    "write `a = '0'` and then `b = '0'` "
+                                    "instead",
+                                    dbg)
+        tgt, = assign.targets
 
-    #    if isinstance(tgt, ast.Name):
-    #        expr = self.visit(assign.value)
-    #        name = tgt.id
+        if isinstance(tgt, ast.Name):
+            expr = self.visit(assign.value)
+            name = tgt.id
+            return Stmt.new_assign(name, expr, dbg)
+        elif isinstance(tgt, ast.Tuple) \
+                and all(isinstance(elt, ast.Name) for elt in tgt.elts):
+            names = [name.id for name in tgt.elts]
 
-    #        if name in RESERVED_KEYWORDS:
-    #            raise QwertySyntaxError('{} is a reserved keyword and cannot '
-    #                                    'be used as the left-hand side of an '
-    #                                    'assignment'.format(name), dbg)
+            if len(names) < 2:
+                raise QwertySyntaxError('Unpacking assignment must have '
+                                        'at least 2 names on the left-hand '
+                                        'side', dbg)
 
-    #        return Assign(dbg, name, expr)
-    #    elif isinstance(tgt, ast.Tuple) \
-    #            and all(isinstance(elt, ast.Name) for elt in tgt.elts):
-    #        names = [name.id for name in tgt.elts]
-
-    #        if len(names) < 2:
-    #            raise QwertySyntaxError('Destructuring assignment must have '
-    #                                    'at least 2 names on the left-hand '
-    #                                    'side', dbg)
-
-    #        if bad_names := RESERVED_KEYWORDS & set(names):
-    #            bad_name = next(iter(bad_names))
-    #            raise QwertySyntaxError('{} is a reserved keyword and cannot '
-    #                                    'be used as the left-hand side of an '
-    #                                    'assignment'.format(bad_name), dbg)
-
-    #        expr = self.visit(assign.value)
-    #        return DestructAssign(dbg, names, expr)
-    #    else:
-    #        raise QwertySyntaxError('Unknown assignment syntax', dbg)
+            expr = self.visit(assign.value)
+            return Stmt.new_unpack_assign(names, expr, dbg)
+        else:
+            raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
     #def visit_AnnAssign(self, assign: ast.AnnAssign):
     #    """
@@ -426,10 +420,12 @@ class BaseVisitor:
         """
         if isinstance(node, list):
             return self.visit_List(node)
+        elif isinstance(node, ast.Expr):
+            return self.visit_Expr(node)
         elif isinstance(node, ast.Return):
             return self.visit_Return(node)
-        #elif isinstance(node, ast.Assign):
-        #    return self.visit_Assign(node)
+        elif isinstance(node, ast.Assign):
+            return self.visit_Assign(node)
         #elif isinstance(node, ast.AnnAssign):
         #    return self.visit_AnnAssign(node)
         #elif isinstance(node, ast.AugAssign):
@@ -1209,18 +1205,12 @@ def convert_qpu_repl_input(root: ast.Interactive) -> Expr:
         raise QwertySyntaxError('Expected one statement as input, not '
                                 f'{len(root.body)} statements')
     
-    statement = root.body[0]
-
-    if not isinstance(statement, ast.Expr):
-        raise QwertySyntaxError('Statement is not an expression')
-    
-    expr = statement.value
-
+    stmt, = root.body
     visitor = QpuVisitor(name_generator=lambda name: name,
                          filename='<input>',
                          line_offset=0,
                          col_offset=0)
-    return visitor.visit(expr)
+    return visitor.visit(stmt)
 
 #################### @CLASSICAL DSL ####################
 

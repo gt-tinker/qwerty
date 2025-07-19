@@ -1338,6 +1338,25 @@ pub enum Stmt {
     },
 }
 
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Stmt::Expr { expr, .. } => write!(f, "{}", expr),
+            Stmt::Assign { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
+            Stmt::UnpackAssign { lhs, rhs, .. } => {
+                for (i, name) in lhs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", name)?;
+                }
+                write!(f, " = {}", rhs)
+            }
+            Stmt::Return { val, .. } => write!(f, "return {}", val),
+        }
+    }
+}
+
 // ----- Functions -----
 
 #[derive(Debug, Clone, PartialEq)]

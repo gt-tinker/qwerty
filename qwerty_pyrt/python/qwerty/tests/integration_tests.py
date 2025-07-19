@@ -24,3 +24,9 @@ class IntegrationTests(unittest.TestCase):
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_nometa.test(shots))
+
+    def test_superdense_nocap(self):
+        from .integ import superdense_nocap
+        shots = 1024
+        expected_histo = {bit[2](0b00): shots}
+        self.assertEqual(expected_histo, superdense_nocap.test(shots))

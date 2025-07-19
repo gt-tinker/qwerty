@@ -4,7 +4,7 @@ import unittest
 
 from qwerty.err import QwertySyntaxError
 from qwerty.convert_ast import convert_qpu_repl_input
-from qwerty._qwerty_pyrt import Expr, QLit, DebugLoc, Basis, Vector
+from qwerty._qwerty_pyrt import Expr, QLit, DebugLoc, Basis, Vector, Stmt
 
 class ConvertAstTests(unittest.TestCase):
     def convert_expr(self, code):
@@ -20,7 +20,8 @@ class ConvertAstTests(unittest.TestCase):
             '0'
         """)
         dbg = self.dbg(1, 1)
-        expected_qw_ast = Expr.new_qlit(QLit.new_zero_qubit(dbg), dbg)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_qlit(QLit.new_zero_qubit(dbg), dbg), dbg)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -29,7 +30,8 @@ class ConvertAstTests(unittest.TestCase):
             '1'
         """)
         dbg = self.dbg(1, 1)
-        expected_qw_ast = Expr.new_qlit(QLit.new_one_qubit(dbg), dbg)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_qlit(QLit.new_one_qubit(dbg), dbg), dbg)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -38,19 +40,20 @@ class ConvertAstTests(unittest.TestCase):
             ''
         """)
         dbg = self.dbg(1, 1)
-        expected_qw_ast = Expr.new_qlit(QLit.new_qubit_unit(dbg), dbg)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_qlit(QLit.new_qubit_unit(dbg), dbg), dbg)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_unknown_constant(self):
         with self.assertRaisesRegex(QwertySyntaxError, "Unknown constant"):
-            actual_qw_ast = self.convert_expr("""
+            self.convert_expr("""
                 None
             """)
 
     def test_qubit_literal_mystery_symbol(self):
         with self.assertRaisesRegex(QwertySyntaxError, "Unknown qubit symbol"):
-            actual_qw_ast = self.convert_expr("""
+            self.convert_expr("""
                 'a'
             """)
 
@@ -59,11 +62,11 @@ class ConvertAstTests(unittest.TestCase):
             '010'
         """)
         dbg = self.dbg(1, 1)
-        expected_qw_ast = Expr.new_qlit(QLit.new_qubit_tensor([
+        expected_qw_ast = Stmt.new_expr(Expr.new_qlit(QLit.new_qubit_tensor([
             QLit.new_zero_qubit(dbg),
             QLit.new_one_qubit(dbg),
             QLit.new_zero_qubit(dbg),
-        ], dbg), dbg)
+        ], dbg), dbg), dbg)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -74,7 +77,7 @@ class ConvertAstTests(unittest.TestCase):
         dbg1 = self.dbg(1, 1)
         dbg2 = self.dbg(1, 11)
         dbg3 = self.dbg(1, 10)
-        expected_qw_ast = Expr.new_basis_translation(
+        expected_qw_ast = Stmt.new_expr(Expr.new_basis_translation(
             Basis.new_basis_literal([
                 Vector.new_vector_tensor([
                     Vector.new_zero_vector(dbg1),
@@ -91,5 +94,13 @@ class ConvertAstTests(unittest.TestCase):
                     180.0,
                     dbg3)
             ], dbg3),
-            dbg1)
+            dbg1), dbg1)
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_assign_multi_target(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Assigning to multiple targets .*not "
+                                    "supported"):
+            self.convert_expr("""
+                a = b = '0'
+            """)

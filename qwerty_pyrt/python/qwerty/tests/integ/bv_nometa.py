@@ -1,3 +1,8 @@
+"""
+A version of Bernstein–Vazirani with neither metaQwerty features nor classical
+function embeddings.
+"""
+
 from qwerty import *
 
 @qpu

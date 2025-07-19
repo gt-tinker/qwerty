@@ -463,14 +463,30 @@ impl Expr {
     }
 }
 
-#[pyclass]
-#[derive(Clone)]
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
 pub struct Stmt {
     stmt: ast::Stmt,
 }
 
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.stmt)
+    }
+}
+
 #[pymethods]
 impl Stmt {
+    #[classmethod]
+    fn new_expr(_cls: &Bound<'_, PyType>, expr: Expr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            stmt: ast::Stmt::Expr {
+                expr: expr.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_assign(_cls: &Bound<'_, PyType>, lhs: String, rhs: Expr, dbg: Option<DebugLoc>) -> Self {
         Self {
@@ -506,6 +522,10 @@ impl Stmt {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
+    }
+
+    pub fn __repr__(&self) -> String {
+        self.to_string()
     }
 }
 

@@ -1,3 +1,7 @@
+"""
+A trivial 'random bit' program that uses no metaQwerty features such as 'p'
+"""
+
 from qwerty import *
 
 @qpu
