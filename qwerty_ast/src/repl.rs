@@ -24,9 +24,10 @@ impl ReplState {
     /// Evaluates an expression and returns a value.
     pub fn run(&mut self, expr: &Expr) -> Expr {
         // TODO: should this return a Value (if that exists) instead of an Expr? depends on the choice above
-        // TODO: run
-        println!("Running {:?}", expr);
-        // TODO: return the value resulting from evaluation instead of the input
+
+        // TODO: run this expression
+
+        // TODO: return the value resulting from evaluation instead of copying the input
         expr.clone()
     }
 }

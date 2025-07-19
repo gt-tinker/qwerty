@@ -10,30 +10,48 @@ qwerty_ast::repl to actually run the code.
 """
 
 import ast
+from collections.abc import Callable
 from .convert_ast import convert_qpu_repl_input
 from .err import QwertyProgrammerError
 from ._qwerty_pyrt import ReplState, TypeEnv
 
-def repl():
-    """Run the Qwerty REPL."""
+def repl(prompt_func: Callable[[], str] = input,
+         print_func: Callable[[str], None] = print) -> None:
+    """
+    Run the Qwerty REPL.
 
+    ``prompt_func`` is an analog of ``input()`` and ``print_func`` is an analog
+    of ``print()``. Both arguments exist to enable unit testing.
+    """
     state = ReplState()
     env = TypeEnv()
 
     while True:
         try:
-            cmd = input('(qwerty) ')
+            cmd = prompt_func('(qwerty) ')
         except (EOFError, KeyboardInterrupt):
             # Print a newline so the user's shell prompt is on a fresh line
-            print()
+            print_func()
             return
 
-        try:
-            expr_ast = convert_qpu_repl_input(ast.parse(cmd, mode='single'))
-            expr_ast.type_check(env)
-        except QwertyProgrammerError as err:
-            print(f'{err.kind()}: {err}')
+
+        stripped_cmd = cmd.strip()
+        if not stripped_cmd:
+            # Ignore blank lines
             continue
 
-        result = state.run(expr_ast)
-        print(result)
+        try:
+            py_ast = ast.parse(stripped_cmd, mode='single')
+        except SyntaxError as err:
+            print_func(f'Syntax Error: {err}')
+            continue
+
+        try:
+            expr_ast = convert_qpu_repl_input(py_ast)
+            expr_ast.type_check(env)
+        except QwertyProgrammerError as err:
+            print_func(f'{err.kind()}: {err}')
+            continue
+
+        result_expr_ast = state.run(expr_ast)
+        print_func(str(result_expr_ast))
