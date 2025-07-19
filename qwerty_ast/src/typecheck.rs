@@ -3,6 +3,7 @@
 use crate::ast::*;
 use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
+use dashu::base::BitTest;
 use std::collections::HashMap;
 use std::iter::zip;
 
@@ -127,7 +128,7 @@ pub fn typecheck_stmt(
 
             match rhs_ty {
                 Type::RegType { elem_ty, dim } => {
-                    if lhs.len() as u64 != dim {
+                    if lhs.len() != dim {
                         return Err(TypeError {
                             kind: TypeErrorKind::WrongArity {
                                 expected: dim as usize,
@@ -615,6 +616,26 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
         }
 
         Expr::QLit { qlit, dbg: _ } => typecheck_qlit(qlit, env),
+
+        Expr::BitLiteral { dim, bits, dbg } => {
+            if *dim == 0 {
+                Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    dbg: dbg.clone(),
+                })
+            } else if bits.bit_len() > *dim {
+                // TODO: use a more descriptive error here
+                Err(TypeError {
+                    kind: TypeErrorKind::DimMismatch,
+                    dbg: dbg.clone(),
+                })
+            } else {
+                Ok(Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: *dim,
+                })
+            }
+        }
     }
 }
 

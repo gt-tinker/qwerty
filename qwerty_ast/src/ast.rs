@@ -8,6 +8,7 @@
  */
 
 use crate::dbg::DebugLoc;
+use dashu::integer::UBig;
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -17,7 +18,7 @@ use std::fmt;
 pub enum Type {
     FuncType { in_ty: Box<Type>, out_ty: Box<Type> },
     RevFuncType { in_out_ty: Box<Type> },
-    RegType { elem_ty: RegKind, dim: u64 }, // TODO: dim: DimExpr instead of u64
+    RegType { elem_ty: RegKind, dim: usize },
     UnitType,
 }
 
@@ -1215,56 +1216,115 @@ impl fmt::Display for Basis {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Variable {
-        name: String,
-        dbg: Option<DebugLoc>,
-    },
-    UnitLiteral {
-        dbg: Option<DebugLoc>,
-    },
+    /// A variable name used in an expression. Example syntax:
+    /// ```ignore
+    /// my_var
+    /// ```
+    Variable { name: String, dbg: Option<DebugLoc> },
+
+    /// A unit literal. Represents an empty register or void. Example syntax:
+    /// ```ignore
+    /// []
+    /// ```
+    UnitLiteral { dbg: Option<DebugLoc> },
+
+    /// Takes the adjoint of a function value. Example syntax:
+    /// ```ignore
+    /// ~f
+    /// ```
     Adjoint {
         func: Box<Expr>,
         dbg: Option<DebugLoc>,
     },
+
+    /// Calls a function value. Example syntax for `f(x)`:
+    /// ```ignore
+    /// x | f
+    /// ```
     Pipe {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
         dbg: Option<DebugLoc>,
     },
-    Measure {
-        basis: Basis,
-        dbg: Option<DebugLoc>,
-    },
-    Discard {
-        dbg: Option<DebugLoc>,
-    },
+
+    /// A function value that measures its input when called. Example syntax:
+    /// ```ignore
+    /// measure
+    /// ```
+    Measure { basis: Basis, dbg: Option<DebugLoc> },
+
+    /// A function value that discards its input when called. Example syntax:
+    /// ```ignore
+    /// discard
+    /// ```
+    Discard { dbg: Option<DebugLoc> },
+
+    /// A tensor product of function values or register values. Example syntax:
+    /// ```ignore
+    /// '0' * '1' * '0'
+    /// ```
     Tensor {
         vals: Vec<Expr>,
         dbg: Option<DebugLoc>,
     },
+
+    /// The mighty basis translation. Example syntax:
+    /// ```ignore
+    /// {'0','1'} >> {'0',-'1'}
+    /// ```
     BasisTranslation {
         bin: Basis,
         bout: Basis,
         dbg: Option<DebugLoc>,
     },
+
+    /// A function value that, when called, runs a function value (`then_func`)
+    /// in a proper subspace and another function (`else_func`) in the orthogonal
+    /// complement of that subspace. Example syntax:
+    /// ```ignore
+    /// flip if {'1_'} else id
+    /// ```
     Predicated {
         then_func: Box<Expr>,
         else_func: Box<Expr>,
         pred: Basis,
         dbg: Option<DebugLoc>,
     },
+
+    /// A superposition of qubit literals that may not have uniform
+    /// probabilities. Example syntax:
+    /// ```ignore
+    /// 0.25*'0' + 0.75*'1'
+    /// ```
     NonUniformSuperpos {
         pairs: Vec<(f64, QLit)>,
         dbg: Option<DebugLoc>,
     },
+
+    /// A classical conditional (ternary) expression. Example syntax:
+    /// ```ignore
+    /// flip if meas_result else id
+    /// ```
     Conditional {
         then_expr: Box<Expr>,
         else_expr: Box<Expr>,
         cond: Box<Expr>,
         dbg: Option<DebugLoc>,
     },
-    QLit {
-        qlit: QLit,
+
+    /// A qubit literal. Example syntax:
+    /// ```ignore
+    /// '0' + '1'
+    /// ```
+    QLit { qlit: QLit, dbg: Option<DebugLoc> },
+
+    /// A classical bit literal. Example syntax:
+    /// ```ignore
+    /// bit[4](0b1101)
+    /// ```
+    BitLiteral {
+        dim: usize,
+        bits: UBig,
         dbg: Option<DebugLoc>,
     },
 }
@@ -1310,6 +1370,7 @@ impl fmt::Display for Expr {
                 ..
             } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
             Expr::QLit { qlit, .. } => write!(f, "{}", qlit),
+            Expr::BitLiteral { dim, bits, .. } => write!(f, "bit[{}](0b{:b})", dim, bits),
         }
     }
 }

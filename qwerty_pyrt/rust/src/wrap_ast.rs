@@ -1,6 +1,7 @@
 use crate::mlir::run_ast;
 use dashu::integer::UBig;
 use pyo3::{
+    conversion::{FromPyObject, IntoPyObject},
     prelude::*,
     sync::GILOnceCell,
     types::{PyBytes, PyInt, PyType},
@@ -20,13 +21,37 @@ fn get_bit_reg<'py>(
     bit_type.call1((as_int, n_bits))
 }
 
-fn ubig_to_pyobject<'py>(py: Python<'py>, ubig: &UBig) -> PyResult<Bound<'py, PyInt>> {
-    let big_endian_bytes = ubig.to_be_bytes();
-    let py_bytes = PyBytes::new(py, &*big_endian_bytes);
-    Ok(py
-        .get_type::<PyInt>()
-        .call_method1("from_bytes", (py_bytes, "big"))?
-        .downcast_into()?)
+/// A "newtype" around UBig that allows implementing the IntoPyObject and
+/// FromPyObject traits without violating the orphan rule (since UBig is from
+/// the dashu crate)
+#[derive(Clone, Debug)]
+struct UBigWrap(UBig);
+
+impl<'py> IntoPyObject<'py> for UBigWrap {
+    type Target = PyInt;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyInt>> {
+        let big_endian_bytes = self.0.to_be_bytes();
+        let py_bytes = PyBytes::new(py, &*big_endian_bytes);
+        Ok(py
+            .get_type::<PyInt>()
+            .call_method1("from_bytes", (py_bytes, "big"))?
+            .downcast_into()?)
+    }
+}
+
+impl<'py> FromPyObject<'py> for UBigWrap {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let as_int = obj.downcast::<PyInt>()?;
+        let num_bits = as_int.call_method0("bit_length")?.extract::<usize>()?;
+        let num_bytes = (num_bits + 7) / 8;
+        let bytes = as_int
+            .call_method1("to_bytes", (num_bytes, "big"))?
+            .extract::<Vec<u8>>()?;
+        Ok(Self(UBig::from_be_bytes(&bytes)))
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -132,7 +157,7 @@ impl Type {
     }
 
     #[classmethod]
-    fn new_reg(_cls: &Bound<'_, PyType>, elem_ty: RegKind, dim: u64) -> Self {
+    fn new_reg(_cls: &Bound<'_, PyType>, elem_ty: RegKind, dim: usize) -> Self {
         Self {
             ty: ast::Type::RegType {
                 elem_ty: elem_ty.to_ast_kind(),
@@ -406,6 +431,15 @@ impl Expr {
     }
 
     #[classmethod]
+    fn new_unit_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::UnitLiteral {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_measure(_cls: &Bound<'_, PyType>, basis: Basis, dbg: Option<DebugLoc>) -> Self {
         Self {
             expr: ast::Expr::Measure {
@@ -453,7 +487,13 @@ impl Expr {
     }
 
     #[classmethod]
-    fn new_conditional(_cls: &Bound<'_, PyType>, then_expr: Expr, else_expr: Expr, cond: Expr, dbg: Option<DebugLoc>) -> Self {
+    fn new_conditional(
+        _cls: &Bound<'_, PyType>,
+        then_expr: Expr,
+        else_expr: Expr,
+        cond: Expr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
             expr: ast::Expr::Conditional {
                 then_expr: Box::new(then_expr.expr),
@@ -474,6 +514,21 @@ impl Expr {
         }
     }
 
+    #[classmethod]
+    fn new_bit_literal(
+        _cls: &Bound<'_, PyType>,
+        dim: usize,
+        bits: UBigWrap,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: ast::Expr::BitLiteral {
+                dim,
+                bits: bits.0,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
 
     /// Return the Debug form of this Expr from __repr__(). By contrast,
     /// __str__() returns the Display form.
@@ -641,10 +696,10 @@ impl Program {
         self.type_check(py)?;
 
         run_ast(&self.program, &func_name, num_shots)
-            .iter()
+            .into_iter()
             .map(|shot_result| {
-                ubig_to_pyobject(py, &shot_result.bits)
-                    .and_then(|as_int| get_bit_reg(py, as_int, shot_result.num_bits))
+                let as_int = UBigWrap(shot_result.bits).into_pyobject(py)?;
+                get_bit_reg(py, as_int, shot_result.num_bits)
                     .map(|bit_reg| (bit_reg, shot_result.count))
             })
             .collect()

@@ -828,7 +828,7 @@ class QpuVisitor(BaseVisitor):
         bvs_out = []
 
         for elt in set_.elts:
-            if isinstance((binop := elt), ast.BinOp) \
+            if isinstance(binop := elt, ast.BinOp) \
                     and isinstance(binop.op, ast.RShift):
                 rshift = elt
                 bvs_in.append(self.extract_basis_vector(rshift.left))
@@ -918,82 +918,65 @@ class QpuVisitor(BaseVisitor):
     #    """
     #    return RepeatTensor(*self.list_comp_helper(comp))
 
-    #def visit_Call(self, call: ast.Call):
-    #    """
-    #    As syntactic sugar, convert a Python call expression into a ``Pipe``
-    #    Qwerty AST node. In general, the shorthand::
+    def visit_Call(self, call: ast.Call) -> Expr:
+        """
+        As syntactic sugar, convert a Python call expression into a ``Pipe``
+        Qwerty AST node. In general, the shorthand::
 
-    #        f(arg1,arg2,...,argn)
+            f(arg1,arg2,...,argn)
 
-    #    is equivalent to::
+        is equivalent to::
 
-    #        (arg1,arg2,...,argn) | f
+            (arg1,arg2,...,argn) | f
 
-    #    There is also unrelated special handling for ``b.rotate(theta)`` and
-    #    ``fwd.inplace(rev)``.
-    #    """
-    #    if call.keywords:
-    #        raise QwertySyntaxError('Keyword arguments not supported in '
-    #                                'call', self.get_debug_loc(call))
+        There is also unrelated special handling for ``bit[4](0b1101)``.
+        """
+        if call.keywords:
+            raise QwertySyntaxError('Keyword arguments not supported in '
+                                    'call', self.get_debug_loc(call))
 
-    #    dbg = self.get_debug_loc(call)
+        dbg = self.get_debug_loc(call)
 
-    #    # Handling for b.rotate(theta) and fwd.inplace(rev)
-    #    if isinstance(attr := call.func, ast.Attribute):
-    #        if attr.attr == 'rotate':
-    #            if len(call.args) != 1:
-    #                raise QwertySyntaxError('Wrong number of operands '
-    #                                        '{} != 1 to .rotate'
-    #                                        .format(len(call.args)),
-    #                                        self.get_debug_loc(attr))
-    #            arg = call.args[0]
-    #            basis = self.visit(attr.value)
-    #            theta = self.extract_float_expr(arg)
-    #            return Rotate(dbg, basis, theta)
-    #        elif attr.attr in EMBEDDING_KEYWORDS \
-    #                and isinstance(name := attr.value, ast.Name):
-    #            if not call.args:
-    #                embedding_kind = EMBEDDING_KEYWORDS[attr.attr]
-    #                if embedding_kind_has_operand(embedding_kind):
-    #                    raise QwertySyntaxError('Keyword {} requires an '
-    #                                            'operand'.format(attr.attr),
-    #                                            self.get_debug_loc(attr))
-    #                classical_func_name = name.id
-    #                return EmbedClassical(dbg, classical_func_name, '',
-    #                                      embedding_kind)
-    #            else:
-    #                embedding_kind = EMBEDDING_KEYWORDS[attr.attr]
-    #                if not embedding_kind_has_operand(embedding_kind):
-    #                    raise QwertySyntaxError('Keyword {} does not require an '
-    #                                            'operand'.format(attr.attr),
-    #                                            self.get_debug_loc(attr))
+        # Handling for `bit[4](0b1101)`, bit literals
+        if isinstance(subscript := call.func, ast.Subscript) \
+                and isinstance(name := subscript.value, ast.Name) \
+                and name.id == 'bit':
+            if not isinstance(dim_const := subscript.slice, ast.Constant) \
+                    or not isinstance(dim := dim_const.value, int):
+                dim_dbg = self.get_debug_loc(dim_const)
+                raise QwertySyntaxError('Dimension N to a bit literal '
+                                        '`bit[N](0b1101)` must be an integer '
+                                        'constant.', dim_dbg)
+            if len(call.args) != 1 \
+                    or not isinstance(bits_const := call.args[0], ast.Constant) \
+                    or not isinstance(bits := bits_const.value, int):
+                # Try to choose a useful source code location to point them to
+                if not call.args:
+                    bits_dbg = dbg
+                elif len(call.args) > 1:
+                    bits_dbg = self.get_debug_loc(call.args[1])
+                else:
+                    bits_dbg = self.get_debug_loc(bits_const)
 
-    #                if len(call.args) != 1:
-    #                    raise QwertySyntaxError('Wrong number of operands '
-    #                                            '{} != 1 to {}'
-    #                                            .format(len(call.args),
-    #                                                    attr.attr),
-    #                                            self.get_debug_loc(attr))
-    #                arg = call.args[0]
-    #                if not isinstance(arg, ast.Name):
-    #                    raise QwertySyntaxError('Argument to {} must be an '
-    #                                            'identifier, not a {}'
-    #                                            .format(attr.attr,
-    #                                                    type(arg).__name__),
-    #                                            self.get_debug_loc(attr))
+                raise QwertySyntaxError('A bit literal `bit[N](0bxxxx)` '
+                                        'requires only constant bits `0bxxxx` '
+                                        'between the parentheses.', bits_dbg)
 
-    #                classical_func_name = name.id
-    #                classical_func_operand_name = arg.id
-    #                return EmbedClassical(dbg, classical_func_name,
-    #                                      classical_func_operand_name,
-    #                                      embedding_kind)
+            return Expr.new_bit_literal(dim, bits, dbg)
+        else:
+            rhs = self.visit(call.func)
 
-    #    rhs = self.visit(call.func)
-    #    lhs_elts = [self.visit(arg) for arg in call.args]
-    #    lhs = TupleLiteral(dbg.copy(), lhs_elts) \
-    #          if len(call.args) != 1 \
-    #          else self.visit(call.args[0])
-    #    return Pipe(dbg, lhs, rhs)
+            if not call.args:
+                lhs = Expr.new_unit_literal(dbg)
+            elif len(call.args) == 1:
+                lhs = self.visit(call.args[0])
+            else:
+                n_args = len(call.args)
+                raise QwertySyntaxError('Either one or zero arguments can be '
+                                        'passed to a function call, but got '
+                                        f'{n_args} arguments.', dbg)
+
+            return Expr.new_pipe(lhs, rhs, dbg)
 
     #def visit_Tuple(self, tuple_: ast.Tuple):
     #    """
@@ -1164,8 +1147,8 @@ class QpuVisitor(BaseVisitor):
         #    return self.visit_GeneratorExp(node)
         #elif isinstance(node, ast.ListComp):
         #    return self.visit_ListComp(node)
-        #elif isinstance(node, ast.Call):
-        #    return self.visit_Call(node)
+        elif isinstance(node, ast.Call):
+            return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):
         #    return self.visit_Tuple(node)
         elif isinstance(node, ast.Attribute):

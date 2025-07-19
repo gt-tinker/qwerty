@@ -170,3 +170,89 @@ class ConvertAstTests(unittest.TestCase):
             dbg_set)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bit_literal_4bit(self):
+        actual_qw_ast = self.convert_expr("""
+            bit[4](0b1101)
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_bit_literal(4, 0b1101, dbg), dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bit_literal_nonint_dim(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "must be an integer constant"):
+            self.convert_expr("""
+                bit[N](0b1101)
+            """)
+
+    def test_bit_literal_float_dim(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "must be an integer constant"):
+            self.convert_expr("""
+                bit[2.0](0b1101)
+            """)
+
+    def test_bit_literal_no_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4]()
+            """)
+
+    def test_bit_literal_two_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](0b10, 0b11)
+            """)
+
+    def test_bit_literal_bits_float(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](3.0)
+            """)
+
+    def test_bit_literal_bits_name(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](x)
+            """)
+
+    def test_pipe_call_sugar_two_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "got 2 arguments"):
+            self.convert_expr("""
+                f(x, y)
+            """)
+
+    def test_pipe_call_sugar_one_arg(self):
+        actual_qw_ast = self.convert_expr("""
+            f(x)
+        """)
+        dbg_f = self.dbg(1, 1)
+        dbg_x = self.dbg(1, 3)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_pipe(Expr.new_variable('x', dbg_x),
+                          Expr.new_variable('f', dbg_f),
+                          dbg_f),
+            dbg_f)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_pipe_call_sugar_zero_args(self):
+        actual_qw_ast = self.convert_expr("""
+            f()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_pipe(Expr.new_unit_literal(dbg),
+                          Expr.new_variable('f', dbg),
+                          dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

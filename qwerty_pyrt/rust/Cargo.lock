@@ -590,6 +590,7 @@ dependencies = [
 name = "qwerty_ast"
 version = "0.1.0"
 dependencies = [
+ "dashu",
  "quantum-sparse-sim",
 ]
 

@@ -90,14 +90,14 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
             elem_ty: RegKind::Bit,
             dim,
         } => {
-            vec![qwerty::BitBundleType::new(&MLIR_CTX, *dim).into()]
+            vec![qwerty::BitBundleType::new(&MLIR_CTX, (*dim).try_into().unwrap()).into()]
         }
 
         ast::Type::RegType {
             elem_ty: RegKind::Qubit,
             dim,
         } => {
-            vec![qwerty::QBundleType::new(&MLIR_CTX, *dim).into()]
+            vec![qwerty::QBundleType::new(&MLIR_CTX, (*dim).try_into().unwrap()).into()]
         }
 
         ast::Type::RegType {
