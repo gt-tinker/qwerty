@@ -396,10 +396,10 @@ impl fmt::Display for Expr {
 #[pymethods]
 impl Expr {
     #[classmethod]
-    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit, dbg: Option<DebugLoc>) -> Self {
+    fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::QLit {
-                qlit: qlit.qlit,
+            expr: ast::Expr::Variable {
+                name,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -451,6 +451,29 @@ impl Expr {
             },
         }
     }
+
+    #[classmethod]
+    fn new_conditional(_cls: &Bound<'_, PyType>, then_expr: Expr, else_expr: Expr, cond: Expr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::Conditional {
+                then_expr: Box::new(then_expr.expr),
+                else_expr: Box::new(else_expr.expr),
+                cond: Box::new(cond.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::QLit {
+                qlit: qlit.qlit,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
 
     pub fn __repr__(&self) -> String {
         self.to_string()

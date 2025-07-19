@@ -373,7 +373,7 @@ class BaseVisitor:
 
             if len(names) < 2:
                 raise QwertySyntaxError('Unpacking assignment must have '
-                                        'at least 2 names on the left-hand '
+                                        'at least two names on the left-hand '
                                         'side', dbg)
 
             expr = self.visit(assign.value)
@@ -413,6 +413,15 @@ class BaseVisitor:
     #    """
     #    raise QwertySyntaxError('Qwerty does not support mutating values', dbg)
 
+    def visit_Name(self, name: ast.Name) -> Expr:
+        """
+        Convert a Python AST identitifer node into a Qwerty variable name AST
+        node. For example, ``foobar`` becomes a Qwerty ``Variable`` AST node.
+        """
+        var_name = name.id
+        dbg = self.get_debug_loc(name)
+        return Expr.new_variable(var_name, dbg)
+
     def base_visit(self, node: ast.AST):
         """
         Convert a Python AST node into a Qwerty AST Node (and return the
@@ -426,6 +435,8 @@ class BaseVisitor:
             return self.visit_Return(node)
         elif isinstance(node, ast.Assign):
             return self.visit_Assign(node)
+        elif isinstance(node, ast.Name):
+            return self.visit_Name(node)
         #elif isinstance(node, ast.AnnAssign):
         #    return self.visit_AnnAssign(node)
         #elif isinstance(node, ast.AugAssign):
@@ -610,41 +621,6 @@ class QpuVisitor(BaseVisitor):
         Convert a ``@qpu`` kernel into a ``QpuKernel`` Qwerty AST node.
         """
         return super().base_visit_FunctionDef(func_def, 'qpu')
-
-    ## Variable or reserved keyword
-    #def visit_Name(self, name: ast.Name):
-    #    """
-    #    Convert a Python AST identitifer node into either a Qwerty primitive
-    #    AST node or a Qwerty variable name AST node. For example ``id`` becomes
-    #    an ``Identity`` AST node, and ``foobar`` becomes a Qwerty ``Variable``
-    #    AST node.
-    #    """
-    #    var_name = name.id
-    #    dbg = self.get_debug_loc(name)
-
-    #    if var_name == 'id':
-    #        return Identity(dbg, DimVarExpr('', 1))
-    #    elif var_name == 'std':
-    #        return BuiltinBasis(dbg, Z, DimVarExpr('', 1))
-    #    elif var_name == 'pm':
-    #        return BuiltinBasis(dbg, X, DimVarExpr('', 1))
-    #    elif var_name == 'ij':
-    #        return BuiltinBasis(dbg, Y, DimVarExpr('', 1))
-    #    elif var_name == 'discard':
-    #        return Discard(dbg, DimVarExpr('', 1))
-    #    elif var_name == 'measure':
-    #        # Sugar for `std.measure'
-    #        return Measure(dbg, BuiltinBasis(dbg.copy(), Z, DimVarExpr('', 1)))
-    #    elif var_name == 'flip':
-    #        # Sugar for `std.flip'
-    #        return Flip(dbg, BuiltinBasis(dbg.copy(), Z, DimVarExpr('', 1)))
-    #    elif var_name == 'fourier':
-    #        raise QwertySyntaxError('fourier is a reserved keyword. The '
-    #                                'one-dimensional Fourier basis must be '
-    #                                'written as fourier[1]',
-    #                                self.get_debug_loc(name))
-    #    else:
-    #        return Variable(dbg, var_name)
 
     def visit_Constant(self, const: ast.Constant):
         value = const.value
@@ -835,15 +811,40 @@ class QpuVisitor(BaseVisitor):
     #    operand = self.visit(unary_operand)
     #    return Adjoint(dbg, operand)
 
-    #def visit_Set(self, set_: ast.Set):
-    #    """
-    #    Convert a Python set literal AST node into a Qwerty ``BasisLiteral``
-    #    AST node. For example, ``{'0', -'1'}`` is a ``BasisLiteral`` node with
-    #    two children.
-    #    """
-    #    dbg = self.get_debug_loc(set_)
-    #    basis_elts = self.visit(set_.elts)
-    #    return BasisLiteral(dbg, basis_elts)
+    def visit_Set(self, set_: ast.Set):
+        """
+        Support syntactic sugar for basis translations. For example,
+        ``{'0'>>'0'+'1'', '1'>>'0'-'1'}`` is syntactic sugar for
+        ``{'0','1'} >> {'0'+'1', '0'-'1'}``. This method is not called for
+        typical basis literals because they are handled by ``extract_basis()``.
+        """
+        dbg = self.get_debug_loc(set_)
+
+        if not set_.elts:
+            raise QwertySyntaxError("The list of replacements in the basis "
+                                    "translation syntactic sugar `{'0'>>'0',"
+                                    "'1'>>-'1'}` cannot be empty.", dbg)
+        bvs_in = []
+        bvs_out = []
+
+        for elt in set_.elts:
+            if isinstance((binop := elt), ast.BinOp) \
+                    and isinstance(binop.op, ast.RShift):
+                rshift = elt
+                bvs_in.append(self.extract_basis_vector(rshift.left))
+                bvs_out.append(self.extract_basis_vector(rshift.right))
+            else:
+                node_name = type(elt).__name__
+                raise QwertySyntaxError("Invalid replacement in the "
+                                        "elementwise basis translation "
+                                        "syntactic sugar `{'0'>>'0',"
+                                        "'1'>>-'1'}`. Expected a `>>` "
+                                        f"but found a {node_name} instead.",
+                                        dbg)
+
+        basis_in = Basis.new_basis_literal(bvs_in, dbg)
+        basis_out = Basis.new_basis_literal(bvs_out, dbg)
+        return Expr.new_basis_translation(basis_in, basis_out, dbg)
 
     #def list_comp_helper(self, gen: Union[ast.GeneratorExp, ast.ListComp]):
     #    """
@@ -1053,20 +1054,21 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
                                     self.get_debug_loc(attr))
 
-    #def visit_IfExp(self, ifExp: ast.IfExp):
-    #    """
-    #    Convert a Python conditional expression AST node into a Qwerty
-    #    classical branching AST node. For example, ``x if y or z`` becomes a
-    #    Qwerty ``Conditional`` AST node with three children.
-    #    """
-    #    if_expr, then_expr, else_expr = ifExp.test, ifExp.body, ifExp.orelse
-    #    dbg = self.get_debug_loc(ifExp)
+    def visit_IfExp(self, if_expr: ast.IfExp):
+        """
+        Convert a Python conditional expression AST node into a Qwerty
+        classical branching AST node. For example, ``x if y or z`` becomes a
+        Qwerty ``Conditional`` AST node with three children.
+        """
+        dbg = self.get_debug_loc(if_expr)
+        cond_expr = if_expr.test
+        then_expr = if_expr.body
+        else_expr = if_expr.orelse
 
-    #    if_expr_node = self.visit(if_expr)
-    #    then_expr_node = self.visit(then_expr)
-    #    else_expr_node = self.visit(else_expr)
-
-    #    return Conditional(dbg, if_expr_node, then_expr_node, else_expr_node)
+        return Expr.new_conditional(self.visit(then_expr),
+                                    self.visit(else_expr),
+                                    self.visit(cond_expr),
+                                    dbg)
 
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):
@@ -1147,8 +1149,6 @@ class QpuVisitor(BaseVisitor):
     #    return SuperposLiteral(dbg, pairs)
 
     def visit(self, node: ast.AST):
-        #if isinstance(node, ast.Name):
-        #    return self.visit_Name(node)
         if isinstance(node, ast.Constant):
             return self.visit_Constant(node)
         #elif isinstance(node, ast.Subscript):
@@ -1158,8 +1158,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp(node)
         #elif isinstance(node, ast.UnaryOp):
         #    return self.visit_UnaryOp(node)
-        #elif isinstance(node, ast.Set):
-        #    return self.visit_Set(node)
+        elif isinstance(node, ast.Set):
+            return self.visit_Set(node)
         #elif isinstance(node, ast.GeneratorExp):
         #    return self.visit_GeneratorExp(node)
         #elif isinstance(node, ast.ListComp):
@@ -1170,8 +1170,8 @@ class QpuVisitor(BaseVisitor):
         #    return self.visit_Tuple(node)
         elif isinstance(node, ast.Attribute):
             return self.visit_Attribute(node)
-        #elif isinstance(node, ast.IfExp):
-        #    return self.visit_IfExp(node)
+        elif isinstance(node, ast.IfExp):
+            return self.visit_IfExp(node)
         #elif isinstance(node, ast.BoolOp):
         #    return self.visit_BoolOp(node)
         else:

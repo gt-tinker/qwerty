@@ -104,3 +104,43 @@ class ConvertAstTests(unittest.TestCase):
             self.convert_expr("""
                 a = b = '0'
             """)
+
+    def test_assign_empty_tgt(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Unpacking assignment must have at least "
+                                    "two names"):
+            self.convert_expr("""
+                () = ''
+            """)
+
+    def test_assign_single_unpack(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Unpacking assignment must have at least "
+                                    "two names"):
+            self.convert_expr("""
+                x, = '0'
+            """)
+
+    def test_assign_simple(self):
+        actual_qw_ast = self.convert_expr("""
+            x = '0'
+        """)
+        dbg_assign = self.dbg(1, 1)
+        dbg_str = self.dbg(1, 5)
+        expected_qw_ast = Stmt.new_assign('x', Expr.new_qlit(
+            QLit.new_zero_qubit(dbg_str), dbg_str), dbg_assign)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_assign_unpack_three(self):
+        actual_qw_ast = self.convert_expr("""
+            x, y, z = q
+        """)
+        dbg_assign = self.dbg(1, 1)
+        dbg_q = self.dbg(1, 11)
+        expected_qw_ast = Stmt.new_unpack_assign(
+            ['x', 'y', 'z'],
+            Expr.new_variable('q', dbg_q),
+            dbg_assign)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
