@@ -21,7 +21,7 @@ use qwerty_ast::{
     ast::{
         self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisTranslation,
         Discard, Expr, FunctionDef, Measure, Pipe, Program, QLit, RegKind, Return, Stmt, Tensor,
-        UnpackAssign, Variable, Vector,
+        UnpackAssign, Variable, Vector, VectorAtomKind,
     },
     dbg::DebugLoc,
     typecheck::{ComputeKind, TypeEnv},
@@ -295,7 +295,9 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
         //       code can handle shuffling for ? and _
         Vector::PadVector { .. } | Vector::TargetVector { .. } => todo!("'?' and '_' lowering"),
 
-        Vector::VectorTilt { .. } => unreachable!("Outer tilt should be removed by ast_vec_to_mlir()"),
+        Vector::VectorTilt { .. } => {
+            unreachable!("Outer tilt should be removed by ast_vec_to_mlir()")
+        }
 
         // Should be removed by canonicalize()
         Vector::VectorTensor { .. } | Vector::VectorUnit { .. } => {
@@ -364,11 +366,21 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     (vec_attrs, phase)
 }
 
+/// Holds the ingredients to generate some basis-oriented MLIR op. The indices
+/// are useful for having e.g. pad indices bypass a qbtrans op.
+struct MlirBasis {
+    basis_attr: qwerty::BasisAttribute<'static>,
+    phases: Vec<f64>,
+    explicit_indices: Vec<usize>,
+    pad_indices: Vec<usize>,
+    tgt_indices: Vec<usize>,
+}
+
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
-fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64>) {
-    let basis_elements = basis.canonicalize().to_vec();
+fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
+    let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
     let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
         .iter()
@@ -398,7 +410,41 @@ fn ast_basis_to_mlir(basis: &Basis) -> (qwerty::BasisAttribute<'static>, Vec<f64
 
     let basis_attr = qwerty::BasisAttribute::new(&MLIR_CTX, &elems);
     let phases = phases.iter().flatten().filter_map(|opt| *opt).collect();
-    (basis_attr, phases)
+
+    // What follows is a simple linear-time algorithm to find the explicit and
+    // implicit indices.
+
+    let basis_dim = basis
+        .get_dim()
+        .expect("basis to have a well-defined dimension");
+    let pad_indices = basis
+        .get_atom_indices(VectorAtomKind::PadAtom)
+        .expect("basis to have matching pad atoms");
+    let tgt_indices = basis
+        .get_atom_indices(VectorAtomKind::TargetAtom)
+        .expect("basis to have matching target atoms");
+
+    let mut pad_index_queue = pad_indices.to_vec();
+    pad_index_queue.reverse();
+    let mut tgt_index_queue = tgt_indices.to_vec();
+    tgt_index_queue.reverse();
+
+    let mut explicit_indices = vec![];
+    for i in 0..basis_dim {
+        if pad_index_queue.pop_if(|j| i == *j).is_none()
+            && tgt_index_queue.pop_if(|j| i == *j).is_none()
+        {
+            explicit_indices.push(i);
+        }
+    }
+
+    MlirBasis {
+        basis_attr,
+        phases,
+        explicit_indices,
+        pad_indices,
+        tgt_indices,
+    }
 }
 
 /// Converts a QLit to an mlir::Value. Returns None to handle the edge case []
@@ -797,18 +843,18 @@ fn ast_expr_to_mlir(
                 .expect("Measurement to pass typechecking");
 
             let loc = dbg_to_loc(dbg.clone());
-            let dim: u64 = match basis_ty {
+            let dim = match basis_ty {
                 ast::Type::RegType {
                     elem_ty: RegKind::Basis,
                     dim,
                 } => dim,
                 _ => panic!("basis should have basis type"),
-            }
-            .try_into()
-            .unwrap();
+            };
 
-            let lambda_in_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
-            let lambda_out_tys = &[qwerty::BitBundleType::new(&MLIR_CTX, dim).into()];
+            let lambda_in_tys =
+                &[qwerty::QBundleType::new(&MLIR_CTX, dim.try_into().unwrap()).into()];
+            let lambda_out_tys =
+                &[qwerty::BitBundleType::new(&MLIR_CTX, dim.try_into().unwrap()).into()];
             let is_rev = false;
             let lambda = vec![mlir_wrap_lambda(
                 &[],
@@ -820,7 +866,18 @@ fn ast_expr_to_mlir(
                 |lambda_block| {
                     assert_eq!(lambda_block.argument_count(), 1);
                     let qbundle_in = lambda_block.argument(0).unwrap().into();
-                    let (basis_attr, _basis_phases) = ast_basis_to_mlir(basis);
+
+                    let MlirBasis {
+                        basis_attr,
+                        phases: _,
+                        explicit_indices,
+                        pad_indices,
+                        tgt_indices,
+                    } = ast_basis_to_mlir(basis);
+                    assert!(pad_indices.is_empty());
+                    assert!(tgt_indices.is_empty());
+                    assert_eq!(explicit_indices.len(), dim);
+
                     lambda_block
                         .append_operation(qwerty::qbmeas(&MLIR_CTX, basis_attr, qbundle_in, loc))
                         .results()
@@ -955,17 +1012,16 @@ fn ast_expr_to_mlir(
                 .expect("Basis translation to pass typechecking");
 
             let loc = dbg_to_loc(dbg.clone());
-            let dim: u64 = match bin_ty {
+            let dim = match bin_ty {
                 ast::Type::RegType {
                     elem_ty: RegKind::Basis,
                     dim,
                 } => dim,
                 _ => panic!("input basis should have basis type"),
-            }
-            .try_into()
-            .unwrap();
+            };
 
-            let lambda_in_out_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
+            let lambda_in_out_tys =
+                &[qwerty::QBundleType::new(&MLIR_CTX, dim.try_into().unwrap()).into()];
             let is_rev = true;
             let lambda = vec![mlir_wrap_lambda(
                 &[],
@@ -977,26 +1033,127 @@ fn ast_expr_to_mlir(
                 |lambda_block| {
                     assert_eq!(lambda_block.argument_count(), 1);
                     let qbundle_in = lambda_block.argument(0).unwrap().into();
-                    let (bin_attr, bin_phases) = ast_basis_to_mlir(bin);
-                    let (bout_attr, bout_phases) = ast_basis_to_mlir(bout);
+
+                    let MlirBasis {
+                        basis_attr: bin_attr,
+                        phases: bin_phases,
+                        explicit_indices: bin_explicit_indices,
+                        pad_indices: bin_pad_indices,
+                        tgt_indices: bin_tgt_indices,
+                    } = ast_basis_to_mlir(bin);
+                    let MlirBasis {
+                        basis_attr: bout_attr,
+                        phases: bout_phases,
+                        explicit_indices: bout_explicit_indices,
+                        pad_indices: bout_pad_indices,
+                        tgt_indices: bout_tgt_indices,
+                    } = ast_basis_to_mlir(bout);
+
+                    assert_eq!(bin_explicit_indices, bout_explicit_indices);
+                    assert_eq!(bin_pad_indices, bout_pad_indices);
+                    assert!(bin_tgt_indices.is_empty());
+                    assert!(bout_tgt_indices.is_empty());
+
                     let phase_vals: Vec<_> = bin_phases
                         .into_iter()
                         .chain(bout_phases.into_iter())
                         .map(|phase| mlir_f64_const(phase, loc, lambda_block))
                         .collect();
 
-                    lambda_block
-                        .append_operation(qwerty::qbtrans(
-                            &MLIR_CTX,
-                            bin_attr,
-                            bout_attr,
-                            &phase_vals,
-                            qbundle_in,
-                            loc,
-                        ))
-                        .results()
-                        .map(OperationResult::into)
-                        .collect()
+                    let (bypass_qubits, qbtrans_in) = if bin_explicit_indices.len() == dim {
+                        // Easy path: there are no pad atoms '?'
+                        (vec![], Some(qbundle_in))
+                    } else {
+                        // Trickier path: we need to unpack and shuffle qubits
+                        let unpacked: Vec<_> = lambda_block
+                            .append_operation(qwerty::qbunpack(qbundle_in, loc))
+                            .results()
+                            .map(OperationResult::into)
+                            .collect();
+                        let explicit_qubits: Vec<_> =
+                            bin_explicit_indices.iter().map(|i| unpacked[*i]).collect();
+                        let pad_qubits = bin_pad_indices.iter().map(|i| unpacked[*i]).collect();
+                        let explicit_qbundle: Option<Value<'static, 'static>> =
+                            if explicit_qubits.is_empty() {
+                                None
+                            } else {
+                                Some(
+                                    lambda_block
+                                        .append_operation(qwerty::qbpack(&explicit_qubits, loc))
+                                        .result(0)
+                                        .unwrap()
+                                        .into(),
+                                )
+                            };
+                        (pad_qubits, explicit_qbundle)
+                    };
+
+                    let qbtrans_out: Option<Value<'static, 'static>> =
+                        if let Some(qbundle) = qbtrans_in {
+                            Some(
+                                lambda_block
+                                    .append_operation(qwerty::qbtrans(
+                                        &MLIR_CTX,
+                                        bin_attr,
+                                        bout_attr,
+                                        &phase_vals,
+                                        qbundle,
+                                        loc,
+                                    ))
+                                    .result(0)
+                                    .unwrap()
+                                    .into(),
+                            )
+                        } else {
+                            None
+                        };
+
+                    let ret = if bypass_qubits.is_empty() {
+                        // Easy path: just return the result of the basis translation
+                        qbtrans_out.expect(
+                            "There should be an explicit qubit if there are no implicit qubits",
+                        )
+                    } else {
+                        let to_pack = if let Some(qbundle) = qbtrans_out {
+                            let mut qbtrans_out_queue: Vec<_> = lambda_block
+                                .append_operation(qwerty::qbunpack(qbundle, loc))
+                                .results()
+                                .map(OperationResult::into)
+                                .zip(bin_explicit_indices.into_iter())
+                                .collect();
+                            qbtrans_out_queue.reverse();
+                            let mut bypass_queue: Vec<_> = bypass_qubits
+                                .into_iter()
+                                .zip(bin_pad_indices.into_iter())
+                                .collect();
+                            bypass_queue.reverse();
+
+                            let mut repack_ready = vec![];
+                            for i in 0..dim {
+                                if let Some((qubit, _j)) =
+                                    qbtrans_out_queue.pop_if(|(_qubit, j)| i == *j)
+                                {
+                                    repack_ready.push(qubit);
+                                } else if let Some((qubit, _j)) =
+                                    bypass_queue.pop_if(|(_qubit, j)| i == *j)
+                                {
+                                    repack_ready.push(qubit);
+                                } else {
+                                    unreachable!("qubit neither went through basis translation nor bypassed it");
+                                }
+                            }
+                            repack_ready
+                        } else {
+                            bypass_qubits
+                        };
+                        lambda_block
+                            .append_operation(qwerty::qbpack(&to_pack, loc))
+                            .result(0)
+                            .unwrap()
+                            .into()
+                    };
+
+                    vec![ret]
                 },
             )];
             (ty, compute_kind, lambda)
