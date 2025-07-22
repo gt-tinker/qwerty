@@ -238,7 +238,8 @@ where
 }
 
 /// Determines the primitive basis, eigenstate, and phase for a basis vector.
-/// Will break horribly if not run on a canonicalized vector.
+/// Intended to be used only by `ast_vec_to_mlir()`, since it canonicalizes the
+/// vector and removes any outer tilt node.
 fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eigenstate, f64) {
     match vec {
         Vector::ZeroVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus, 0.0),
@@ -290,11 +291,11 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
             _ => todo!("nontrivial superposition"),
         },
 
-        Vector::VectorTilt { q, .. } => ast_vec_to_mlir_helper(&**q),
-
         // TODO: this function should operate on explicit vectors. other
         //       code can handle shuffling for ? and _
         Vector::PadVector { .. } | Vector::TargetVector { .. } => todo!("'?' and '_' lowering"),
+
+        Vector::VectorTilt { .. } => unreachable!("Outer tilt should be removed by ast_vec_to_mlir()"),
 
         // Should be removed by canonicalize()
         Vector::VectorTensor { .. } | Vector::VectorUnit { .. } => {
@@ -311,10 +312,10 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     let mut prim_basis = None;
     let mut dim = 0;
 
-    let (root_phase, root_vec) = if let Vector::VectorTilt { q, angle_deg, .. } = &canon_vec {
-        (deg_to_rad(*angle_deg), &**q)
+    let (root_phase, root_vec) = if let Vector::VectorTilt { q, angle_deg, .. } = canon_vec {
+        (deg_to_rad(angle_deg), *q)
     } else {
-        (0.0, &canon_vec)
+        (0.0, canon_vec)
     };
     let mut phase = root_phase;
 
@@ -323,7 +324,7 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     } else if let Vector::VectorUnit { .. } = root_vec {
         vec![]
     } else {
-        vec![canon_vec]
+        vec![root_vec]
     };
 
     for v in &vecs {
