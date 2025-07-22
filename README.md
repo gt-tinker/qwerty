@@ -47,6 +47,13 @@ Otherwise (e.g., to build the full compiler/runtime), you need to install
    If you are not a Debian/Ubuntu user, you can interpret `build-essential`
    above as "a C++ compiler."
 
+**Before building, make sure to synchronize and initialize all submodules (required for dependencies):**
+
+```sh
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
 The remaining steps on getting started depend on what portion of the compiler
 you want to work on.
 
@@ -97,6 +104,7 @@ To generate the Python extension, run the following:
     $ python3 -m venv venv
     $ . venv/bin/activate
     $ cd qwerty_pyrt
+    $ pip install maturin
     $ maturin develop
 
 This will (re)build _everything_. Passing `-vv` to `maturin develop` can give

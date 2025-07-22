@@ -11,4 +11,4 @@
 	url = https://github.com/gt-tinker/qwerty-mlir-sys.git
 [submodule "qwerty_melior"]
 	path = qwerty_melior
-	url = git@github.com:gt-tinker/qwerty-melior.git
+	url = https://github.com/gt-tinker/qwerty-melior.git
