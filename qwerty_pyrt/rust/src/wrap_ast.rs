@@ -423,50 +423,59 @@ impl Expr {
     #[classmethod]
     fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::Variable {
+            expr: ast::Expr::Variable(ast::Variable {
                 name,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
     #[classmethod]
     fn new_unit_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::UnitLiteral {
+            expr: ast::Expr::UnitLiteral(ast::UnitLiteral {
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
     #[classmethod]
     fn new_measure(_cls: &Bound<'_, PyType>, basis: Basis, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::Measure {
+            expr: ast::Expr::Measure(ast::Measure {
                 basis: basis.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
     #[classmethod]
     fn new_pipe(_cls: &Bound<'_, PyType>, lhs: Expr, rhs: Expr, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::Pipe {
+            expr: ast::Expr::Pipe(ast::Pipe {
                 lhs: Box::new(lhs.expr),
                 rhs: Box::new(rhs.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
+        }
+    }
+
+    #[classmethod]
+    fn new_discard(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: ast::Expr::Discard(ast::Discard {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            }),
         }
     }
 
     #[classmethod]
     fn new_tensor(_cls: &Bound<'_, PyType>, vals: Vec<Expr>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::Expr::Tensor {
+            expr: ast::Expr::Tensor(ast::Tensor {
                 vals: vals.iter().map(|v| v.expr.clone()).collect(),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
@@ -478,11 +487,11 @@ impl Expr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::Expr::BasisTranslation {
+            expr: ast::Expr::BasisTranslation(ast::BasisTranslation {
                 bin: bin.basis.clone(),
                 bout: bout.basis.clone(),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
@@ -495,22 +504,19 @@ impl Expr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::Expr::Conditional {
+            expr: ast::Expr::Conditional(ast::Conditional {
                 then_expr: Box::new(then_expr.expr),
                 else_expr: Box::new(else_expr.expr),
                 cond: Box::new(cond.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
     #[classmethod]
-    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit, dbg: Option<DebugLoc>) -> Self {
+    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit) -> Self {
         Self {
-            expr: ast::Expr::QLit {
-                qlit: qlit.qlit,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            expr: ast::Expr::QLit(qlit.qlit),
         }
     }
 
@@ -522,11 +528,11 @@ impl Expr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::Expr::BitLiteral {
+            expr: ast::Expr::BitLiteral(ast::BitLiteral {
                 dim,
                 bits: bits.0,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
@@ -552,23 +558,20 @@ impl fmt::Display for Stmt {
 #[pymethods]
 impl Stmt {
     #[classmethod]
-    fn new_expr(_cls: &Bound<'_, PyType>, expr: Expr, dbg: Option<DebugLoc>) -> Self {
+    fn new_expr(_cls: &Bound<'_, PyType>, expr: Expr) -> Self {
         Self {
-            stmt: ast::Stmt::Expr {
-                expr: expr.expr,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            stmt: ast::Stmt::Expr(expr.expr),
         }
     }
 
     #[classmethod]
     fn new_assign(_cls: &Bound<'_, PyType>, lhs: String, rhs: Expr, dbg: Option<DebugLoc>) -> Self {
         Self {
-            stmt: ast::Stmt::Assign {
+            stmt: ast::Stmt::Assign(ast::Assign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
@@ -580,21 +583,21 @@ impl Stmt {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            stmt: ast::Stmt::UnpackAssign {
+            stmt: ast::Stmt::UnpackAssign(ast::UnpackAssign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
     #[classmethod]
     fn new_return(_cls: &Bound<'_, PyType>, val: Expr, dbg: Option<DebugLoc>) -> Self {
         Self {
-            stmt: ast::Stmt::Return {
+            stmt: ast::Stmt::Return(ast::Return {
                 val: val.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            },
+            }),
         }
     }
 
@@ -610,7 +613,10 @@ impl Stmt {
         env: &mut TypeEnv,
         expected_ret_type: Option<Type>,
     ) -> PyResult<()> {
-        typecheck::typecheck_stmt(&self.stmt, &mut env.env, expected_ret_type.map(|ty| ty.ty))
+        self.stmt
+            .typecheck(&mut env.env, expected_ret_type.map(|ty| ty.ty))
+            // Discard compute kind for now, since Python does not need it
+            .map(|_compute_kind| ())
             .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
     }
 }
@@ -678,7 +684,7 @@ impl Program {
 
     fn type_check(&mut self, py: Python<'_>) -> PyResult<()> {
         if !self.type_checked {
-            if let Err(type_err) = typecheck::typecheck_program(&self.program) {
+            if let Err(type_err) = self.program.typecheck() {
                 return Err(get_err(
                     py,
                     ProgErrKind::Type,

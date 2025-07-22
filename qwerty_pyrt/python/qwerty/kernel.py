@@ -17,16 +17,11 @@ from typing import Any, List, Dict, Iterable, Optional, Callable
 from dataclasses import dataclass
 
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
-                 _cook_programmer_traceback, QwertySyntaxError
-#from ._qwerty_harness import set_debug, Kernel, MlirHandle, Bits, Integer, \
-#                             Tuple, DebugInfo, Return, Pipe, Variable, \
-#                             EmbedClassical, Kernel, Instantiate, DimVarExpr, \
-#                             AST_QPU, AST_CLASSICAL, \
-#                             EMBED_XOR, EMBED_SIGN, EMBED_INPLACE, \
-#                             embedding_kind_name
+                 _cook_programmer_traceback, get_python_vars, \
+                 QwertySyntaxError
 from ._qwerty_pyrt import Program, FunctionDef
 from .runtime import dimvar, bit
-from .convert_ast import AstKind, convert_ast
+from .convert_ast import AstKind, convert_ast, Capturer, CaptureError
 
 QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
 QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
@@ -95,6 +90,28 @@ class KernelHandle:
             bits, = histo.keys()
             return bits
 
+class JitCapturer(Capturer):
+    """
+    A ``Capturer`` (see ``convert_ast.py``) that grabs Python variables from
+    the stack frame.
+    """
+
+    def __init__(self):
+        self.python_vars = get_python_vars()
+
+    def shadows_python_variable(self, var_name: str) -> bool:
+        return var_name in self.python_vars
+
+    def capture(self, var_name: str) -> Optional[str]:
+        if var_name in self.python_vars:
+            python_obj = self.python_vars[var_name]
+            if isinstance(kernel := python_obj, KernelHandle):
+                return kernel.func_name
+            else:
+                raise CaptureError(type(python_obj).__name__)
+        else:
+            return None
+
 def _jit(ast_kind, func, last_dimvars=None):
     """
     Obtain the Python source code for a function object ``func``, then ask the
@@ -122,8 +139,9 @@ def _jit(ast_kind, func, last_dimvars=None):
 
     func_ast = ast.parse(func_src_dedent)
     name_generator = lambda ast_name: f'{ast_name}_{_global_func_counter}'
-    qwerty_func_def = convert_ast(ast_kind, func_ast, name_generator, filename,
-                                  line_offset, col_offset)
+    capturer = JitCapturer()
+    qwerty_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
+                                  filename, line_offset, col_offset)
     program.add_function_def(qwerty_func_def)
     _global_func_counter += 1
     func_name = qwerty_func_def.get_name()

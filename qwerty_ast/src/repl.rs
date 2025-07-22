@@ -2,8 +2,9 @@
 //! of evaluation are taken. The latter is based loosely on Appendix A of
 //! arXiv:2404.12603.
 
-use crate::ast::{Expr, QLit, Stmt};
-
+use crate::ast::{
+    Adjoint, BitLiteral, Conditional, Expr, Predicated, QLit, QubitRef, Stmt, Tensor, UnitLiteral,
+};
 use quantum_sparse_sim::QuantumSim;
 use std::collections::HashMap;
 
@@ -24,15 +25,10 @@ impl ReplState {
 
     /// Evaluates an expression and returns a value.
     pub fn run(&mut self, stmt: &Stmt) -> Expr {
-        // TODO: should this return a Value (if that exists) instead of an Expr? depends on the choice above
-
-        // TODO: run this expression
-
-        // TODO: return the value resulting from evaluation instead of copying the input
-        if let Stmt::Expr { expr, .. } = stmt {
+        if let Stmt::Expr(expr) = stmt {
             expr.eval_to_value(self)
         } else {
-            Expr::UnitLiteral { dbg: None }
+            Expr::UnitLiteral(UnitLiteral { dbg: None })
         }
     }
 }
@@ -40,40 +36,40 @@ impl ReplState {
 impl Expr {
     pub fn is_value(&self) -> bool {
         match self {
-            Expr::Variable { .. } => false,
-            Expr::UnitLiteral { .. } => true,
-            Expr::Adjoint { func, .. } => func.is_value(),
-            Expr::Pipe { .. } => false,
-            Expr::Measure { .. } => true,
-            Expr::Discard { .. } => true,
-            Expr::Tensor { vals, .. } => vals
+            Expr::Variable(_) => false,
+            Expr::UnitLiteral(_) => true,
+            Expr::Adjoint(Adjoint { func, .. }) => func.is_value(),
+            Expr::Pipe(_) => false,
+            Expr::Measure(_) => true,
+            Expr::Discard(_) => true,
+            Expr::Tensor(Tensor { vals, .. }) => vals
                 .iter()
                 .all(|v| v.is_value() && !matches!(v, Expr::UnitLiteral { .. })),
-            Expr::BasisTranslation { .. } => true,
-            Expr::Predicated {
+            Expr::BasisTranslation(_) => true,
+            Expr::Predicated(Predicated {
                 then_func,
                 else_func,
                 ..
-            } => then_func.is_value() && else_func.is_value(),
-            Expr::NonUniformSuperpos { .. } => false,
-            Expr::Conditional {
+            }) => then_func.is_value() && else_func.is_value(),
+            Expr::NonUniformSuperpos(_) => false,
+            Expr::Conditional(Conditional {
                 then_expr,
                 else_expr,
                 cond,
                 ..
-            } => then_expr.is_value() && else_expr.is_value() && cond.is_value(),
-            Expr::QLit { .. } => false,
-            Expr::BitLiteral { dim, .. } => *dim == 1,
-            Expr::QubitRef { .. } => true,
+            }) => then_expr.is_value() && else_expr.is_value() && cond.is_value(),
+            Expr::QLit(_) => false,
+            Expr::BitLiteral(BitLiteral { dim, .. }) => *dim == 1,
+            Expr::QubitRef(_) => true,
         }
     }
 
     pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
         match self {
-            Expr::QLit { qlit, .. } => match qlit {
-                QLit::ZeroQubit { .. } => Some(Expr::QubitRef {
+            Expr::QLit(qlit) => match qlit {
+                QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
                     index: state.sim.allocate(),
-                }),
+                })),
                 _ => todo!("Rest of QLit"),
             },
             Expr::QubitRef { .. } => None,

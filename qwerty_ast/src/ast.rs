@@ -1238,69 +1238,150 @@ impl fmt::Display for Basis {
 
 // ----- Expressions -----
 
+/// See `Expr::Variable`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Variable {
+    pub name: String,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::UnitLiteral`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnitLiteral {
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Adjoint`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Adjoint {
+    pub func: Box<Expr>,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Pipe`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pipe {
+    pub lhs: Box<Expr>,
+    pub rhs: Box<Expr>,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Measure`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Measure {
+    pub basis: Basis,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Discard`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Discard {
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Tensor`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tensor {
+    pub vals: Vec<Expr>,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::BasisTranslation`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BasisTranslation {
+    pub bin: Basis,
+    pub bout: Basis,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Predicated`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Predicated {
+    pub then_func: Box<Expr>,
+    pub else_func: Box<Expr>,
+    pub pred: Basis,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::NonUniformSuperpos`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NonUniformSuperpos {
+    pub pairs: Vec<(f64, QLit)>,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::Conditional`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Conditional {
+    pub then_expr: Box<Expr>,
+    pub else_expr: Box<Expr>,
+    pub cond: Box<Expr>,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::BitLiteral`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BitLiteral {
+    pub dim: usize,
+    pub bits: UBig,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Expr::QubitRef`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QubitRef {
+    pub index: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// A variable name used in an expression. Example syntax:
     /// ```ignore
     /// my_var
     /// ```
-    Variable { name: String, dbg: Option<DebugLoc> },
+    Variable(Variable),
 
     /// A unit literal. Represents an empty register or void. Example syntax:
     /// ```ignore
     /// []
     /// ```
-    UnitLiteral { dbg: Option<DebugLoc> },
+    UnitLiteral(UnitLiteral),
 
     /// Takes the adjoint of a function value. Example syntax:
     /// ```ignore
     /// ~f
     /// ```
-    Adjoint {
-        func: Box<Expr>,
-        dbg: Option<DebugLoc>,
-    },
+    Adjoint(Adjoint),
 
     /// Calls a function value. Example syntax for `f(x)`:
     /// ```ignore
     /// x | f
     /// ```
-    Pipe {
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-        dbg: Option<DebugLoc>,
-    },
+    Pipe(Pipe),
 
     /// A function value that measures its input when called. Example syntax:
     /// ```ignore
     /// measure
     /// ```
-    Measure { basis: Basis, dbg: Option<DebugLoc> },
+    Measure(Measure),
 
     /// A function value that discards its input when called. Example syntax:
     /// ```ignore
     /// discard
     /// ```
-    Discard { dbg: Option<DebugLoc> },
+    Discard(Discard),
 
     /// A tensor product of function values or register values. Example syntax:
     /// ```ignore
     /// '0' * '1' * '0'
     /// ```
-    Tensor {
-        vals: Vec<Expr>,
-        dbg: Option<DebugLoc>,
-    },
+    Tensor(Tensor),
 
     /// The mighty basis translation. Example syntax:
     /// ```ignore
     /// {'0','1'} >> {'0',-'1'}
     /// ```
-    BasisTranslation {
-        bin: Basis,
-        bout: Basis,
-        dbg: Option<DebugLoc>,
-    },
+    BasisTranslation(BasisTranslation),
 
     /// A function value that, when called, runs a function value (`then_func`)
     /// in a proper subspace and another function (`else_func`) in the orthogonal
@@ -1308,68 +1389,51 @@ pub enum Expr {
     /// ```ignore
     /// flip if {'1_'} else id
     /// ```
-    Predicated {
-        then_func: Box<Expr>,
-        else_func: Box<Expr>,
-        pred: Basis,
-        dbg: Option<DebugLoc>,
-    },
+    Predicated(Predicated),
 
     /// A superposition of qubit literals that may not have uniform
     /// probabilities. Example syntax:
     /// ```ignore
     /// 0.25*'0' + 0.75*'1'
     /// ```
-    NonUniformSuperpos {
-        pairs: Vec<(f64, QLit)>,
-        dbg: Option<DebugLoc>,
-    },
+    NonUniformSuperpos(NonUniformSuperpos),
 
     /// A classical conditional (ternary) expression. Example syntax:
     /// ```ignore
     /// flip if meas_result else id
     /// ```
-    Conditional {
-        then_expr: Box<Expr>,
-        else_expr: Box<Expr>,
-        cond: Box<Expr>,
-        dbg: Option<DebugLoc>,
-    },
+    Conditional(Conditional),
 
     /// A qubit literal. Example syntax:
     /// ```ignore
     /// '0' + '1'
     /// ```
-    QLit { qlit: QLit, dbg: Option<DebugLoc> },
+    QLit(QLit),
 
     /// A classical bit literal. Example syntax:
     /// ```ignore
     /// bit[4](0b1101)
     /// ```
-    BitLiteral {
-        dim: usize,
-        bits: UBig,
-        dbg: Option<DebugLoc>,
-    },
+    BitLiteral(BitLiteral),
 
     /// A reference to a qubit, q_i in Appendix A of arXiv:2404.12603. This is
     /// only involved in intermediate computations, so there is no Python DSL
     /// syntax that can (directly) produce this node. However, we implement the
     /// Display string as `q[i]`, although programmers should never see this
     /// node printed.
-    QubitRef { index: usize },
+    QubitRef(QubitRef),
 }
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Variable { name, .. } => write!(f, "{}", name),
-            Expr::UnitLiteral { .. } => write!(f, "[]"),
-            Expr::Adjoint { func, .. } => write!(f, "~({})", **func),
-            Expr::Pipe { lhs, rhs, .. } => write!(f, "({}) | ({})", **lhs, **rhs),
-            Expr::Measure { basis, .. } => write!(f, "({}).measure", basis),
-            Expr::Discard { .. } => write!(f, "discard"),
-            Expr::Tensor { vals, .. } => {
+            Expr::Variable(Variable { name, .. }) => write!(f, "{}", name),
+            Expr::UnitLiteral(..) => write!(f, "[]"),
+            Expr::Adjoint(Adjoint { func, .. }) => write!(f, "~({})", **func),
+            Expr::Pipe(Pipe { lhs, rhs, .. }) => write!(f, "({}) | ({})", **lhs, **rhs),
+            Expr::Measure(Measure { basis, .. }) => write!(f, "({}).measure", basis),
+            Expr::Discard(..) => write!(f, "discard"),
+            Expr::Tensor(Tensor { vals, .. }) => {
                 for (i, val) in vals.iter().enumerate() {
                     if i > 0 {
                         write!(f, "*")?;
@@ -1378,14 +1442,16 @@ impl fmt::Display for Expr {
                 }
                 Ok(())
             }
-            Expr::BasisTranslation { bin, bout, .. } => write!(f, "({}) >> ({})", bin, bout),
-            Expr::Predicated {
+            Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
+                write!(f, "({}) >> ({})", bin, bout)
+            }
+            Expr::Predicated(Predicated {
                 then_func,
                 else_func,
                 pred,
                 ..
-            } => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
-            Expr::NonUniformSuperpos { pairs, .. } => {
+            }) => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
+            Expr::NonUniformSuperpos(NonUniformSuperpos { pairs, .. }) => {
                 for (i, (prob, qlit)) in pairs.iter().enumerate() {
                     if i > 0 {
                         write!(f, " + ")?;
@@ -1394,49 +1460,79 @@ impl fmt::Display for Expr {
                 }
                 Ok(())
             }
-            Expr::Conditional {
+            Expr::Conditional(Conditional {
                 then_expr,
                 else_expr,
                 cond,
                 ..
-            } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
-            Expr::QLit { qlit, .. } => write!(f, "{}", qlit),
-            Expr::BitLiteral { dim, bits, .. } => write!(f, "bit[{}](0b{:b})", dim, bits),
-            Expr::QubitRef { index } => write!(f, "q[{}]", index),
+            }) => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
+            Expr::QLit(qlit) => write!(f, "{}", qlit),
+            Expr::BitLiteral(BitLiteral { dim, bits, .. }) => {
+                write!(f, "bit[{}](0b{:b})", dim, bits)
+            }
+            Expr::QubitRef(QubitRef { index }) => write!(f, "q[{}]", index),
         }
     }
 }
 
 // ----- Statements -----
 
+/// See `Stmt::Assign`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assign {
+    pub lhs: String,
+    pub rhs: Expr,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Stmt::UnpackAssign`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnpackAssign {
+    pub lhs: Vec<String>,
+    pub rhs: Expr,
+    pub dbg: Option<DebugLoc>,
+}
+
+/// See `Stmt::Return`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    pub val: Expr,
+    pub dbg: Option<DebugLoc>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Expr {
-        expr: Expr,
-        dbg: Option<DebugLoc>,
-    },
-    Assign {
-        lhs: String,
-        rhs: Expr,
-        dbg: Option<DebugLoc>,
-    },
-    UnpackAssign {
-        lhs: Vec<String>,
-        rhs: Expr,
-        dbg: Option<DebugLoc>,
-    },
-    Return {
-        val: Expr,
-        dbg: Option<DebugLoc>,
-    },
+    /// An expression statement. Example syntax:
+    /// ```ignore
+    /// f(x)
+    /// ```
+    Expr(Expr),
+
+    /// An assignment statement. Example syntax:
+    /// ```ignore
+    /// q = '0'
+    /// ```
+    Assign(Assign),
+
+    /// A register-unpacking assignment statement. Example syntax:
+    /// ```ignore
+    /// q1, q2 = '01'
+    /// ```
+    UnpackAssign(UnpackAssign),
+
+    /// A return statement. Example syntax:
+    /// ```ignore
+    /// return q
+    /// ```
+    Return(Return),
 }
 
 impl fmt::Display for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Stmt::Expr { expr, .. } => write!(f, "{}", expr),
-            Stmt::Assign { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
-            Stmt::UnpackAssign { lhs, rhs, .. } => {
+            Stmt::Expr(expr) => write!(f, "{}", expr),
+            Stmt::Assign(Assign { lhs, rhs, .. }) => write!(f, "{} = {}", lhs, rhs),
+            Stmt::UnpackAssign(UnpackAssign { lhs, rhs, .. }) => {
                 for (i, name) in lhs.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
@@ -1445,7 +1541,7 @@ impl fmt::Display for Stmt {
                 }
                 write!(f, " = {}", rhs)
             }
-            Stmt::Return { val, .. } => write!(f, "return {}", val),
+            Stmt::Return(Return { val, .. }) => write!(f, "return {}", val),
         }
     }
 }

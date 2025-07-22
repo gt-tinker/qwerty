@@ -19,11 +19,27 @@ class IntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
+    def test_interproc_nometa(self):
+        # Like randbit_nometa above except involves a call from one kernel to another
+        from .integ import interproc_nometa
+        shots = 1024
+        actual_histo = interproc_nometa.test(shots)
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
     def test_bv_nometa(self):
         from .integ import bv_nometa
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_nometa.test(shots))
+
+    def test_func_tens_nometa(self):
+        from .integ import func_tens_nometa
+        shots = 1024
+        expected_histo = {bit[1](0b1): shots}
+        self.assertEqual(expected_histo, func_tens_nometa.test(shots))
 
     @unittest.skip('Superdense coding still WIP')
     def test_superdense_nocap(self):

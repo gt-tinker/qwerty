@@ -7,6 +7,31 @@ use dashu::base::BitTest;
 use std::collections::HashMap;
 use std::iter::zip;
 
+/// Supplements the type judgment with an additional bit of information:
+/// whether statements and expressions involved are reversible or not. Used to
+/// check that the body of a reversible function is truly reversible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComputeKind {
+    Rev,
+    Irrev,
+}
+
+impl ComputeKind {
+    /// Returns the compute kind `K` such that `K.join(K') == K'`.
+    pub fn identity() -> Self {
+        ComputeKind::Rev
+    }
+
+    /// If a computation involves this computation kind and `other`, returns
+    /// the computation kind of that overall operation.
+    pub fn join(self, other: ComputeKind) -> ComputeKind {
+        match (self, other) {
+            (ComputeKind::Rev, ComputeKind::Rev) => ComputeKind::Rev,
+            (_, ComputeKind::Irrev) | (ComputeKind::Irrev, _) => ComputeKind::Irrev,
+        }
+    }
+}
+
 //
 // ─── TYPE ENVIRONMENT ───────────────────────────────────────────────────────────
 //
@@ -43,143 +68,202 @@ impl TypeEnv {
 // ─── TOP-LEVEL TYPECHECKER ──────────────────────────────────────────────────────
 //
 
-/// Entry point: checks the whole program.
-/// Returns Ok(()) if well-typed, or a TypeError at the first mistake (Fail fast!!)
-/// TODO: (Future-work!) Change it to Multi/Batch Error reporting Result<(), Vec<TypeError>>
-pub fn typecheck_program(prog: &Program) -> Result<(), TypeError> {
-    for func in &prog.funcs {
-        typecheck_function(func)?;
-    }
-    Ok(())
-}
+impl Program {
+    /// Entry point: checks the whole program.
+    /// Returns Ok(()) if well-typed, or a TypeError at the first mistake (Fail fast!!)
+    /// TODO: (Future-work!) Change it to Multi/Batch Error reporting Result<(), Vec<TypeError>>
+    pub fn typecheck(&self) -> Result<(), TypeError> {
+        let Program { funcs, .. } = self;
+        let mut funcs_available = vec![];
 
-/// Typechecks a single function and its body, including reversibility validation.
-pub fn typecheck_function(func: &FunctionDef) -> Result<(), TypeError> {
-    let mut env = TypeEnv::new();
-
-    // Bind function arguments in environment
-    for (ty, name) in &func.args {
-        env.insert_var(name, ty.clone());
-    }
-
-    // Reconstruct and bind the function type for higher-order use (e.g. Adjoint, pipes)
-    let full_func_type = func.get_type();
-
-    // CRITICAL FIX: Bind the full function type into the environment under the function's name.
-    // This allows expressions like `Adjoint(my_func)` or `q | my_func` to lookup `my_func`
-    // and retrieve its callable type (FuncType/RevFuncType).
-    env.insert_var(&func.name, full_func_type.clone());
-
-    let expected_ret_type = Some(func.ret_type.clone());
-    let is_annotated_reversible = func.is_rev;
-
-    // Single Pass: For each statement, check reversibility BEFORE updating environment
-    for stmt in &func.body {
-        // 1. If function is marked reversible, check this statement's reversibility
-        //    using the CURRENT environment state (before any updates from this statement)
-        if is_annotated_reversible {
-            if !check_stmt_reversibility(stmt, &env)? {
-                return Err(TypeError {
-                    kind: TypeErrorKind::NonReversibleOperationInReversibleFunction(
-                        func.name.clone(),
-                    ),
-                    dbg: func.dbg.clone(),
-                });
-            }
+        for func in funcs {
+            func.typecheck(&funcs_available)?;
+            funcs_available.push((func.name.to_string(), func.get_type()));
         }
 
-        // 2. Then typecheck the statement and update the environment
-        typecheck_stmt(stmt, &mut env, expected_ret_type.clone())?;
+        Ok(())
+    }
+}
+
+impl FunctionDef {
+    /// Returns a new `TypeEnv` for type checking the body of this function.
+    pub fn new_type_env(&self, funcs_available: &[(String, Type)]) -> TypeEnv {
+        let mut env = TypeEnv::new();
+
+        for (name, ty) in funcs_available {
+            env.insert_var(name, ty.clone());
+        }
+
+        // Bind function arguments in environment
+        for (ty, name) in &self.args {
+            env.insert_var(name, ty.clone());
+        }
+
+        env
     }
 
-    Ok(())
+    /// Returns the expected return type for this function.
+    pub fn get_expected_ret_type(&self) -> Option<Type> {
+        Some(self.ret_type.clone())
+    }
+
+    /// Checks if the compute kind of a statement is valid in this function
+    /// definition. (Specifically, if the statement is irreversible yet this
+    /// function is reversible)
+    pub fn check_stmt_compute_kind(&self, compute_kind: ComputeKind) -> Result<(), TypeError> {
+        let FunctionDef {
+            name, is_rev, dbg, ..
+        } = self;
+
+        if *is_rev && matches!(compute_kind, ComputeKind::Irrev) {
+            return Err(TypeError {
+                // TODO: say which
+                kind: TypeErrorKind::NonReversibleOperationInReversibleFunction(name.to_string()),
+                dbg: dbg.clone(),
+            });
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Typechecks a single function and its body, including reversibility
+    /// validation. The argument `funcs_available` is used to initialize the
+    /// type environment with the names of functions defined earlier.
+    /// (Recursion and mutual recursion are banned in Qwerty, so the current
+    ///  function is not included in this list.)
+    pub fn typecheck(&self, funcs_available: &[(String, Type)]) -> Result<(), TypeError> {
+        let mut env = self.new_type_env(funcs_available);
+
+        // Single Pass: For each statement, check reversibility BEFORE updating environment
+        for stmt in &self.body {
+            // Then typecheck the statement and update the environment
+            let compute_kind = stmt.typecheck(&mut env, self.get_expected_ret_type())?;
+            self.check_stmt_compute_kind(compute_kind)?;
+        }
+
+        Ok(())
+    }
 }
 
 //
 // ─── STATEMENTS ────────────────────────────────────────────────────────────────
 //
 
-/// Typecheck a statement.
-/// - env: The current variable/type environment.
-/// - expected_ret_type: Used to check Return statements. If None, we are
-///   outside a function and returns should nto be allowed.
-pub fn typecheck_stmt(
-    stmt: &Stmt,
-    env: &mut TypeEnv,
-    expected_ret_type: Option<Type>,
-) -> Result<(), TypeError> {
-    match stmt {
-        Stmt::Expr { expr, dbg: _ } => {
-            typecheck_expr(expr, env)?;
-            Ok(())
-        }
+impl Assign {
+    pub fn finish_type_checking(
+        &self,
+        env: &mut TypeEnv,
+        rhs_result: &(Type, ComputeKind),
+    ) -> Result<ComputeKind, TypeError> {
+        let Assign { lhs, .. } = self;
+        let (rhs_ty, result_compute_kind) = rhs_result;
+        env.insert_var(lhs, rhs_ty.clone()); // Shadowing allowed for now.
+        Ok(*result_compute_kind)
+    }
 
-        Stmt::Assign { lhs, rhs, dbg: _ } => {
-            let rhs_ty = typecheck_expr(rhs, env)?;
-            env.insert_var(lhs, rhs_ty); // Shadowing allowed for now.
-            Ok(())
-        }
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
+        let Assign { rhs, .. } = self;
+        let rhs_result = rhs.typecheck(env)?;
+        self.finish_type_checking(env, &rhs_result)
+    }
+}
 
-        // UnpackAssign checks:
-        // 1. RHS must be a register type
-        // 2. Number of LHS variables must match register dimension
-        // 3. Each LHS variable gets typed as single-element register of same kind "RegType{ elem_ty, dim: 1 }"
-        Stmt::UnpackAssign { lhs, rhs, dbg } => {
-            let rhs_ty = typecheck_expr(rhs, env)?;
+// UnpackAssign checks:
+// 1. RHS must be a register type
+// 2. Number of LHS variables must match register dimension
+// 3. Each LHS variable gets typed as single-element register of same kind "RegType{ elem_ty, dim: 1 }"
+impl UnpackAssign {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
+        let UnpackAssign { lhs, rhs, dbg } = self;
+        let (rhs_ty, compute_kind) = rhs.typecheck(env)?;
 
-            match rhs_ty {
-                Type::RegType { elem_ty, dim } => {
-                    if lhs.len() != dim {
-                        return Err(TypeError {
-                            kind: TypeErrorKind::WrongArity {
-                                expected: dim as usize,
-                                found: lhs.len(),
-                            },
-                            dbg: dbg.clone(),
-                        });
-                    }
-                    for var in lhs {
-                        env.insert_var(
-                            var,
-                            Type::RegType {
-                                elem_ty: elem_ty.clone(),
-                                dim: 1, // TODO: DimExpr check!
-                            },
-                        );
-                    }
-                    Ok(())
-                }
-                _ => Err(TypeError {
-                    kind: TypeErrorKind::InvalidType(format!(
-                        "Can only unpack from register type, found: {}",
-                        rhs_ty
-                    )),
-                    dbg: dbg.clone(),
-                }),
-            }
-        }
-
-        Stmt::Return { val, dbg } => {
-            let val_ty = typecheck_expr(val, env)?;
-            // TODO: Comparison needs to handle DimExpr equality
-            if let Some(expected_ret_ty) = expected_ret_type {
-                if val_ty != expected_ret_ty {
-                    Err(TypeError {
-                        kind: TypeErrorKind::MismatchedTypes {
-                            expected: expected_ret_ty.to_string(),
-                            found: val_ty.to_string(),
+        match rhs_ty {
+            Type::RegType { elem_ty, dim } => {
+                if lhs.len() != dim {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::WrongArity {
+                            expected: dim as usize,
+                            found: lhs.len(),
                         },
                         dbg: dbg.clone(),
-                    })
-                } else {
-                    Ok(())
+                    });
                 }
-            } else {
-                Err(TypeError {
-                    kind: TypeErrorKind::ReturnOutsideFunction,
-                    dbg: dbg.clone(),
-                })
+                for var in lhs {
+                    env.insert_var(
+                        var,
+                        Type::RegType {
+                            elem_ty: elem_ty.clone(),
+                            dim: 1, // TODO: DimExpr check!
+                        },
+                    );
+                }
+                Ok(compute_kind)
             }
+            _ => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "Can only unpack from register type, found: {}",
+                    rhs_ty
+                )),
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
+impl Return {
+    /// Performs some final checks after operand was typechecked.
+    pub fn finish_type_checking(
+        &self,
+        val_result: &(Type, ComputeKind),
+        expected_ret_type_opt: Option<Type>,
+    ) -> Result<ComputeKind, TypeError> {
+        let (val_ty, val_compute_kind) = val_result;
+        if let Some(expected_ret_ty) = expected_ret_type_opt {
+            if *val_ty != expected_ret_ty {
+                Err(TypeError {
+                    kind: TypeErrorKind::MismatchedTypes {
+                        expected: expected_ret_ty.to_string(),
+                        found: val_ty.to_string(),
+                    },
+                    dbg: self.dbg.clone(),
+                })
+            } else {
+                Ok(*val_compute_kind)
+            }
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::ReturnOutsideFunction,
+                dbg: self.dbg.clone(),
+            })
+        }
+    }
+
+    pub fn typecheck(
+        &self,
+        env: &mut TypeEnv,
+        expected_ret_type: Option<Type>,
+    ) -> Result<ComputeKind, TypeError> {
+        let Return { val, .. } = self;
+        let val_result = val.typecheck(env)?;
+        self.finish_type_checking(&val_result, expected_ret_type)
+    }
+}
+
+impl Stmt {
+    /// Typecheck a statement.
+    /// - env: The current variable/type environment.
+    /// - expected_ret_type: Used to check Return statements. If None, we are
+    ///   outside a function and returns should nto be allowed.
+    pub fn typecheck(
+        &self,
+        env: &mut TypeEnv,
+        expected_ret_type: Option<Type>,
+    ) -> Result<ComputeKind, TypeError> {
+        match self {
+            Stmt::Expr(expr) => expr.typecheck(env).map(|(_ty, compute_kind)| compute_kind),
+            Stmt::Assign(assign) => assign.typecheck(env),
+            Stmt::UnpackAssign(unpack) => unpack.typecheck(env),
+            Stmt::Return(ret) => ret.typecheck(env, expected_ret_type),
         }
     }
 }
@@ -223,8 +307,8 @@ fn tensor_product_func_ins_outs(
         })
         .collect::<Result<Vec<_>, _>>()?;
     let (input_tys, output_tys): (Vec<_>, Vec<_>) = input_output_ty_pairs.into_iter().unzip();
-    let merged_input_ty = tensor_product_types(input_tys, false, dbg)?;
-    let merged_output_ty = tensor_product_types(output_tys, false, dbg)?;
+    let merged_input_ty = tensor_product_types(&input_tys, false, dbg)?;
+    let merged_output_ty = tensor_product_types(&output_tys, false, dbg)?;
     Ok((merged_input_ty, merged_output_ty))
 }
 
@@ -234,14 +318,15 @@ fn tensor_product_func_ins_outs(
 /// this function is called recursively on function types, and we want only to
 /// take the tensor product of register types across two function types.)
 fn tensor_product_types(
-    types: Vec<Type>,
+    types: &[Type],
     allow_func: bool,
     dbg: &Option<DebugLoc>,
 ) -> Result<Type, TypeError> {
     // TODO: this allows e.g. []+id. Is that a good idea?
     let nonunit_tys: Vec<_> = types
-        .into_iter()
+        .iter()
         .filter(|ty| !matches!(ty, Type::UnitType { .. }))
+        .map(|ty| ty.clone())
         .collect();
 
     match &nonunit_tys[..] {
@@ -316,359 +401,676 @@ fn tensor_product_types(
     }
 }
 
-/// Typecheck an expression and return its type.
-pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError> {
-    match expr {
-        Expr::Variable { name, dbg } => env.get_var(name).cloned().ok_or(TypeError {
-            kind: TypeErrorKind::UndefinedVariable(name.clone()),
-            dbg: dbg.clone(),
-        }),
+impl Variable {
+    pub fn calc_type(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Variable { name, dbg } = self;
+        if let Some(var_ty) = env.get_var(name) {
+            // Surprisingly, using a variable is always reversible. The big
+            // question is how you use it.
+            Ok((var_ty.clone(), ComputeKind::Rev))
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::UndefinedVariable(name.clone()),
+                dbg: dbg.clone(),
+            })
+        }
+    }
 
-        Expr::UnitLiteral { dbg: _ } => Ok(Type::UnitType),
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type(env)
+    }
+}
 
-        Expr::Adjoint { func, dbg } => {
-            // Adjoint should be a function type (unitary/quantum), not classical.
-            let func_ty = typecheck_expr(func, env)?;
+impl UnitLiteral {
+    pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
+        Ok((Type::UnitType, ComputeKind::Rev))
+    }
 
-            // Must be a reversible function on qubit registers only
-            match func_ty {
-                Type::RevFuncType { in_out_ty } => match *in_out_ty {
-                    Type::RegType { ref elem_ty, dim } if *elem_ty == RegKind::Qubit && dim > 0 => {
-                        Ok(Type::RevFuncType { in_out_ty })
-                    }
-                    _ => Err(TypeError {
-                        kind: TypeErrorKind::InvalidType(format!(
-                            "Adjoint only valid for reversible quantum functions of type qubit[m] (m > 0), found: {}",
-                            in_out_ty
-                        )),
-                        dbg: dbg.clone(),
-                    }),
-                },
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type()
+    }
+}
 
-                Type::FuncType { .. } => {
-                    // Classical functions cannot have an adjoint
-                    Err(TypeError {
-                        kind: TypeErrorKind::InvalidType(format!(
-                            "Cannot take adjoint of non-reversible function: {}",
-                            func_ty
-                        )),
-                        dbg: dbg.clone(),
-                    })
+impl Adjoint {
+    pub fn calc_type(
+        &self,
+        func_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Adjoint { dbg, .. } = self;
+        let (func_ty, compute_kind) = func_result;
+
+        // Must be a reversible function on qubit registers only
+        match func_ty {
+            Type::RevFuncType { in_out_ty } => match &**in_out_ty {
+                Type::RegType { ref elem_ty, dim } if *elem_ty == RegKind::Qubit && *dim > 0 => {
+                    Ok((func_ty.clone(), *compute_kind))
                 }
-
                 _ => Err(TypeError {
-                    kind: TypeErrorKind::NotCallable(format!(
-                        "Cannot take adjoint of non-function type: {}",
-                        func_ty
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Adjoint only valid for reversible quantum functions that take qubits, but found: {}",
+                        in_out_ty
                     )),
                     dbg: dbg.clone(),
                 }),
-            }
-        }
+            },
 
-        Expr::Pipe { lhs, rhs, dbg } => {
-            // Typing rule: lhs type must match rhs function input type.
-            let lhs_ty = typecheck_expr(lhs, env)?;
-            let rhs_ty = typecheck_expr(rhs, env)?;
-
-            match &rhs_ty {
-                Type::FuncType { in_ty, out_ty } => {
-                    if **in_ty != lhs_ty {
-                        return Err(TypeError {
-                            kind: TypeErrorKind::MismatchedTypes {
-                                expected: in_ty.to_string(),
-                                found: lhs_ty.to_string(),
-                            },
-                            dbg: dbg.clone(),
-                        });
-                    }
-                    Ok((**out_ty).clone())
-                }
-
-                Type::RevFuncType { in_out_ty } => {
-                    if **in_out_ty != lhs_ty {
-                        return Err(TypeError {
-                            kind: TypeErrorKind::MismatchedTypes {
-                                expected: in_out_ty.to_string(),
-                                found: lhs_ty.to_string(),
-                            },
-                            dbg: dbg.clone(),
-                        });
-                    }
-                    Ok((**in_out_ty).clone())
-                }
-
-                _ => Err(TypeError {
-                    kind: TypeErrorKind::NotCallable(rhs_ty.to_string()),
-                    dbg: dbg.clone(),
-                }),
-            }
-        }
-
-        Expr::Measure { basis, dbg: _ } => {
-            // Qwerty: measurement returns classical result; basis must be valid.
-            let basis_ty = typecheck_basis(basis, env)?; //  is it a legal quantum basis?
-
-            let basis_dim = if let Type::RegType {
-                elem_ty: RegKind::Basis,
-                dim,
-            } = basis_ty
-            {
-                if dim > 0 {
-                    Ok(dim)
-                } else {
-                    Err(TypeError {
-                        kind: TypeErrorKind::EmptyLiteral,
-                        dbg: match basis {
-                            Basis::BasisLiteral { dbg, .. } => dbg.clone(),
-                            Basis::EmptyBasisLiteral { dbg, .. } => dbg.clone(),
-                            Basis::BasisTensor { dbg, .. } => dbg.clone(),
-                        },
-                    })
-                }
-            } else {
+            Type::FuncType { .. } => {
+                // Classical functions cannot have an adjoint
                 Err(TypeError {
-                    kind: TypeErrorKind::InvalidBasis,
-                    dbg: match basis {
-                        Basis::BasisLiteral { dbg, .. } => dbg.clone(),
-                        Basis::EmptyBasisLiteral { dbg, .. } => dbg.clone(),
-                        Basis::BasisTensor { dbg, .. } => dbg.clone(),
-                    },
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Cannot take adjoint of irreversible function: {}",
+                        func_ty
+                    )),
+                    dbg: dbg.clone(),
                 })
-            }?;
+            }
 
-            Ok(Type::FuncType {
-                in_ty: Box::new(Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim: basis_dim,
-                }),
-                out_ty: Box::new(Type::RegType {
-                    elem_ty: RegKind::Bit,
-                    dim: basis_dim,
-                }),
-            })
+            _ => Err(TypeError {
+                kind: TypeErrorKind::NotCallable(format!(
+                    "Cannot take adjoint of non-function type: {}",
+                    func_ty
+                )),
+                dbg: dbg.clone(),
+            }),
         }
+    }
 
-        Expr::Discard { dbg: _ } => Ok(Type::UnitType),
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Adjoint { func, .. } = self;
+        // Adjoint should be a function type (unitary/quantum), not classical.
+        let func_result = func.typecheck(env)?;
+        self.calc_type(&func_result)
+    }
+}
 
-        Expr::Tensor { vals, dbg } => {
-            let val_tys = vals
-                .iter()
-                .map(|val| typecheck_expr(val, env))
-                .collect::<Result<Vec<Type>, TypeError>>()?;
-            tensor_product_types(val_tys, true, &dbg)
-        }
+impl Pipe {
+    pub fn calc_type(
+        &self,
+        lhs: &(Type, ComputeKind),
+        rhs: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let dbg = &self.dbg;
+        let (lhs_ty, lhs_compute_kind) = lhs;
+        let (rhs_ty, rhs_compute_kind) = rhs;
 
-        Expr::BasisTranslation { bin, bout, dbg } => {
-            let left_ty = typecheck_basis(bin, env)?;
-            let right_ty = typecheck_basis(bout, env)?;
-
-            let result_ty = if let Type::RegType {
-                elem_ty: RegKind::Basis,
-                dim,
-            } = left_ty
-            {
-                if dim == 0 {
+        let (ty, my_compute_kind) = match rhs_ty {
+            Type::FuncType { in_ty, out_ty } => {
+                if &**in_ty != lhs_ty {
                     return Err(TypeError {
-                        kind: TypeErrorKind::EmptyLiteral,
-                        dbg: bin.get_dbg(),
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: in_ty.to_string(),
+                            found: lhs_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
                     });
                 }
+                Ok(((**out_ty).clone(), ComputeKind::Irrev))
+            }
 
-                // Type of this basis translation (pending further checks)
-                Type::RevFuncType {
-                    in_out_ty: Box::new(Type::RegType {
-                        elem_ty: RegKind::Qubit,
-                        dim: dim,
-                    }),
+            Type::RevFuncType { in_out_ty } => {
+                if &**in_out_ty != lhs_ty {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: in_out_ty.to_string(),
+                            found: lhs_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    });
                 }
+                Ok(((**in_out_ty).clone(), ComputeKind::Rev))
+            }
+
+            Type::UnitType | Type::RegType { .. } | Type::TupleType { .. } => Err(TypeError {
+                kind: TypeErrorKind::NotCallable(rhs_ty.to_string()),
+                dbg: dbg.clone(),
+            }),
+        }?;
+
+        let compute_kind = lhs_compute_kind
+            .join(*rhs_compute_kind)
+            .join(my_compute_kind);
+        Ok((ty, compute_kind))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Pipe { lhs, rhs, .. } = self;
+        // Typing rule: lhs type must match rhs function input type.
+        let lhs_result = lhs.typecheck(env)?;
+        let rhs_result = rhs.typecheck(env)?;
+        self.calc_type(&lhs_result, &rhs_result)
+    }
+}
+
+impl Measure {
+    pub fn calc_type(&self, basis_ty: &Type) -> Result<(Type, ComputeKind), TypeError> {
+        // TODO: Should this be elsewhere?
+        if !self.basis.fully_spans() {
+            return Err(TypeError {
+                kind: TypeErrorKind::InvalidMeasurementBasisSpan,
+                dbg: self.basis.get_dbg(),
+            });
+        }
+
+        let basis_dim = if let Type::RegType {
+            elem_ty: RegKind::Basis,
+            dim,
+        } = basis_ty
+        {
+            if *dim > 0 {
+                Ok(*dim)
             } else {
+                Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    dbg: self.basis.get_dbg(),
+                })
+            }
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidBasis,
+                dbg: self.basis.get_dbg(),
+            })
+        }?;
+
+        let ty = Type::FuncType {
+            in_ty: Box::new(Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim: basis_dim,
+            }),
+            out_ty: Box::new(Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: basis_dim,
+            }),
+        };
+        // Shockingly, this is reversible. That's because it doesn't do
+        // anything until it's used.
+        Ok((ty, ComputeKind::Rev))
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let Measure { basis, .. } = self;
+        let basis_ty = basis.typecheck()?;
+        self.calc_type(&basis_ty)
+    }
+}
+
+impl Discard {
+    pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let ty = Type::FuncType {
+            in_ty: Box::new(Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim: 1,
+            }),
+            out_ty: Box::new(Type::UnitType),
+        };
+        // This is also strangely reversible. The reason is (like measure) it
+        // doesn't do anything until you call it.
+        Ok((ty, ComputeKind::Rev))
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type()
+    }
+}
+
+impl Tensor {
+    pub fn calc_type(
+        &self,
+        val_results: &[(Type, ComputeKind)],
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Tensor { vals, dbg } = self;
+        assert_eq!(vals.len(), val_results.len());
+        let val_types: Vec<_> = val_results
+            .iter()
+            .map(|(val_ty, _val_compute_kind)| val_ty)
+            .cloned()
+            .collect();
+        let ty = tensor_product_types(&val_types, true, &dbg)?;
+        let compute_kind = val_results
+            .iter()
+            .map(|(_val_ty, val_compute_kind)| *val_compute_kind)
+            .fold(ComputeKind::identity(), |acc, val_compute_kind| {
+                acc.join(val_compute_kind)
+            });
+        Ok((ty, compute_kind))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Tensor { vals, .. } = self;
+        let val_results = vals
+            .iter()
+            .map(|val| val.typecheck(env))
+            .collect::<Result<Vec<_>, TypeError>>()?;
+        self.calc_type(&val_results)
+    }
+}
+
+impl BasisTranslation {
+    pub fn calc_type(
+        &self,
+        bin_ty: &Type,
+        bout_ty: &Type,
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let BasisTranslation { bin, bout, dbg } = self;
+        let result_ty = if let Type::RegType {
+            elem_ty: RegKind::Basis,
+            dim,
+        } = bin_ty
+        {
+            if *dim == 0 {
                 return Err(TypeError {
-                    kind: TypeErrorKind::InvalidBasis,
+                    kind: TypeErrorKind::EmptyLiteral,
                     dbg: bin.get_dbg(),
                 });
-            };
-
-            if left_ty != right_ty {
-                return Err(TypeError {
-                    kind: TypeErrorKind::DimMismatch,
-                    dbg: dbg.clone(),
-                });
             }
 
-            for b in [bin, bout] {
-                if b.get_atom_indices(VectorAtomKind::TargetAtom)
-                    .is_none_or(|indices| !indices.is_empty())
-                {
-                    return Err(TypeError {
-                        kind: TypeErrorKind::MismatchedAtoms {
-                            atom_kind: VectorAtomKind::TargetAtom,
-                        },
-                        dbg: b.get_dbg(),
-                    });
-                }
+            // Type of this basis translation (pending further checks)
+            Type::RevFuncType {
+                in_out_ty: Box::new(Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: *dim,
+                }),
             }
+        } else {
+            return Err(TypeError {
+                kind: TypeErrorKind::InvalidBasis,
+                dbg: bin.get_dbg(),
+            });
+        };
 
-            let pad_indices_in =
-                bin.get_atom_indices(VectorAtomKind::PadAtom)
-                    .ok_or(TypeError {
-                        kind: TypeErrorKind::MismatchedAtoms {
-                            atom_kind: VectorAtomKind::PadAtom,
-                        },
-                        dbg: bin.get_dbg(),
-                    })?;
-            let pad_indices_out =
-                bout.get_atom_indices(VectorAtomKind::PadAtom)
-                    .ok_or(TypeError {
-                        kind: TypeErrorKind::MismatchedAtoms {
-                            atom_kind: VectorAtomKind::PadAtom,
-                        },
-                        dbg: bout.get_dbg(),
-                    })?;
-            if pad_indices_in != pad_indices_out {
+        if bin_ty != bout_ty {
+            return Err(TypeError {
+                kind: TypeErrorKind::DimMismatch,
+                dbg: dbg.clone(),
+            });
+        }
+
+        for b in [bin, bout] {
+            if b.get_atom_indices(VectorAtomKind::TargetAtom)
+                .is_none_or(|indices| !indices.is_empty())
+            {
                 return Err(TypeError {
                     kind: TypeErrorKind::MismatchedAtoms {
-                        atom_kind: VectorAtomKind::PadAtom,
+                        atom_kind: VectorAtomKind::TargetAtom,
                     },
-                    dbg: dbg.clone(),
+                    dbg: b.get_dbg(),
                 });
             }
-
-            if !basis_span_equiv(bin, bout) {
-                Err(TypeError {
-                    kind: TypeErrorKind::SpanMismatch,
-                    dbg: dbg.clone(),
-                })
-            } else {
-                Ok(result_ty)
-            }
         }
 
-        Expr::Predicated {
-            then_func,
-            else_func,
-            pred,
-            dbg,
-        } => {
-            let t_ty = typecheck_expr(then_func, env)?;
-            let e_ty = typecheck_expr(else_func, env)?;
-            let _pred_ty = typecheck_basis(pred, env)?;
-
-            // Ensure both operands are reversible functions (Same signature required)
-            match (&t_ty, &e_ty) {
-                (Type::RevFuncType { in_out_ty: t_in_out }, Type::RevFuncType { in_out_ty: e_in_out }) => {
-                    if t_in_out != e_in_out {
-                        return Err(TypeError {
-                            kind: TypeErrorKind::MismatchedTypes {
-                                expected: t_ty.to_string(),
-                                found: e_ty.to_string(),
-                            },
-                            dbg: dbg.clone(),
-                        });
-                    }
-                    Ok(t_ty)
-                }
-
-                (Type::RevFuncType { .. }, _) => {
-                    Err(TypeError {
-                        kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {}",
-                            e_ty
-                        )),
-                        dbg: dbg.clone(),
-                    })
-                }
-
-                (_, Type::RevFuncType { .. }) => {
-                    Err(TypeError {
-                        kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {}",
-                            t_ty
-                        )),
-                        dbg: dbg.clone(),
-                    })
-                }
-
-                (_, _) => {
-                    Err(TypeError {
-                        kind: TypeErrorKind::InvalidType(format!(
-                            "Predicated expression requires both operands to be reversible functions, found: then={}, else={}",
-                            t_ty, e_ty
-                        )),
-                        dbg: dbg.clone(),
-                    })
-                }
-            }
+        let pad_indices_in = bin
+            .get_atom_indices(VectorAtomKind::PadAtom)
+            .ok_or(TypeError {
+                kind: TypeErrorKind::MismatchedAtoms {
+                    atom_kind: VectorAtomKind::PadAtom,
+                },
+                dbg: bin.get_dbg(),
+            })?;
+        let pad_indices_out = bout
+            .get_atom_indices(VectorAtomKind::PadAtom)
+            .ok_or(TypeError {
+                kind: TypeErrorKind::MismatchedAtoms {
+                    atom_kind: VectorAtomKind::PadAtom,
+                },
+                dbg: bout.get_dbg(),
+            })?;
+        if pad_indices_in != pad_indices_out {
+            return Err(TypeError {
+                kind: TypeErrorKind::MismatchedAtoms {
+                    atom_kind: VectorAtomKind::PadAtom,
+                },
+                dbg: dbg.clone(),
+            });
         }
 
-        Expr::NonUniformSuperpos { pairs, dbg } => {
-            // Each pair is (weight, QLit). All QLits must have same type.
-            let mut qt = None;
-            for (_, qlit) in pairs {
-                let qlit_ty = typecheck_qlit(qlit, env)?;
-                if let Some(prev) = &qt {
-                    if &qlit_ty != prev {
-                        return Err(TypeError {
-                            kind: TypeErrorKind::MismatchedTypes {
-                                expected: prev.to_string(),
-                                found: qlit_ty.to_string(),
-                            },
-                            dbg: dbg.clone(),
-                        });
-                    }
-                }
-                qt = Some(qlit_ty);
-            }
-            Ok(qt.unwrap_or(Type::UnitType))
+        if !basis_span_equiv(bin, bout) {
+            Err(TypeError {
+                kind: TypeErrorKind::SpanMismatch,
+                dbg: dbg.clone(),
+            })
+        } else {
+            Ok((result_ty, ComputeKind::Rev))
         }
+    }
 
-        Expr::Conditional {
-            then_expr,
-            else_expr,
-            cond,
-            dbg,
-        } => {
-            let t_ty = typecheck_expr(then_expr, env)?;
-            let e_ty = typecheck_expr(else_expr, env)?;
-            let _c_ty = typecheck_expr(cond, env)?;
-            if t_ty != e_ty {
-                return Err(TypeError {
-                    kind: TypeErrorKind::MismatchedTypes {
-                        expected: t_ty.to_string(),
-                        found: e_ty.to_string(),
-                    },
-                    dbg: dbg.clone(),
-                });
-            }
-            Ok(t_ty)
-        }
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let BasisTranslation { bin, bout, .. } = self;
+        let bin_ty = bin.typecheck()?;
+        let bout_ty = bout.typecheck()?;
+        self.calc_type(&bin_ty, &bout_ty)
+    }
+}
 
-        Expr::QLit { qlit, dbg: _ } => typecheck_qlit(qlit, env),
+impl Predicated {
+    pub fn calc_type(
+        &self,
+        then_result: &(Type, ComputeKind),
+        else_result: &(Type, ComputeKind),
+        pred_ty: &Type,
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Predicated { pred, dbg, .. } = self;
+        let (t_ty, t_compute_kind) = then_result;
+        let (e_ty, e_compute_kind) = else_result;
+        let compute_kind = t_compute_kind.join(*e_compute_kind);
 
-        Expr::BitLiteral { dim, bits, dbg } => {
+        let pred_dim = if let Type::RegType {
+            elem_ty: RegKind::Basis,
+            dim,
+        } = pred_ty
+        {
             if *dim == 0 {
                 Err(TypeError {
                     kind: TypeErrorKind::EmptyLiteral,
-                    dbg: dbg.clone(),
-                })
-            } else if bits.bit_len() > *dim {
-                // TODO: use a more descriptive error here
-                Err(TypeError {
-                    kind: TypeErrorKind::DimMismatch,
-                    dbg: dbg.clone(),
+                    dbg: pred.get_dbg(),
                 })
             } else {
-                Ok(Type::RegType {
-                    elem_ty: RegKind::Bit,
-                    dim: *dim,
+                Ok(dim)
+            }
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidBasis,
+                dbg: pred.get_dbg(),
+            })
+        }?;
+        let num_tgt_atoms = pred
+            .get_atom_indices(VectorAtomKind::TargetAtom)
+            .ok_or(TypeError {
+                kind: TypeErrorKind::MismatchedAtoms {
+                    atom_kind: VectorAtomKind::TargetAtom,
+                },
+                dbg: pred.get_dbg(),
+            })?
+            .len();
+        let num_pad_atoms = pred
+            .get_atom_indices(VectorAtomKind::PadAtom)
+            .ok_or(TypeError {
+                kind: TypeErrorKind::MismatchedAtoms {
+                    atom_kind: VectorAtomKind::PadAtom,
+                },
+                dbg: pred.get_dbg(),
+            })?
+            .len();
+        // Basis cannot be trivial
+        if *pred_dim == num_tgt_atoms + num_pad_atoms {
+            return Err(TypeError {
+                kind: TypeErrorKind::InvalidBasis,
+                dbg: pred.get_dbg(),
+            });
+        }
+
+        // Ensure both operands are reversible functions (Same signature required)
+        match (t_ty, e_ty) {
+            (Type::RevFuncType { in_out_ty: t_in_out }, Type::RevFuncType { in_out_ty: e_in_out }) => {
+                if t_in_out != e_in_out {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: t_ty.to_string(),
+                            found: e_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    });
+                }
+                if let Type::RegType { elem_ty: RegKind::Qubit, dim: reg_dim } = &**t_in_out {
+                    if *reg_dim == 0 {
+                        Err(TypeError {
+                            kind: TypeErrorKind::InvalidType("Cannot predicate function that takes no qubits".to_string()),
+                            dbg: dbg.clone(),
+                        })
+                    } else {
+                        let ty = Type::RevFuncType {
+                            in_out_ty: Box::new(Type::RegType { elem_ty: RegKind::Qubit, dim: *pred_dim }),
+                        };
+                        Ok((ty, compute_kind))
+                    }
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidType("Can only predicate functions that take qubits".to_string()),
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+
+            (Type::RevFuncType { .. }, _) => {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {}",
+                        e_ty
+                    )),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            (_, Type::RevFuncType { .. }) => {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {}",
+                        t_ty
+                    )),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            (_, _) => {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Predicated expression requires both operands to be reversible functions, found: then={}, else={}",
+                        t_ty, e_ty
+                    )),
+                    dbg: dbg.clone(),
                 })
             }
         }
+    }
 
-        Expr::QubitRef { .. } => Err(TypeError {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Predicated {
+            then_func,
+            else_func,
+            pred,
+            ..
+        } = self;
+        let t_result = then_func.typecheck(env)?;
+        let e_result = else_func.typecheck(env)?;
+        let pred_ty = pred.typecheck()?;
+        self.calc_type(&t_result, &e_result, &pred_ty)
+    }
+}
+
+impl NonUniformSuperpos {
+    pub fn calc_type(
+        &self,
+        term_tys: &[(Type, ComputeKind)],
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let NonUniformSuperpos { pairs, dbg } = self;
+
+        if pairs.is_empty() {
+            return Err(TypeError {
+                kind: TypeErrorKind::EmptyLiteral,
+                dbg: dbg.clone(),
+            });
+        }
+
+        let (first_ty, _first_compute_kind) = &term_tys[0];
+
+        if let Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim,
+        } = first_ty
+        {
+            if *dim == 0 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    dbg: dbg.clone(),
+                });
+            }
+        } else {
+            // Should be unreachable
+            return Err(TypeError {
+                kind: TypeErrorKind::InvalidType("Superposition must contain qubits".to_string()),
+                dbg: dbg.clone(),
+            });
+        }
+
+        if let Some((offending_ty, _offending_compute_kind)) = term_tys
+            .iter()
+            .find(|(term_ty, _term_compute_kind)| term_ty != first_ty)
+        {
+            return Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: first_ty.to_string(),
+                    found: offending_ty.to_string(),
+                },
+                dbg: dbg.clone(),
+            });
+        }
+
+        let total_prob = pairs
+            .iter()
+            .map(|(prob, _qlit)| prob)
+            .fold(0.0, |prob_acc, prob| prob_acc + prob);
+        if !angles_are_approx_equal(total_prob, 1.0) {
+            return Err(TypeError {
+                kind: TypeErrorKind::ProbabilitiesDoNotSumToOne,
+                dbg: dbg.clone(),
+            });
+        }
+
+        let compute_kind = term_tys.iter().fold(
+            ComputeKind::identity(),
+            |acc, (_term_ty, term_compute_kind)| acc.join(*term_compute_kind),
+        );
+
+        Ok((first_ty.clone(), compute_kind))
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let NonUniformSuperpos { pairs, .. } = self;
+        let term_tys = pairs
+            .iter()
+            .map(|(_prob, qlit)| qlit.typecheck())
+            .collect::<Result<Vec<(Type, ComputeKind)>, TypeError>>()?;
+        self.calc_type(&term_tys)
+    }
+}
+
+impl Conditional {
+    pub fn calc_type(
+        &self,
+        then_result: &(Type, ComputeKind),
+        else_result: &(Type, ComputeKind),
+        cond_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Conditional { dbg, .. } = self;
+        let (t_ty, _t_compute_kind) = then_result;
+        let (e_ty, _e_compute_kind) = else_result;
+        let (cond_ty, _cond_compute_kind) = cond_result;
+
+        if t_ty != e_ty {
+            return Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: t_ty.to_string(),
+                    found: e_ty.to_string(),
+                },
+                dbg: dbg.clone(),
+            });
+        }
+
+        if !matches!(
+            cond_ty,
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 1
+            }
+        ) {
+            return Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: 1,
+                    }
+                    .to_string(),
+                    found: cond_ty.to_string(),
+                },
+                dbg: dbg.clone(),
+            });
+        }
+
+        // Always consider classical conditionals to be irreversible
+        Ok((t_ty.clone(), ComputeKind::Irrev))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Conditional {
+            then_expr,
+            else_expr,
+            cond,
+            ..
+        } = self;
+        let t_result = then_expr.typecheck(env)?;
+        let e_result = else_expr.typecheck(env)?;
+        let c_result = cond.typecheck(env)?;
+        self.calc_type(&t_result, &e_result, &c_result)
+    }
+}
+
+impl BitLiteral {
+    pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let BitLiteral { dim, bits, dbg } = self;
+        if *dim == 0 {
+            Err(TypeError {
+                kind: TypeErrorKind::EmptyLiteral,
+                dbg: dbg.clone(),
+            })
+        } else if bits.bit_len() > *dim {
+            // TODO: use a more descriptive error here
+            Err(TypeError {
+                kind: TypeErrorKind::DimMismatch,
+                dbg: dbg.clone(),
+            })
+        } else {
+            let ty = Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: *dim,
+            };
+            Ok((ty, ComputeKind::Rev))
+        }
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type()
+    }
+}
+
+impl QubitRef {
+    pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
+        Err(TypeError {
             kind: TypeErrorKind::InvalidIntermediateComputation,
             dbg: None,
-        }),
+        })
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type()
+    }
+}
+
+impl Expr {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            Expr::Variable(var) => var.typecheck(env),
+            Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
+            Expr::Adjoint(adj) => adj.typecheck(env),
+            Expr::Pipe(pipe) => pipe.typecheck(env),
+            Expr::Measure(measure) => measure.typecheck(),
+            Expr::Discard(discard) => discard.typecheck(),
+            Expr::Tensor(tensor) => tensor.typecheck(env),
+            Expr::BasisTranslation(btrans) => btrans.typecheck(),
+            Expr::Predicated(pred) => pred.typecheck(env),
+            Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
+            Expr::Conditional(cond) => cond.typecheck(env),
+            Expr::QLit(qlit) => qlit.typecheck(),
+            Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
+            Expr::QubitRef(qref) => qref.typecheck(),
+        }
     }
 }
 
@@ -1007,324 +1409,253 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
     )
 }
 
-/// Typecheck a QLit node.
-/// TODO: Enforce Qwerty rules about QLit types and quantum registers.
-fn typecheck_qlit(qlit: &QLit, _env: &mut TypeEnv) -> Result<Type, TypeError> {
-    match qlit {
-        QLit::ZeroQubit { .. } | QLit::OneQubit { .. } => Ok(Type::RegType {
-            elem_ty: RegKind::Qubit,
-            dim: 1,
-        }),
-
-        QLit::QubitTilt { q, .. } => typecheck_qlit(q, _env),
-
-        QLit::UniformSuperpos { q1, q2, dbg } => {
-            let t1 = typecheck_qlit(q1, _env)?;
-            let t2 = typecheck_qlit(q2, _env)?;
-            if t1 != t2 {
-                Err(TypeError {
-                    kind: TypeErrorKind::MismatchedTypes {
-                        expected: t1.to_string(),
-                        found: t2.to_string(),
-                    },
-                    dbg: dbg.clone(),
-                })
-            } else if !qlits_are_ortho(q1, q2) {
-                Err(TypeError {
-                    kind: TypeErrorKind::NotOrthogonal {
-                        left: q1.to_string(),
-                        right: q2.to_string(),
-                    },
-                    dbg: dbg.clone(),
-                })
-            } else {
-                Ok(t1)
-            }
-        }
-
-        QLit::QubitTensor { qs, dbg } => {
-            let types = qs
-                .iter()
-                .map(|q| typecheck_qlit(q, _env))
-                .collect::<Result<Vec<Type>, TypeError>>()?;
-            let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
-                if let Type::RegType {
+impl QLit {
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            QLit::ZeroQubit { .. } | QLit::OneQubit { .. } => {
+                let ty = Type::RegType {
                     elem_ty: RegKind::Qubit,
-                    dim,
-                } = ty
-                {
-                    Ok(dim_acc + dim)
-                } else {
+                    dim: 1,
+                };
+                Ok((ty, ComputeKind::Rev))
+            }
+
+            QLit::QubitTilt { q, .. } => q.typecheck(),
+
+            QLit::UniformSuperpos { q1, q2, dbg } => {
+                let (t1, compute_kind1) = q1.typecheck()?;
+                let (t2, compute_kind2) = q2.typecheck()?;
+                if t1 != t2 {
                     Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: t1.to_string(),
+                            found: t2.to_string(),
+                        },
                         dbg: dbg.clone(),
                     })
+                } else if !qlits_are_ortho(q1, q2) {
+                    Err(TypeError {
+                        kind: TypeErrorKind::NotOrthogonal {
+                            left: q1.to_string(),
+                            right: q2.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    let compute_kind = compute_kind1.join(compute_kind2);
+                    Ok((t1, compute_kind))
                 }
-            })?;
-            Ok(Type::RegType {
-                elem_ty: RegKind::Qubit,
-                dim: total_dim,
-            })
-        }
+            }
 
-        QLit::QubitUnit { .. } => Ok(Type::RegType {
-            elem_ty: RegKind::Qubit,
-            dim: 0,
-        }),
+            QLit::QubitTensor { qs, dbg } => {
+                let types = qs
+                    .iter()
+                    .map(|q| q.typecheck())
+                    .collect::<Result<Vec<(Type, ComputeKind)>, TypeError>>()?;
+                let (total_dim, compute_kind) = types.iter().try_fold(
+                    (0, ComputeKind::identity()),
+                    |(dim_acc, compute_kind_acc), (ty, compute_kind)| {
+                        if let Type::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim,
+                        } = ty
+                        {
+                            Ok((dim_acc + dim, compute_kind_acc.join(*compute_kind)))
+                        } else {
+                            Err(TypeError {
+                                kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
+                                dbg: dbg.clone(),
+                            })
+                        }
+                    },
+                )?;
+                let ty = Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: total_dim,
+                };
+                Ok((ty, compute_kind))
+            }
+
+            QLit::QubitUnit { .. } => {
+                let ty = Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: 0,
+                };
+                Ok((ty, ComputeKind::Rev))
+            }
+        }
     }
 }
 
-/// Typecheck a Vector node (see grammar for rules).
-fn typecheck_vector(vector: &Vector, _env: &mut TypeEnv) -> Result<Type, TypeError> {
-    match vector {
-        Vector::ZeroVector { .. }
-        | Vector::OneVector { .. }
-        | Vector::PadVector { .. }
-        | Vector::TargetVector { .. } => Ok(Type::RegType {
-            elem_ty: RegKind::Qubit,
-            dim: 1,
-        }),
+impl Vector {
+    pub fn typecheck(&self) -> Result<Type, TypeError> {
+        match self {
+            Vector::ZeroVector { .. }
+            | Vector::OneVector { .. }
+            | Vector::PadVector { .. }
+            | Vector::TargetVector { .. } => Ok(Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim: 1,
+            }),
 
-        Vector::VectorTilt { q, angle_deg, dbg } => {
-            if !angle_deg.is_finite() {
-                Err(TypeError {
-                    kind: TypeErrorKind::InvalidFloat { float: *angle_deg },
-                    dbg: dbg.clone(),
-                })
-            } else {
-                typecheck_vector(q, _env)
+            Vector::VectorTilt { q, angle_deg, dbg } => {
+                if !angle_deg.is_finite() {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidFloat { float: *angle_deg },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    q.typecheck()
+                }
             }
-        }
 
-        Vector::UniformVectorSuperpos { q1, q2, dbg } => {
-            let t1 = typecheck_vector(q1, _env)?;
-            let t2 = typecheck_vector(q2, _env)?;
-            if t1 == t2 {
-                Ok(t1)
-            } else {
-                Err(TypeError {
-                    kind: TypeErrorKind::MismatchedTypes {
-                        expected: t1.to_string(),
-                        found: t2.to_string(),
-                    },
-                    dbg: dbg.clone(),
-                })
-            }
-        }
-
-        Vector::VectorTensor { qs, dbg } => {
-            let types = qs
-                .iter()
-                .map(|q| typecheck_vector(q, _env))
-                .collect::<Result<Vec<Type>, TypeError>>()?;
-            let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
-                if let Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim,
-                } = ty
-                {
-                    Ok(dim_acc + dim)
+            Vector::UniformVectorSuperpos { q1, q2, dbg } => {
+                let t1 = q1.typecheck()?;
+                let t2 = q2.typecheck()?;
+                if t1 == t2 {
+                    Ok(t1)
                 } else {
                     Err(TypeError {
-                        kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: t1.to_string(),
+                            found: t2.to_string(),
+                        },
                         dbg: dbg.clone(),
                     })
                 }
-            })?;
-            Ok(Type::RegType {
-                elem_ty: RegKind::Qubit,
-                dim: total_dim,
-            })
-        }
+            }
 
-        Vector::VectorUnit { .. } => Ok(Type::RegType {
-            elem_ty: RegKind::Qubit,
-            dim: 0,
-        }),
+            Vector::VectorTensor { qs, dbg } => {
+                let types = qs
+                    .iter()
+                    .map(|q| q.typecheck())
+                    .collect::<Result<Vec<Type>, TypeError>>()?;
+                let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
+                    if let Type::RegType {
+                        elem_ty: RegKind::Qubit,
+                        dim,
+                    } = ty
+                    {
+                        Ok(dim_acc + dim)
+                    } else {
+                        Err(TypeError {
+                            kind: TypeErrorKind::InvalidQubitOperation(ty.to_string()),
+                            dbg: dbg.clone(),
+                        })
+                    }
+                })?;
+                Ok(Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: total_dim,
+                })
+            }
+
+            Vector::VectorUnit { .. } => Ok(Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim: 0,
+            }),
+        }
     }
 }
 
 /// Typecheck a Basis node.
 /// TODO: Enforce more quantum rules as per Qwerty basis specification.
-fn typecheck_basis(basis: &Basis, env: &mut TypeEnv) -> Result<Type, TypeError> {
-    match basis {
-        Basis::BasisLiteral { vecs, dbg } => {
-            if vecs.is_empty() {
-                return Err(TypeError {
-                    kind: TypeErrorKind::EmptyLiteral,
-                    dbg: dbg.clone(),
-                });
-            }
-
-            let first_ty = typecheck_vector(&vecs[0], env)?;
-
-            if let Type::RegType { elem_ty, dim } = &first_ty {
-                // TODO: use dbg of vecs[0], not dbg of basis literal
-                if *elem_ty != RegKind::Qubit {
-                    return Err(TypeError {
-                        kind: TypeErrorKind::InvalidBasis,
-                        dbg: dbg.clone(),
-                    });
-                }
-                if *dim < 1 {
+impl Basis {
+    pub fn typecheck(&self) -> Result<Type, TypeError> {
+        match self {
+            Basis::BasisLiteral { vecs, dbg } => {
+                if vecs.is_empty() {
                     return Err(TypeError {
                         kind: TypeErrorKind::EmptyLiteral,
                         dbg: dbg.clone(),
                     });
                 }
 
-                vecs.iter().try_for_each(|v| {
-                    typecheck_vector(v, env).and_then(|ty| {
-                        if ty == first_ty {
-                            Ok(())
+                let first_ty = vecs[0].typecheck()?;
+
+                if let Type::RegType { elem_ty, dim } = &first_ty {
+                    // TODO: use dbg of vecs[0], not dbg of basis literal
+                    if *elem_ty != RegKind::Qubit {
+                        return Err(TypeError {
+                            kind: TypeErrorKind::InvalidBasis,
+                            dbg: dbg.clone(),
+                        });
+                    }
+                    if *dim < 1 {
+                        return Err(TypeError {
+                            kind: TypeErrorKind::EmptyLiteral,
+                            dbg: dbg.clone(),
+                        });
+                    }
+
+                    vecs.iter().try_for_each(|v| {
+                        v.typecheck().and_then(|ty| {
+                            if ty == first_ty {
+                                Ok(())
+                            } else {
+                                // TODO: use dbg of v, not dbg of basis literal
+                                Err(TypeError {
+                                    kind: TypeErrorKind::DimMismatch,
+                                    dbg: dbg.clone(),
+                                })
+                            }
+                        })
+                    })?;
+
+                    for (i, v_1) in vecs.iter().enumerate() {
+                        for v_2 in &vecs[i + 1..] {
+                            if !basis_vectors_are_ortho(v_1, v_2) {
+                                return Err(TypeError {
+                                    kind: TypeErrorKind::NotOrthogonal {
+                                        left: v_1.to_string(),
+                                        right: v_2.to_string(),
+                                    },
+                                    dbg: dbg.clone(),
+                                });
+                            }
+                        }
+                    }
+
+                    Ok(Type::RegType {
+                        elem_ty: RegKind::Basis,
+                        dim: *dim,
+                    })
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidBasis,
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+
+            Basis::EmptyBasisLiteral { .. } => Ok(Type::RegType {
+                elem_ty: RegKind::Basis,
+                dim: 0,
+            }),
+
+            Basis::BasisTensor { bases, .. } => bases
+                .iter()
+                .try_fold(0, |acc_dim, basis| {
+                    basis.typecheck().and_then(|ty| {
+                        if let Type::RegType {
+                            elem_ty: RegKind::Basis,
+                            dim,
+                        } = ty
+                        {
+                            Ok(acc_dim + dim)
                         } else {
-                            // TODO: use dbg of v, not dbg of basis literal
                             Err(TypeError {
-                                kind: TypeErrorKind::DimMismatch,
-                                dbg: dbg.clone(),
+                                kind: TypeErrorKind::InvalidBasis,
+                                dbg: basis.get_dbg(),
                             })
                         }
                     })
-                })?;
-
-                for (i, v_1) in vecs.iter().enumerate() {
-                    for v_2 in &vecs[i + 1..] {
-                        if !basis_vectors_are_ortho(v_1, v_2) {
-                            return Err(TypeError {
-                                kind: TypeErrorKind::NotOrthogonal {
-                                    left: v_1.to_string(),
-                                    right: v_2.to_string(),
-                                },
-                                dbg: dbg.clone(),
-                            });
-                        }
-                    }
-                }
-
-                Ok(Type::RegType {
+                })
+                .map(|total_dim| Type::RegType {
                     elem_ty: RegKind::Basis,
-                    dim: *dim,
-                })
-            } else {
-                Err(TypeError {
-                    kind: TypeErrorKind::InvalidBasis,
-                    dbg: dbg.clone(),
-                })
-            }
+                    dim: total_dim,
+                }),
         }
-
-        Basis::EmptyBasisLiteral { .. } => Ok(Type::RegType {
-            elem_ty: RegKind::Basis,
-            dim: 0,
-        }),
-
-        Basis::BasisTensor { bases, .. } => bases
-            .iter()
-            .try_fold(0, |acc_dim, basis| {
-                typecheck_basis(basis, env).and_then(|ty| {
-                    if let Type::RegType {
-                        elem_ty: RegKind::Basis,
-                        dim,
-                    } = ty
-                    {
-                        Ok(acc_dim + dim)
-                    } else {
-                        Err(TypeError {
-                            kind: TypeErrorKind::InvalidBasis,
-                            dbg: basis.get_dbg(),
-                        })
-                    }
-                })
-            })
-            .map(|total_dim| Type::RegType {
-                elem_ty: RegKind::Basis,
-                dim: total_dim,
-            }),
-    }
-}
-
-/// Checks if a single statement is reversible.
-/// Checks each statement before updating the environment
-fn check_stmt_reversibility(stmt: &Stmt, env: &TypeEnv) -> Result<bool, TypeError> {
-    match stmt {
-        Stmt::Expr { expr, .. } => is_expr_inherently_reversible(expr, &mut env.clone()),
-
-        Stmt::Assign { rhs, .. } => is_expr_inherently_reversible(rhs, &mut env.clone()),
-
-        Stmt::UnpackAssign { rhs, .. } => is_expr_inherently_reversible(rhs, &mut env.clone()),
-
-        Stmt::Return { val, .. } => {
-            if !is_expr_inherently_reversible(val, &mut env.clone())? {
-                return Ok(false);
-            }
-            // A reversible function must return a quantum value (qubit register).
-            let val_ty = typecheck_expr(val, &mut env.clone())?;
-            match val_ty {
-                Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    ..
-                } => Ok(true),
-                _ => Ok(false),
-            }
-        }
-    }
-}
-
-/// Determines if an expression is inherently reversible.
-fn is_expr_inherently_reversible(expr: &Expr, env: &mut TypeEnv) -> Result<bool, TypeError> {
-    match expr {
-        // Execution points that can break reversibility
-        Expr::Pipe { lhs, rhs, .. } => {
-            let lhs_is_rev = is_expr_inherently_reversible(lhs, env)?;
-            let rhs_is_rev = is_expr_inherently_reversible(rhs, env)?;
-            if !lhs_is_rev || !rhs_is_rev {
-                return Ok(false);
-            }
-
-            let rhs_ty = typecheck_expr(rhs, env)?; // Get the actual type being called
-            match rhs_ty {
-                Type::RevFuncType { .. } => Ok(true),
-                Type::FuncType { .. } => Ok(false), // Calling irreversible function breaks reversibility
-                _ => Ok(false),                     // Invalid function call
-            }
-        }
-
-        // Classical control flow breaks reversibility
-        Expr::Conditional { .. } => Ok(false),
-
-        // Active expressions that need explicit checking
-        Expr::Adjoint { func, .. } => {
-            let func_ty = typecheck_expr(func, env)?;
-            match func_ty {
-                Type::RevFuncType { .. } => Ok(true),
-                _ => Ok(false), // Adjoint only works on reversible functions
-            }
-        }
-
-        Expr::Predicated {
-            then_func,
-            else_func,
-            ..
-        } => {
-            // Predicated operations are reversible only if both branches are reversible
-            let then_is_rev = is_expr_inherently_reversible(then_func, env)?;
-            let else_is_rev = is_expr_inherently_reversible(else_func, env)?;
-            Ok(then_is_rev && else_is_rev)
-        }
-
-        Expr::Variable { name, dbg } => {
-            if env.get_var(name).is_some() {
-                Ok(true)
-            } else {
-                Err(TypeError {
-                    kind: TypeErrorKind::UndefinedVariable(name.clone()),
-                    dbg: dbg.clone(),
-                })
-            }
-        }
-
-        // Everything else is reversible by default (actual checks for non-reversibity done during execution call)
-        _ => Ok(true),
     }
 }
 

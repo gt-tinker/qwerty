@@ -21,7 +21,7 @@ class ConvertAstTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = Stmt.new_expr(
-            Expr.new_qlit(QLit.new_zero_qubit(dbg), dbg), dbg)
+            Expr.new_qlit(QLit.new_zero_qubit(dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -31,7 +31,7 @@ class ConvertAstTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = Stmt.new_expr(
-            Expr.new_qlit(QLit.new_one_qubit(dbg), dbg), dbg)
+            Expr.new_qlit(QLit.new_one_qubit(dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -41,7 +41,7 @@ class ConvertAstTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = Stmt.new_expr(
-            Expr.new_qlit(QLit.new_qubit_unit(dbg), dbg), dbg)
+            Expr.new_qlit(QLit.new_qubit_unit(dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -66,7 +66,7 @@ class ConvertAstTests(unittest.TestCase):
             QLit.new_zero_qubit(dbg),
             QLit.new_one_qubit(dbg),
             QLit.new_zero_qubit(dbg),
-        ], dbg), dbg), dbg)
+        ], dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -94,7 +94,7 @@ class ConvertAstTests(unittest.TestCase):
                     180.0,
                     dbg3)
             ], dbg3),
-            dbg1), dbg1)
+            dbg1))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_assign_multi_target(self):
@@ -128,7 +128,7 @@ class ConvertAstTests(unittest.TestCase):
         dbg_assign = self.dbg(1, 1)
         dbg_str = self.dbg(1, 5)
         expected_qw_ast = Stmt.new_assign('x', Expr.new_qlit(
-            QLit.new_zero_qubit(dbg_str), dbg_str), dbg_assign)
+            QLit.new_zero_qubit(dbg_str)), dbg_assign)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -166,8 +166,7 @@ class ConvertAstTests(unittest.TestCase):
                                              180.0,
                                              dbg_neg)],
                                         dbg_set),
-                dbg_set),
-            dbg_set)
+                dbg_set))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -177,7 +176,7 @@ class ConvertAstTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = Stmt.new_expr(
-            Expr.new_bit_literal(4, 0b1101, dbg), dbg)
+            Expr.new_bit_literal(4, 0b1101, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -239,8 +238,7 @@ class ConvertAstTests(unittest.TestCase):
         expected_qw_ast = Stmt.new_expr(
             Expr.new_pipe(Expr.new_variable('x', dbg_x),
                           Expr.new_variable('f', dbg_f),
-                          dbg_f),
-            dbg_f)
+                          dbg_f))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -252,7 +250,60 @@ class ConvertAstTests(unittest.TestCase):
         expected_qw_ast = Stmt.new_expr(
             Expr.new_pipe(Expr.new_unit_literal(dbg),
                           Expr.new_variable('f', dbg),
-                          dbg),
-            dbg)
+                          dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_intrinsic_measure(self):
+        actual_qw_ast = self.convert_expr("""
+            __MEASURE__({'0','1'})
+        """)
+        dbg_call = self.dbg(1, 1)
+        dbg_set = self.dbg(1, 13)
+        dbg_str1 = self.dbg(1, 14)
+        dbg_str2 = self.dbg(1, 18)
+        expected_qw_ast = Stmt.new_expr(
+            Expr.new_measure(
+                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str1),
+                                         Vector.new_one_vector(dbg_str2)],
+                                        dbg_set),
+                dbg_call))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_intrinsic_measure_no_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Wrong number of arguments to intrinsic"):
+            self.convert_expr("""
+                __MEASURE__()
+            """)
+
+    def test_intrinsic_measure_two_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Wrong number of arguments to intrinsic"):
+            self.convert_expr("""
+                __MEASURE__({}, {})
+            """)
+
+    def test_intrinsic_discard(self):
+        actual_qw_ast = self.convert_expr("""
+            __DISCARD__()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = Stmt.new_expr(Expr.new_discard(dbg))
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_unit_literal(self):
+        actual_qw_ast = self.convert_expr("""
+            []
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = Stmt.new_expr(Expr.new_unit_literal(dbg))
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_unit_literal_nonempty(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "list literals are not supported"):
+            self.convert_expr("""
+                [1,2,3]
+            """)

@@ -4,7 +4,10 @@ use melior::{
     execution_engine::SymbolFlags,
     ir::{
         self,
-        attribute::{FloatAttribute, IntegerAttribute, StringAttribute, TypeAttribute},
+        attribute::{
+            FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute, StringAttribute,
+            TypeAttribute,
+        },
         operation::OperationResult,
         r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
@@ -16,10 +19,12 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, angle_is_approx_zero, angles_are_approx_equal, Basis, Expr, FunctionDef, Program,
-        QLit, RegKind, Stmt, Vector,
+        self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisTranslation,
+        Discard, Expr, FunctionDef, Measure, Pipe, Program, QLit, RegKind, Return, Stmt, Tensor,
+        UnpackAssign, Variable, Vector,
     },
     dbg::DebugLoc,
+    typecheck::{ComputeKind, TypeEnv},
 };
 use std::{collections::HashMap, sync::LazyLock};
 
@@ -89,25 +94,26 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
         ast::Type::RegType {
             elem_ty: RegKind::Bit,
             dim,
-        } => {
+        } if *dim > 0 => {
             vec![qwerty::BitBundleType::new(&MLIR_CTX, (*dim).try_into().unwrap()).into()]
         }
 
         ast::Type::RegType {
             elem_ty: RegKind::Qubit,
             dim,
-        } => {
+        } if *dim > 0 => {
             vec![qwerty::QBundleType::new(&MLIR_CTX, (*dim).try_into().unwrap()).into()]
         }
 
         ast::Type::RegType {
             elem_ty: RegKind::Basis,
             ..
-        } => unreachable!(),
+        } => panic!("Basis has no MLIR type"),
 
-        ast::Type::UnitType => vec![],
-        // TODO: Support TupleType once added to qwery_ast::ast::Type (that is
-        //       the reason why this returns a Vec)
+        ast::Type::TupleType { tys } => tys.iter().flat_map(ast_ty_to_mlir_tys).collect(),
+
+        // Fallthrough for RegType where *dim == 0
+        ast::Type::UnitType | ast::Type::RegType { .. } => vec![],
     }
 }
 
@@ -118,13 +124,28 @@ fn ast_func_mlir_ty(func_def: &FunctionDef) -> ir::Type<'static> {
     mlir_tys[0]
 }
 
-struct Ctx {
-    bindings: HashMap<String, Vec<Value<'static, 'static>>>,
+/// Something that is bound to a name and can be (or has been) materialized to
+/// MLIR values.
+enum BoundVals {
+    /// Already materialized
+    Materialized(Vec<Value<'static, 'static>>),
+
+    /// A function symbol name that has not yet been materialized into a
+    /// `qwerty::FuncConstOp`.
+    UnmaterializedFunction(qwerty::FunctionType<'static>),
 }
 
-impl Ctx {
-    fn new() -> Self {
+struct Ctx<'a> {
+    root_block: &'a Block<'static>,
+    type_env: TypeEnv,
+    bindings: HashMap<String, BoundVals>,
+}
+
+impl<'a> Ctx<'a> {
+    fn new(root_block: &'a Block<'static>, type_env: TypeEnv) -> Self {
         Self {
+            root_block,
+            type_env,
             bindings: HashMap::new(),
         }
     }
@@ -179,13 +200,14 @@ fn mlir_f64_const(
 
 /// Creates a wrapper qwerty.lambda op for some operations of your choosing.
 fn mlir_wrap_lambda<F>(
+    captures: &[Value<'static, 'static>],
     in_tys: &[ir::Type<'static>],
     out_tys: &[ir::Type<'static>],
     is_rev: bool,
     loc: Location<'static>,
     block: &Block<'static>,
     f: F,
-) -> Vec<Value<'static, 'static>>
+) -> Value<'static, 'static>
 where
     F: FnOnce(&Block<'static>) -> Vec<Value<'static, 'static>>,
 {
@@ -195,24 +217,24 @@ where
         is_rev,
     );
 
-    let lambda_block = Block::new(
-        &in_tys
-            .iter()
-            .map(|arg_ty| (*arg_ty, loc))
-            .collect::<Vec<_>>(),
-    );
+    let lambda_block_args = captures
+        .iter()
+        .map(|cap_val| cap_val.r#type())
+        .chain(in_tys.iter().copied())
+        .map(|arg_ty| (arg_ty, loc))
+        .collect::<Vec<_>>();
+    let lambda_block = Block::new(&lambda_block_args);
     let vals_to_yield = f(&lambda_block);
     lambda_block.append_operation(qwerty::r#return(&vals_to_yield, loc));
 
     let lambda_region = Region::new();
     lambda_region.append_block(lambda_block);
 
-    let captures = &[];
     block
         .append_operation(qwerty::lambda(captures, lambda_ty, lambda_region, loc))
-        .results()
-        .map(OperationResult::into)
-        .collect()
+        .result(0)
+        .unwrap()
+        .into()
 }
 
 /// Determines the primitive basis, eigenstate, and phase for a basis vector.
@@ -489,39 +511,304 @@ fn ast_qlit_to_mlir(qlit: &QLit, block: &Block<'static>) -> Option<Value<'static
     }
 }
 
+/// Perform a tensor product of many MLIR function values `funcs` with
+/// respective AST types `func_tys`. The result of the tensor product (per
+/// AST typechecking) has the type `in_ty -> out_ty` (if is_rev==false`) or
+/// `in_ty rev-> out_ty` (if `is_rev==true`).
+fn synth_function_tensor_product(
+    in_ty: &ast::Type,
+    out_ty: &ast::Type,
+    is_rev: bool,
+    funcs: &[Value<'static, 'static>],
+    func_tys: &[ast::Type],
+    block: &Block<'static>,
+    loc: Location<'static>,
+) -> Value<'static, 'static> {
+    let arg_tys = ast_ty_to_mlir_tys(in_ty);
+    assert!(arg_tys.len() <= 1);
+    let res_tys = ast_ty_to_mlir_tys(out_ty);
+    assert!(res_tys.len() <= 1);
+
+    mlir_wrap_lambda(
+        &funcs,
+        &arg_tys,
+        &res_tys,
+        is_rev,
+        loc,
+        block,
+        |lambda_block| {
+            assert_eq!(lambda_block.argument_count(), funcs.len() + arg_tys.len());
+            let unpacked = match in_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } if *dim > 0 => {
+                    let bitbundle_in = lambda_block.argument(funcs.len()).unwrap().into();
+                    lambda_block
+                        .append_operation(qwerty::bitunpack(bitbundle_in, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>()
+                }
+                ast::Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim,
+                } if *dim > 0 => {
+                    let qbundle_in = lambda_block.argument(funcs.len()).unwrap().into();
+                    lambda_block
+                        .append_operation(qwerty::qbunpack(qbundle_in, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>()
+                }
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    ..
+                } => panic!("cannot take tensor product of function returning bases"),
+                ast::Type::UnitType | ast::Type::RegType { .. } => vec![], // dim == 0
+                // TODO: tensor args & results elementwise
+                ast::Type::TupleType { .. } => {
+                    panic!("cannot take tensor product of function taking tuples")
+                }
+                ast::Type::FuncType { .. } | ast::Type::RevFuncType { .. } => {
+                    panic!("cannot take tensor product of function taking functions")
+                }
+            };
+            let mut unpacked_iter = unpacked.into_iter();
+            let after_func_unpacked: Vec<_> = (0..funcs.len())
+                .map(|idx| lambda_block.argument(idx).unwrap().into())
+                .zip(func_tys.iter().filter_map(|func_ty| match func_ty {
+                    ast::Type::FuncType { in_ty, .. }
+                    | ast::Type::RevFuncType { in_out_ty: in_ty } => Some(match &**in_ty {
+                        ast::Type::RegType { dim, .. } => *dim,
+                        ast::Type::UnitType => 0,
+                        ast::Type::FuncType { .. } | ast::Type::RevFuncType { .. } => {
+                            panic!("cannot take tensor product of functions taking functions")
+                        }
+                        ast::Type::TupleType { .. } => {
+                            panic!("cannot take tensor product of functions taking tuples")
+                        }
+                    }),
+
+                    ast::Type::RegType { .. } => {
+                        panic!("cannot tensor product registers and get a function")
+                    }
+                    ast::Type::TupleType { .. } => {
+                        panic!("cannot tensor product tuples and get a function")
+                    }
+                    ast::Type::UnitType => None,
+                }))
+                .filter_map(|(func_val, in_dim): (Value<'_, '_>, _)| {
+                    let func_inputs = if in_dim == 0 {
+                        vec![]
+                    } else {
+                        let elems: Vec<_> = unpacked_iter.by_ref().take(in_dim).collect();
+                        vec![match in_ty {
+                            ast::Type::RegType {
+                                elem_ty: RegKind::Bit,
+                                dim,
+                            } if *dim > 0 => lambda_block
+                                .append_operation(qwerty::bitpack(&elems, loc))
+                                .result(0)
+                                .unwrap()
+                                .into(),
+                            ast::Type::RegType {
+                                elem_ty: RegKind::Qubit,
+                                dim,
+                            } if *dim > 0 => lambda_block
+                                .append_operation(qwerty::qbpack(&elems, loc))
+                                .result(0)
+                                .unwrap()
+                                .into(),
+                            ast::Type::RegType {
+                                elem_ty: RegKind::Basis,
+                                ..
+                            } => panic!("cannot take tensor product of function taking bases"),
+                            ast::Type::UnitType | ast::Type::RegType { .. } => {
+                                panic!("input type being unit should mean that in_dim==0")
+                            }
+                            ast::Type::FuncType { .. } | ast::Type::RevFuncType { .. } => {
+                                panic!("cannot take tensor product of function taking functions")
+                            }
+                            ast::Type::TupleType { .. } => {
+                                panic!("cannot take tensor product of function taking tuples")
+                            }
+                        }]
+                    };
+                    let calli = lambda_block.append_operation(qwerty::call_indirect(
+                        func_val,
+                        &func_inputs,
+                        loc,
+                    ));
+                    if calli.result_count() == 0 {
+                        None
+                    } else {
+                        assert_eq!(calli.result_count(), 1);
+                        Some(calli.result(0).unwrap().into())
+                    }
+                })
+                .flat_map(|result_bundle: Value<'_, '_>| match out_ty {
+                    ast::Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim,
+                    } if *dim > 0 => lambda_block
+                        .append_operation(qwerty::bitunpack(result_bundle, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>(),
+
+                    ast::Type::RegType {
+                        elem_ty: RegKind::Qubit,
+                        dim,
+                    } if *dim > 0 => lambda_block
+                        .append_operation(qwerty::qbunpack(result_bundle, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect::<Vec<_>>(),
+
+                    ast::Type::RegType {
+                        elem_ty: RegKind::Basis,
+                        ..
+                    } => panic!("cannot take tensor product of function returning bases"),
+
+                    ast::Type::UnitType | ast::Type::RegType { .. } => {
+                        panic!("output type being unit should mean that this code does not run")
+                    }
+
+                    ast::Type::FuncType { .. } | ast::Type::RevFuncType { .. } => {
+                        panic!("cannot take tensor product of function taking functions")
+                    }
+
+                    ast::Type::TupleType { .. } => {
+                        panic!("cannot take tensor product of function taking functions")
+                    }
+                })
+                .collect();
+
+            match out_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } if *dim > 0 => vec![lambda_block
+                    .append_operation(qwerty::bitpack(&after_func_unpacked, loc))
+                    .result(0)
+                    .unwrap()
+                    .into()],
+                ast::Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim,
+                } if *dim > 0 => vec![lambda_block
+                    .append_operation(qwerty::qbpack(&after_func_unpacked, loc))
+                    .result(0)
+                    .unwrap()
+                    .into()],
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    ..
+                } => panic!("cannot take tensor product of function returning bases"),
+                ast::Type::UnitType | ast::Type::RegType { .. } => vec![],
+                ast::Type::FuncType { .. } | ast::Type::RevFuncType { .. } => {
+                    panic!("cannot take tensor product of function returning functions")
+                }
+                ast::Type::TupleType { .. } => {
+                    panic!("cannot take tensor product of function returning tuples")
+                }
+            }
+        },
+    )
+}
+
 /// Converts an AST Expr node to mlir::Values by appending ops to the provided
 /// block.
 fn ast_expr_to_mlir(
     expr: &Expr,
-    ctx: &Ctx,
+    ctx: &mut Ctx,
     block: &Block<'static>,
-) -> Vec<Value<'static, 'static>> {
+) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
     match expr {
-        Expr::Pipe { lhs, rhs, dbg } => {
+        Expr::Variable(var @ Variable { name, dbg }) => {
+            let (ty, compute_kind) = var
+                .calc_type(&mut ctx.type_env)
+                .expect("Variable to pass typechecking");
+            let bound_vals = ctx.bindings.get(name).expect("Variable to be bound");
+
+            let mlir_vals = match bound_vals {
+                BoundVals::Materialized(vals) => vals.clone(),
+                BoundVals::UnmaterializedFunction(func_ty) => {
+                    let loc = dbg_to_loc(dbg.clone());
+                    // We use root_block in case block is inside e.g. an scf.if.
+                    let vals = vec![ctx
+                        .root_block
+                        .insert_operation(
+                            0,
+                            qwerty::func_const(
+                                &MLIR_CTX,
+                                FlatSymbolRefAttribute::new(&MLIR_CTX, name),
+                                &[],
+                                *func_ty,
+                                loc,
+                            ),
+                        )
+                        .result(0)
+                        .unwrap()
+                        .into()];
+                    ctx.bindings
+                        .insert(name.to_string(), BoundVals::Materialized(vals.clone()));
+                    vals
+                }
+            };
+
+            (ty, compute_kind, mlir_vals)
+        }
+
+        Expr::UnitLiteral(unit) => {
+            let (ty, compute_kind) = unit.typecheck().expect("Unit literal to pass typechecking");
+            (ty, compute_kind, vec![])
+        }
+
+        Expr::Pipe(pipe @ Pipe { lhs, rhs, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
-            let lhs_vals = ast_expr_to_mlir(&**lhs, ctx, block);
-            let rhs_vals = ast_expr_to_mlir(&**rhs, ctx, block);
+            let (lhs_ty, lhs_compute_kind, lhs_vals) = ast_expr_to_mlir(&**lhs, ctx, block);
+            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(&**rhs, ctx, block);
             assert_eq!(rhs_vals.len(), 1);
+
+            let (ty, compute_kind) = pipe
+                .calc_type(&(lhs_ty, lhs_compute_kind), &(rhs_ty, rhs_compute_kind))
+                .expect("Pipe to pass typechecking");
+
             let callee_val = rhs_vals[0];
-            block
+            let calli_results = block
                 .append_operation(qwerty::call_indirect(callee_val, &lhs_vals, loc))
                 .results()
                 .map(OperationResult::into)
-                .collect()
+                .collect();
+            (ty, compute_kind, calli_results)
         }
 
-        Expr::Measure { basis, dbg } => {
+        Expr::Measure(meas @ Measure { basis, dbg }) => {
+            let basis_ty = basis
+                .typecheck()
+                .expect("Measurement basis to pass typechecking");
+            let (ty, compute_kind) = meas
+                .calc_type(&basis_ty)
+                .expect("Measurement to pass typechecking");
+
             let loc = dbg_to_loc(dbg.clone());
-            let dim: u64 = basis
-                .get_dim()
-                .expect("type checking should guarantee a valid measurement basis")
-                .try_into()
-                .unwrap();
+            let dim: u64 = match basis_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim,
+                } => dim,
+                _ => panic!("basis should have basis type"),
+            }
+            .try_into()
+            .unwrap();
 
             let lambda_in_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
             let lambda_out_tys = &[qwerty::BitBundleType::new(&MLIR_CTX, dim).into()];
             let is_rev = false;
-            mlir_wrap_lambda(
+            let lambda = vec![mlir_wrap_lambda(
+                &[],
                 lambda_in_tys,
                 lambda_out_tys,
                 is_rev,
@@ -537,48 +824,148 @@ fn ast_expr_to_mlir(
                         .map(OperationResult::into)
                         .collect()
                 },
-            )
+            )];
+            (ty, compute_kind, lambda)
         }
 
-        Expr::Tensor { vals, dbg } => {
+        Expr::Discard(discard @ Discard { dbg }) => {
+            let (ty, compute_kind) = discard.typecheck().expect("Discard to pass typechecking");
+
             let loc = dbg_to_loc(dbg.clone());
-            let unpacked: Vec<_> = vals
+            let lambda_in_tys = &[qwerty::QBundleType::new(&MLIR_CTX, 1).into()];
+            let lambda_out_tys = &[];
+            let is_rev = false;
+            let lambda = vec![mlir_wrap_lambda(
+                &[],
+                lambda_in_tys,
+                lambda_out_tys,
+                is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    assert_eq!(lambda_block.argument_count(), 1);
+                    let qbundle_in = lambda_block.argument(0).unwrap().into();
+                    lambda_block.append_operation(qwerty::qbdiscard(qbundle_in, loc));
+                    vec![]
+                },
+            )];
+            (ty, compute_kind, lambda)
+        }
+
+        Expr::Tensor(tensor @ Tensor { vals, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (val_results, val_vals_2d): (Vec<_>, Vec<_>) = vals
                 .iter()
-                .flat_map(|val| ast_expr_to_mlir(val, ctx, block))
-                .flat_map(|val| {
-                    if !val.r#type().is_qwerty_q_bundle() {
-                        todo!("i can only tensor qubits");
-                    }
-                    block
-                        .append_operation(qwerty::qbunpack(val, loc))
-                        .results()
-                        .map(OperationResult::into)
-                        .collect::<Vec<_>>()
+                .map(|val| {
+                    let (ty, compute_kind, vals) = ast_expr_to_mlir(val, ctx, block);
+                    ((ty, compute_kind), vals)
                 })
+                .unzip();
+            let (ty, compute_kind) = tensor
+                .calc_type(&val_results)
+                .expect("Tensor to pass typechecking");
+            let val_vals: Vec<_> = val_vals_2d.into_iter().flatten().collect();
+            let val_tys: Vec<_> = val_results
+                .into_iter()
+                .map(|(val_ty, _val_compute_kind)| val_ty)
                 .collect();
 
-            block
-                .append_operation(qwerty::qbpack(&unpacked, loc))
-                .results()
-                .map(OperationResult::into)
-                .collect()
+            let mlir_vals = match &ty {
+                ast::Type::FuncType { in_ty, out_ty } => vec![synth_function_tensor_product(
+                    &**in_ty, &**out_ty, false, &val_vals, &val_tys, block, loc,
+                )],
+                ast::Type::RevFuncType { in_out_ty } => vec![synth_function_tensor_product(
+                    &**in_out_ty,
+                    &**in_out_ty,
+                    true,
+                    &val_vals,
+                    &val_tys,
+                    block,
+                    loc,
+                )],
+                ast::Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim,
+                } => {
+                    if *dim == 0 {
+                        vec![]
+                    } else {
+                        let unpacked_vals = val_vals
+                            .into_iter()
+                            .flat_map(|val| {
+                                assert!(val.r#type().is_qwerty_q_bundle());
+                                block
+                                    .append_operation(qwerty::qbunpack(val, loc))
+                                    .results()
+                                    .map(OperationResult::into)
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<Value<'static, 'static>>>();
+                        block
+                            .append_operation(qwerty::qbpack(&unpacked_vals, loc))
+                            .results()
+                            .map(OperationResult::into)
+                            .collect()
+                    }
+                }
+                ast::Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } => {
+                    if *dim == 0 {
+                        vec![]
+                    } else {
+                        let unpacked_vals = val_vals
+                            .into_iter()
+                            .flat_map(|val| {
+                                assert!(val.r#type().is_qwerty_bit_bundle());
+                                block
+                                    .append_operation(qwerty::bitunpack(val, loc))
+                                    .results()
+                                    .map(OperationResult::into)
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<Value<'static, 'static>>>();
+                        block
+                            .append_operation(qwerty::bitpack(&unpacked_vals, loc))
+                            .results()
+                            .map(OperationResult::into)
+                            .collect()
+                    }
+                }
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    ..
+                } => panic!("basis is not an expression"),
+                ast::Type::TupleType { .. } => panic!("cannot tensor tuples together"),
+                ast::Type::UnitType => vec![],
+            };
+            (ty, compute_kind, mlir_vals)
         }
 
-        Expr::BasisTranslation { bin, bout, dbg } => {
+        Expr::BasisTranslation(btrans @ BasisTranslation { bin, bout, dbg }) => {
+            let bin_ty = bin.typecheck().expect("Input basis to pass typechecking");
+            let bout_ty = bout.typecheck().expect("Output basis to pass typechecking");
+            let (ty, compute_kind) = btrans
+                .calc_type(&bin_ty, &bout_ty)
+                .expect("Basis translation to pass typechecking");
+
             let loc = dbg_to_loc(dbg.clone());
-            let dim_in = bin
-                .get_dim()
-                .expect("type checking should guarantee a valid input basis");
-            assert_eq!(
-                dim_in,
-                bout.get_dim()
-                    .expect("type checking should guarantee a valid output basis")
-            );
-            let dim: u64 = dim_in.try_into().unwrap();
+            let dim: u64 = match bin_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim,
+                } => dim,
+                _ => panic!("input basis should have basis type"),
+            }
+            .try_into()
+            .unwrap();
 
             let lambda_in_out_tys = &[qwerty::QBundleType::new(&MLIR_CTX, dim).into()];
             let is_rev = true;
-            mlir_wrap_lambda(
+            let lambda = vec![mlir_wrap_lambda(
+                &[],
                 lambda_in_out_tys,
                 lambda_in_out_tys,
                 is_rev,
@@ -608,40 +995,63 @@ fn ast_expr_to_mlir(
                         .map(OperationResult::into)
                         .collect()
                 },
-            )
+            )];
+            (ty, compute_kind, lambda)
         }
 
-        Expr::QLit { qlit, .. } => ast_qlit_to_mlir(qlit, block).into_iter().collect(),
+        Expr::QLit(qlit) => {
+            let (ty, compute_kind) = qlit
+                .typecheck()
+                .expect("Qubit literal to pass type checking");
+            let vals = ast_qlit_to_mlir(qlit, block).into_iter().collect();
+            (ty, compute_kind, vals)
+        }
 
         _ => todo!("expression {}", expr),
     }
 }
 
 /// Append ops that implement an AST Stmt node to the provided block.
-fn ast_stmt_to_mlir(stmt: &Stmt, ctx: &mut Ctx, block: &Block<'static>) {
+fn ast_stmt_to_mlir(
+    stmt: &Stmt,
+    ctx: &mut Ctx,
+    block: &Block<'static>,
+    expected_ret_type: Option<ast::Type>,
+) -> ComputeKind {
     match stmt {
-        Stmt::Expr { expr, dbg: _ } => {
-            ast_expr_to_mlir(expr, ctx, block);
+        Stmt::Expr(expr) => {
+            let (_ty, compute_kind, _vals) = ast_expr_to_mlir(expr, ctx, block);
+            compute_kind
         }
 
-        Stmt::Assign { lhs, rhs, dbg: _ } => {
-            let rhs_vals = ast_expr_to_mlir(rhs, ctx, block);
-            ctx.bindings.insert(lhs.to_string(), rhs_vals);
+        Stmt::Assign(assign @ Assign { lhs, rhs, dbg: _ }) => {
+            let (rhs_type, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(rhs, ctx, block);
+            ctx.bindings
+                .insert(lhs.to_string(), BoundVals::Materialized(rhs_vals));
+            assign
+                .finish_type_checking(&mut ctx.type_env, &(rhs_type, rhs_compute_kind))
+                .expect("Assign to finish typechecking")
         }
 
         // TODO: for now, unpacking bundles. for tomorrow, unpacking tuples too
-        Stmt::UnpackAssign { .. } => todo!("unpack"),
+        Stmt::UnpackAssign(UnpackAssign { .. }) => todo!("unpack"),
 
-        Stmt::Return { val, dbg } => {
-            let vals = ast_expr_to_mlir(val, ctx, block);
+        Stmt::Return(ret @ Return { val, dbg }) => {
+            let (val_ty, val_compute_kind, vals) = ast_expr_to_mlir(val, ctx, block);
             let loc = dbg_to_loc(dbg.clone());
             block.append_operation(qwerty::r#return(&vals, loc));
+
+            ret.finish_type_checking(&(val_ty, val_compute_kind), expected_ret_type)
+                .expect("Return to finish typechecking")
         }
     }
 }
 
 /// Converts an AST FunctionDef node into a qwerty::function op.
-fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
+fn ast_func_def_to_mlir(
+    func_def: &FunctionDef,
+    funcs_available: &[(String, ast::Type, qwerty::FunctionType<'static>)],
+) -> (Operation<'static>, qwerty::FunctionType<'static>) {
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
     let func_ty = ast_func_mlir_ty(func_def);
     let func_ty_attr = TypeAttribute::new(func_ty);
@@ -657,22 +1067,43 @@ fn ast_func_def_to_mlir(func_def: &FunctionDef) -> Operation<'static> {
         .collect();
     let func_block = Block::new(&block_args);
 
-    let mut ctx = Ctx::new();
+    let func_tys_available: Vec<_> = funcs_available
+        .iter()
+        .map(|(name, ast_ty, _mlir_ty)| (name.to_string(), ast_ty.clone()))
+        .collect();
+    let mut ctx = Ctx::new(&func_block, func_def.new_type_env(&func_tys_available));
+    for (avail_func_name, _avail_func_ast_ty, avail_func_ty) in funcs_available {
+        ctx.bindings.insert(
+            avail_func_name.to_string(),
+            BoundVals::UnmaterializedFunction(*avail_func_ty),
+        );
+    }
+
     for stmt in &func_def.body {
-        ast_stmt_to_mlir(stmt, &mut ctx, &func_block);
+        let compute_kind = ast_stmt_to_mlir(
+            stmt,
+            &mut ctx,
+            &func_block,
+            func_def.get_expected_ret_type(),
+        );
+        func_def
+            .check_stmt_compute_kind(compute_kind)
+            .expect("Statement to have a valid ComputeKind");
     }
 
     let func_region = Region::new();
     func_region.append_block(func_block);
 
-    qwerty::func(
+    let func_op = qwerty::func(
         &MLIR_CTX,
         sym_name,
         func_ty_attr,
         func_region,
         func_attrs,
         func_loc,
-    )
+    );
+    let qwerty_func_ty = func_ty.try_into().unwrap();
+    (func_op, qwerty_func_ty)
 }
 
 /// Converts a Qwerty AST into an mlir::ModuleOp.
@@ -680,10 +1111,12 @@ fn ast_program_to_mlir(prog: &Program) -> Module {
     let loc = dbg_to_loc(prog.dbg.clone());
     let module = Module::new(loc);
     let module_block = module.body();
+    let mut funcs_available = vec![];
 
     for func_def in &prog.funcs {
-        let func_op = ast_func_def_to_mlir(func_def);
+        let (func_op, mlir_func_ty) = ast_func_def_to_mlir(func_def, &funcs_available);
         module_block.append_operation(func_op);
+        funcs_available.push((func_def.name.to_string(), func_def.get_type(), mlir_func_ty));
     }
 
     assert!(module.as_operation().verify());

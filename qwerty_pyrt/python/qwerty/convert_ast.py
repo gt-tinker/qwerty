@@ -5,9 +5,10 @@ formed by Qwerty syntax.
 
 import ast
 import math
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, Basis, Stmt, Expr
@@ -18,9 +19,58 @@ class AstKind(Enum):
     QPU = 1
     CLASSICAL = 2
 
+class CaptureError(Exception):
+    """
+    Represents a failure to capture a Python object. This exception exists
+    because we want to be noisy about that case, not silently fail.
+    """
+
+    def __init__(self, type_name):
+        self.type_name = type_name
+
+class Capturer(ABC):
+    """In charge of capturing Python variables inside Qwerty kernels."""
+
+    @abstractmethod
+    def shadows_python_variable(self, var_name: str) -> bool:
+        """
+        Returns true if this variable name would shadow a Python variable name.
+        """
+        ...
+
+    @abstractmethod
+    def capture(self, var_name: str) -> Optional[str]:
+        """
+        If ``var_name`` is a Python variable, capture it and return the mangled
+        name. If it is not a Python variable, return None. If its Python type
+        forbids it from being mangled, throw a ``CaptureError``.
+        """
+        ...
+
+    def mangle(self, var_name: str) -> str:
+        """
+        Convenience API. For any ``Name`` encounterd in the Python AST, one can
+        simply call this and get its AST name, doing a capture if needed.
+        """
+        mangled = self.capture(var_name)
+        if mangled is None:
+            return var_name
+        else:
+            return mangled
+
+class TrivialCapturer(Capturer):
+    """A ``Capturer`` that never captures any Python variables."""
+
+    def shadows_python_variable(self, var_name: str) -> bool:
+        return False
+
+    def capture(self, var_name: str) -> Optional[str]:
+        return None
+
 def convert_ast(ast_kind: AstKind, module: ast.Module,
-                name_generator: Callable[[str], str], filename: str = '',
-                line_offset: int = 0, col_offset: int = 0) -> FunctionDef:
+                name_generator: Callable[[str], str], capturer: Capturer,
+                filename: str = '', line_offset: int = 0,
+                col_offset: int = 0) -> FunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -30,8 +80,8 @@ def convert_ast(ast_kind: AstKind, module: ast.Module,
     and the caller may de-indent source code to avoid angering ``ast.parse()``.
     """
     if ast_kind == AstKind.QPU:
-        return convert_qpu_ast(module, name_generator, filename, line_offset,
-                               col_offset)
+        return convert_qpu_ast(module, name_generator, capturer, filename,
+                               line_offset, col_offset)
     #elif ast_kind == AstKind.CLASSICAL:
     #    return convert_classical_ast(module, filename, line_offset, col_offset)
     else:
@@ -43,13 +93,15 @@ class BaseVisitor:
     """
 
     def __init__(self, name_generator: Callable[[str], str],
+                 capturer: Capturer,
                  filename: str = '', line_offset: int = 0,
                  col_offset: int = 0):
         """
-        Constructor. The name_generator argument mangles the Python AST name to
-        produce a Qwerty AST name.
+        Constructor. The ``name_generator`` argument mangles the Python AST
+        name to produce a Qwerty AST name.
         """
         self.name_generator = name_generator
+        self.capturer = capturer
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
@@ -203,9 +255,8 @@ class BaseVisitor:
         """
         Statement that consists only of an expression
         """
-        dbg = self.get_debug_loc(expr_stmt)
         expr = self.visit(expr_stmt.value)
-        return Stmt.new_expr(expr, dbg)
+        return Stmt.new_expr(expr)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
                                decorator_name: str) -> FunctionDef:
@@ -323,7 +374,7 @@ class BaseVisitor:
         generated_func_name = self.name_generator(func_name)
         return FunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
 
-    def visit_List(self, nodes: List[ast.AST]):
+    def visit_list(self, nodes: List[ast.AST]):
         """
         Convenience function to visit each node in a ``list`` and return the
         results of each as a new list.
@@ -365,19 +416,31 @@ class BaseVisitor:
 
         if isinstance(tgt, ast.Name):
             expr = self.visit(assign.value)
-            name = tgt.id
-            return Stmt.new_assign(name, expr, dbg)
+            var_name = tgt.id
+
+            if self.capturer.shadows_python_variable(var_name):
+                raise QwertySyntaxError('Cannot define a variable '
+                                        f'({var_name}) that shadows a Python '
+                                        'variable.', dbg)
+
+            return Stmt.new_assign(var_name, expr, dbg)
         elif isinstance(tgt, ast.Tuple) \
                 and all(isinstance(elt, ast.Name) for elt in tgt.elts):
-            names = [name.id for name in tgt.elts]
+            var_names = [name.id for name in tgt.elts]
 
-            if len(names) < 2:
+            if len(var_names) < 2:
                 raise QwertySyntaxError('Unpacking assignment must have '
                                         'at least two names on the left-hand '
                                         'side', dbg)
 
+            for var_name in var_names:
+                if self.capturer.shadows_python_variable(var_name):
+                    raise QwertySyntaxError('Cannot unpack into a variable '
+                                            f'({var_name}) that shadows a '
+                                            'Python variable.', dbg)
+
             expr = self.visit(assign.value)
-            return Stmt.new_unpack_assign(names, expr, dbg)
+            return Stmt.new_unpack_assign(var_names, expr, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -420,7 +483,15 @@ class BaseVisitor:
         """
         var_name = name.id
         dbg = self.get_debug_loc(name)
-        return Expr.new_variable(var_name, dbg)
+        try:
+            mangled_name = self.capturer.mangle(var_name)
+        except CaptureError as err:
+            var_type_name = err.type_name
+            raise QwertySyntaxError(f'The Python object named {var_name} is '
+                                    'referenced, but it has Python type '
+                                    f'{var_type_name}, which cannot be used '
+                                    'in Qwerty kernels.', dbg)
+        return Expr.new_variable(mangled_name, dbg)
 
     def base_visit(self, node: ast.AST):
         """
@@ -428,7 +499,7 @@ class BaseVisitor:
         latter).
         """
         if isinstance(node, list):
-            return self.visit_List(node)
+            return self.visit_list(node)
         elif isinstance(node, ast.Expr):
             return self.visit_Expr(node)
         elif isinstance(node, ast.Return):
@@ -477,15 +548,22 @@ class BaseVisitor:
 #
 #RESERVED_KEYWORDS = {'id', 'discard', 'discardz', 'measure', 'flip'}
 
+# Mapping of intrinsic names to the number of arguments required
+INTRINSICS = {
+    '__MEASURE__': 1,
+    '__DISCARD__': 0,
+}
+
 class QpuVisitor(BaseVisitor):
     """
     Python AST visitor for syntax specific to ``@qpu`` kernels.
     """
 
     def __init__(self, name_generator: Callable[[str], str],
-                 filename: str = '', line_offset: int = 0,
+                 capturer: Capturer, filename: str = '', line_offset: int = 0,
                  col_offset: int = 0):
-        super().__init__(name_generator, filename, line_offset, col_offset)
+        super().__init__(name_generator, capturer, filename, line_offset,
+                         col_offset)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
         bv = self.extract_basis_vector(node)
@@ -626,9 +704,8 @@ class QpuVisitor(BaseVisitor):
         value = const.value
         if isinstance(value, str):
             # A top-level string must be a qubit literal
-            dbg = self.get_debug_loc(const)
             qlit = self.extract_qubit_literal(const)
-            return Expr.new_qlit(qlit, dbg)
+            return Expr.new_qlit(qlit)
         else:
             raise QwertySyntaxError('Unknown constant syntax',
                                     self.get_debug_loc(const))
@@ -681,9 +758,8 @@ class QpuVisitor(BaseVisitor):
 
     def visit_BinOp_Add(self, binOp: ast.BinOp):
         # A top-level + expression must be a qubit literal (a superpos)
-        dbg = self.get_debug_loc(binOp)
         qlit = self.extract_qubit_literal(binOp)
-        return Expr.new_qlit(qlit, dbg)
+        return Expr.new_qlit(qlit)
 
     def visit_BinOp_BitOr(self, binOp: ast.BinOp):
         """
@@ -918,6 +994,19 @@ class QpuVisitor(BaseVisitor):
     #    """
     #    return RepeatTensor(*self.list_comp_helper(comp))
 
+    def visit_List(self, list_: ast.List):
+        """
+        Convert an empty Python list literal AST node into a Qwerty
+        ``UnitLiteral`` AST node. That is, ``[]`` becomes an
+        ``Expr::UnitLiteral``.
+        """
+        dbg = self.get_debug_loc(list_)
+        if list_.elts:
+            raise QwertySyntaxError('Python list literals are not supported '
+                                    '(except for the Qwerty unit literal '
+                                    '`[]`).', dbg)
+        return Expr.new_unit_literal(dbg)
+
     def visit_Call(self, call: ast.Call) -> Expr:
         """
         As syntactic sugar, convert a Python call expression into a ``Pipe``
@@ -963,6 +1052,24 @@ class QpuVisitor(BaseVisitor):
                                         'between the parentheses.', bits_dbg)
 
             return Expr.new_bit_literal(dim, bits, dbg)
+        elif isinstance(name_node := call.func, ast.Name) \
+                and (intrinsic_name := name_node.id) in INTRINSICS:
+            expected_num_args = INTRINSICS[intrinsic_name]
+            args = call.args
+            actual_num_args = len(args)
+            if actual_num_args != expected_num_args:
+                raise QwertySyntaxError('Wrong number of arguments to intrinsic '
+                                        f'{intrinsic_name}(): expected '
+                                        f'{expected_num_args} arguments, got '
+                                        f'{actual_num_args}.', dbg)
+            if intrinsic_name == '__MEASURE__':
+                basis_node, = args
+                basis = self.extract_basis(basis_node)
+                return Expr.new_measure(basis, dbg)
+            elif intrinsic_name == '__DISCARD__':
+                return Expr.new_discard(dbg)
+            else:
+                assert False, "intrinsic parsing misconfigured"
         else:
             rhs = self.visit(call.func)
 
@@ -987,55 +1094,55 @@ class QpuVisitor(BaseVisitor):
     #    elts = self.visit(tuple_.elts)
     #    return TupleLiteral(dbg, elts)
 
-    def visit_Attribute(self, attr: ast.Attribute):
-        """
-        Convert a Python attribute access AST node into Qwerty AST nodes for
-        primitives such as ``.measure`` or ``.flip``. For example,
-        ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
-        child node.
-        """
-        dbg = self.get_debug_loc(attr)
-        attr_lhs = attr.value
-        attr_rhs = attr.attr
+    #def visit_Attribute(self, attr: ast.Attribute):
+    #    """
+    #    Convert a Python attribute access AST node into Qwerty AST nodes for
+    #    primitives such as ``.measure`` or ``.flip``. For example,
+    #    ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
+    #    child node.
+    #    """
+    #    dbg = self.get_debug_loc(attr)
+    #    attr_lhs = attr.value
+    #    attr_rhs = attr.attr
 
-        if attr_rhs == 'measure':
-            basis = self.extract_basis(attr_lhs)
-            return Expr.new_measure(basis, dbg)
-        #elif attr_rhs == 'project':
-        #    basis = self.visit(attr_lhs)
-        #    return Project(dbg, basis)
-        #elif attr_rhs == 'q':
-        #    bits = self.visit(attr_lhs)
-        #    return Lift(dbg, bits)
-        #elif attr_rhs == 'prep':
-        #    operand = self.visit(attr_lhs)
-        #    return Prepare(dbg, operand)
-        #elif attr_rhs == 'flip':
-        #    operand = self.visit(attr_lhs)
-        #    return Flip(dbg, operand)
-        #elif attr_rhs in EMBEDDING_KEYWORDS:
-        #    if isinstance(attr_lhs, ast.Name):
-        #        name = attr_lhs
-        #        classical_func_name = name.id
-        #    else:
-        #        raise QwertySyntaxError('Keyword {} must be applied to an '
-        #                                'identifier, not a {}'
-        #                                .format(attr_rhs,
-        #                                        type(attr_lhs).__name__),
-        #                                self.get_debug_loc(attr))
+    #    if attr_rhs == 'measure':
+    #        basis = self.extract_basis(attr_lhs)
+    #        return Expr.new_measure(basis, dbg)
+    #    elif attr_rhs == 'project':
+    #        basis = self.visit(attr_lhs)
+    #        return Project(dbg, basis)
+    #    elif attr_rhs == 'q':
+    #        bits = self.visit(attr_lhs)
+    #        return Lift(dbg, bits)
+    #    elif attr_rhs == 'prep':
+    #        operand = self.visit(attr_lhs)
+    #        return Prepare(dbg, operand)
+    #    elif attr_rhs == 'flip':
+    #        operand = self.visit(attr_lhs)
+    #        return Flip(dbg, operand)
+    #    elif attr_rhs in EMBEDDING_KEYWORDS:
+    #        if isinstance(attr_lhs, ast.Name):
+    #            name = attr_lhs
+    #            classical_func_name = name.id
+    #        else:
+    #            raise QwertySyntaxError('Keyword {} must be applied to an '
+    #                                    'identifier, not a {}'
+    #                                    .format(attr_rhs,
+    #                                            type(attr_lhs).__name__),
+    #                                    self.get_debug_loc(attr))
 
-        #    embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
+    #        embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
 
-        #    if embedding_kind_has_operand(embedding_kind):
-        #        raise QwertySyntaxError('Keyword {} requires an operand, '
-        #                                'specified with .{}(...)'
-        #                                .format(attr_rhs, attr_rhs),
-        #                                self.get_debug_loc(attr))
+    #        if embedding_kind_has_operand(embedding_kind):
+    #            raise QwertySyntaxError('Keyword {} requires an operand, '
+    #                                    'specified with .{}(...)'
+    #                                    .format(attr_rhs, attr_rhs),
+    #                                    self.get_debug_loc(attr))
 
-        #    return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
-        else:
-            raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
-                                    self.get_debug_loc(attr))
+    #        return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
+    #    else:
+    #        raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
+    #                                self.get_debug_loc(attr))
 
     def visit_IfExp(self, if_expr: ast.IfExp):
         """
@@ -1147,12 +1254,14 @@ class QpuVisitor(BaseVisitor):
         #    return self.visit_GeneratorExp(node)
         #elif isinstance(node, ast.ListComp):
         #    return self.visit_ListComp(node)
+        elif isinstance(node, ast.List):
+            return self.visit_List(node)
         elif isinstance(node, ast.Call):
             return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):
         #    return self.visit_Tuple(node)
-        elif isinstance(node, ast.Attribute):
-            return self.visit_Attribute(node)
+        #elif isinstance(node, ast.Attribute):
+        #    return self.visit_Attribute(node)
         elif isinstance(node, ast.IfExp):
             return self.visit_IfExp(node)
         #elif isinstance(node, ast.BoolOp):
@@ -1161,8 +1270,8 @@ class QpuVisitor(BaseVisitor):
             return self.base_visit(node)
 
 def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
-                    filename: str = '', line_offset: int = 0,
-                    col_offset: int = 0) -> FunctionDef:
+                    capturer: Capturer, filename: str = '',
+                    line_offset: int = 0, col_offset: int = 0) -> FunctionDef:
     """
     Run the ``QpuVisitor`` on the provided Python AST to convert to a Qwerty
     ``@qpu`` AST and return the result. The return value is the same as
@@ -1172,7 +1281,8 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
         raise QwertySyntaxError('Expected top-level Module node in Python AST',
                                 None) # This should not happen
 
-    visitor = QpuVisitor(name_generator, filename, line_offset, col_offset)
+    visitor = QpuVisitor(name_generator, capturer, filename, line_offset,
+                         col_offset)
     return visitor.visit_Module(module)
 
 def convert_qpu_repl_input(root: ast.Interactive) -> Expr:
@@ -1190,6 +1300,7 @@ def convert_qpu_repl_input(root: ast.Interactive) -> Expr:
     
     stmt, = root.body
     visitor = QpuVisitor(name_generator=lambda name: name,
+                         capturer=TrivialCapturer(),
                          filename='<input>',
                          line_offset=0,
                          col_offset=0)

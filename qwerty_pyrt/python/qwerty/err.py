@@ -9,7 +9,7 @@ For technical details on how this trick works, see the lengthy comment in the
 
 import sys
 from types import FrameType, TracebackType
-from typing import Optional
+from typing import Optional, Any
 
 # Used to exclude code in this file (or a file that imports this) from showing
 # up in compiler error tracebacks. See _cook_programmer_traceback() below
@@ -94,6 +94,21 @@ def _strip_runtime_frames(frame):
           and frame.f_back is not None:
         frame = frame.f_back
     return frame
+
+def get_python_vars() -> dict[str, Any]:
+    """
+    Return the Python type environment, effectively. That is, return a mapping
+    of names to Python objects from the programmer's perspective.
+    """
+    frame_here = get_frame()
+    # This lack of compatibility is unfortunate. TODO: emit a warning
+    if frame_here is None:
+        return {}
+
+    programmer_frame = _strip_runtime_frames(frame_here)
+    programmer_vars = dict(programmer_frame.f_globals)
+    programmer_vars.update(programmer_frame.f_locals)
+    return programmer_vars
 
 # Before implementing this, here was the lifecycle of a Qwerty type checker
 # error:
