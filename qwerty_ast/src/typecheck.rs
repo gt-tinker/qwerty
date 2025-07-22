@@ -173,16 +173,20 @@ impl Assign {
 // 2. Number of LHS variables must match register dimension
 // 3. Each LHS variable gets typed as single-element register of same kind "RegType{ elem_ty, dim: 1 }"
 impl UnpackAssign {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
-        let UnpackAssign { lhs, rhs, dbg } = self;
-        let (rhs_ty, compute_kind) = rhs.typecheck(env)?;
+    pub fn finish_type_checking(
+        &self,
+        env: &mut TypeEnv,
+        rhs_result: &(Type, ComputeKind),
+    ) -> Result<ComputeKind, TypeError> {
+        let UnpackAssign { lhs, dbg, .. } = self;
+        let (rhs_ty, compute_kind) = rhs_result;
 
         match rhs_ty {
             Type::RegType { elem_ty, dim } => {
-                if lhs.len() != dim {
+                if lhs.len() != *dim {
                     return Err(TypeError {
                         kind: TypeErrorKind::WrongArity {
-                            expected: dim as usize,
+                            expected: *dim as usize,
                             found: lhs.len(),
                         },
                         dbg: dbg.clone(),
@@ -197,7 +201,7 @@ impl UnpackAssign {
                         },
                     );
                 }
-                Ok(compute_kind)
+                Ok(*compute_kind)
             }
             _ => Err(TypeError {
                 kind: TypeErrorKind::InvalidType(format!(
@@ -207,6 +211,12 @@ impl UnpackAssign {
                 dbg: dbg.clone(),
             }),
         }
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
+        let UnpackAssign { rhs, .. } = self;
+        let rhs_result = rhs.typecheck(env)?;
+        self.finish_type_checking(env, &rhs_result)
     }
 }
 

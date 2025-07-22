@@ -740,6 +740,8 @@ class QpuVisitor(BaseVisitor):
     def visit_BinOp(self, binOp: ast.BinOp):
         if isinstance(binOp.op, ast.Add):
             return self.visit_BinOp_Add(binOp)
+        if isinstance(binOp.op, ast.Sub):
+            return self.visit_BinOp_Sub(binOp)
         elif isinstance(binOp.op, ast.BitOr):
             return self.visit_BinOp_BitOr(binOp)
         elif isinstance(binOp.op, ast.Mult):
@@ -757,7 +759,13 @@ class QpuVisitor(BaseVisitor):
                                     self.get_debug_loc(binOp))
 
     def visit_BinOp_Add(self, binOp: ast.BinOp):
-        # A top-level + expression must be a qubit literal (a superpos)
+        # A top-level `+` expression must be a qubit literal (a superpos)
+        qlit = self.extract_qubit_literal(binOp)
+        return Expr.new_qlit(qlit)
+
+    def visit_BinOp_Sub(self, binOp: ast.BinOp):
+        # A top-level `-` expression must be a qubit literal (a superpos with a
+        # negative phase)
         qlit = self.extract_qubit_literal(binOp)
         return Expr.new_qlit(qlit)
 

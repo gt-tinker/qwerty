@@ -290,12 +290,14 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
             _ => todo!("nontrivial superposition"),
         },
 
+        Vector::VectorTilt { q, .. } => ast_vec_to_mlir_helper(&**q),
+
         // TODO: this function should operate on explicit vectors. other
         //       code can handle shuffling for ? and _
         Vector::PadVector { .. } | Vector::TargetVector { .. } => todo!("'?' and '_' lowering"),
 
         // Should be removed by canonicalize()
-        Vector::VectorTilt { .. } | Vector::VectorTensor { .. } | Vector::VectorUnit { .. } => {
+        Vector::VectorTensor { .. } | Vector::VectorUnit { .. } => {
             unreachable!("should have been removed by Vector::canonicalize()")
         }
     }
@@ -1024,7 +1026,7 @@ fn ast_stmt_to_mlir(
             compute_kind
         }
 
-        Stmt::Assign(assign @ Assign { lhs, rhs, dbg: _ }) => {
+        Stmt::Assign(assign @ Assign { lhs, rhs, .. }) => {
             let (rhs_type, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(rhs, ctx, block);
             ctx.bindings
                 .insert(lhs.to_string(), BoundVals::Materialized(rhs_vals));
@@ -1033,8 +1035,68 @@ fn ast_stmt_to_mlir(
                 .expect("Assign to finish typechecking")
         }
 
-        // TODO: for now, unpacking bundles. for tomorrow, unpacking tuples too
-        Stmt::UnpackAssign(UnpackAssign { .. }) => todo!("unpack"),
+        Stmt::UnpackAssign(unpack @ UnpackAssign { lhs, rhs, dbg }) => {
+            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(rhs, ctx, block);
+            let loc = dbg_to_loc(dbg.clone());
+
+            assert!(!lhs.is_empty());
+            assert_eq!(rhs_vals.len(), 1);
+            let rhs_val = rhs_vals[0];
+
+            let unpacked_vals: Vec<Value<'static, 'static>> = match rhs_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    ..
+                } => block
+                    .append_operation(qwerty::qbunpack(rhs_val, loc))
+                    .results()
+                    .map(|res| {
+                        block
+                            .append_operation(qwerty::qbpack(&[res.into()], loc))
+                            .result(0)
+                            .unwrap()
+                            .into()
+                    })
+                    .collect(),
+
+                ast::Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    ..
+                } => block
+                    .append_operation(qwerty::bitunpack(rhs_val, loc))
+                    .results()
+                    .map(|res| {
+                        block
+                            .append_operation(qwerty::bitpack(&[res.into()], loc))
+                            .result(0)
+                            .unwrap()
+                            .into()
+                    })
+                    .collect(),
+
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    ..
+                } => panic!("cannot unpack basis"),
+
+                ast::Type::FuncType { .. }
+                | ast::Type::RevFuncType { .. }
+                | ast::Type::TupleType { .. }
+                | ast::Type::UnitType => panic!("Can only unpack registers"),
+            };
+
+            assert_eq!(lhs.len(), unpacked_vals.len());
+            for (lhs_name, rhs_val) in lhs.iter().zip(unpacked_vals.iter()) {
+                ctx.bindings.insert(
+                    lhs_name.to_string(),
+                    BoundVals::Materialized(vec![*rhs_val]),
+                );
+            }
+
+            unpack
+                .finish_type_checking(&mut ctx.type_env, &(rhs_ty, rhs_compute_kind))
+                .expect("UnpackAssign to finish typechecking")
+        }
 
         Stmt::Return(ret @ Return { val, dbg }) => {
             let (val_ty, val_compute_kind, vals) = ast_expr_to_mlir(val, ctx, block);
