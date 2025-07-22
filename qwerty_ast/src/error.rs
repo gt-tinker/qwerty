@@ -18,6 +18,7 @@ pub enum TypeErrorKind {
     DimMismatch,
     InvalidFloat { float: f64 },
     ReturnOutsideFunction,
+    InvalidIntermediateComputation,
     // Quantum-specific errors:
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
@@ -47,6 +48,7 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::DimMismatch => write!(f, "Dimension mismatch."),
             TypeErrorKind::InvalidFloat { float } => write!(f, "The float {float} is invalid. Floats used in Qwerty must be finite and not NaN."),
             TypeErrorKind::ReturnOutsideFunction => write!(f, "The return statement can only be written inside a function."),
+            TypeErrorKind::InvalidIntermediateComputation => write!(f, "Qubit References should only be intermediate computations."),
             TypeErrorKind::MismatchedAtoms { atom_kind } => write!(f, "The location of {atom_kind} does not match between both bases."),
             // TODO: needs more details (maybe?)
             TypeErrorKind::InvalidBasis => write!(f, "Invalid basis."),

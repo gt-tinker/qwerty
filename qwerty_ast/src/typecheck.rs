@@ -645,6 +645,11 @@ pub fn typecheck_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, TypeError>
                 })
             }
         }
+
+        Expr::QubitRef { .. } => Err(TypeError {
+            kind: TypeErrorKind::InvalidIntermediateComputation,
+            dbg: None,
+        }),
     }
 }
 

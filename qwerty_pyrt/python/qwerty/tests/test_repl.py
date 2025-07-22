@@ -18,28 +18,28 @@ class ReplTests(unittest.TestCase):
         print_func = Mock()
         repl(prompt_func, print_func)
         prompt_func.assert_has_calls([call(self.PROMPT), call(self.PROMPT)])
-        print_func.assert_has_calls([call("'0'"), call()])
+        print_func.assert_has_calls([call("q[0]"), call()])
 
     def test_input_zero_qubit_sigint(self):
         prompt_func = Mock(side_effect=["'0'", KeyboardInterrupt()])
         print_func = Mock()
         repl(prompt_func, print_func)
         prompt_func.assert_has_calls([call(self.PROMPT), call(self.PROMPT)])
-        print_func.assert_has_calls([call("'0'"), call()])
+        print_func.assert_has_calls([call("q[0]"), call()])
 
     def test_input_zero_qubit_whitespace(self):
         prompt_func = Mock(side_effect=["    '0'     ", EOFError()])
         print_func = Mock()
         repl(prompt_func, print_func)
         prompt_func.assert_has_calls([call(self.PROMPT), call(self.PROMPT)])
-        print_func.assert_has_calls([call("'0'"), call()])
+        print_func.assert_has_calls([call("q[0]"), call()])
 
     def test_input_empty_then_zero_qubit(self):
         prompt_func = Mock(side_effect=['    ', "'0'", EOFError()])
         print_func = Mock()
         repl(prompt_func, print_func)
         prompt_func.assert_has_calls([call(self.PROMPT), call(self.PROMPT)])
-        print_func.assert_has_calls([call("'0'"), call()])
+        print_func.assert_has_calls([call("q[0]"), call()])
 
     def test_input_python_syntax_error_recovery(self):
         prompt_func = Mock(side_effect=["'0", "'0'", EOFError()])
@@ -51,7 +51,7 @@ class ReplTests(unittest.TestCase):
         print_func.assert_has_calls([call('Syntax Error: unterminated string '
                                           'literal (detected at line 1) '
                                           '(<unknown>, line 1)'),
-                                     call("'0'"),
+                                     call("q[0]"),
                                      call()])
 
     def test_input_return(self):

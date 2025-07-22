@@ -1327,6 +1327,13 @@ pub enum Expr {
         bits: UBig,
         dbg: Option<DebugLoc>,
     },
+
+    /// A reference to a qubit, q_i in Appendix A of arXiv:2404.12603. This is
+    /// only involved in intermediate computations, so there is no Python DSL
+    /// syntax that can (directly) produce this node. However, we implement the
+    /// Display string as `q[i]`, although programmers should never see this
+    /// node printed.
+    QubitRef { index: usize },
 }
 
 impl fmt::Display for Expr {
@@ -1371,6 +1378,7 @@ impl fmt::Display for Expr {
             } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
             Expr::QLit { qlit, .. } => write!(f, "{}", qlit),
             Expr::BitLiteral { dim, bits, .. } => write!(f, "bit[{}](0b{:b})", dim, bits),
+            Expr::QubitRef { index } => write!(f, "q[{}]", index),
         }
     }
 }
