@@ -212,6 +212,12 @@ fn tensor_product_func_ins_outs(
                 },
                 dbg: dbg.clone(),
             }),
+            Type::TupleType { .. } => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(
+                    "Tuples are not allowed as operands in a function tensor product".to_string(),
+                ),
+                dbg: dbg.clone(),
+            }),
 
             Type::UnitType => unreachable!("units removed in tensor_product_types()"),
         })
@@ -257,6 +263,13 @@ fn tensor_product_types(
                             dbg: dbg.clone(),
                         })
                     }
+                    Type::TupleType { .. } => Err(TypeError {
+                        kind: TypeErrorKind::InvalidType(
+                            "Tuples are not allowed in register folding within tensor products"
+                                .to_string(),
+                        ),
+                        dbg: dbg.clone(),
+                    }),
                     Type::UnitType => unreachable!("units removed above"),
                 })?;
                 Ok(Type::RegType {
@@ -290,6 +303,12 @@ fn tensor_product_types(
             }
             Type::FuncType { .. } | Type::RevFuncType { .. } => Err(TypeError {
                 kind: TypeErrorKind::UnsupportedTensorProduct,
+                dbg: dbg.clone(),
+            }),
+            Type::TupleType { .. } => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(
+                    "Tuple types cannot be used in tensor products".to_string(),
+                ),
                 dbg: dbg.clone(),
             }),
             Type::UnitType => unreachable!("units removed above"),

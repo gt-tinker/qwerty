@@ -125,3 +125,42 @@ fn test_unpack_assign_non_register_rhs() {
         "Unpack of non-register type did not fail as expected"
     );
 }
+
+#[test]
+fn test_valid_tupletype_construction() {
+    use crate::ast::*;
+    let tys = vec![Type::UnitType, Type::UnitType];
+    let tuple = Type::tuple(tys);
+    assert!(tuple.is_ok());
+}
+
+#[test]
+fn test_invalid_tupletype_construction() {
+    use crate::ast::*;
+    // This test checks that constructing a TupleType with fewer than 2 types fails.
+    let tys = vec![Type::UnitType];
+    let tuple = Type::tuple(tys);
+    assert!(tuple.is_err());
+}
+
+#[test]
+fn test_functiondef_get_type_tuple_args() {
+    use crate::ast::*;
+    let func = FunctionDef::new(
+        "f_tuple".to_string(),
+        vec![
+            (Type::UnitType, "x".to_string()),
+            (Type::UnitType, "y".to_string()),
+        ],
+        Type::UnitType,
+        vec![],
+        false,
+        None,
+    );
+    let ty = func.get_type();
+    if let Type::FuncType { in_ty, .. } = ty {
+        assert!(matches!(*in_ty, Type::TupleType { .. }));
+    } else {
+        panic!("Expected FuncType");
+    }
+}

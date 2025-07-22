@@ -47,13 +47,6 @@ Otherwise (e.g., to build the full compiler/runtime), you need to install
    If you are not a Debian/Ubuntu user, you can interpret `build-essential`
    above as "a C++ compiler."
 
-**Before building, make sure to synchronize and initialize all submodules (required for dependencies):**
-
-```sh
-git submodule sync --recursive
-git submodule update --init --recursive
-```
-
 The remaining steps on getting started depend on what portion of the compiler
 you want to work on.
 
@@ -62,6 +55,7 @@ you want to work on.
 If you just want to work on the AST, you can work on it in isolation as
 follows:
 
+    $ git submodule update --init qir_runner
     $ cd qwerty_ast
     $ cargo build
 

@@ -19,7 +19,21 @@ pub enum Type {
     FuncType { in_ty: Box<Type>, out_ty: Box<Type> },
     RevFuncType { in_out_ty: Box<Type> },
     RegType { elem_ty: RegKind, dim: usize },
+    TupleType { tys: Vec<Type> },
     UnitType,
+}
+
+impl Type {
+    pub fn tuple(tys: Vec<Type>) -> Result<Type, String> {
+        if tys.len() < 2 {
+            Err(format!(
+                "TupleType must contain at least 2 types, found {}",
+                tys.len()
+            ))
+        } else {
+            Ok(Type::TupleType { tys })
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -79,6 +93,16 @@ impl fmt::Display for Type {
                 elem_ty: RegKind::Basis,
                 dim,
             } => write!(f, "basis[{}]", dim),
+            Type::TupleType { tys } => {
+                write!(f, "(")?;
+                for (i, ty) in tys.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", ty)?;
+                }
+                write!(f, ")")
+            }
             Type::UnitType => write!(f, "None"),
         }
     }
@@ -1470,11 +1494,9 @@ impl FunctionDef {
         } else if self.args.len() == 1 {
             self.args[0].0.clone()
         } else {
-            // TODO: For now, if multiple arguments are present and TupleType is not used,
-            // we take the type of the first argument. This needs to be refined
-            // when proper multi-argument function types are introduced (e.g. via TupleType).
-            // TODO: Should fail? Ask Austin
-            self.args[0].0.clone()
+            let arg_types: Vec<Type> = self.args.iter().map(|(ty, _)| ty.clone()).collect();
+            Type::tuple(arg_types)
+                .expect("Function with multiple arguments must form a valid TupleType")
         };
 
         if self.is_rev {
