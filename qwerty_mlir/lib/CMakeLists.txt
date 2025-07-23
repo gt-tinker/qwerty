@@ -4,3 +4,4 @@ add_subdirectory(CAPI)
 # qwutil, which depends on symbols in the Quantum libs
 add_subdirectory(Qwerty)
 add_subdirectory(QCirc)
+add_subdirectory(CCirc)
