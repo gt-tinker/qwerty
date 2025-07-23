@@ -69,9 +69,9 @@ impl TypeEnv {
 //
 
 impl Program {
+    // TODO: (Future-work!) Change it to Multi/Batch Error reporting Result<(), Vec<TypeError>>
     /// Entry point: checks the whole program.
-    /// Returns Ok(()) if well-typed, or a TypeError at the first mistake (Fail fast!!)
-    /// TODO: (Future-work!) Change it to Multi/Batch Error reporting Result<(), Vec<TypeError>>
+    /// Returns `Ok(())` if well-typed, or a `TypeError` at the first mistake (Fail fast!!)
     pub fn typecheck(&self) -> Result<(), TypeError> {
         let Program { funcs, .. } = self;
         let mut funcs_available = vec![];
@@ -1126,7 +1126,7 @@ fn tensors_are_ortho(bvs1: &[Vector], bvs2: &[Vector]) -> bool {
 }
 
 /// Checks the O-SupNeg rule. In other words, verifies the following:
-/// ```ignore
+/// ```text
 /// bv_1a@angle_deg1a + bv_2a@angle_deg2a _|_ bv_1b@angle_deg1b + bv_2b@angle_deg2b
 /// ```
 fn supneg_ortho(

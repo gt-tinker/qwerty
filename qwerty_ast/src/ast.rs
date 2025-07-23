@@ -327,7 +327,7 @@ impl Vector {
     }
 
     /// Returns number of non-target and non-padding qubits represented by a basis
-    /// vector (⌊bv⌋ in the spec) or None if the basis vector is malformed
+    /// vector (`⌊bv⌋` in the spec) or None if the basis vector is malformed
     /// (currently, if both sides of a superposition have different dimensions
     ///  or if a tensor product has less than two vectors).
     pub fn get_explicit_dim(&self) -> Option<usize> {
@@ -394,9 +394,9 @@ impl Vector {
     }
 
     /// Returns the zero-indexed qubit positions that are correspond to the
-    /// provided atom. This Ξva[bv] in the spec. Returning None indicates a
-    /// malformed vector (currently, a superposition whose possibilities do not
-    /// have matching indices or an empty tensor product).
+    /// provided atom. This is `Ξva[bv]` in the spec. Returning None indicates
+    /// a malformed vector (currently, a superposition whose possibilities do
+    /// not have matching indices or an empty tensor product).
     pub fn get_atom_indices(&self, atom: VectorAtomKind) -> Option<Vec<usize>> {
         match (self, atom) {
             (Vector::ZeroVector { .. }, _)
@@ -962,7 +962,7 @@ impl Basis {
         }
     }
 
-    /// Returns number of qubits represented by a basis (|b| in the spec)
+    /// Returns number of qubits represented by a basis (`|b|` in the spec)
     /// or None if any basis vector involved is malformed (see Vector::get_dim()).
     pub fn get_dim(&self) -> Option<usize> {
         match self {
@@ -998,10 +998,10 @@ impl Basis {
     }
 
     /// Returns the zero-indexed qubit positions that are correspond to the
-    /// provided atom. This Ξva[bv] in the spec. Returning None indicates a
-    /// malformed vector (currently, when basis vectors in a basis literal do
-    /// not have matching indices or when Vector::get_atom_indices() considers
-    /// any vector malformed).
+    /// provided atom. This is `Ξva[bv]` in the spec. Returning None indicates
+    /// a malformed basis (currently, when basis vectors in a basis literal do
+    /// not have matching indices or when [`Vector::get_atom_indices`]
+    /// considers any vector malformed).
     pub fn get_atom_indices(&self, atom: VectorAtomKind) -> Option<Vec<usize>> {
         match self {
             Basis::BasisLiteral { vecs, .. } => {
@@ -1238,27 +1238,27 @@ impl fmt::Display for Basis {
 
 // ----- Expressions -----
 
-/// See `Expr::Variable`.
+/// See [`Expr::Variable`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
     pub name: String,
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::UnitLiteral`.
+/// See [`Expr::UnitLiteral`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnitLiteral {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Adjoint`.
+/// See [`Expr::Adjoint`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Adjoint {
     pub func: Box<Expr>,
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Pipe`.
+/// See [`Expr::Pipe`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pipe {
     pub lhs: Box<Expr>,
@@ -1266,27 +1266,27 @@ pub struct Pipe {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Measure`.
+/// See [`Expr::Measure`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Measure {
     pub basis: Basis,
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Discard`.
+/// See [`Expr::Discard`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Discard {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Tensor`.
+/// See [`Expr::Tensor`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tensor {
     pub vals: Vec<Expr>,
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::BasisTranslation`.
+/// See [`Expr::BasisTranslation`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct BasisTranslation {
     pub bin: Basis,
@@ -1294,7 +1294,7 @@ pub struct BasisTranslation {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Predicated`.
+/// See [`Expr::Predicated`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Predicated {
     pub then_func: Box<Expr>,
@@ -1303,14 +1303,14 @@ pub struct Predicated {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::NonUniformSuperpos`.
+/// See [`Expr::NonUniformSuperpos`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct NonUniformSuperpos {
     pub pairs: Vec<(f64, QLit)>,
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::Conditional`.
+/// See [`Expr::Conditional`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conditional {
     pub then_expr: Box<Expr>,
@@ -1319,7 +1319,7 @@ pub struct Conditional {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::BitLiteral`.
+/// See [`Expr::BitLiteral`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct BitLiteral {
     pub dim: usize,
@@ -1327,7 +1327,7 @@ pub struct BitLiteral {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Expr::QubitRef`.
+/// See [`Expr::QubitRef`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct QubitRef {
     pub index: usize,
@@ -1336,49 +1336,49 @@ pub struct QubitRef {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// A variable name used in an expression. Example syntax:
-    /// ```ignore
+    /// ```text
     /// my_var
     /// ```
     Variable(Variable),
 
     /// A unit literal. Represents an empty register or void. Example syntax:
-    /// ```ignore
+    /// ```text
     /// []
     /// ```
     UnitLiteral(UnitLiteral),
 
     /// Takes the adjoint of a function value. Example syntax:
-    /// ```ignore
+    /// ```text
     /// ~f
     /// ```
     Adjoint(Adjoint),
 
     /// Calls a function value. Example syntax for `f(x)`:
-    /// ```ignore
+    /// ```text
     /// x | f
     /// ```
     Pipe(Pipe),
 
     /// A function value that measures its input when called. Example syntax:
-    /// ```ignore
+    /// ```text
     /// measure
     /// ```
     Measure(Measure),
 
     /// A function value that discards its input when called. Example syntax:
-    /// ```ignore
+    /// ```text
     /// discard
     /// ```
     Discard(Discard),
 
     /// A tensor product of function values or register values. Example syntax:
-    /// ```ignore
+    /// ```text
     /// '0' * '1' * '0'
     /// ```
     Tensor(Tensor),
 
     /// The mighty basis translation. Example syntax:
-    /// ```ignore
+    /// ```text
     /// {'0','1'} >> {'0',-'1'}
     /// ```
     BasisTranslation(BasisTranslation),
@@ -1386,32 +1386,32 @@ pub enum Expr {
     /// A function value that, when called, runs a function value (`then_func`)
     /// in a proper subspace and another function (`else_func`) in the orthogonal
     /// complement of that subspace. Example syntax:
-    /// ```ignore
+    /// ```text
     /// flip if {'1_'} else id
     /// ```
     Predicated(Predicated),
 
     /// A superposition of qubit literals that may not have uniform
     /// probabilities. Example syntax:
-    /// ```ignore
+    /// ```text
     /// 0.25*'0' + 0.75*'1'
     /// ```
     NonUniformSuperpos(NonUniformSuperpos),
 
     /// A classical conditional (ternary) expression. Example syntax:
-    /// ```ignore
+    /// ```text
     /// flip if meas_result else id
     /// ```
     Conditional(Conditional),
 
     /// A qubit literal. Example syntax:
-    /// ```ignore
+    /// ```text
     /// '0' + '1'
     /// ```
     QLit(QLit),
 
     /// A classical bit literal. Example syntax:
-    /// ```ignore
+    /// ```text
     /// bit[4](0b1101)
     /// ```
     BitLiteral(BitLiteral),
@@ -1477,7 +1477,7 @@ impl fmt::Display for Expr {
 
 // ----- Statements -----
 
-/// See `Stmt::Assign`.
+/// See [`Stmt::Assign`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assign {
     pub lhs: String,
@@ -1485,7 +1485,7 @@ pub struct Assign {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Stmt::UnpackAssign`.
+/// See [`Stmt::UnpackAssign`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnpackAssign {
     pub lhs: Vec<String>,
@@ -1493,7 +1493,7 @@ pub struct UnpackAssign {
     pub dbg: Option<DebugLoc>,
 }
 
-/// See `Stmt::Return`.
+/// See [`Stmt::Return`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return {
     pub val: Expr,
@@ -1503,25 +1503,25 @@ pub struct Return {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     /// An expression statement. Example syntax:
-    /// ```ignore
+    /// ```text
     /// f(x)
     /// ```
     Expr(Expr),
 
     /// An assignment statement. Example syntax:
-    /// ```ignore
+    /// ```text
     /// q = '0'
     /// ```
     Assign(Assign),
 
     /// A register-unpacking assignment statement. Example syntax:
-    /// ```ignore
+    /// ```text
     /// q1, q2 = '01'
     /// ```
     UnpackAssign(UnpackAssign),
 
     /// A return statement. Example syntax:
-    /// ```ignore
+    /// ```text
     /// return q
     /// ```
     Return(Return),
@@ -1548,6 +1548,14 @@ impl fmt::Display for Stmt {
 
 // ----- Functions -----
 
+/// A function (kernel) definition.
+///
+/// Example syntax:
+/// ```text
+/// @qpu
+/// def get_zero() -> qubit:
+///     return '0'
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDef {
     pub name: String,
@@ -1610,6 +1618,10 @@ impl FunctionDef {
 
 // ----- Program -----
 
+/// The top-level node in a Qwerty program that holds all function defintiions.
+///
+/// In the current implementation, there is only one of these per Python
+/// interpreter.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub funcs: Vec<FunctionDef>,
