@@ -32,14 +32,14 @@ def CCirc_Dialect : Dialect {
 }
 
 //===----------------------------------------------------------------------===//
-// Base quantum operation definition.
+// Base circuit operation definition.
 //===----------------------------------------------------------------------===//
 
 class CCirc_Op<string mnemonic, list<Trait> traits = []> :
         Op<CCirc_Dialect, mnemonic, traits>;
 
 //===----------------------------------------------------------------------===//
-// Base quantum attribute definition.
+// Base circuit attribute definition.
 //===----------------------------------------------------------------------===//
 
 class CCirc_Attr<string name, string attrMnemonic, list<Trait> traits = []> :

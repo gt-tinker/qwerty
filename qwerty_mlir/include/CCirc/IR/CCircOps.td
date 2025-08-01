@@ -24,4 +24,34 @@ def CCirc_AndOp : CCirc_Op<"and", [
     let assemblyFormat = "`(` $leftwire `,` $rightwire `)` attr-dict `:` functional-type(operands, results)";
 }
 
+def CCirc_OrOp : CCirc_Op<"or", [Pure]> {
+    let summary = "Logical OR operation";
+    let description = [{
+        Bitwise OR between two wires.
+    }];
+    let arguments = (ins CCirc_Wire:$left, CCirc_Wire:$right);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $left `,` $right `)` attr-dict `:` functional-type(operands, results)";
+}
+
+def CCirc_XorOp : CCirc_Op<"xor", [Pure]> {
+    let summary = "Logical XOR operation";
+    let description = [{
+        Bitwise XOR between two wires.
+    }];
+    let arguments = (ins CCirc_Wire:$left, CCirc_Wire:$right);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $left `,` $right `)` attr-dict `:` functional-type(operands, results)";
+}
+
+def CCirc_NotOp : CCirc_Op<"not", [Pure]> {
+    let summary = "Logical NOT operation";
+    let description = [{
+        Bitwise NOT on a single wire.
+    }];
+    let arguments = (ins CCirc_Wire:$operand);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $operand `)` attr-dict `:` functional-type(operands, results)";
+}
+
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_OPS_TD
