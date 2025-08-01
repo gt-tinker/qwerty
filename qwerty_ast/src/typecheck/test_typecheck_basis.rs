@@ -143,10 +143,10 @@ fn test_typecheck_basis_mixed_vector_dims() {
                     Vector::ZeroVector { dbg: None },
                     Vector::OneVector { dbg: None },
                 ],
-                dbg: None,
+                dbg: Some(dbg.clone()),
             },
         ],
-        dbg: Some(dbg.clone()),
+        dbg: None,
     };
     let result = ast.typecheck();
     assert_eq!(
