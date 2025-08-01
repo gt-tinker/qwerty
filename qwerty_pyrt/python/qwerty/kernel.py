@@ -81,7 +81,7 @@ class KernelHandle:
 
         # TODO: return an instance of a new Histogram class that iterates over
         #       each observation instead of keys
-        histo = dict(program.call(self.func_name, 1 if shots is None else shots))
+        histo = dict(program.call(self.func_name, 1 if shots is None else shots, QWERTY_DEBUG))
 
         if shots is not None:
             return histo

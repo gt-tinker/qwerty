@@ -196,3 +196,23 @@ qwerty.func @cnot[]() irrev-> !qwerty<bitbundle[2]> {
   %6 = qwerty.qbmeas %5 by {std: Z[2]} : !qwerty<qbundle[2]> -> !qwerty<bitbundle[2]>
   qwerty.return %6 : !qwerty<bitbundle[2]>
 }
+
+// CHECK-LABEL: func.func @to_bell() -> !qcirc<array<i1>[2]> {
+//  CHECK-NEXT:   %0 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %1 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %controlResults, %result = qcirc.gate1q[%1]:Z %0 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %result_0 = qcirc.gate1q[]:H %controlResults : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %controlResults_1, %result_2 = qcirc.gate1q[%result_0]:X %result : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %qubitResult, %measResult = qcirc.measure(%result_2) : (!qcirc.qubit) -> (!qcirc.qubit, i1)
+//  CHECK-NEXT:   qcirc.qfree %qubitResult : (!qcirc.qubit) -> ()
+//  CHECK-NEXT:   %qubitResult_3, %measResult_4 = qcirc.measure(%controlResults_1) : (!qcirc.qubit) -> (!qcirc.qubit, i1)
+//  CHECK-NEXT:   qcirc.qfree %qubitResult_3 : (!qcirc.qubit) -> ()
+//  CHECK-NEXT:   %2 = qcirc.arrpack(%measResult, %measResult_4) : (i1, i1) -> !qcirc<array<i1>[2]>
+//  CHECK-NEXT:   return %2 : !qcirc<array<i1>[2]>
+//  CHECK-NEXT: }
+qwerty.func @to_bell[]() irrev-> !qwerty<bitbundle[2]> {
+  %0 = qwerty.qbprep Z<PLUS>[2] : () -> !qwerty<qbundle[2]>
+  %1 = qwerty.qbtrans %0 by {std:Z[2]} >> {std:BELL[2]} : (!qwerty<qbundle[2]>) -> !qwerty<qbundle[2]>
+  %2 = qwerty.qbmeas %1 by {std:Z[2]} : !qwerty<qbundle[2]> -> !qwerty<bitbundle[2]>
+  qwerty.return %2 : !qwerty<bitbundle[2]>
+}

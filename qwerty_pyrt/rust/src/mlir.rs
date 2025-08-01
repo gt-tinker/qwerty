@@ -1,6 +1,6 @@
-use dashu::integer::UBig;
+use dashu::{base::BitTest, integer::UBig};
 use melior::{
-    dialect::{arith, qcirc, qwerty, DialectHandle, DialectRegistry},
+    dialect::{arith, qcirc, qwerty, scf, DialectHandle, DialectRegistry},
     execution_engine::SymbolFlags,
     ir::{
         self,
@@ -8,25 +8,25 @@ use melior::{
             FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute, StringAttribute,
             TypeAttribute,
         },
-        operation::OperationResult,
+        operation::{OperationPrintingFlags, OperationResult},
         r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
         TypeLike, Value, ValueLike,
     },
-    pass::{transform, PassManager},
+    pass::{transform, PassIrPrintingOptions, PassManager},
     utility::register_inliner_extensions,
     Context, Error, ExecutionEngine,
 };
 use qwerty_ast::{
     ast::{
         self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisTranslation,
-        Discard, Expr, FunctionDef, Measure, Pipe, Program, QLit, RegKind, Return, Stmt, Tensor,
-        UnpackAssign, Variable, Vector, VectorAtomKind,
+        BitLiteral, Conditional, Discard, Expr, FunctionDef, Measure, Pipe, Predicated, Program,
+        QLit, RegKind, Return, Stmt, Tensor, UnpackAssign, Variable, Vector, VectorAtomKind,
     },
     dbg::DebugLoc,
     typecheck::{ComputeKind, TypeEnv},
 };
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, env, sync::LazyLock};
 
 /// Holds the MLIR context in static memory, initializing it on first use.
 static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
@@ -238,8 +238,9 @@ where
 }
 
 /// Determines the primitive basis, eigenstate, and phase for a basis vector.
+/// The basis vector should be explicit (not contain any `'?'` or `'_'` atoms).
 /// Intended to be used only by `ast_vec_to_mlir()`, since it canonicalizes the
-/// vector and removes any outer tilt node.
+/// vector, removes any outer tilt node, and calls [`Vector::make_explicit`].
 fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eigenstate, f64) {
     match vec {
         Vector::ZeroVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus, 0.0),
@@ -288,12 +289,12 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
                     std::f64::consts::PI,
                 )
             }
-            _ => todo!("nontrivial superposition"),
+            _ => todo!("nontrivial superposition {vec}"),
         },
 
-        // TODO: this function should operate on explicit vectors. other
-        //       code can handle shuffling for ? and _
-        Vector::PadVector { .. } | Vector::TargetVector { .. } => todo!("'?' and '_' lowering"),
+        Vector::PadVector { .. } | Vector::TargetVector { .. } => {
+            unreachable!("'?' and '_' atoms should be removed earlier")
+        }
 
         Vector::VectorTilt { .. } => {
             unreachable!("Outer tilt should be removed by ast_vec_to_mlir()")
@@ -376,6 +377,126 @@ struct MlirBasis {
     tgt_indices: Vec<usize>,
 }
 
+/// Determines if a basis literal containing vectors `vecs` represents the Bell
+/// basis. This is a hard-coded hack that should be removed in the future.
+fn is_bell_basis(vecs: &[Vector]) -> bool {
+    if let [Vector::UniformVectorSuperpos {
+        q1: q11, q2: q12, ..
+    }, Vector::UniformVectorSuperpos {
+        q1: q21, q2: q22, ..
+    }, Vector::UniformVectorSuperpos {
+        q1: q31, q2: q32, ..
+    }, Vector::UniformVectorSuperpos {
+        q1: q41, q2: q42, ..
+    }] = vecs
+    {
+        let q11_is_00 = if let Vector::VectorTensor { qs: vecs11, .. } = &**q11 {
+            matches!(
+                &vecs11[..],
+                [Vector::ZeroVector { .. }, Vector::ZeroVector { .. }]
+            )
+        } else {
+            false
+        };
+        let q12_is_11 = if let Vector::VectorTensor { qs: vecs12, .. } = &**q12 {
+            matches!(
+                &vecs12[..],
+                [Vector::OneVector { .. }, Vector::OneVector { .. }]
+            )
+        } else {
+            false
+        };
+
+        let q21_is_neg_11 = if let Vector::VectorTilt {
+            q: q21q,
+            angle_deg: q21_angle_deg,
+            ..
+        } = &**q21
+        {
+            if angles_are_approx_equal(*q21_angle_deg, 180.0) {
+                if let Vector::VectorTensor { qs: vecs22, .. } = &**q21q {
+                    matches!(
+                        &vecs22[..],
+                        [Vector::OneVector { .. }, Vector::OneVector { .. }]
+                    )
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        let q22_is_00 = if let Vector::VectorTensor { qs: vecs21, .. } = &**q22 {
+            matches!(
+                &vecs21[..],
+                [Vector::ZeroVector { .. }, Vector::ZeroVector { .. }]
+            )
+        } else {
+            false
+        };
+
+        let q31_is_01 = if let Vector::VectorTensor { qs: vecs32, .. } = &**q31 {
+            matches!(
+                &vecs32[..],
+                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
+            )
+        } else {
+            false
+        };
+        let q32_is_10 = if let Vector::VectorTensor { qs: vecs31, .. } = &**q32 {
+            matches!(
+                &vecs31[..],
+                [Vector::OneVector { .. }, Vector::ZeroVector { .. }]
+            )
+        } else {
+            false
+        };
+
+        let q41_is_neg_10 = if let Vector::VectorTilt {
+            q: q41q,
+            angle_deg: q41_angle_deg,
+            ..
+        } = &**q41
+        {
+            if angles_are_approx_equal(*q41_angle_deg, 180.0) {
+                if let Vector::VectorTensor { qs: vecs42, .. } = &**q41q {
+                    matches!(
+                        &vecs42[..],
+                        [Vector::OneVector { .. }, Vector::ZeroVector { .. }]
+                    )
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        let q42_is_01 = if let Vector::VectorTensor { qs: vecs41, .. } = &**q42 {
+            matches!(
+                &vecs41[..],
+                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
+            )
+        } else {
+            false
+        };
+
+        q11_is_00
+            && q12_is_11
+            && q21_is_neg_11
+            && q22_is_00
+            && q31_is_01
+            && q32_is_10
+            && q41_is_neg_10
+            && q42_is_01
+    } else {
+        false
+    }
+}
+
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
@@ -386,6 +507,11 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
         .iter()
         .map(|elem| {
             match elem {
+                Basis::BasisLiteral { vecs, .. } if is_bell_basis(vecs) => {
+                    let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Bell, 2);
+                    (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
+                }
+
                 Basis::BasisLiteral { vecs, .. } => {
                     let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
                         let (vec_attrs, phase) = ast_vec_to_mlir(vec);
@@ -779,7 +905,10 @@ fn ast_expr_to_mlir(
             let (ty, compute_kind) = var
                 .calc_type(&mut ctx.type_env)
                 .expect("Variable to pass typechecking");
-            let bound_vals = ctx.bindings.get(name).expect("Variable to be bound");
+            let bound_vals = ctx
+                .bindings
+                .get(name)
+                .expect(&format!("Variable {} to be bound", name));
 
             let mlir_vals = match bound_vals {
                 BoundVals::Materialized(vals) => vals.clone(),
@@ -1159,12 +1288,296 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, lambda)
         }
 
+        Expr::Predicated(
+            predicated @ Predicated {
+                then_func,
+                else_func,
+                pred,
+                dbg,
+            },
+        ) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (then_ty, then_compute_kind, then_vals) = ast_expr_to_mlir(then_func, ctx, block);
+            let (else_ty, else_compute_kind, else_vals) = ast_expr_to_mlir(else_func, ctx, block);
+            let pred_ty = pred
+                .typecheck()
+                .expect("Predicate basis to pass typechecking");
+            let (ty, compute_kind) = predicated
+                .calc_type(
+                    &(then_ty, then_compute_kind),
+                    &(else_ty, else_compute_kind),
+                    &pred_ty,
+                )
+                .expect("Predication to pass typechecking");
+
+            assert_eq!(then_vals.len(), 1);
+            assert_eq!(else_vals.len(), 1);
+            let then_func_val = then_vals[0];
+            let else_func_val = else_vals[0];
+
+            let dim = match pred_ty {
+                ast::Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim,
+                } => dim,
+                _ => panic!("input basis should have basis type"),
+            };
+
+            let lambda_captures = &[then_func_val, else_func_val];
+            let lambda_in_out_tys =
+                &[qwerty::QBundleType::new(&MLIR_CTX, dim.try_into().unwrap()).into()];
+            let is_rev = true;
+            let lambda = vec![mlir_wrap_lambda(
+                lambda_captures,
+                lambda_in_out_tys,
+                lambda_in_out_tys,
+                is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    assert_eq!(lambda_block.argument_count(), 3);
+                    let then_func = lambda_block.argument(0).unwrap().into();
+                    let else_func = lambda_block.argument(1).unwrap().into();
+                    let qbundle_in = lambda_block.argument(2).unwrap().into();
+
+                    let MlirBasis {
+                        basis_attr: pred_basis_attr,
+                        phases: _,
+                        explicit_indices: pred_explicit_indices,
+                        pad_indices: pred_pad_indices,
+                        tgt_indices: pred_tgt_indices,
+                    } = ast_basis_to_mlir(pred);
+
+                    assert!(!pred_explicit_indices.is_empty());
+
+                    let unpacked: Vec<_> = lambda_block
+                        .append_operation(qwerty::qbunpack(qbundle_in, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect();
+                    let bypass_qubits: Vec<_> =
+                        pred_pad_indices.iter().map(|i| unpacked[*i]).collect();
+                    let shuffled_qubits: Vec<_> = pred_explicit_indices
+                        .iter()
+                        .map(|i| unpacked[*i])
+                        .chain(pred_tgt_indices.iter().map(|i| unpacked[*i]))
+                        .collect();
+
+                    let shuffled_qbundle: Value<'static, 'static> = lambda_block
+                        .append_operation(qwerty::qbpack(&shuffled_qubits, loc))
+                        .result(0)
+                        .unwrap()
+                        .into();
+
+                    let pred_then_func = lambda_block
+                        .append_operation(qwerty::func_pred(
+                            &MLIR_CTX,
+                            pred_basis_attr,
+                            then_func,
+                            loc,
+                        ))
+                        .result(0)
+                        .unwrap()
+                        .into();
+                    let then_calli = lambda_block
+                        .append_operation(qwerty::call_indirect(
+                            pred_then_func,
+                            &[shuffled_qbundle],
+                            loc,
+                        ))
+                        .result(0)
+                        .unwrap()
+                        .into();
+
+                    let adj_else_func = lambda_block
+                        .append_operation(qwerty::func_adj(else_func, loc))
+                        .result(0)
+                        .unwrap()
+                        .into();
+                    let pred_adj_else_func = lambda_block
+                        .append_operation(qwerty::func_pred(
+                            &MLIR_CTX,
+                            pred_basis_attr,
+                            adj_else_func,
+                            loc,
+                        ))
+                        .result(0)
+                        .unwrap()
+                        .into();
+                    let else_calli = lambda_block
+                        .append_operation(qwerty::call_indirect(
+                            pred_adj_else_func,
+                            &[then_calli],
+                            loc,
+                        ))
+                        .result(0)
+                        .unwrap()
+                        .into();
+
+                    let qbunpack_shuffled =
+                        lambda_block.append_operation(qwerty::qbunpack(else_calli, loc));
+                    let mut unpacked_shuffled_qubits =
+                        qbunpack_shuffled.results().map(OperationResult::into);
+
+                    let mut explicit_queue: Vec<_> = unpacked_shuffled_qubits
+                        .by_ref()
+                        .take(pred_explicit_indices.len())
+                        .zip(pred_explicit_indices.into_iter())
+                        .collect();
+                    let tgt_fwd_qubits: Vec<_> = unpacked_shuffled_qubits.collect();
+
+                    // Still need to call the unadjointed (forward) version of else
+                    let tgt_fwd_qbundle = lambda_block
+                        .append_operation(qwerty::qbpack(&tgt_fwd_qubits, loc))
+                        .result(0)
+                        .unwrap()
+                        .into();
+                    let fwd_qbundle_out = lambda_block
+                        .append_operation(qwerty::call_indirect(else_func, &[tgt_fwd_qbundle], loc))
+                        .result(0)
+                        .unwrap()
+                        .into();
+
+                    explicit_queue.reverse();
+                    let mut tgt_queue: Vec<_> = lambda_block
+                        .append_operation(qwerty::qbunpack(fwd_qbundle_out, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .zip(pred_tgt_indices.into_iter())
+                        .collect();
+                    tgt_queue.reverse();
+                    let mut bypass_queue: Vec<_> = bypass_qubits
+                        .into_iter()
+                        .zip(pred_pad_indices.into_iter())
+                        .collect();
+                    bypass_queue.reverse();
+
+                    let mut repack_ready = vec![];
+                    for i in 0..dim {
+                        if let Some((qubit, _j)) = explicit_queue.pop_if(|(_qubit, j)| i == *j) {
+                            repack_ready.push(qubit);
+                        } else if let Some((qubit, _j)) = tgt_queue.pop_if(|(_qubit, j)| i == *j) {
+                            repack_ready.push(qubit);
+                        } else if let Some((qubit, _j)) = bypass_queue.pop_if(|(_qubit, j)| i == *j)
+                        {
+                            repack_ready.push(qubit);
+                        } else {
+                            unreachable!("qubit was neither part of the explicit basis, a padding, nor a target");
+                        }
+                    }
+
+                    let qbundle_out = lambda_block
+                        .append_operation(qwerty::qbpack(&repack_ready, loc))
+                        .result(0)
+                        .unwrap()
+                        .into();
+                    vec![qbundle_out]
+                },
+            )];
+
+            (ty, compute_kind, lambda)
+        }
+
+        Expr::Conditional(
+            conditional @ Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                dbg,
+            },
+        ) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (cond_ty, cond_compute_kind, cond_vals) = ast_expr_to_mlir(cond, ctx, block);
+            assert_eq!(cond_vals.len(), 1);
+            let cond_bitbundle = cond_vals[0];
+
+            let cond_i1 = block
+                .append_operation(qwerty::bitunpack(cond_bitbundle, loc))
+                .result(0)
+                .unwrap()
+                .into();
+
+            let then_block_args = &[];
+            let then_block = Block::new(then_block_args);
+            let (then_ty, then_compute_kind, then_vals) =
+                ast_expr_to_mlir(then_expr, ctx, &then_block);
+            then_block.append_operation(scf::r#yield(&then_vals, loc));
+
+            let then_region = Region::new();
+            then_region.append_block(then_block);
+
+            let else_block_args = &[];
+            let else_block = Block::new(else_block_args);
+            let (else_ty, else_compute_kind, else_vals) =
+                ast_expr_to_mlir(else_expr, ctx, &else_block);
+            else_block.append_operation(scf::r#yield(&else_vals, loc));
+
+            let else_region = Region::new();
+            else_region.append_block(else_block);
+
+            let (ty, compute_kind) = conditional
+                .calc_type(
+                    &(then_ty, then_compute_kind),
+                    &(else_ty, else_compute_kind),
+                    &(cond_ty, cond_compute_kind),
+                )
+                .expect("Conditional to pass typechecking");
+            let result_mlir_tys = ast_ty_to_mlir_tys(&ty);
+
+            let mlir_vals: Vec<_> = block
+                .append_operation(scf::r#if(
+                    cond_i1,
+                    &result_mlir_tys,
+                    then_region,
+                    else_region,
+                    loc,
+                ))
+                .results()
+                .map(OperationResult::into)
+                .collect();
+
+            (ty, compute_kind, mlir_vals)
+        }
+
         Expr::QLit(qlit) => {
             let (ty, compute_kind) = qlit
                 .typecheck()
                 .expect("Qubit literal to pass type checking");
             let vals = ast_qlit_to_mlir(qlit, block).into_iter().collect();
             (ty, compute_kind, vals)
+        }
+
+        Expr::BitLiteral(blit @ BitLiteral { dim, bits, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
+            let mlir_vals = vec![mlir_wrap_calc(block, loc, |calc_block| {
+                let bit_vals: Vec<_> = (0..*dim)
+                    .rev()
+                    .map(|idx| {
+                        let bit = bits.bit(idx) as i64;
+                        calc_block
+                            .append_operation(arith::constant(
+                                &MLIR_CTX,
+                                IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 1).into(), bit)
+                                    .into(),
+                                loc,
+                            ))
+                            .result(0)
+                            .unwrap()
+                            .into()
+                    })
+                    .collect();
+
+                calc_block
+                    .append_operation(qwerty::bitpack(&bit_vals, loc))
+                    .result(0)
+                    .unwrap()
+                    .into()
+            })];
+
+            let (ty, compute_kind) = blit.calc_type().expect("bit literal to pass typechecking");
+            (ty, compute_kind, mlir_vals)
         }
 
         _ => todo!("expression {}", expr),
@@ -1292,11 +1705,29 @@ fn ast_func_def_to_mlir(
         .map(|(name, ast_ty, _mlir_ty)| (name.to_string(), ast_ty.clone()))
         .collect();
     let mut ctx = Ctx::new(&func_block, func_def.new_type_env(&func_tys_available));
+
+    // Bind function arguments
+    assert_eq!(func_def.args.len(), func_block.argument_count());
+    for (arg_name, arg_val) in func_def
+        .args
+        .iter()
+        .map(|(_ty, name)| name)
+        .zip(func_block.arguments())
+    {
+        let old_binding = ctx.bindings.insert(
+            arg_name.to_string(),
+            BoundVals::Materialized(vec![arg_val.into()]),
+        );
+        assert!(old_binding.is_none());
+    }
+
+    // Bind other function names
     for (avail_func_name, _avail_func_ast_ty, avail_func_ty) in funcs_available {
-        ctx.bindings.insert(
+        let old_binding = ctx.bindings.insert(
             avail_func_name.to_string(),
             BoundVals::UnmaterializedFunction(*avail_func_ty),
         );
+        assert!(old_binding.is_none());
     }
 
     for stmt in &func_def.body {
@@ -1351,78 +1782,72 @@ struct RunPassesConfig {
 }
 
 fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
+    let pm = PassManager::new(&MLIR_CTX);
     if cfg.dump {
-        eprintln!("Qwerty-dialect IR:");
-        module.as_operation().dump();
+        let dump_dir = env::current_dir().unwrap().join("mlir-dumps");
+        eprintln!(
+            "MLIR files will be dumped to directory `{}`",
+            dump_dir.display()
+        );
+        pm.enable_ir_printing(&PassIrPrintingOptions {
+            before_all: true,
+            after_all: true,
+            module_scope: false,
+            on_change: false,
+            on_failure: false,
+            flags: OperationPrintingFlags::new(),
+            tree_printing_path: dump_dir,
+        });
     }
 
-    {
-        let pm = PassManager::new(&MLIR_CTX);
+    // Stage 1: Optimize Qwerty dialect
 
-        // Stage 1: Optimize Qwerty dialect
+    // Running the canonicalizer may introduce lambdas, so run it once first
+    // before the lambda lifter
+    pm.add_pass(transform::create_canonicalizer());
+    pm.add_pass(qwerty::create_lift_lambdas());
+    // Will turn qwerty.call_indirects into qwerty.calls
+    pm.add_pass(transform::create_canonicalizer());
+    pm.add_pass(transform::create_inliner());
+    // It seems the inliner may not run a final round of canonicalization
+    // sometimes, so do it ourselves
+    pm.add_pass(transform::create_canonicalizer());
+    // Remove any leftover symbols
+    pm.add_pass(transform::create_symbol_dce());
 
-        // Running the canonicalizer may introduce lambdas, so run it once first
-        // before the lambda lifter
-        pm.add_pass(transform::create_canonicalizer());
-        pm.add_pass(qwerty::create_lift_lambdas());
-        // Will turn qwerty.call_indirects into qwerty.calls
-        pm.add_pass(transform::create_canonicalizer());
-        pm.add_pass(transform::create_inliner());
-        // It seems the inliner may not run a final round of canonicalization
-        // sometimes, so do it ourselves
-        pm.add_pass(transform::create_canonicalizer());
-        // Remove any leftover symbols
-        pm.add_pass(transform::create_symbol_dce());
+    // Stage 2: Convert to QCirc dialect
 
-        // Stage 2: Convert to QCirc dialect
+    // -only-pred-ones will introduce some lambdas, so lift and inline them too
+    pm.add_pass(qwerty::create_only_pred_ones());
+    pm.add_pass(qwerty::create_lift_lambdas());
+    // Will turn qwerty.call_indirects into qwerty.calls
+    pm.add_pass(transform::create_canonicalizer());
+    pm.add_pass(transform::create_inliner());
+    pm.add_pass(qwerty::create_qwerty_to_q_circ_conversion());
+    // Add canonicalizer pass to prune unused "builtin.unrealized_conversion_cast" ops
+    pm.add_pass(transform::create_canonicalizer());
 
-        // -only-pred-ones will introduce some lambdas, so lift and inline them too
-        pm.add_pass(qwerty::create_only_pred_ones());
-        pm.add_pass(qwerty::create_lift_lambdas());
-        // Will turn qwerty.call_indirects into qwerty.calls
-        pm.add_pass(transform::create_canonicalizer());
-        pm.add_pass(transform::create_inliner());
-        pm.add_pass(qwerty::create_qwerty_to_q_circ_conversion());
-        // Add canonicalizer pass to prune unused "builtin.unrealized_conversion_cast" ops
-        pm.add_pass(transform::create_canonicalizer());
-        pm.run(module)?;
-    }
+    // Stage 3: Optimize QCirc dialect
 
-    if cfg.dump {
-        eprintln!("QCirc-dialect IR:");
-        module.as_operation().dump();
-    }
-
-    {
-        let pm = PassManager::new(&MLIR_CTX);
-
-        // Stage 3: Optimize QCirc dialect
-
-        let func_pm = pm.nested_under("func.func");
+    let func_pm = pm.nested_under("func.func");
+    func_pm.add_pass(qcirc::create_peephole_optimization());
+    if cfg.decompose_multi_ctrl {
+        func_pm.add_pass(qcirc::create_decompose_multi_control());
         func_pm.add_pass(qcirc::create_peephole_optimization());
-        if cfg.decompose_multi_ctrl {
-            func_pm.add_pass(qcirc::create_decompose_multi_control());
-            func_pm.add_pass(qcirc::create_peephole_optimization());
-            func_pm.add_pass(qcirc::create_replace_non_qasm_gates());
-        }
-
-        // Stage 4: Convert to QIR
-        pm.add_pass(qcirc::create_replace_non_qir_gates());
-        if cfg.to_base_profile {
-            pm.add_pass(qcirc::create_base_profile_module_prep());
-            let func_pm = pm.nested_under("func.func");
-            func_pm.add_pass(qcirc::create_base_profile_func_prep());
-        }
-        pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
-        pm.add_pass(transform::create_canonicalizer());
-
-        pm.run(module)?;
+        func_pm.add_pass(qcirc::create_replace_non_qasm_gates());
     }
 
-    if cfg.dump {
-        eprintln!("LLVM-dialect IR:");
-        module.as_operation().dump();
+    // Stage 4: Convert to QIR
+    pm.add_pass(qcirc::create_replace_non_qir_gates());
+    if cfg.to_base_profile {
+        pm.add_pass(qcirc::create_base_profile_module_prep());
+        let func_pm = pm.nested_under("func.func");
+        func_pm.add_pass(qcirc::create_base_profile_func_prep());
     }
+    pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
+    pm.add_pass(transform::create_canonicalizer());
+
+    pm.run(module)?;
 
     Ok(())
 }
@@ -1443,14 +1868,14 @@ macro_rules! qir_symbol {
     };
 }
 
-pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize) -> Vec<ShotResult> {
+pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
 
     let mut module = ast_program_to_mlir(prog);
     let cfg = RunPassesConfig {
         decompose_multi_ctrl: false,
         to_base_profile: false,
-        dump: false,
+        dump: debug,
     };
     run_passes(&mut module, cfg).unwrap();
 

@@ -56,6 +56,15 @@ bool mlirAttributeIsAQwertySuperpos(MlirAttribute attr) {
     return llvm::isa<qwerty::SuperposAttr>(unwrap(attr));
 }
 
+MlirAttribute mlirQwertyBuiltinBasisAttrGet(
+        MlirContext ctx, int64_t prim_basis, uint64_t dim) {
+    return wrap(qwerty::BuiltinBasisAttr::get(unwrap(ctx), static_cast<qwerty::PrimitiveBasis>(prim_basis), dim));
+}
+
+bool mlirAttributeIsAQwertyBuiltinBasis(MlirAttribute attr) {
+    return llvm::isa<qwerty::BuiltinBasisAttr>(unwrap(attr));
+}
+
 MlirAttribute mlirQwertySuperposElemAttrGet(
         MlirContext ctx, MlirAttribute prob, MlirAttribute phase,
         intptr_t numVectors, MlirAttribute const *vectors) {
@@ -117,6 +126,12 @@ MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
         MlirContext ctx, MlirAttribute veclist) {
     return wrap(qwerty::BasisElemAttr::get(
         unwrap(ctx), llvm::cast<qwerty::BasisVectorListAttr>(unwrap(veclist))));
+}
+
+MlirAttribute mlirQwertyBasisElemAttrGetFromStd(
+        MlirContext ctx, MlirAttribute std) {
+    return wrap(qwerty::BasisElemAttr::get(
+        unwrap(ctx), llvm::cast<qwerty::BuiltinBasisAttr>(unwrap(std))));
 }
 
 bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr) {

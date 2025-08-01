@@ -1,11 +1,5 @@
-/*
- * QWERTY Programming Language Compiler
- * Abstract Syntax Tree (AST) Definitions
- *
- * This module defines the Abstract Syntax Tree (AST) structures
- * used for parsing and representing QWERTY programs.
- *
- */
+//! Defines the Qwerty Abstract Syntax Tree (AST) and helpful methods for
+//! manipulating them (canonicalizing, getting their dimension, etc.)
 
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
@@ -230,7 +224,6 @@ impl fmt::Display for VectorAtomKind {
     }
 }
 
-//#[derive(Debug, Clone, PartialOrd, PartialEq, Eq)]
 #[derive(Debug, Clone)]
 pub enum Vector {
     ZeroVector {

@@ -570,7 +570,7 @@ class QpuVisitor(BaseVisitor):
         qlit = bv.convert_to_qubit_literal()
         if qlit is None:
             dbg = self.get_debug_loc(node)
-            raise QwertySyntaxError(f"The symbols '?' and '_' are not allowed"
+            raise QwertySyntaxError(f"The symbols '?' and '_' are not allowed "
                                     "in qubit literals.", dbg)
         else:
             return qlit
@@ -1159,14 +1159,17 @@ class QpuVisitor(BaseVisitor):
         Qwerty ``Conditional`` AST node with three children.
         """
         dbg = self.get_debug_loc(if_expr)
-        cond_expr = if_expr.test
-        then_expr = if_expr.body
-        else_expr = if_expr.orelse
+        then_expr = self.visit(if_expr.body)
+        else_expr = self.visit(if_expr.orelse)
 
-        return Expr.new_conditional(self.visit(then_expr),
-                                    self.visit(else_expr),
-                                    self.visit(cond_expr),
-                                    dbg)
+        try:
+            pred_basis = self.extract_basis(if_expr.test)
+        # TODO: do a more granular catch here
+        except QwertySyntaxError:
+            cond_expr = self.visit(if_expr.test)
+            return Expr.new_conditional(then_expr, else_expr, cond_expr, dbg)
+        else:
+            return Expr.new_predicated(then_expr, else_expr, pred_basis, dbg)
 
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):

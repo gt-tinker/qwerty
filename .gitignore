@@ -107,3 +107,6 @@ coverage.css
 
 # Hacky symlink to qwerty-opt
 /dev/bin
+
+# Dumped IR
+mlir-dumps/

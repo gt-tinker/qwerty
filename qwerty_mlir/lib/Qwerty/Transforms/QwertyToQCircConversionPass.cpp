@@ -2090,8 +2090,23 @@ struct Standardization {
     Standardization(qwerty::PrimitiveBasis prim_basis, size_t start, size_t end)
                : prim_basis(prim_basis), start(start), end(end), unconditional(false) {}
 
+    Standardization(qwerty::PrimitiveBasis prim_basis, size_t start, size_t end, bool unconditional)
+               : prim_basis(prim_basis), start(start), end(end), unconditional(unconditional) {}
+
+    static Standardization new_padding(size_t start, size_t end) {
+        return Standardization((qwerty::PrimitiveBasis)-1, start, end);
+    }
+
     bool operator==(const Standardization &stdize) const {
         return prim_basis == stdize.prim_basis && stdize.start == start && stdize.end == end;
+    }
+
+    bool isPadding() const {
+        return prim_basis == (qwerty::PrimitiveBasis)-1;
+    }
+
+    size_t get_dim() const {
+        return end - start;
     }
 
     Standardization split(size_t new_end) {
@@ -2121,117 +2136,108 @@ void findStandardizations(
     }
 }
 
-// Loop over both lists of standardizations simultaneously, marking them as
-// conditional or unconditional as appropriate (see the "standardization"
-// subheading of Section 6.3 of the CGO paper)
+bool primBasisIsSeparable(qwerty::PrimitiveBasis prim) {
+    switch (prim) {
+        case qwerty::PrimitiveBasis::X:
+        case qwerty::PrimitiveBasis::Y:
+        case qwerty::PrimitiveBasis::Z:
+            return true;
+
+        case qwerty::PrimitiveBasis::FOURIER:
+        case qwerty::PrimitiveBasis::BELL:
+            return false;
+
+        default:
+            assert(0 && "Primitive basis missing from primBasisIsSeparable()");
+    }
+}
+
+// Implements Algorithm E6 of Appendix E of the CGO '25 paper. It updates
+// left_stdize and right_stdize in-place to be correctly marked as conditional
+// or unconditional.
 void determineUnconditional(llvm::SmallVectorImpl<Standardization> &left_stdize,
                             llvm::SmallVectorImpl<Standardization> &right_stdize) {
-    size_t left_stdize_idx = 0;
-    size_t right_stdize_idx = 0;
+    std::deque<Standardization> lqueue, rqueue;
+    for (Standardization &std : left_stdize) {
+        lqueue.push_back(std);
+    }
+    for (Standardization &std : right_stdize) {
+        rqueue.push_back(std);
+    }
+    left_stdize.clear();
+    right_stdize.clear();
 
-    while (left_stdize_idx < left_stdize.size()
-           && right_stdize_idx < right_stdize.size()) {
-        Standardization *lstdize = &left_stdize[left_stdize_idx];
-        Standardization *rstdize = &right_stdize[right_stdize_idx];
+    size_t pos = 0;
+    while (!lqueue.empty() && !rqueue.empty()) {
+        Standardization left = lqueue.front();
+        lqueue.pop_front();
+        Standardization right = rqueue.front();
+        rqueue.pop_front();
 
-        if (lstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER
-                || rstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER) {
-            if (*lstdize == *rstdize) {
-                // Edge case:    ... + fourier[N] + ...
-                //            >> ... + fourier[N] + ...
-                lstdize->unconditional = true;
-                rstdize->unconditional = true;
-                left_stdize_idx++;
-                right_stdize_idx++;
-            } else if (lstdize->end == rstdize->end) {
-                // End at the same point, and at least one is a fourier[N], but
-                // they aren't the same
-                //    ... +  std + pm  + ...
-                // >> ... + fourier[2] + ...
-                lstdize->unconditional = false;
-                rstdize->unconditional = false;
-                left_stdize_idx++;
-                right_stdize_idx++;
-            } else if (lstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER
-                       && rstdize->end < lstdize->end) {
-                rstdize->unconditional = false;
-                right_stdize_idx++;
-            } else if (rstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER
-                       && lstdize->end < rstdize->end) {
-                rstdize->unconditional = false;
-                left_stdize_idx++;
-            } else if (lstdize->prim_basis != qwerty::PrimitiveBasis::FOURIER
-                       // && rstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER
-                       && rstdize->end < lstdize->end) {
-                Standardization remainder = lstdize->split(rstdize->end);
-                left_stdize.insert(left_stdize.begin()+left_stdize_idx+1, remainder);
-                // That may have resized the backing array of left_stdize, so we
-                // need to fix our pointer
-                lstdize = &left_stdize[left_stdize_idx];
+        assert(left.start == right.start
+               && "determineUnconditional() invariant violated: "
+                  "standardizations do not start at the same position");
 
-                lstdize->unconditional = false;
-                rstdize->unconditional = false;
-                left_stdize_idx++;
-                right_stdize_idx++;
-            } else if (rstdize->prim_basis != qwerty::PrimitiveBasis::FOURIER
-                       // && lstdize->prim_basis == qwerty::PrimitiveBasis::FOURIER
-                       && lstdize->end < rstdize->end) {
-                Standardization remainder = rstdize->split(lstdize->end);
-                right_stdize.insert(right_stdize.begin()+right_stdize_idx+1, remainder);
-                // That may have resized the backing array of right_stdize, so we
-                // need to fix our pointer
-                rstdize = &right_stdize[right_stdize_idx];
-
-                lstdize->unconditional = false;
-                rstdize->unconditional = false;
-                left_stdize_idx++;
-                right_stdize_idx++;
-            } else {
-                assert(0 && "Unconditional check: impossible case hit");
+        bool unconditional = !left.isPadding() && !right.isPadding()
+                             && left.prim_basis == right.prim_basis;
+        size_t left_dim = left.get_dim();
+        size_t right_dim = right.get_dim();
+        if (left_dim == right_dim) {
+            if (!left.isPadding()) {
+                left_stdize.emplace_back(left.prim_basis, pos, pos + left_dim,
+                                         unconditional);
             }
+            if (!right.isPadding()) {
+                right_stdize.emplace_back(right.prim_basis, pos,
+                                          pos + right_dim, unconditional);
+            }
+            pos += left_dim;
+        } else {
+            size_t big_dim = std::max(left_dim, right_dim);
+            size_t small_dim = std::min(left_dim, right_dim);
+            size_t delta = big_dim - small_dim;
 
-            // Rest of this loop is for brighter days, so skip it
-            continue;
+            Standardization &big = (left_dim > right_dim)? left : right;
+            Standardization &small = (left_dim > right_dim)? right : left;
+
+            llvm::SmallVectorImpl<Standardization> &big_stdize =
+                (left_dim > right_dim)? left_stdize : right_stdize;
+            llvm::SmallVectorImpl<Standardization> &small_stdize =
+                (left_dim > right_dim)? right_stdize : left_stdize;
+
+            std::deque<Standardization> &big_queue =
+                (left_dim > right_dim) ? lqueue : rqueue;
+
+            if (!big.isPadding() && primBasisIsSeparable(big.prim_basis)) {
+                if (!small.isPadding()) {
+                    small_stdize.emplace_back(small.prim_basis, pos,
+                                              pos + small_dim, unconditional);
+                }
+                big_stdize.emplace_back(big.prim_basis, pos, pos + small_dim,
+                                        unconditional);
+                big_queue.push_front(Standardization(big.prim_basis,
+                                                     pos + small_dim,
+                                                     pos + big_dim));
+            } else {
+                if (!small.isPadding()) {
+                    small_stdize.emplace_back(small.prim_basis, pos,
+                                              pos + small_dim,
+                                              /*unconditional=*/false);
+                }
+                if (!big.isPadding()) {
+                    big_stdize.emplace_back(big.prim_basis, pos, pos + big_dim,
+                                            /*unconditional=*/false);
+                }
+                big_queue.push_front(Standardization::new_padding(
+                    pos + small_dim, pos + big_dim));
+            }
+            pos += small_dim;
         }
-
-        // This is intentionally below the checks above that handle the Fourier
-        // basis because this invariant holds only for the remaining code below
-        assert(lstdize->start == rstdize->start
-               && "unconditional loop invariant violated");
-
-        if (lstdize->end < rstdize->end) {
-            Standardization remainder = rstdize->split(lstdize->end);
-            right_stdize.insert(right_stdize.begin()+right_stdize_idx+1, remainder);
-            // That may have resized the backing array of right_stdize, so we
-            // need to fix our pointer
-            rstdize = &right_stdize[right_stdize_idx];
-        } else if (rstdize->end < lstdize->end) {
-            Standardization remainder = lstdize->split(rstdize->end);
-            left_stdize.insert(left_stdize.begin()+left_stdize_idx+1, remainder);
-            // That may have resized the backing array of right_stdize, so we
-            // need to fix our pointer
-            lstdize = &left_stdize[left_stdize_idx];
-        }
-
-        bool uncond = *lstdize == *rstdize;
-        lstdize->unconditional = uncond;
-        rstdize->unconditional = uncond;
-
-        left_stdize_idx++;
-        right_stdize_idx++;
-
     }
 
-    // Deal with stragglers
-    for (; left_stdize_idx < left_stdize.size(); left_stdize_idx++) {
-        Standardization &lstdize = left_stdize[left_stdize_idx];
-        lstdize.unconditional = false;
-    }
-
-    for (; right_stdize_idx < right_stdize.size(); right_stdize_idx++) {
-        Standardization &rstdize = right_stdize[right_stdize_idx];
-        rstdize.unconditional = false;
-    }
+    assert(lqueue.empty() && rqueue.empty()
+           && "determineUnconditional() queues out of sync "
+              "(invariants violated?)");
 }
 
 struct VectorPhase {
@@ -2457,13 +2463,28 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
                            // This is a "compacted" list produced by
                            // compactStandardizedQubits()
                            llvm::SmallVectorImpl<mlir::Value> &qubits) {
-    auto one_qubit_gate = [&](qcirc::Gate1Q kind, size_t idx) {
-        qcirc::Gate1QOp gate = rewriter.create<qcirc::Gate1QOp>(
-            loc, kind, control_qubits, qubits[idx]);
+    auto one_qubit_gate = [&](qcirc::Gate1Q kind, ssize_t ctrl_idx, size_t idx) {
+        qcirc::Gate1QOp gate;
+        if (ctrl_idx >= 0) {
+            llvm::SmallVector<mlir::Value> controls;
+            controls.push_back(qubits[ctrl_idx]);
+            controls.append(control_qubits.begin(), control_qubits.end());
+            gate = rewriter.create<qcirc::Gate1QOp>(
+                loc, kind, controls, qubits[idx]);
+        } else {
+            gate = rewriter.create<qcirc::Gate1QOp>(
+                loc, kind, control_qubits, qubits[idx]);
+        }
         qubits[idx] = gate.getResult();
         control_qubits.clear();
-        control_qubits.append(gate.getControlResults().begin(),
-                              gate.getControlResults().end());
+        if (ctrl_idx >= 0) {
+            qubits[ctrl_idx] = gate.getControlResults()[0];
+            control_qubits.append(gate.getControlResults().begin()+1,
+                                  gate.getControlResults().end());
+        } else {
+            control_qubits.append(gate.getControlResults().begin(),
+                                  gate.getControlResults().end());
+        }
     };
 
     size_t qubit_idx = 0;
@@ -2482,19 +2503,30 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
                 runQft(loc, rewriter, control_qubits,
                        qubits, qubit_idx, dim);
             }
+        } else if (stdize.prim_basis == qwerty::PrimitiveBasis::BELL) {
+            assert(dim == 2 && "I only know the Bell basis on two qubits");
+            if (left) {
+                one_qubit_gate(qcirc::Gate1Q::X, 1, 0);
+                one_qubit_gate(qcirc::Gate1Q::H, -1, 1);
+                one_qubit_gate(qcirc::Gate1Q::Z, 1, 0);
+            } else { // right
+                one_qubit_gate(qcirc::Gate1Q::Z, 1, 0);
+                one_qubit_gate(qcirc::Gate1Q::H, -1, 1);
+                one_qubit_gate(qcirc::Gate1Q::X, 1, 0);
+            }
         } else {
             for (size_t i = qubit_idx; i < qubit_idx + dim; i++) {
                 switch (stdize.prim_basis) {
                 case qwerty::PrimitiveBasis::X:
-                    one_qubit_gate(qcirc::Gate1Q::H, i);
+                    one_qubit_gate(qcirc::Gate1Q::H, -1, i);
                     break;
                 case qwerty::PrimitiveBasis::Y:
                     if (left) {
-                        one_qubit_gate(qcirc::Gate1Q::Sdg, i);
-                        one_qubit_gate(qcirc::Gate1Q::H, i);
+                        one_qubit_gate(qcirc::Gate1Q::Sdg, -1, i);
+                        one_qubit_gate(qcirc::Gate1Q::H, -1, i);
                     } else { // right
-                        one_qubit_gate(qcirc::Gate1Q::H, i);
-                        one_qubit_gate(qcirc::Gate1Q::S, i);
+                        one_qubit_gate(qcirc::Gate1Q::H, -1, i);
+                        one_qubit_gate(qcirc::Gate1Q::S, -1, i);
                     }
                     break;
                 default:

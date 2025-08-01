@@ -113,6 +113,12 @@ repository:
 
     $ dev/run-tests.sh
 
+#### Tricks
+
+To run a particular integration test in `gdb` (e.g., `bv_nometa`):
+
+    $ gdb --args python3 -c 'import qwerty.tests.integ.bv_nometa; qwerty.tests.integ.bv_nometa.test(1)'
+
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://www.rust-lang.org/tools/install

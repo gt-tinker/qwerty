@@ -55,6 +55,14 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposElemAttrGet(
 /// Returns true if this is a qwerty::SuperposElemAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertySuperposElem(MlirAttribute attr);
 
+/// Creates an qwerty::BuiltinBaSisAttr with the provided primtiive basis and
+/// dimension.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBuiltinBasisAttrGet(
+    MlirContext ctx, int64_t prim_basis, uint64_t dim);
+
+/// Returns true if this is a qwerty::BuiltinBasisAttr.
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBuiltinBasis(MlirAttribute attr);
+
 /// Creates an qwerty::BasisVectorAttr. The eigenbits are passed as llvm::APInt
 /// expects in its "bigVal" constructor, which is little endian.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorAttrGet(
@@ -80,6 +88,11 @@ MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVectorList(MlirAttribute attr
 /// provided.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
         MlirContext ctx, MlirAttribute veclist);
+
+/// Creates an qwerty::BasisElemAttr from the qwerty::BuiltinBasisAttr
+/// provided.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromStd(
+        MlirContext ctx, MlirAttribute std);
 
 /// Returns true if this is a qwerty::BasisElemAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr);

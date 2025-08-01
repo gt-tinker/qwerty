@@ -29,12 +29,11 @@ def Qwerty_EigenstateAttr : I64EnumAttr<
 def Qwerty_PrimitiveBasisAttr : I64EnumAttr<
         "PrimitiveBasis", "Operator whose eigenstates to prepare",
         [
-            // The order here MUST match the ordering in defs.hpp or
-            // prim_basis_to_qwerty() will break
             I64EnumAttrCase<"X", 0>,
             I64EnumAttrCase<"Y", 1>,
             I64EnumAttrCase<"Z", 2>,
             I64EnumAttrCase<"FOURIER", 3>,
+            I64EnumAttrCase<"BELL", 4>,
         ]> {
     let cppNamespace = "::qwerty";
 }
