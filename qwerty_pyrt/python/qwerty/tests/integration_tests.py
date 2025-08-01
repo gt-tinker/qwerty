@@ -85,3 +85,9 @@ class IntegrationTests(unittest.TestCase):
             {bit[1](0b1): shots},
         )
         self.assertEqual(expected_histos, tilt_nometa.test(shots))
+
+    def test_fourier_nometa(self):
+        from .integ import fourier_nometa
+        shots = 1024
+        expected_histo = {bit[3](0b101): shots}
+        self.assertEqual(expected_histo, fourier_nometa.test(shots))
