@@ -248,15 +248,20 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
         Vector::OneVector { .. } => (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Minus, 0.0),
 
         Vector::UniformVectorSuperpos { q1, q2, .. } => match (&**q1, &**q2) {
+            // '0' + '1' ==> 'p'
             (Vector::ZeroVector { .. }, Vector::OneVector { .. }) => {
                 (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Plus, 0.0)
             }
+
+            // '0' + '1'@180 ==> 'm'
             (Vector::ZeroVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
                 if angles_are_approx_equal(*angle_deg, 180.0)
                     && matches!(**q, Vector::OneVector { .. }) =>
             {
                 (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Minus, 0.0)
             }
+
+            // '1' + '0'@180 ==> -'m'
             (Vector::OneVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
                 if angles_are_approx_equal(*angle_deg, 180.0)
                     && matches!(**q, Vector::ZeroVector { .. }) =>
@@ -267,6 +272,8 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
                     std::f64::consts::PI,
                 )
             }
+
+            // '0'@180 + '1'@180 ==> -'p'
             (
                 Vector::VectorTilt {
                     q: q1,
@@ -289,6 +296,23 @@ fn ast_vec_to_mlir_helper(vec: &Vector) -> (qwerty::PrimitiveBasis, qwerty::Eige
                     std::f64::consts::PI,
                 )
             }
+
+            // '0' + '1'@90 ==> 'i'
+            (Vector::ZeroVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
+                if angles_are_approx_equal(*angle_deg, 90.0)
+                    && matches!(**q, Vector::OneVector { .. }) =>
+            {
+                (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Plus, 0.0)
+            }
+
+            // '0' + '1'@270 ==> 'j'
+            (Vector::ZeroVector { .. }, Vector::VectorTilt { q, angle_deg, .. })
+                if angles_are_approx_equal(*angle_deg, 270.0)
+                    && matches!(**q, Vector::OneVector { .. }) =>
+            {
+                (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Minus, 0.0)
+            }
+
             _ => todo!("nontrivial superposition {vec}"),
         },
 

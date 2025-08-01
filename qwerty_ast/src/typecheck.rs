@@ -1142,8 +1142,8 @@ fn supneg_ortho(
     bv_1a.strip_dbg() == bv_1b.strip_dbg()
         && bv_2a.strip_dbg() == bv_2b.strip_dbg()
         && basis_vectors_are_ortho(bv_1a, bv_2a)
-        && (in_phase(angle_deg_1a, angle_deg_2a) && anti_phase(angle_deg_1b, angle_deg_2b)
-            || anti_phase(angle_deg_1a, angle_deg_2a) && in_phase(angle_deg_1b, angle_deg_2b))
+        && (in_phase(angle_deg_1a, angle_deg_1b) && anti_phase(angle_deg_2a, angle_deg_2b)
+            || anti_phase(angle_deg_1a, angle_deg_1b) && in_phase(angle_deg_2a, angle_deg_2b))
 }
 
 /// Checks whether `(bv_1a + bv_2a) _|_ (bv_1b + bv_2b)` using the O-Sup
@@ -1225,22 +1225,22 @@ fn superpos_are_ortho(bv_1a: &Vector, bv_2a: &Vector, bv_1b: &Vector, bv_2b: &Ve
                 },
             ),
             (
+                _,
                 Vector::VectorTilt {
-                    q: inner_bv_1b,
-                    angle_deg: angle_deg_1b,
+                    q: inner_bv_2b,
+                    angle_deg: angle_deg_2b,
                     ..
                 },
-                _,
             ),
         ) if supneg_ortho(
             bv_1a,
             0.0,
             inner_bv_2a,
             *angle_deg_2a,
-            inner_bv_1b,
-            *angle_deg_1b,
-            bv_2b,
+            bv_1b,
             0.0,
+            inner_bv_2b,
+            *angle_deg_2b,
         ) =>
         {
             true
@@ -1262,7 +1262,7 @@ fn superpos_are_ortho(bv_1a: &Vector, bv_2a: &Vector, bv_1b: &Vector, bv_2b: &Ve
 }
 
 /// Apply the structural rules (O-Sym and O-SupShuf) to attempt
-/// `superpos_are_ortho()` with different / orderings of the superpos operands.
+/// `superpos_are_ortho()` with different orderings of the superpos operands.
 fn superpos_are_ortho_sym(
     vec_1a: &Vector,
     vec_2a: &Vector,
@@ -1277,7 +1277,6 @@ fn superpos_are_ortho_sym(
 
 /// Determine if basis vectors are orthogonal without using O-Sym
 fn basis_vectors_are_ortho_nosym(bv_1: &Vector, bv_2: &Vector) -> bool {
-    // TODO: need to canonicalize first, i.e., remove nested tensors
     match (bv_1, bv_2) {
         (Vector::ZeroVector { .. }, Vector::OneVector { .. }) => true, // O-Std
 
@@ -1315,8 +1314,11 @@ fn basis_vectors_are_ortho_nosym(bv_1: &Vector, bv_2: &Vector) -> bool {
 /// orthogonality rules. Practically, this means attempting
 /// `basis_vectors_are_ortho()` and then trying again after applying O-Sym.
 fn basis_vectors_are_ortho(bv_1: &Vector, bv_2: &Vector) -> bool {
+    let canon_bv_1 = bv_1.canonicalize();
+    let canon_bv_2 = bv_2.canonicalize();
     // O-Sym
-    basis_vectors_are_ortho_nosym(bv_1, bv_2) || basis_vectors_are_ortho_nosym(bv_2, bv_1)
+    basis_vectors_are_ortho_nosym(&canon_bv_1, &canon_bv_2)
+        || basis_vectors_are_ortho_nosym(&canon_bv_2, &canon_bv_1)
 }
 
 /// Attempts to factors the small basis from the big basis and return the

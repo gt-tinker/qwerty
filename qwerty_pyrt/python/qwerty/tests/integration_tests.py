@@ -74,3 +74,14 @@ class IntegrationTests(unittest.TestCase):
             {bit[1](0b1): shots},
         )
         self.assertEqual(expected_histos, teleport_nometa.test(shots))
+
+    def test_tilt_nometa(self):
+        from .integ import tilt_nometa
+        shots = 1024
+        expected_histos = (
+            {bit[1](0b0): shots},
+            {bit[1](0b1): shots},
+            {bit[1](0b0): shots},
+            {bit[1](0b1): shots},
+        )
+        self.assertEqual(expected_histos, tilt_nometa.test(shots))

@@ -603,6 +603,10 @@ class QpuVisitor(BaseVisitor):
             left = self.extract_basis_vector(node.left)
             right = self.extract_basis_vector(node.right)
             return Vector.new_vector_tensor([left, right], dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
+            q = self.extract_basis_vector(node.left)
+            angle_deg = self.extract_float_const(node.right)
+            return Vector.new_vector_tilt(q, angle_deg, dbg)
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
             q = self.extract_basis_vector(node.operand)
             return Vector.new_vector_tilt(q, 180.0, dbg)
@@ -637,6 +641,16 @@ class QpuVisitor(BaseVisitor):
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis syntax {}'
                                     .format(node_name), dbg)
+
+    # TODO: expand this into extract_float_expr()
+    def extract_float_const(self, node: ast.AST) -> float:
+        if isinstance(node, ast.Constant) \
+                and isinstance(node.value, (int, float)):
+            return float(node.value)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unsupported float constant syntax '
+                                    + node_name, self.get_debug_loc(node))
 
     #def extract_float_expr(self, node: ast.AST):
     #    """
