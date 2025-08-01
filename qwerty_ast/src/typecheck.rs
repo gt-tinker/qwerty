@@ -556,7 +556,7 @@ impl Measure {
         // TODO: Should this be elsewhere?
         if !self.basis.fully_spans() {
             return Err(TypeError {
-                kind: TypeErrorKind::InvalidMeasurementBasisSpan,
+                kind: TypeErrorKind::DoesNotFullySpan,
                 dbg: self.basis.get_dbg(),
             });
         }
@@ -1605,10 +1605,9 @@ impl Basis {
                             if ty == first_ty {
                                 Ok(())
                             } else {
-                                // TODO: use dbg of v, not dbg of basis literal
                                 Err(TypeError {
                                     kind: TypeErrorKind::DimMismatch,
-                                    dbg: dbg.clone(),
+                                    dbg: v.get_dbg(),
                                 })
                             }
                         })
@@ -1635,7 +1634,7 @@ impl Basis {
                 } else {
                     Err(TypeError {
                         kind: TypeErrorKind::InvalidBasis,
-                        dbg: dbg.clone(),
+                        dbg: vecs[0].get_dbg(),
                     })
                 }
             }
@@ -1667,6 +1666,92 @@ impl Basis {
                     elem_ty: RegKind::Basis,
                     dim: total_dim,
                 }),
+
+            Basis::ApplyBasisGenerator {
+                basis,
+                gen: gen @ BasisGenerator::Revolve { v1, v2, dbg },
+                ..
+            } => {
+                let basis_ty = basis.typecheck()?;
+                let basis_dim = if let Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim,
+                } = basis_ty
+                {
+                    Ok(dim)
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidBasis,
+                        dbg: basis.get_dbg(),
+                    })
+                }?;
+
+                if basis_dim == 0 {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::EmptyLiteral,
+                        dbg: basis.get_dbg(),
+                    });
+                }
+
+                if !basis.fully_spans() {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::DoesNotFullySpan,
+                        dbg: basis.get_dbg(),
+                    });
+                }
+
+                let v1_ty = v1.typecheck()?;
+                let v2_ty = v1.typecheck()?;
+
+                if let Type::RegType { elem_ty, dim } = &v1_ty {
+                    if *elem_ty != RegKind::Qubit {
+                        return Err(TypeError {
+                            kind: TypeErrorKind::InvalidBasis,
+                            dbg: v1.get_dbg(),
+                        });
+                    }
+                    if *dim == 0 {
+                        return Err(TypeError {
+                            kind: TypeErrorKind::EmptyLiteral,
+                            dbg: v1.get_dbg(),
+                        });
+                    }
+                    if *dim != 1 {
+                        // TODO: use a better error
+                        return Err(TypeError {
+                            kind: TypeErrorKind::InvalidBasis,
+                            dbg: v1.get_dbg(),
+                        });
+                    }
+                } else {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::InvalidBasis,
+                        dbg: v1.get_dbg(),
+                    });
+                }
+
+                if v2_ty != v1_ty {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::DimMismatch,
+                        dbg: v2.get_dbg(),
+                    });
+                }
+
+                if !basis_vectors_are_ortho(v1, v2) {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::NotOrthogonal {
+                            left: v1.to_string(),
+                            right: v2.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    });
+                }
+
+                Ok(Type::RegType {
+                    elem_ty: RegKind::Basis,
+                    dim: basis_dim + gen.get_dim(),
+                })
+            }
         }
     }
 }

@@ -23,7 +23,7 @@ pub enum TypeErrorKind {
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
     SpanMismatch,
-    InvalidMeasurementBasisSpan,
+    DoesNotFullySpan,
     UnsupportedTensorProduct,
     NotOrthogonal { left: String, right: String },
     InvalidQubitOperation(String),
@@ -56,7 +56,7 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::InvalidBasis => write!(f, "Invalid basis."),
             // TODO: need more detail
             TypeErrorKind::SpanMismatch => write!(f, "Bases do not have matching spans."),
-            TypeErrorKind::InvalidMeasurementBasisSpan => write!(f, "Measurement basis does not span the entire n-qubit space."),
+            TypeErrorKind::DoesNotFullySpan => write!(f, "Basis does not span the entire n-qubit space."),
             // TODO: need more detail. not quite a mismatch but something like
             //       f*f where f : (qubit[1]->bit[1]) -> unit. The types match
             //       but that's not a valid tensor product.

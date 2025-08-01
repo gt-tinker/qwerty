@@ -19,9 +19,10 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisTranslation,
-        BitLiteral, Conditional, Discard, Expr, FunctionDef, Measure, Pipe, Predicated, Program,
-        QLit, RegKind, Return, Stmt, Tensor, UnpackAssign, Variable, Vector, VectorAtomKind,
+        self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisGenerator,
+        BasisTranslation, BitLiteral, Conditional, Discard, Expr, FunctionDef, Measure, Pipe,
+        Predicated, Program, QLit, RegKind, Return, Stmt, Tensor, UnpackAssign, Variable, Vector,
+        VectorAtomKind,
     },
     dbg::DebugLoc,
     typecheck::{ComputeKind, TypeEnv},
@@ -521,6 +522,46 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
+// TODO: Remove this hack
+/// Returns `true` if this is the Fourier basis as defined in the QCE '25
+/// prelude using the `revolve` basis generator.
+fn is_fourier(basis: &Basis) -> bool {
+    match basis {
+        // {'0'+'1', '0'-'1'} == pm (the fourier[1] base case)
+        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+            (if let Vector::UniformVectorSuperpos { q1, q2, .. } = &vecs[0] {
+                matches!(&**q1, Vector::ZeroVector { .. })
+                    && matches!(&**q2, Vector::OneVector { .. })
+            } else {
+                false
+            }) && (if let Vector::UniformVectorSuperpos { q1, q2, .. } = &vecs[1] {
+                matches!(&**q1, Vector::ZeroVector { .. })
+                    && if let Vector::VectorTilt { q, angle_deg, .. } = &**q2 {
+                        matches!(&**q, Vector::OneVector { .. })
+                            && angles_are_approx_equal(*angle_deg, 180.0)
+                    } else {
+                        false
+                    }
+            } else {
+                false
+            })
+        }
+
+        Basis::ApplyBasisGenerator {
+            basis: inner_basis,
+            gen:
+                BasisGenerator::Revolve {
+                    v1: Vector::ZeroVector { .. },
+                    v2: Vector::OneVector { .. },
+                    ..
+                },
+            ..
+        } => is_fourier(inner_basis),
+
+        _ => false,
+    }
+}
+
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
@@ -552,6 +593,14 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                     let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
                     (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
                 },
+
+                Basis::ApplyBasisGenerator { .. } if is_fourier(elem) => {
+                    let dim = elem.get_dim().expect("valid fourier basis").try_into().unwrap();
+                    let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Fourier, dim);
+                    (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
+                }
+
+                Basis::ApplyBasisGenerator { .. } => todo!("nontrivial basis generator"),
 
                 Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
             }

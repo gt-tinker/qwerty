@@ -9,6 +9,13 @@ use std::fmt;
 // ----- Types -----
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RegKind {
+    Bit,   // Classical bit register
+    Qubit, // Quantum bit register
+    Basis, // Register for basis states
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     FuncType { in_ty: Box<Type>, out_ty: Box<Type> },
     RevFuncType { in_out_ty: Box<Type> },
@@ -100,15 +107,6 @@ impl fmt::Display for Type {
             Type::UnitType => write!(f, "None"),
         }
     }
-}
-
-// ----- Registers -----
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RegKind {
-    Bit,   // Classical bit register
-    Qubit, // Quantum bit register
-    Basis, // Register for basis states
 }
 
 // ----- Qubit Literals -----
@@ -258,6 +256,20 @@ pub enum Vector {
 }
 
 impl Vector {
+    /// Returns the source code location for this vector.
+    pub fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            Vector::ZeroVector { dbg }
+            | Vector::OneVector { dbg }
+            | Vector::PadVector { dbg }
+            | Vector::TargetVector { dbg }
+            | Vector::VectorTilt { dbg, .. }
+            | Vector::UniformVectorSuperpos { dbg, .. }
+            | Vector::VectorTensor { dbg, .. }
+            | Vector::VectorUnit { dbg } => dbg.clone(),
+        }
+    }
+
     /// Converts this vector into a qubit literal. Returns None if this vector
     /// contains any padding or target atoms.
     pub fn convert_to_qubit_literal(&self) -> Option<QLit> {
@@ -900,6 +912,64 @@ impl fmt::Display for Vector {
 // ----- Basis -----
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BasisGenerator {
+    Revolve {
+        v1: Vector,
+        v2: Vector,
+        dbg: Option<DebugLoc>,
+    },
+}
+
+impl BasisGenerator {
+    /// Returns a version of this basis generator with no debug info. Useful
+    /// for comparing vectors/bases without considering debug info.
+    pub fn strip_dbg(&self) -> BasisGenerator {
+        match self {
+            BasisGenerator::Revolve { v1, v2, dbg: _ } => BasisGenerator::Revolve {
+                v1: v1.strip_dbg(),
+                v2: v2.strip_dbg(),
+                dbg: None,
+            },
+        }
+    }
+
+    /// Get the number of qubits by which this basis generator would extend any
+    /// basis.
+    pub fn get_dim(&self) -> usize {
+        match self {
+            BasisGenerator::Revolve { .. } => 1,
+        }
+    }
+
+    /// Returns `true` if applying this generator to **a fully spanning basis**
+    /// would yield another fully spanning basis.
+    pub fn fully_spans(&self) -> bool {
+        match self {
+            BasisGenerator::Revolve { .. } => true,
+        }
+    }
+
+    /// Returns this `BasisGenerator` with any contained vectors canonicalized.
+    pub fn canonicalize(&self) -> BasisGenerator {
+        match self {
+            BasisGenerator::Revolve { v1, v2, dbg } => BasisGenerator::Revolve {
+                v1: v1.canonicalize(),
+                v2: v2.canonicalize(),
+                dbg: dbg.clone(),
+            },
+        }
+    }
+}
+
+impl fmt::Display for BasisGenerator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BasisGenerator::Revolve { v1, v2, .. } => write!(f, "{{{},{}}}.revolve", v1, v2),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Basis {
     BasisLiteral {
         vecs: Vec<Vector>,
@@ -910,6 +980,11 @@ pub enum Basis {
     },
     BasisTensor {
         bases: Vec<Basis>,
+        dbg: Option<DebugLoc>,
+    },
+    ApplyBasisGenerator {
+        basis: Box<Basis>,
+        gen: BasisGenerator,
         dbg: Option<DebugLoc>,
     },
 }
@@ -943,15 +1018,21 @@ impl Basis {
                 bases: bases.iter().map(Basis::strip_dbg).collect(),
                 dbg: None,
             },
+            Basis::ApplyBasisGenerator { basis, gen, .. } => Basis::ApplyBasisGenerator {
+                basis: Box::new(basis.strip_dbg()),
+                gen: gen.strip_dbg(),
+                dbg: None,
+            },
         }
     }
 
     /// Returns the source code location for this node.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
-            Basis::BasisLiteral { vecs: _, dbg } => dbg.clone(),
+            Basis::BasisLiteral { dbg, .. } => dbg.clone(),
             Basis::EmptyBasisLiteral { dbg } => dbg.clone(),
-            Basis::BasisTensor { bases: _, dbg } => dbg.clone(),
+            Basis::BasisTensor { dbg, .. } => dbg.clone(),
+            Basis::ApplyBasisGenerator { dbg, .. } => dbg.clone(),
         }
     }
 
@@ -986,6 +1067,10 @@ impl Basis {
                         .iter()
                         .try_fold(0, |acc, v| v.get_dim().map(|dim| acc + dim))
                 }
+            }
+
+            Basis::ApplyBasisGenerator { basis, gen, .. } => {
+                basis.get_dim().map(|basis_dim| basis_dim + gen.get_dim())
             }
         }
     }
@@ -1035,6 +1120,11 @@ impl Basis {
                     Some(indices)
                 }
             }
+
+            // The basis generator extends the basis on the right, and '?' and
+            // '_' and atoms are banned inside basis generators right now, so
+            // we can pass through the indices of the inner basis.
+            Basis::ApplyBasisGenerator { basis, .. } => basis.get_atom_indices(atom),
         }
     }
 
@@ -1082,6 +1172,13 @@ impl Basis {
                     }
                 }
             }
+
+            // The '?' and '_' atoms are banned in basis generators
+            Basis::ApplyBasisGenerator { basis, gen, dbg } => Basis::ApplyBasisGenerator {
+                basis: Box::new(basis.make_explicit()),
+                gen: gen.clone(),
+                dbg: dbg.clone(),
+            },
         }
     }
 
@@ -1112,7 +1209,9 @@ impl Basis {
                     .iter()
                     .map(Basis::canonicalize)
                     .flat_map(|basis| match basis {
-                        Basis::BasisLiteral { .. } => vec![basis],
+                        Basis::BasisLiteral { .. } | Basis::ApplyBasisGenerator { .. } => {
+                            vec![basis]
+                        }
                         Basis::EmptyBasisLiteral { .. } => vec![],
                         Basis::BasisTensor {
                             bases: inner_bases, ..
@@ -1130,6 +1229,12 @@ impl Basis {
                     }
                 }
             }
+
+            Basis::ApplyBasisGenerator { basis, gen, dbg } => Basis::ApplyBasisGenerator {
+                basis: Box::new(basis.canonicalize()),
+                gen: gen.canonicalize(),
+                dbg: dbg.clone(),
+            },
         }
     }
 
@@ -1138,7 +1243,7 @@ impl Basis {
         match self {
             Basis::EmptyBasisLiteral { .. } => vec![],
 
-            Basis::BasisLiteral { .. } => vec![self.clone()],
+            Basis::BasisLiteral { .. } | Basis::ApplyBasisGenerator { .. } => vec![self.clone()],
 
             Basis::BasisTensor { bases, .. } => bases.clone(),
         }
@@ -1173,6 +1278,10 @@ impl Basis {
             }
 
             Basis::BasisTensor { bases, .. } => bases.iter().all(Basis::fully_spans),
+
+            Basis::ApplyBasisGenerator { basis, gen, .. } => {
+                basis.fully_spans() && gen.fully_spans()
+            }
         }
     }
 
@@ -1183,7 +1292,9 @@ impl Basis {
     /// canonicalized first.
     pub fn normalize(&self) -> Basis {
         match self {
-            Basis::EmptyBasisLiteral { .. } => self.clone(),
+            // Pass through basis generators unchanged because they should be
+            // treated as a giant inseparable basis
+            Basis::EmptyBasisLiteral { .. } | Basis::ApplyBasisGenerator { .. } => self.clone(),
 
             Basis::BasisLiteral { vecs, dbg } => {
                 let mut norm_vecs: Vec<_> = vecs.iter().map(Vector::normalize).collect();
@@ -1225,6 +1336,7 @@ impl fmt::Display for Basis {
                 }
                 Ok(())
             }
+            Basis::ApplyBasisGenerator { basis, gen, .. } => write!(f, "({}) // ({})", basis, gen),
         }
     }
 }

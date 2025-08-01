@@ -3,7 +3,8 @@ mod wrap_ast;
 mod wrap_repl;
 
 use crate::wrap_ast::{
-    Basis, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type, TypeEnv, Vector,
+    Basis, BasisGenerator, DebugLoc, Expr, FunctionDef, Program, QLit, RegKind, Stmt, Type,
+    TypeEnv, Vector,
 };
 use crate::wrap_repl::ReplState;
 use pyo3::prelude::*;
@@ -21,6 +22,7 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Type>()?;
     module.add_class::<QLit>()?;
     module.add_class::<Vector>()?;
+    module.add_class::<BasisGenerator>()?;
     module.add_class::<Basis>()?;
     module.add_class::<Expr>()?;
     module.add_class::<Stmt>()?;

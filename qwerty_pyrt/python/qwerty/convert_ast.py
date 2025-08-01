@@ -11,7 +11,8 @@ from enum import Enum
 from typing import List, Tuple, Union, Optional
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
-from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, Basis, Stmt, Expr
+from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, \
+                          Basis, Stmt, Expr, BasisGenerator
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -622,6 +623,25 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
                                     .format(node_name), dbg)
 
+    def extract_basis_generator(self, node: ast.AST) -> BasisGenerator:
+        dbg = self.get_debug_loc(node)
+
+        if isinstance(call := node, ast.Call) \
+                and isinstance(func_name := call.func, ast.Name) \
+                and func_name.id == '__REVOLVE__':
+            n_args = len(call.args)
+            if n_args != 2:
+                raise QwertySyntaxError(f'Wrong number of arguments {n_args} '
+                                        '!= 2 to __REVOLVE__ intrinsic', dbg)
+            arg1, arg2 = call.args
+            v1 = self.extract_basis_vector(arg1)
+            v2 = self.extract_basis_vector(arg2)
+            return BasisGenerator.new_revolve(v1, v2, dbg)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unknown basis generator syntax {}'
+                                    .format(node_name), dbg)
+
     def extract_basis(self, node: ast.AST) -> Basis:
         dbg = self.get_debug_loc(node)
 
@@ -634,6 +654,10 @@ class QpuVisitor(BaseVisitor):
             left = self.extract_basis(node.left)
             right = self.extract_basis(node.right)
             return Basis.new_basis_tensor([left, right], dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.FloorDiv):
+            basis = self.extract_basis(node.left)
+            gen = self.extract_basis_generator(node.right)
+            return Basis.new_apply_basis_generator(basis, gen, dbg)
         elif (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)) \
                 or (isinstance(node, ast.Constant) and isinstance(node.value, str)):
             return Basis.new_basis_literal([self.extract_basis_vector(node)], dbg)

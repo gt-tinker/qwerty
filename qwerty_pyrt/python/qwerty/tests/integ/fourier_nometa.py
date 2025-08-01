@@ -8,7 +8,7 @@ from qwerty import *
 @qpu
 def kernel() -> bit[3]:
     return (('0' + '1'@180) * ('0' + '1'@90) * ('0' + '1'@225)
-            | __MEASURE__(({'0'+'1', '0'-'1'} // __REVOLVE__({'0','1'})) // __REVOLVE__({'0','1'})))
+            | __MEASURE__(({'0'+'1', '0'-'1'} // __REVOLVE__('0','1')) // __REVOLVE__('0','1')))
 
 def test(shots):
     return kernel(shots=shots)

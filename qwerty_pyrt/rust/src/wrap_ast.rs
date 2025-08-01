@@ -356,6 +356,31 @@ impl Vector {
 
 #[pyclass]
 #[derive(Clone)]
+pub struct BasisGenerator {
+    gen: ast::BasisGenerator,
+}
+
+#[pymethods]
+impl BasisGenerator {
+    #[classmethod]
+    fn new_revolve(
+        _cls: &Bound<'_, PyType>,
+        v1: Vector,
+        v2: Vector,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            gen: ast::BasisGenerator::Revolve {
+                v1: v1.vec,
+                v2: v2.vec,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
 pub struct Basis {
     basis: ast::Basis,
 }
@@ -394,6 +419,22 @@ impl Basis {
         Self {
             basis: ast::Basis::BasisTensor {
                 bases: bases.iter().map(|b| b.basis.clone()).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_apply_basis_generator(
+        _cls: &Bound<'_, PyType>,
+        basis: Basis,
+        gen: BasisGenerator,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            basis: ast::Basis::ApplyBasisGenerator {
+                basis: Box::new(basis.basis),
+                gen: gen.gen,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
