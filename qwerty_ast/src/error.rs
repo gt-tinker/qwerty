@@ -20,6 +20,9 @@ pub enum TypeErrorKind {
     ReturnOutsideFunction,
     InvalidIntermediateComputation,
     // Quantum-specific errors:
+    LinearVariableUsedTwice(String),
+    LinearVariableUnused(String),
+    LinearVariableUseMismatch(String),
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
     SpanMismatch,
@@ -51,6 +54,9 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::InvalidFloat { float } => write!(f, "The float {float} is invalid. Floats used in Qwerty must be finite and not NaN."),
             TypeErrorKind::ReturnOutsideFunction => write!(f, "The return statement can only be written inside a function."),
             TypeErrorKind::InvalidIntermediateComputation => write!(f, "Qubit References should only be intermediate computations."),
+            TypeErrorKind::LinearVariableUsedTwice(var) => write!(f, "The qubit register variable '{var}' must be used exactly once, but a second usage was encountered."),
+            TypeErrorKind::LinearVariableUnused(var) => write!(f, "The qubit register variable '{var}' must be used exactly once, but it was never used."),
+            TypeErrorKind::LinearVariableUseMismatch(var) => write!(f, "The qubit register variable '{var}' is used in one branch of a classical conditional and not the other branch."),
             TypeErrorKind::MismatchedAtoms { atom_kind } => write!(f, "The location of {atom_kind} does not match between both bases."),
             // TODO: needs more details (maybe?)
             TypeErrorKind::InvalidBasis => write!(f, "Invalid basis."),

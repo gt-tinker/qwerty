@@ -4,7 +4,7 @@ use crate::ast::*;
 use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 /// Supplements the type judgment with an additional bit of information:
@@ -40,13 +40,14 @@ impl ComputeKind {
 #[derive(Debug, Clone)]
 pub struct TypeEnv {
     vars: HashMap<String, Type>,
-    // TODO: Extend as needed (functions, modules, scopes, etc.)
+    linear_vars_used: HashSet<String>,
 }
 
 impl TypeEnv {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
+            linear_vars_used: HashSet::new(),
         }
     }
 
@@ -139,6 +140,34 @@ impl FunctionDef {
         }
     }
 
+    /// Verifies that all linear values were used at least once. Should be
+    /// called after all statements are type checked.
+    pub fn final_linearity_check(&self, env: &TypeEnv) -> Result<(), TypeError> {
+        let linear_vars: HashSet<_> = env
+            .vars
+            .iter()
+            .filter_map(|(var, ty)| {
+                if ty.is_linear() {
+                    Some(var.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if let Some(unused_var) = linear_vars
+            .difference(&env.linear_vars_used)
+            .into_iter()
+            .next()
+        {
+            Err(TypeError {
+                kind: TypeErrorKind::LinearVariableUnused(unused_var.to_string()),
+                dbg: self.dbg.clone(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     /// Typechecks a single function and its body, including reversibility
     /// validation. The argument `funcs_available` is used to initialize the
     /// type environment with the names of functions defined earlier.
@@ -154,7 +183,7 @@ impl FunctionDef {
             self.check_stmt_compute_kind(compute_kind)?;
         }
 
-        Ok(())
+        self.final_linearity_check(&env)
     }
 }
 
@@ -428,15 +457,24 @@ fn tensor_product_types(
 impl Variable {
     pub fn calc_type(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         let Variable { name, dbg } = self;
-        if let Some(var_ty) = env.get_var(name) {
-            // Surprisingly, using a variable is always reversible. The big
-            // question is how you use it.
+        let (var_ty, compute_kind) = if let Some(var_ty) = env.get_var(name) {
+            // Surprisingly, referencing a variable is always reversible.
+            // How you use the variable is what determines reversibility.
             Ok((var_ty.clone(), ComputeKind::Rev))
         } else {
             Err(TypeError {
-                kind: TypeErrorKind::UndefinedVariable(name.clone()),
+                kind: TypeErrorKind::UndefinedVariable(name.to_string()),
                 dbg: dbg.clone(),
             })
+        }?;
+
+        if var_ty.is_linear() && !env.linear_vars_used.insert(name.to_string()) {
+            Err(TypeError {
+                kind: TypeErrorKind::LinearVariableUsedTwice(name.to_string()),
+                dbg: dbg.clone(),
+            })
+        } else {
+            Ok((var_ty, compute_kind))
         }
     }
 
@@ -976,7 +1014,57 @@ impl NonUniformSuperpos {
     }
 }
 
+/// Holds persistent context needed for incrementally type checking a
+/// [`Conditional`] expression.
+pub struct ConditionalTypeCtx {
+    /// Initially this holds the `TypeEnv.linear_vars_used` before the 'then'
+    /// branch, but after the 'then' branch, it holds the
+    ///`TypeEnv.linear_vars_used` resulting from the 'then' branch.
+    backup_linear_vars_used: HashSet<String>,
+}
+
 impl Conditional {
+    /// Must run before the 'then' branch is type checked.
+    pub fn linearity_check_before_then(&self, env: &TypeEnv) -> ConditionalTypeCtx {
+        ConditionalTypeCtx {
+            backup_linear_vars_used: env.linear_vars_used.clone(),
+        }
+    }
+
+    /// Must run after the 'then' branch is type checked but before the 'else'
+    /// branch is type checked.
+    pub fn linearity_check_after_then_before_else(
+        &self,
+        env: &mut TypeEnv,
+        ctx: &mut ConditionalTypeCtx,
+    ) {
+        // Restore the linear_vars_used in the TypeEnv from before typechecking
+        // the 'then' branch and backup the linear_vars_used from typechecking
+        // the 'then' branch.
+        std::mem::swap(&mut env.linear_vars_used, &mut ctx.backup_linear_vars_used);
+    }
+
+    /// Must run after the 'else' branch is type checked.
+    pub fn linearity_check_after_else(
+        &self,
+        env: &TypeEnv,
+        ctx: &ConditionalTypeCtx,
+    ) -> Result<(), TypeError> {
+        if let Some(mismatch_var) = env
+            .linear_vars_used
+            .symmetric_difference(&ctx.backup_linear_vars_used)
+            .into_iter()
+            .next()
+        {
+            Err(TypeError {
+                kind: TypeErrorKind::LinearVariableUseMismatch(mismatch_var.to_string()),
+                dbg: self.dbg.clone(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn calc_type(
         &self,
         then_result: &(Type, ComputeKind),
@@ -1029,8 +1117,11 @@ impl Conditional {
             cond,
             ..
         } = self;
+        let mut ctx = self.linearity_check_before_then(env);
         let t_result = then_expr.typecheck(env)?;
+        self.linearity_check_after_then_before_else(env, &mut ctx);
         let e_result = else_expr.typecheck(env)?;
+        self.linearity_check_after_else(env, &ctx)?;
         let c_result = cond.typecheck(env)?;
         self.calc_type(&t_result, &e_result, &c_result)
     }

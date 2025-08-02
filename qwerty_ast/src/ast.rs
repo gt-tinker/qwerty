@@ -35,6 +35,11 @@ impl Type {
             Ok(Type::TupleType { tys })
         }
     }
+
+    /// Returns true if this is a linear type, i.e., must be used exactly once.
+    pub fn is_linear(&self) -> bool {
+        matches!(self, Type::RegType { elem_ty: RegKind::Qubit, dim } if *dim > 0)
+    }
 }
 
 impl fmt::Display for Type {

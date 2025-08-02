@@ -1574,9 +1574,13 @@ fn ast_expr_to_mlir(
 
             let then_block_args = &[];
             let then_block = Block::new(then_block_args);
+
+            let mut conditional_ctx = conditional.linearity_check_before_then(&ctx.type_env);
             let (then_ty, then_compute_kind, then_vals) =
                 ast_expr_to_mlir(then_expr, ctx, &then_block);
             then_block.append_operation(scf::r#yield(&then_vals, loc));
+            conditional
+                .linearity_check_after_then_before_else(&mut ctx.type_env, &mut conditional_ctx);
 
             let then_region = Region::new();
             then_region.append_block(then_block);
@@ -1586,6 +1590,9 @@ fn ast_expr_to_mlir(
             let (else_ty, else_compute_kind, else_vals) =
                 ast_expr_to_mlir(else_expr, ctx, &else_block);
             else_block.append_operation(scf::r#yield(&else_vals, loc));
+            conditional
+                .linearity_check_after_else(&ctx.type_env, &conditional_ctx)
+                .expect("conditionals to have no linearity issues");
 
             let else_region = Region::new();
             else_region.append_block(else_block);
@@ -1817,6 +1824,10 @@ fn ast_func_def_to_mlir(
             .check_stmt_compute_kind(compute_kind)
             .expect("Statement to have a valid ComputeKind");
     }
+
+    func_def
+        .final_linearity_check(&ctx.type_env)
+        .expect("No linear typing problems");
 
     let func_region = Region::new();
     func_region.append_block(func_block);
