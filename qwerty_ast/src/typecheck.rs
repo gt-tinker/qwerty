@@ -50,9 +50,22 @@ impl TypeEnv {
         }
     }
 
-    // Allows Shadowing
-    pub fn insert_var(&mut self, name: &str, typ: Type) {
-        self.vars.insert(name.to_string(), typ);
+    /// Attempts to insert a variable into the type context, throwing an error
+    /// if it is already defined.
+    pub fn insert_var(
+        &mut self,
+        name: &str,
+        typ: Type,
+        dbg: &Option<DebugLoc>,
+    ) -> Result<(), TypeError> {
+        if let None = self.vars.insert(name.to_string(), typ) {
+            Ok(())
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
+                dbg: dbg.clone(),
+            })
+        }
     }
 
     pub fn get_var(&self, name: &str) -> Option<&Type> {
@@ -87,19 +100,19 @@ impl Program {
 
 impl FunctionDef {
     /// Returns a new `TypeEnv` for type checking the body of this function.
-    pub fn new_type_env(&self, funcs_available: &[(String, Type)]) -> TypeEnv {
+    pub fn new_type_env(&self, funcs_available: &[(String, Type)]) -> Result<TypeEnv, TypeError> {
         let mut env = TypeEnv::new();
 
         for (name, ty) in funcs_available {
-            env.insert_var(name, ty.clone());
+            env.insert_var(name, ty.clone(), &self.dbg)?;
         }
 
         // Bind function arguments in environment
         for (ty, name) in &self.args {
-            env.insert_var(name, ty.clone());
+            env.insert_var(name, ty.clone(), &self.dbg)?;
         }
 
-        env
+        Ok(env)
     }
 
     /// Returns the expected return type for this function.
@@ -132,7 +145,7 @@ impl FunctionDef {
     /// (Recursion and mutual recursion are banned in Qwerty, so the current
     ///  function is not included in this list.)
     pub fn typecheck(&self, funcs_available: &[(String, Type)]) -> Result<(), TypeError> {
-        let mut env = self.new_type_env(funcs_available);
+        let mut env = self.new_type_env(funcs_available)?;
 
         // Single Pass: For each statement, check reversibility BEFORE updating environment
         for stmt in &self.body {
@@ -155,9 +168,9 @@ impl Assign {
         env: &mut TypeEnv,
         rhs_result: &(Type, ComputeKind),
     ) -> Result<ComputeKind, TypeError> {
-        let Assign { lhs, .. } = self;
+        let Assign { lhs, dbg, .. } = self;
         let (rhs_ty, result_compute_kind) = rhs_result;
-        env.insert_var(lhs, rhs_ty.clone()); // Shadowing allowed for now.
+        env.insert_var(lhs, rhs_ty.clone(), dbg)?;
         Ok(*result_compute_kind)
     }
 
@@ -197,9 +210,10 @@ impl UnpackAssign {
                         var,
                         Type::RegType {
                             elem_ty: elem_ty.clone(),
-                            dim: 1, // TODO: DimExpr check!
+                            dim: 1,
                         },
-                    );
+                        dbg,
+                    )?;
                 }
                 Ok(*compute_kind)
             }

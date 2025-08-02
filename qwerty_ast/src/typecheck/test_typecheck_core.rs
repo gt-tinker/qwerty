@@ -1,6 +1,8 @@
 // Unit tests for typecheck module
 
 use super::*;
+use crate::ast::{Assign, Expr, FunctionDef, Program, Stmt, Type, UnpackAssign};
+use dashu::integer::UBig;
 
 #[test]
 fn test_typecheck_var_and_assign() {
@@ -29,8 +31,6 @@ fn test_typecheck_var_and_assign() {
 
 #[test]
 fn test_unpack_assign_typing() {
-    use crate::ast::*;
-
     // Case 1: Legal unpack (2 variables, qubit[2])
     let legal_prog = Program {
         funcs: vec![FunctionDef {
@@ -59,7 +59,9 @@ fn test_unpack_assign_typing() {
             elem_ty: RegKind::Qubit,
             dim: 2,
         },
-    );
+        /*dbg=*/ &None,
+    )
+    .unwrap();
 
     // The typechecker expects to build the environment itself, so let's test the stmt directly:
     let stmt = &legal_prog.funcs[0].body[0];
@@ -82,7 +84,9 @@ fn test_unpack_assign_typing() {
             elem_ty: RegKind::Qubit,
             dim: 2,
         },
-    );
+        /*dbg=*/ &None,
+    )
+    .unwrap();
 
     let result2 = illegal_stmt.typecheck(&mut env2, Some(Type::UnitType));
     assert!(
@@ -98,9 +102,32 @@ fn test_unpack_assign_typing() {
 }
 
 #[test]
-fn test_unpack_assign_non_register_rhs() {
-    use crate::ast::*;
+fn test_assign_shadow() {
+    let stmt = Stmt::Assign(Assign {
+        lhs: "bubba".to_string(),
+        rhs: Expr::BitLiteral(BitLiteral {
+            dim: 1,
+            bits: UBig::ZERO,
+            dbg: None,
+        }),
+        dbg: None,
+    });
+    let mut env = TypeEnv::new();
+    env.insert_var("bubba", Type::UnitType, /*dbg=*/ &None)
+        .unwrap();
 
+    let result = stmt.typecheck(&mut env, Some(Type::UnitType));
+    assert_eq!(
+        result,
+        Err(TypeError {
+            kind: TypeErrorKind::RedefinedVariable("bubba".to_string()),
+            dbg: None,
+        })
+    );
+}
+
+#[test]
+fn test_unpack_assign_non_register_rhs() {
     // Trying to unpack a UnitType (not a register!)
     let stmt = Stmt::UnpackAssign(UnpackAssign {
         lhs: vec!["a".into()],
@@ -111,7 +138,8 @@ fn test_unpack_assign_non_register_rhs() {
         dbg: None,
     });
     let mut env = TypeEnv::new();
-    env.insert_var("not_a_reg", Type::UnitType);
+    env.insert_var("not_a_reg", Type::UnitType, /*dbg=*/ &None)
+        .unwrap();
 
     let result = stmt.typecheck(&mut env, Some(Type::UnitType));
     assert!(
@@ -128,7 +156,6 @@ fn test_unpack_assign_non_register_rhs() {
 
 #[test]
 fn test_valid_tupletype_construction() {
-    use crate::ast::*;
     let tys = vec![Type::UnitType, Type::UnitType];
     let tuple = Type::tuple(tys);
     assert!(tuple.is_ok());
@@ -136,7 +163,6 @@ fn test_valid_tupletype_construction() {
 
 #[test]
 fn test_invalid_tupletype_construction() {
-    use crate::ast::*;
     // This test checks that constructing a TupleType with fewer than 2 types fails.
     let tys = vec![Type::UnitType];
     let tuple = Type::tuple(tys);
@@ -145,7 +171,6 @@ fn test_invalid_tupletype_construction() {
 
 #[test]
 fn test_functiondef_get_type_tuple_args() {
-    use crate::ast::*;
     let func = FunctionDef::new(
         "f_tuple".to_string(),
         vec![

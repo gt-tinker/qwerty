@@ -1777,7 +1777,10 @@ fn ast_func_def_to_mlir(
         .iter()
         .map(|(name, ast_ty, _mlir_ty)| (name.to_string(), ast_ty.clone()))
         .collect();
-    let mut ctx = Ctx::new(&func_block, func_def.new_type_env(&func_tys_available));
+    let type_env = func_def
+        .new_type_env(&func_tys_available)
+        .expect("valid type env");
+    let mut ctx = Ctx::new(&func_block, type_env);
 
     // Bind function arguments
     assert_eq!(func_def.args.len(), func_block.argument_count());

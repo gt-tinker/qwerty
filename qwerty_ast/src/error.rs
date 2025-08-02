@@ -35,7 +35,7 @@ impl fmt::Display for TypeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TypeErrorKind::UndefinedVariable(var) => write!(f, "Variable '{var}' is used but not declared or is out of scope."),
-            TypeErrorKind::RedefinedVariable(var) => write!(f, "Variable '{var}' declared more than once in the same scope."),
+            TypeErrorKind::RedefinedVariable(var) => write!(f, "Variable '{var}' is already defined."),
             TypeErrorKind::UninitializedVariable(var) => write!(f, "Variable '{var}' is used before being assigned a value."),
             TypeErrorKind::ImmutableAssignment(var) => write!(f, "Attempt to assign to a variable '{var}' that is immutable."),
             TypeErrorKind::MismatchedTypes { expected, found } => write!(f, "Value type '{found}' does not match the expected type '{expected}'."),
