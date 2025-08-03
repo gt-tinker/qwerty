@@ -18,7 +18,4 @@ include "CCircOps.td"
 // Types
 include "CCircTypes.td"
 
-// Attributes
-include "CCircAttributes.td"
-
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_TD

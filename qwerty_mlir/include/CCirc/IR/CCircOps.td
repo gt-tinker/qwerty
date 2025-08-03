@@ -5,7 +5,6 @@
 #define DIALECT_INCLUDE_CCIRC_IR_CCIRC_OPS_TD
 
 include "CCirc/IR/CCircDialect.td"
-include "CCirc/IR/CCircAttributes.td"
 
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"

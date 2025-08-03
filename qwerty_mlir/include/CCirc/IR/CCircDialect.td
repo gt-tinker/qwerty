@@ -22,12 +22,10 @@ def CCirc_Dialect : Dialect {
     let cppNamespace = "::ccirc";
 
   let useDefaultTypePrinterParser = 1; // can change this to 0 later to change the type printer/parser
-  let useDefaultAttributePrinterParser = 1;
 
   let extraClassDeclaration = [{
     private:
       void registerTypes();
-      void registerAttributes();
   }];
 }
 

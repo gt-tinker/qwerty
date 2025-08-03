@@ -9,7 +9,6 @@
 #include "llvm/IR/Constants.h"
 
 #include "CCirc/IR/CCircDialect.h"
-#include "CCirc/IR/CCircAttributes.h"
 #include "CCirc/IR/CCircOps.h"
 
 #include "CCirc/IR/CCircOpsDialect.cpp.inc"
@@ -40,7 +39,6 @@ struct CCircInlinerInterface : public mlir::DialectInlinerInterface {
 namespace ccirc {
 
 void CCircDialect::initialize() {
-    registerAttributes();
     registerTypes();
 
     addOperations<

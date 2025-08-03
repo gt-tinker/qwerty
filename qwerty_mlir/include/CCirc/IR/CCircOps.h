@@ -18,7 +18,6 @@
 
 #include "CCirc/IR/CCircDialect.h"
 #include "CCirc/IR/CCircTypes.h"
-#include "CCirc/IR/CCircAttributes.h"
 
 #define GET_OP_CLASSES
 #include "CCirc/IR/CCircOps.h.inc"
