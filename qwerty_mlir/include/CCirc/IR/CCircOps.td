@@ -23,6 +23,12 @@ def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove]> {
     let regions = (region SizedRegion<1>:$body);
 
     let hasCustomAssemblyFormat = 1;
+
+    let extraClassDeclaration = [{
+        mlir::Block &bodyBlock() {
+            return getBody().front();
+        };
+    }];
 }
 
 def CCirc_ReturnOp : CCirc_Op<"return", [Pure, HasParent<"CircuitOp">,

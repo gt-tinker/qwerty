@@ -5,6 +5,7 @@
 #include "mockturtle/networks/xag.hpp"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "CCirc/IR/CCircOps.h"
 
 // This is a wrapper around Tweedledum.
 // This code is unique in that it is called by both the AST-based frontend and
@@ -23,6 +24,8 @@ struct TweedledumCircuit {
                        n_data_qubits(numDataQubits(circ)),
                        n_ancilla_qubits(n_total_qubits - n_data_qubits) {}
 
+    // Create a TweedledumCircuit from a Circuit expressed in the ccirc dialect
+    static TweedledumCircuit fromCCirc(ccirc::CircuitOp circ);
     // Create a TweedledumCircuit from a mockturtle netlist
     static TweedledumCircuit fromNetlist(mockturtle::xag_network &raw_net);
     // Create a TweedledumCircuit from a classical permutation

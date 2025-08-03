@@ -115,7 +115,7 @@ add_subdirectory(qwerty_mlir)
 add_library(qwutil STATIC qwerty_util/tweedledum.cpp)
 target_link_libraries(qwutil ${TWEEDLEDUM_LIB_PATH})
 # Need tablegen-generated header files
-add_dependencies(qwutil MLIRQCircOpsIncGen)
+add_dependencies(qwutil MLIRQCircOpsIncGen MLIRCCircOpsIncGen)
 
 install(TARGETS qwutil)
 

@@ -13,6 +13,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Verifier.h"
 
+#include "CCirc/IR/CCircOps.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/IR/QCircAttributes.h"
 #include "Qwerty/IR/QwertyOps.h"
@@ -41,6 +42,79 @@ mlir::Value wrapFloatConst(mlir::OpBuilder &builder,
 }
 
 } // namespace
+
+TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
+    // Input: basic block that is a list of classical logic gates
+    mlir::Block &body = circ.bodyBlock();
+    // Output: a Mockturtle XAG
+    mockturtle::xag_network net;
+
+    llvm::DenseMap<mlir::Value, llvm::SmallVector<mockturtle::xag_network::signal>> val_signals;
+    for (mlir::BlockArgument block_arg : body.getArguments()) {
+        ccirc::WireBundleType arg_ty =
+            llvm::cast<ccirc::WireBundleType>(block_arg.getType());
+        uint64_t dim = arg_ty.getDim();
+        llvm::SmallVector<mockturtle::xag_network::signal> input_signals;
+        for (uint64_t i = 0; i < dim; i++) {
+            input_signals.push_back(net.create_pi());
+        }
+        [[maybe_unused]] bool inserted = val_signals.insert({block_arg, input_signals}).second;
+        assert(inserted && "duplicate block args?");
+    }
+
+    for (mlir::Operation &op : body) {
+        if (ccirc::ReturnOp ret_op = llvm::dyn_cast<ccirc::ReturnOp>(&op)) {
+            for (mlir::Value ret_operand : ret_op.getOperands()) {
+                assert(val_signals.contains(ret_operand) && "returned value not tracked");
+                for (mockturtle::xag_network::signal ret_sig : val_signals.at(ret_operand)) {
+                    net.create_po(ret_sig);
+                }
+            }
+            // Done
+            break;
+        }
+
+        #define ELIF_BINARY_OP(op_class, op_name, mock_func) \
+            else if (ccirc::op_class op_name##_op = llvm::dyn_cast<ccirc::op_class>(&op)) { \
+                assert(val_signals.contains(op_name##_op.getLeft()) && "left operand of " #op_class " not tracked"); \
+                assert(val_signals.contains(op_name##_op.getRight()) && "right operand of " #op_class " not tracked"); \
+                llvm::SmallVector<mockturtle::xag_network::signal> result_signals; \
+                for (auto [l, r] : llvm::zip(val_signals.at(op_name##_op.getLeft()), val_signals.at(op_name##_op.getRight()))) { \
+                    result_signals.push_back(net.mock_func(l, r)); \
+                } \
+                [[maybe_unused]] bool inserted = val_signals.try_emplace(op_name##_op.getResult(), std::move(result_signals)).second; \
+                assert(inserted && "encountered value twice?"); \
+            }
+
+        ELIF_BINARY_OP(AndOp, and, create_and)
+        ELIF_BINARY_OP(OrOp, or, create_or)
+        ELIF_BINARY_OP(XorOp, xor, create_xor)
+
+        #undef ELIF_BINARY_OP
+
+        #define ELIF_UNARY_OP(op_class, op_name, mock_func) \
+            else if (ccirc::op_class op_name##_op = llvm::dyn_cast<ccirc::op_class>(&op)) { \
+                assert(val_signals.contains(op_name##_op.getOperand()) && "operand of " #op_class " not tracked"); \
+                llvm::SmallVector<mockturtle::xag_network::signal> result_signals; \
+                for (mockturtle::xag_network::signal sig : val_signals.at(op_name##_op.getOperand())) { \
+                    result_signals.push_back(net.mock_func(sig)); \
+                } \
+                [[maybe_unused]] bool inserted = val_signals.try_emplace(op_name##_op.getResult(), std::move(result_signals)).second; \
+                assert(inserted && "encountered value twice?"); \
+            }
+
+        ELIF_UNARY_OP(NotOp, not, create_not)
+
+        #undef ELIF_UNARY_OP
+
+        else {
+            op.dump();
+            assert(0 && "Missing handling for ccirc op");
+        }
+    }
+
+    return TweedledumCircuit::fromNetlist(net);
+}
 
 TweedledumCircuit TweedledumCircuit::fromNetlist(
         mockturtle::xag_network &raw_net) {
