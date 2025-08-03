@@ -13,6 +13,15 @@
 
 namespace ccirc {
 
+mlir::LogicalResult WireBundleType::verify(
+        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
+        uint64_t dim) {
+    if (!dim) {
+        return emitError() << "WireBundle cannot be empty";
+    }
+    return mlir::success();
+}
+
 void CCircDialect::registerTypes() {
     addTypes<
 #define GET_TYPEDEF_LIST

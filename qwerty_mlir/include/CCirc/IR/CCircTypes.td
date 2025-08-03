@@ -8,8 +8,6 @@ include "CCirc/IR/CCircDialect.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-// class OperationType
-
 //===----------------------------------------------------------------------===//
 // Base ccirc type definition.
 //===----------------------------------------------------------------------===//
@@ -19,11 +17,14 @@ class CCirc_Type<string name, string typeMnemonic, list<Trait> traits = []> :
     let mnemonic = typeMnemonic;
 }
 
-def CCirc_Wire : CCirc_Type<"Wire", "wire"> {
-    let summary = "Wire";
+def CCirc_WireBundle : CCirc_Type<"WireBundle", "wirebundle"> {
+    let summary = "N-bit wire bundle";
     let description = [{
-        Opaque type for a single two-level quantum state
+        Constant-sized bundle of Wires
     }];
+    let parameters = (ins "uint64_t":$dim);
+    let assemblyFormat = "`[` $dim `]`";
+    let genVerifyDecl = 1;
 }
 
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_TYPES_TD
