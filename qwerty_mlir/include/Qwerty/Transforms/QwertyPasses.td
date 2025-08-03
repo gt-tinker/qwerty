@@ -7,6 +7,11 @@
 
 include "mlir/Pass/PassBase.td"
 
+def SynthEmbeds : Pass<"synth-embeds", "::mlir::ModuleOp"> {
+  let summary = "Convert all qwerty.embed_* ops to qwerty.func_const ops";
+  let constructor = "qwerty::createSynthEmbedsPass()";
+}
+
 def LiftLambdas : Pass<"lift-lambdas", "::mlir::ModuleOp"> {
   let summary = "Convert qwerty.lambda ops to qwerty.func ops";
   let constructor = "qwerty::createLiftLambdasPass()";

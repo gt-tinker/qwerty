@@ -22,6 +22,7 @@ namespace qwerty {
 // Passes
 //===----------------------------------------------------------------------===//
 
+std::unique_ptr<mlir::Pass> createSynthEmbedsPass();
 std::unique_ptr<mlir::Pass> createLiftLambdasPass();
 std::unique_ptr<mlir::Pass> createOnlyPredOnesPass();
 std::unique_ptr<mlir::Pass> createQwertyToQCircConversionPass();

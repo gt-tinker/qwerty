@@ -1,4 +1,5 @@
 add_mlir_dialect_library(MLIRQwertyTransforms
+  SynthEmbedsPass.cpp
   LiftLambdasPass.cpp
   OnlyPredOnesPass.cpp
   QwertyToQCircConversionPass.cpp
@@ -14,6 +15,8 @@ add_mlir_dialect_library(MLIRQwertyTransforms
   MLIRQwerty
   MLIRQwertyAnalysis
   MLIRQwertyUtils
+  MLIRQCirc
+  MLIRCCirc
   MLIRPass
   MLIRTransforms
   # For qwerty/tweedledum.cpp
