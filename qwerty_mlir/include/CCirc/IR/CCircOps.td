@@ -52,7 +52,7 @@ def CCirc_NotOp : CCirc_Op<"not", [Pure]> {
     let arguments = (ins CCirc_Wire:$operand);
     let results = (outs CCirc_Wire:$result);
     let assemblyFormat = "`(` $operand `)` attr-dict `:` functional-type(operands, results)";
-    let hasCanonicalizer = 1; 
+    let hasCanonicalizer = 1;
 }
 
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_OPS_TD

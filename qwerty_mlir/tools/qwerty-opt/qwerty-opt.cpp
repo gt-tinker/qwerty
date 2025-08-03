@@ -37,6 +37,7 @@
 
 #include "Qwerty/IR/QwertyDialect.h"
 #include "QCirc/IR/QCircDialect.h"
+#include "CCirc/IR/CCircDialect.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/Transforms/QCircPasses.h"
 #include "mlir/Dialect/Affine/Passes.h"
@@ -53,6 +54,7 @@ int main(int argc, char **argv) {
     mlir::DialectRegistry registry;
     registry.insert<qwerty::QwertyDialect>();
     registry.insert<qcirc::QCircDialect>();
+    registry.insert<ccirc::CCircDialect>();
 
     // Register Dialects
     mlir::registerAllDialects(registry);
