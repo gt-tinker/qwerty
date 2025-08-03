@@ -26,9 +26,11 @@ def Qwerty_Dialect : Dialect {
   // Catastrophic segfaults without this
   let useDefaultAttributePrinterParser = 1;
 
-  // QBundlePackOp / QBundleUnpackOp use the qubit type, and some
-  // canonicalization patterns work with qubits directly
-  let dependentDialects = ["qcirc::QCircDialect"];
+  // This depends on qcirc because QBundlePackOp / QBundleUnpackOp use the
+  // qubit type, and some canonicalization patterns work with qubits directly.
+  // This dialect also depends on ccirc because of ops for embedding classical
+  // functions.
+  let dependentDialects = ["qcirc::QCircDialect", "ccirc::CCircDialect"];
 
   let extraClassDeclaration = [{
     private:

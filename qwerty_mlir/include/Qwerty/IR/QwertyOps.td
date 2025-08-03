@@ -439,4 +439,37 @@ def Qwerty_BitBundleUnpackOp : Qwerty_Op<"bitunpack", [
     let assemblyFormat = "$bundle attr-dict `:` functional-type(operands, results)";
 }
 
+//////// CLASSICAL EMBEDDINGS ////////
+
+def Qwerty_EmbedXorOp : Qwerty_Op<"embed_xor", [
+        Pure, Stationary,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let summary = "Generates a function value given the symbol name of a ccirc.circuit";
+    let description = [{
+        Similar to `qwerty.func_const` except for `ccirc.circuit`.
+    }];
+
+    let arguments = (ins FlatSymbolRefAttr:$circuit);
+    let results = (outs Qwerty_FunctionType:$result);
+
+    let builders = [
+        OpBuilder<(ins "ccirc::CircuitOp":$circuit), [{
+            auto func_ty = getQwertyFuncTypeOf(circuit);
+            build($_builder, $_state, func_ty, circuit.getSymName());
+        }]>
+    ];
+
+    let assemblyFormat = "$circuit attr-dict `:` qualified(type(results))";
+
+    let extraClassDeclaration = [{
+        static FunctionType getQwertyFuncTypeOf(ccirc::CircuitOp circuit) {
+            auto ctx = circuit->getContext();
+            auto qbundle_ty = QBundleType::get(ctx, circuit.inDim() + circuit.outDim());
+            auto inner_func_ty = mlir::FunctionType::get(ctx, {qbundle_ty}, {qbundle_ty});
+            auto func_ty = FunctionType::get(ctx, inner_func_ty, /*reversible=*/true);
+            return func_ty;
+        };
+    }];
+}
+
 #endif // DIALECT_INCLUDE_QWERTY_IR_QWERTY_OPS_TD

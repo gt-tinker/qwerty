@@ -138,6 +138,24 @@ void CircuitOp::print(mlir::OpAsmPrinter &p) {
                   /*printBlockTerminators=*/true);
 }
 
+uint64_t CircuitOp::inDim() {
+    uint64_t in_dim = 0;
+    for (mlir::Type arg_ty : bodyBlock().getArgumentTypes()) {
+        in_dim += llvm::cast<WireBundleType>(arg_ty).getDim();
+    }
+    return in_dim;
+}
+
+uint64_t CircuitOp::outDim() {
+    uint64_t out_dim = 0;
+    auto ret_operands =
+        llvm::cast<ReturnOp>(bodyBlock().getTerminator()).getOperands();
+    for (mlir::Value ret_operand : ret_operands) {
+        out_dim += llvm::cast<WireBundleType>(ret_operand.getType()).getDim();
+    }
+    return out_dim;
+}
+
 #define BINARY_OP_VERIFY_AND_INFER(name) \
     mlir::LogicalResult name##Op::verify() { \
         if (getLeft().getType() != getRight().getType()) { \

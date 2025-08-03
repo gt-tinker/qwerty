@@ -22,6 +22,7 @@
 #include "Qwerty/IR/QwertyInterfaces.h"
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/IR/QCircInterfaces.h"
+#include "CCirc/IR/CCircOps.h"
 
 #define GET_OP_CLASSES
 #include "Qwerty/IR/QwertyOps.h.inc"

@@ -2844,4 +2844,19 @@ void BitBundleUnpackOp::getCanonicalizationPatterns(mlir::RewritePatternSet &res
     results.add<SimplifyBitPackUnpack>(context);
 }
 
+mlir::LogicalResult EmbedXorOp::verifySymbolUses(
+        mlir::SymbolTableCollection &symbolTable) {
+    ccirc::CircuitOp circ;
+    if (!(circ = symbolTable.lookupNearestSymbolFrom<ccirc::CircuitOp>(getOperation(), getCircuitAttr()))) {
+        return emitOpError("no circuit op named ") << getCircuit();
+    }
+
+    FunctionType func_type = getQwertyFuncTypeOf(circ);
+    if (func_type != getResult().getType()) {
+        return emitOpError("return type does not match func type");
+    }
+
+    return mlir::success();
+}
+
 } // namespace qwerty

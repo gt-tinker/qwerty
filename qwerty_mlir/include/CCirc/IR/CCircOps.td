@@ -27,7 +27,9 @@ def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove]> {
     let extraClassDeclaration = [{
         mlir::Block &bodyBlock() {
             return getBody().front();
-        };
+        }
+        uint64_t inDim();
+        uint64_t outDim();
     }];
 }
 
