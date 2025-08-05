@@ -17,12 +17,14 @@ def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove, Symbol]> {
         A classical circuit from m to n bits.
     }];
 
-    let arguments = (ins SymbolNameAttr:$sym_name,
+    let arguments = (ins BoolAttr:$reversible,
+                         SymbolNameAttr:$sym_name,
                          OptionalAttr<StrAttr>:$sym_visibility);
 
     let regions = (region SizedRegion<1>:$body);
 
     let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
 
     let extraClassDeclaration = [{
         mlir::Block &bodyBlock() {

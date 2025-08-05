@@ -62,34 +62,14 @@ mlir::ParseResult CircuitOp::parse(mlir::OpAsmParser &parser,
         return mlir::failure();
     }
 
-    llvm::SmallVector<mlir::Type> results;
-    if (!parser.parseOptionalArrow()) {
-        if (parser.parseOptionalLParen()) {
-            mlir::Type result;
-            if (parser.parseType(result)) {
-                return mlir::failure();
-            }
-            results.push_back(result);
-        } else if (!parser.parseOptionalRParen()) {
-            // We're good, just parsed ()
-        } else {
-            if (parser.parseCommaSeparatedList(
-                    mlir::OpAsmParser::Delimiter::None, [&]() -> mlir::ParseResult {
-                        mlir::Type result;
-                        if (parser.parseType(result)) {
-                            return mlir::failure();
-                        }
-                        results.push_back(result);
-                        return mlir::success();
-                    })) {
-                return mlir::failure();
-            }
-
-            if (parser.parseRParen()) {
-                return mlir::failure();
-            }
-        }
+    bool rev = false;
+    if (!parser.parseOptionalKeyword("rev")) {
+        rev = true;
+    } else if (parser.parseKeyword("irrev")) {
+        return {};
     }
+    result.addAttribute(getReversibleAttrName(result.name),
+                        mlir::BoolAttr::get(result.getContext(), rev));
 
     // Why print out the `attributes' keyword before the attribute dict?
     // The keyword token resolves a parsing ambiguity where the opening { of
@@ -123,13 +103,19 @@ void CircuitOp::print(mlir::OpAsmPrinter &p) {
         }
         p.printRegionArgument(body.getArgument(i));
     }
-    p << ")";
+    p << ") ";
+
+    if (getReversible()) {
+        p << "rev";
+    } else {
+        p << "irrev";
+    }
 
     // Why print out the `attributes' keyword before the attribute dict?
     // The keyword token resolves a parsing ambiguity where the opening { of
     // the region looks like the start of an attribute dict
     p.printOptionalAttrDictWithKeyword(getOperation()->getAttrs(), {
-        getSymNameAttrName(), getSymVisibilityAttrName()
+        getReversibleAttrName(), getSymNameAttrName(), getSymVisibilityAttrName()
     });
 
     p << ' ';
@@ -154,6 +140,19 @@ uint64_t CircuitOp::outDim() {
         out_dim += llvm::cast<WireBundleType>(ret_operand.getType()).getDim();
     }
     return out_dim;
+}
+
+mlir::LogicalResult CircuitOp::verify() {
+    if (getReversible()) {
+        uint64_t in_dim = inDim();
+        uint64_t out_dim = outDim();
+
+        if (in_dim != out_dim) {
+            return emitOpError("Input and output bit sizes must match in "
+                               "reversible functions");
+        }
+    }
+    return mlir::success();
 }
 
 #define BINARY_OP_VERIFY_AND_INFER(name) \

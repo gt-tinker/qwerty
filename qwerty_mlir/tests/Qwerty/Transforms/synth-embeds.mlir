@@ -17,7 +17,7 @@
 //  CHECK-NEXT:   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>, !qwerty<qbundle[2]>) -> !qwerty<qbundle[2]>
 //  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[2]>
 //  CHECK-NEXT: }
-ccirc.circuit private @flip(%arg0: !ccirc<wirebundle[1]>) {
+ccirc.circuit private @flip(%arg0: !ccirc<wirebundle[1]>) rev {
   %0 = ccirc.not(%arg0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
   ccirc.return %0 : !ccirc<wirebundle[1]>
 }
