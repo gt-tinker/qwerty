@@ -444,9 +444,11 @@ def Qwerty_BitBundleUnpackOp : Qwerty_Op<"bitunpack", [
 def Qwerty_EmbedXorOp : Qwerty_Op<"embed_xor", [
         Pure, Stationary,
         DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
-    let summary = "Generates a function value given the symbol name of a ccirc.circuit";
+    let summary = "XOR embedding of a classical circuit";
     let description = [{
-        Similar to `qwerty.func_const` except for `ccirc.circuit`.
+        Generates a function value for an XOR (Bennett) embedding given the
+        symbol name of a ccirc.circuit. Similar to `qwerty.func_const` except
+        for `ccirc.circuit`.
     }];
 
     let arguments = (ins FlatSymbolRefAttr:$circuit);
@@ -465,6 +467,75 @@ def Qwerty_EmbedXorOp : Qwerty_Op<"embed_xor", [
         static FunctionType getQwertyFuncTypeOf(ccirc::CircuitOp circuit) {
             auto ctx = circuit->getContext();
             auto qbundle_ty = QBundleType::get(ctx, circuit.inDim() + circuit.outDim());
+            auto inner_func_ty = mlir::FunctionType::get(ctx, {qbundle_ty}, {qbundle_ty});
+            auto func_ty = FunctionType::get(ctx, inner_func_ty, /*reversible=*/true);
+            return func_ty;
+        };
+    }];
+}
+
+def Qwerty_EmbedSignOp : Qwerty_Op<"embed_sign", [
+        Pure, Stationary,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let summary = "Sign embedding of a classical circuit";
+    let description = [{
+        Generates a function value for an sign (phase kickback) embedding given
+        the symbol name of a ccirc.circuit. Similar to `qwerty.func_const` except
+        for `ccirc.circuit`.
+    }];
+
+    let arguments = (ins FlatSymbolRefAttr:$circuit);
+    let results = (outs Qwerty_FunctionType:$result);
+
+    let builders = [
+        OpBuilder<(ins "ccirc::CircuitOp":$circuit), [{
+            auto func_ty = getQwertyFuncTypeOf(circuit);
+            build($_builder, $_state, func_ty, circuit.getSymName());
+        }]>
+    ];
+
+    let assemblyFormat = "$circuit attr-dict `:` qualified(type(results))";
+
+    let extraClassDeclaration = [{
+        static FunctionType getQwertyFuncTypeOf(ccirc::CircuitOp circuit) {
+            auto ctx = circuit->getContext();
+            auto qbundle_ty = QBundleType::get(ctx, circuit.inDim());
+            auto inner_func_ty = mlir::FunctionType::get(ctx, {qbundle_ty}, {qbundle_ty});
+            auto func_ty = FunctionType::get(ctx, inner_func_ty, /*reversible=*/true);
+            return func_ty;
+        };
+    }];
+}
+
+def Qwerty_EmbedInPlaceOp : Qwerty_Op<"embed_inplace", [
+        Pure, Stationary,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let summary = "In-place embedding of a classical circuit";
+    let description = [{
+        Generates a function value for an in-place embedding given the symbol
+        name of a ccirc.circuit. The circuit must be reversible. Similar to
+        `qwerty.func_const` except for `ccirc.circuit`.
+    }];
+
+    let arguments = (ins FlatSymbolRefAttr:$circuit);
+    let results = (outs Qwerty_FunctionType:$result);
+
+    let builders = [
+        OpBuilder<(ins "ccirc::CircuitOp":$circuit), [{
+            auto func_ty = getQwertyFuncTypeOf(circuit);
+            build($_builder, $_state, func_ty, circuit.getSymName());
+        }]>
+    ];
+
+    let assemblyFormat = "$circuit attr-dict `:` qualified(type(results))";
+
+    let extraClassDeclaration = [{
+        static FunctionType getQwertyFuncTypeOf(ccirc::CircuitOp circuit) {
+            auto ctx = circuit->getContext();
+            auto in_dim = circuit.inDim();
+            auto out_dim = circuit.outDim();
+            assert(in_dim == out_dim && "in/out dims must match for reversible func");
+            auto qbundle_ty = QBundleType::get(ctx, in_dim);
             auto inner_func_ty = mlir::FunctionType::get(ctx, {qbundle_ty}, {qbundle_ty});
             auto func_ty = FunctionType::get(ctx, inner_func_ty, /*reversible=*/true);
             return func_ty;

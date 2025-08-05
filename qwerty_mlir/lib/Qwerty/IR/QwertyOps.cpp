@@ -2847,8 +2847,46 @@ void BitBundleUnpackOp::getCanonicalizationPatterns(mlir::RewritePatternSet &res
 mlir::LogicalResult EmbedXorOp::verifySymbolUses(
         mlir::SymbolTableCollection &symbolTable) {
     ccirc::CircuitOp circ;
-    if (!(circ = symbolTable.lookupNearestSymbolFrom<ccirc::CircuitOp>(getOperation(), getCircuitAttr()))) {
+    if (!(circ = symbolTable.lookupNearestSymbolFrom<ccirc::CircuitOp>(
+            getOperation(), getCircuitAttr()))) {
         return emitOpError("no circuit op named ") << getCircuit();
+    }
+
+    FunctionType func_type = getQwertyFuncTypeOf(circ);
+    if (func_type != getResult().getType()) {
+        return emitOpError("return type does not match func type");
+    }
+
+    return mlir::success();
+}
+
+mlir::LogicalResult EmbedSignOp::verifySymbolUses(
+        mlir::SymbolTableCollection &symbolTable) {
+    ccirc::CircuitOp circ;
+    if (!(circ = symbolTable.lookupNearestSymbolFrom<ccirc::CircuitOp>(
+            getOperation(), getCircuitAttr()))) {
+        return emitOpError("no circuit op named ") << getCircuit();
+    }
+
+    FunctionType func_type = getQwertyFuncTypeOf(circ);
+    if (func_type != getResult().getType()) {
+        return emitOpError("return type does not match func type");
+    }
+
+    return mlir::success();
+}
+
+mlir::LogicalResult EmbedInPlaceOp::verifySymbolUses(
+        mlir::SymbolTableCollection &symbolTable) {
+    ccirc::CircuitOp circ;
+    if (!(circ = symbolTable.lookupNearestSymbolFrom<ccirc::CircuitOp>(
+            getOperation(), getCircuitAttr()))) {
+        return emitOpError("no circuit op named ") << getCircuit();
+    }
+
+    if (!circ.getReversible()) {
+        return emitOpError("circuit ") << getCircuit() << " is not reversible "
+               << "and thus cannot be embedded in-place";
     }
 
     FunctionType func_type = getQwertyFuncTypeOf(circ);
