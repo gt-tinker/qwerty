@@ -42,6 +42,16 @@ def CCirc_ReturnOp : CCirc_Op<"return", [Pure, HasParent<"CircuitOp">,
     let assemblyFormat = "attr-dict ($operands^ `:` qualified(type($operands)))?";
 }
 
+def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor]> {
+    let summary = "Constant bits";
+    let description = [{
+        Arbitrary-length constant bit
+    }];
+    let arguments = (ins APIntAttr:$value);
+    let results = (outs CCirc_WireBundle:$result);
+    let assemblyFormat = "$value attr-dict `:` qualified(type($result))";
+}
+
 def CCirc_AndOp : CCirc_Op<"and", [Pure, InferTypeOpAdaptor]> {
     let summary = "Bitwise AND operation";
     let description = [{

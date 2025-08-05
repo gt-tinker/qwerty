@@ -155,6 +155,16 @@ mlir::LogicalResult CircuitOp::verify() {
     return mlir::success();
 }
 
+mlir::LogicalResult ConstantOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        ConstantOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    inferredReturnTypes.push_back(
+        WireBundleType::get(ctx, adaptor.getValue().getBitWidth()));
+    return mlir::success();
+}
+
 #define BINARY_OP_VERIFY_AND_INFER(name) \
     mlir::LogicalResult name##Op::verify() { \
         if (getLeft().getType() != getRight().getType()) { \

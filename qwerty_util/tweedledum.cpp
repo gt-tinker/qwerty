@@ -72,6 +72,20 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
             }
             // Done
             break;
+        } else if (ccirc::ConstantOp const_op = llvm::dyn_cast<ccirc::ConstantOp>(&op)) {
+            llvm::SmallVector<mockturtle::xag_network::signal> result_signals;
+            llvm::APInt bits = const_op.getValue();
+            unsigned n_bits = bits.getBitWidth();
+            result_signals.reserve(n_bits);
+
+            for (unsigned i = 0; i < n_bits; i++) {
+                bool bit = bits[n_bits - 1 - i];
+                result_signals.push_back(net.get_constant(bit));
+            }
+
+            [[maybe_unused]] bool inserted = val_signals.try_emplace(
+                const_op.getResult(), std::move(result_signals)).second;
+            assert(inserted && "encountered constant twice?");
         }
 
         #define ELIF_BINARY_OP(op_class, op_name, mock_func) \
