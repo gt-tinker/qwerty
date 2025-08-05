@@ -11,7 +11,7 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 
-def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove]> {
+def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove, Symbol]> {
     let summary = "Classical circuit";
     let description = [{
         A classical circuit from m to n bits.
