@@ -14,6 +14,94 @@
 
 namespace {
 
+// Create an XOR embedding of a classical circuit.
+qwerty::FuncOp synth_xor(
+        mlir::RewriterBase &rewriter, ccirc::CircuitOp circ, mlir::Location loc) {
+    qwerty::FunctionType func_ty = qwerty::EmbedXorOp::getQwertyFuncTypeOf(circ);
+    std::string embed_func_name = circ.getSymName().str() + "__xor";
+
+    rewriter.setInsertionPointAfter(circ);
+    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, func_ty);
+    new_func.setPrivate();
+    mlir::Block *block = rewriter.createBlock(
+        &new_func.getBody(), {}, func_ty.getFunctionType().getInputs(), {loc});
+
+    assert(block->getNumArguments() == 1
+           && "Wrong number of arguments for embed block");
+    qwerty::QBundleUnpackOp unpack = rewriter.create<qwerty::QBundleUnpackOp>(
+        loc, block->getArgument(0));
+    llvm::SmallVector<mlir::Value> qubits(unpack.getQubits());
+
+    TweedledumCircuit::fromCCirc(circ).toQCircInline(rewriter, loc, qubits, 0);
+
+    mlir::Value packed =
+        rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+    rewriter.create<qwerty::ReturnOp>(loc, packed);
+    return new_func;
+}
+
+// Create a sign (phase kickback) embedding of a classical circuit.
+qwerty::FuncOp synth_sign(
+        mlir::RewriterBase &rewriter,
+        ccirc::CircuitOp circ,
+        qwerty::FuncOp xor_func,
+        mlir::Location loc) {
+    size_t in_dim = circ.inDim();
+    size_t out_dim = circ.outDim();
+
+    // if the circuit was bit[m] -> bit[n], then the embedding func type should
+    // be rev_qfunc[m]
+    mlir::Type qbundle_type = rewriter.getType<qwerty::QBundleType>(in_dim);
+    qwerty::FunctionType embed_func_ty =
+        rewriter.getType<qwerty::FunctionType>(
+            rewriter.getFunctionType({qbundle_type}, {qbundle_type}),
+            /*reversible=*/true);
+    std::string embed_func_name = circ.getSymName().str() + "__sign";
+
+    rewriter.setInsertionPointAfter(xor_func);
+    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, embed_func_ty);
+    // Sets insert point to end of this block
+    mlir::Block *block = rewriter.createBlock(&new_func.getBody(), {}, {qbundle_type}, {loc});
+    assert(block->getNumArguments() == 1 && "Expected 1 argument to sign block");
+
+    qwerty::BasisAttr basis = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BasisVectorListAttr>(
+                    std::initializer_list<qwerty::BasisVectorAttr>{
+                        rewriter.getAttr<qwerty::BasisVectorAttr>(
+                            qwerty::PrimitiveBasis::X, qwerty::Eigenstate::MINUS,
+                            out_dim, /*hasPhase=*/false)}))});
+    mlir::Value zero = rewriter.create<qwerty::QBundlePrepOp>(
+        loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, out_dim).getResult();
+    mlir::Value minus = rewriter.create<qwerty::QBundleInitOp>(
+        loc, basis, mlir::ValueRange(), zero).getQbundleOut();
+    mlir::ValueRange minus_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, minus).getQubits();
+
+    mlir::Value qbundle_arg = block->getArgument(0);
+    mlir::ValueRange arg_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, qbundle_arg).getQubits();
+    llvm::SmallVector<mlir::Value> all_merged(arg_unpacked.begin(), arg_unpacked.end());
+    all_merged.append(minus_unpacked.begin(), minus_unpacked.end());
+    mlir::Value repacked = rewriter.create<qwerty::QBundlePackOp>(loc, all_merged).getQbundle();
+
+    mlir::ValueRange results = rewriter.create<qwerty::CallOp>(loc, xor_func, repacked).getResults();
+    mlir::ValueRange results_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, results).getQubits();
+
+    llvm::SmallVector<mlir::Value> output_qubits(results_unpacked.begin(), results_unpacked.begin()+in_dim);
+    mlir::Value output = rewriter.create<qwerty::QBundlePackOp>(loc, output_qubits).getQbundle();
+    llvm::SmallVector<mlir::Value> uncompute_qubits(results_unpacked.begin()+in_dim, results_unpacked.end());
+    mlir::Value to_uncompute = rewriter.create<qwerty::QBundlePackOp>(loc, uncompute_qubits).getQbundle();
+
+    mlir::Value to_discard = rewriter.create<qwerty::QBundleDeinitOp>(
+        loc, basis, mlir::ValueRange(), to_uncompute).getQbundleOut();
+    rewriter.create<qwerty::QBundleDiscardZeroOp>(loc, to_discard);
+    rewriter.create<qwerty::ReturnOp>(loc, output);
+
+    // Has non-classical inputs
+    new_func.setPrivate();
+    return new_func;
+}
+
 struct SynthEmbedsPass
         : public qwerty::SynthEmbedsBase<SynthEmbedsPass> {
     void runOnOperation() override {
@@ -47,35 +135,25 @@ struct SynthEmbedsPass
         mlir::IRRewriter rewriter(&getContext());
         for (auto [circ, users] : modify_queues) {
             mlir::Location loc = circ.getLoc();
-            qwerty::FuncOp xor_func;
+            qwerty::FuncOp xor_func, sign_func;
 
             for (mlir::Operation *user : users) {
                 if (qwerty::EmbedXorOp embed_xor = llvm::dyn_cast<qwerty::EmbedXorOp>(user)) {
                     if (!xor_func) {
-                        qwerty::FunctionType func_ty = qwerty::EmbedXorOp::getQwertyFuncTypeOf(circ);
-                        std::string embed_func_name = circ.getSymName().str() + "__xor";
-
-                        rewriter.setInsertionPointAfter(circ);
-                        xor_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, func_ty);
-                        xor_func.setPrivate();
-                        mlir::Block *block = rewriter.createBlock(
-                            &xor_func.getBody(), {}, func_ty.getFunctionType().getInputs(), {loc});
-
-                        assert(block->getNumArguments() == 1
-                               && "Wrong number of arguments for embed block");
-                        qwerty::QBundleUnpackOp unpack = rewriter.create<qwerty::QBundleUnpackOp>(
-                            loc, block->getArgument(0));
-                        llvm::SmallVector<mlir::Value> qubits(unpack.getQubits());
-
-                        TweedledumCircuit::fromCCirc(circ).toQCircInline(rewriter, loc, qubits, 0);
-
-                        mlir::Value packed =
-                            rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
-                        rewriter.create<qwerty::ReturnOp>(loc, packed);
+                        xor_func = synth_xor(rewriter, circ, loc);
                     }
-
                     rewriter.setInsertionPoint(embed_xor);
                     rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_xor, xor_func);
+                } else if (qwerty::EmbedSignOp embed_sign = llvm::dyn_cast<qwerty::EmbedSignOp>(user)) {
+                    if (!sign_func) {
+                        // We still need the XOR embedding
+                        if (!xor_func) {
+                            xor_func = synth_xor(rewriter, circ, loc);
+                        }
+                        sign_func = synth_sign(rewriter, circ, xor_func, loc);
+                    }
+                    rewriter.setInsertionPoint(embed_sign);
+                    rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_sign, sign_func);
                 } else {
                     assert(!llvm::isa_and_present<qwerty::QwertyDialect>(user->getDialect())
                            && "Missing handling of embed op");

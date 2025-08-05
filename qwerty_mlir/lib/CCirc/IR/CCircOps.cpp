@@ -33,6 +33,21 @@ struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     }
 };
 
+struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireBundleUnpackOp> {
+    using OpRewritePattern<ccirc::WireBundleUnpackOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::WireBundleUnpackOp unpack,
+                                        mlir::PatternRewriter &rewriter) const override {
+        mlir::Value wire = unpack.getWire();
+        ccirc::WireBundlePackOp pack = wire.getDefiningOp<ccirc::WireBundlePackOp>();
+        if (!pack) {
+            return mlir::failure();
+        }
+        rewriter.replaceOp(unpack, pack.getWires());
+        return mlir::success();
+    }
+};
+
 } // namespace
 
 namespace ccirc {
@@ -209,6 +224,43 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
     results.add<DoubleNegationPattern>(context);
+}
+
+mlir::LogicalResult WireBundlePackOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        WireBundlePackOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    size_t combined_dim = 0;
+    for (mlir::Value wire : adaptor.getWires()) {
+        WireBundleType wire_ty = llvm::dyn_cast<WireBundleType>(wire.getType());
+        if (!wire_ty) {
+            return mlir::failure();
+        }
+        combined_dim += wire_ty.getDim();
+    }
+    WireBundleType ret_ty = WireBundleType::get(ctx, combined_dim);
+    inferredReturnTypes.insert(inferredReturnTypes.end(), ret_ty);
+    return mlir::success();
+}
+
+mlir::LogicalResult WireBundleUnpackOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        WireBundleUnpackOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    WireBundleType in_ty = llvm::dyn_cast<WireBundleType>(adaptor.getWire().getType());
+    if (!in_ty) {
+        return mlir::failure();
+    }
+    size_t in_dim = in_ty.getDim();
+    inferredReturnTypes.append(in_dim, WireBundleType::get(ctx, 1));
+    return mlir::success();
+}
+
+void WireBundleUnpackOp::getCanonicalizationPatterns(
+        mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
+    results.add<SimplifyPackUnpack>(context);
 }
 
 } // namespace ccirc

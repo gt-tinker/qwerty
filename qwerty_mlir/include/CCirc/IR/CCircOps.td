@@ -97,4 +97,21 @@ def CCirc_NotOp : CCirc_Op<"not", [Pure, InferTypeOpAdaptor]> {
     let hasCanonicalizer = 1;
 }
 
+def Qwerty_WireBundlePackOp : CCirc_Op<"wirepack", [
+        Pure, InferTypeOpAdaptor]> {
+    let summary = "Combine wire bundles into a wirebundle[N]";
+    let arguments = (ins Variadic<CCirc_WireBundle>:$wires);
+    let results = (outs CCirc_WireBundle:$wire);
+    let assemblyFormat = "`(` operands `)` attr-dict `:` functional-type(operands, results)";
+}
+
+def Qwerty_WireBundleUnpackOp : CCirc_Op<"wireunpack", [
+        Pure, InferTypeOpAdaptor]> {
+    let summary = "Split a wirebundle[N] into N wirebundle[1]s";
+    let arguments = (ins CCirc_WireBundle:$wire);
+    let results = (outs Variadic<CCirc_WireBundle>:$wires);
+    let hasCanonicalizer = 1;
+    let assemblyFormat = "$wire attr-dict `:` functional-type(operands, results)";
+}
+
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_OPS_TD

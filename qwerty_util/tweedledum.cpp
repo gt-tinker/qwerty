@@ -86,6 +86,25 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
             [[maybe_unused]] bool inserted = val_signals.try_emplace(
                 const_op.getResult(), std::move(result_signals)).second;
             assert(inserted && "encountered constant twice?");
+        } else if (ccirc::WireBundlePackOp pack_op = llvm::dyn_cast<ccirc::WireBundlePackOp>(&op)) {
+            llvm::SmallVector<mockturtle::xag_network::signal> result_signals;
+
+            for (mlir::Value wire : pack_op.getWires()) {
+                assert(val_signals.contains(wire) && "pack wire not tracked");
+                result_signals.append(val_signals.at(wire));
+            }
+
+            [[maybe_unused]] bool inserted = val_signals.try_emplace(
+                pack_op.getWire(), std::move(result_signals)).second;
+            assert(inserted && "encountered pack twice?");
+        } else if (ccirc::WireBundleUnpackOp unpack_op = llvm::dyn_cast<ccirc::WireBundleUnpackOp>(&op)) {
+            assert(val_signals.contains(unpack_op.getWire()) && "unpack wire not tracked");
+
+            for (auto [val, signal] : llvm::zip(unpack_op.getWires(), val_signals.at(unpack_op.getWire()))) {
+                [[maybe_unused]] bool inserted = val_signals.try_emplace(
+                    val, std::initializer_list<mockturtle::xag_network::signal>{signal}).second;
+                assert(inserted && "encountered unpack result twice?");
+            }
         }
 
         #define ELIF_BINARY_OP(op_class, op_name, mock_func) \
