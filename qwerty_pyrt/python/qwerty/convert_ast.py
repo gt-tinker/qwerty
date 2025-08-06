@@ -11,8 +11,10 @@ from enum import Enum
 from typing import List, Tuple, Union, Optional
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
-from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, QLit, Vector, \
-                          Basis, QpuStmt, QpuExpr, BasisGenerator
+from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
+                          ClassicalFunctionDef, QLit, Vector, Basis, \
+                          QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
+                          BasisGenerator, UnaryOpKind
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -71,7 +73,7 @@ class TrivialCapturer(Capturer):
 def convert_ast(ast_kind: AstKind, module: ast.Module,
                 name_generator: Callable[[str], str], capturer: Capturer,
                 filename: str = '', line_offset: int = 0,
-                col_offset: int = 0) -> QpuFunctionDef:
+                col_offset: int = 0) -> QpuFunctionDef | ClassicalFunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -83,12 +85,13 @@ def convert_ast(ast_kind: AstKind, module: ast.Module,
     if ast_kind == AstKind.QPU:
         return convert_qpu_ast(module, name_generator, capturer, filename,
                                line_offset, col_offset)
-    #elif ast_kind == AstKind.CLASSICAL:
-    #    return convert_classical_ast(module, filename, line_offset, col_offset)
+    elif ast_kind == AstKind.CLASSICAL:
+        return convert_classical_ast(module, name_generator, capturer,
+                                     filename, line_offset, col_offset)
     else:
         raise ValueError('unknown AST type {}'.format(ast_kind))
 
-class BaseVisitor:
+class BaseVisitor(ABC):
     """
     Common Python AST visitor for both ``@classical`` and ``@qpu`` kernels.
     """
@@ -107,6 +110,46 @@ class BaseVisitor:
         self.line_offset = line_offset
         self.col_offset = col_offset
         self.frame = get_frame()
+
+    @staticmethod
+    @abstractmethod
+    def _new_Stmt_expr(expr: QpuExpr | ClassicalExpr, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_Stmt_return(expr: QpuExpr | ClassicalExpr, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_Stmt_assign(lhs: str, rhs: QpuExpr | ClassicalExpr, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_Stmt_unpack_assign(lhs: List[str], rhs: QpuExpr | ClassicalExpr, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_Expr_variable(name: str, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc):
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def _new_FunctionDef(name: str,
+                         args: List[Tuple[Type, str]],
+                         ret_type: Type,
+                         body: List[QpuStmt | ClassicalStmt],
+                         is_rev: bool,
+                         dbg: DebugLoc):
+        ...
 
     def get_node_row_col(self, node: ast.AST):
         if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
@@ -234,6 +277,39 @@ class BaseVisitor:
             raise QwertySyntaxError('Unknown type',
                                     self.get_debug_loc(node))
 
+    def is_bit_literal(self, call: ast.Call) -> bool:
+        return (isinstance(subscript := call.func, ast.Subscript)
+                and isinstance(name := subscript.value, ast.Name)
+                and name.id == 'bit')
+
+    def extract_bit_literal(self, call: ast.Call) -> QpuExpr | ClassicalExpr:
+        subscript = call.func
+        name = subscript.value
+        dbg = self.get_debug_loc(call)
+
+        if not isinstance(dim_const := subscript.slice, ast.Constant) \
+                or not isinstance(dim := dim_const.value, int):
+            dim_dbg = self.get_debug_loc(dim_const)
+            raise QwertySyntaxError('Dimension N to a bit literal '
+                                    '`bit[N](0b1101)` must be an integer '
+                                    'constant.', dim_dbg)
+        if len(call.args) != 1 \
+                or not isinstance(bits_const := call.args[0], ast.Constant) \
+                or not isinstance(bits := bits_const.value, int):
+            # Try to choose a useful source code location to point them to
+            if not call.args:
+                bits_dbg = dbg
+            elif len(call.args) > 1:
+                bits_dbg = self.get_debug_loc(call.args[1])
+            else:
+                bits_dbg = self.get_debug_loc(bits_const)
+
+            raise QwertySyntaxError('A bit literal `bit[N](0bxxxx)` '
+                                    'requires only constant bits `0bxxxx` '
+                                    'between the parentheses.', bits_dbg)
+
+        return self._new_Expr_bit_literal(bits, dim, dbg)
+
     def visit_Module(self, module: ast.Module):
         """
         Root node of Python AST
@@ -258,10 +334,11 @@ class BaseVisitor:
         """
         dbg = self.get_debug_loc(expr_stmt)
         expr = self.visit(expr_stmt.value)
-        return QpuStmt.new_expr(expr, dbg)
+        return self._new_Stmt_expr(expr, dbg)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
-                               decorator_name: str) -> QpuFunctionDef:
+                               decorator_name: str) \
+                              -> QpuFunctionDef | ClassicalFunctionDef:
         """
         Common code for processing the function Python AST node for both
         ``@classical`` and ``@qpu`` kernels.
@@ -369,12 +446,9 @@ class BaseVisitor:
 
         # ...except traversing the function body
         body = self.visit(func_def.body)
-        #return Kernel(dbg, ast_kind, func_name, func_type, capture_names,
-        #              capture_types, capture_freevars, arg_names, dim_vars,
-        #              body)
 
         generated_func_name = self.name_generator(func_name)
-        return QpuFunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
+        return self._new_FunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
 
     def visit_list(self, nodes: List[ast.AST]):
         """
@@ -390,7 +464,7 @@ class BaseVisitor:
         """
         dbg = self.get_debug_loc(ret)
         expr = self.visit(ret.value)
-        return QpuStmt.new_return(expr, dbg)
+        return self._new_Stmt_return(expr, dbg)
 
     def visit_Assign(self, assign: ast.Assign) -> QpuStmt:
         """
@@ -425,7 +499,7 @@ class BaseVisitor:
                                         f'({var_name}) that shadows a Python '
                                         'variable.', dbg)
 
-            return QpuStmt.new_assign(var_name, expr, dbg)
+            return self._new_Stmt_assign(var_name, expr, dbg)
         elif isinstance(tgt, ast.Tuple) \
                 and all(isinstance(elt, ast.Name) for elt in tgt.elts):
             var_names = [name.id for name in tgt.elts]
@@ -442,7 +516,7 @@ class BaseVisitor:
                                             'Python variable.', dbg)
 
             expr = self.visit(assign.value)
-            return QpuStmt.new_unpack_assign(var_names, expr, dbg)
+            return self._new_Stmt_unpack_assign(var_names, expr, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -493,7 +567,7 @@ class BaseVisitor:
                                     'referenced, but it has Python type '
                                     f'{var_type_name}, which cannot be used '
                                     'in Qwerty kernels.', dbg)
-        return QpuExpr.new_variable(mangled_name, dbg)
+        return self._new_Expr_variable(mangled_name, dbg)
 
     def base_visit(self, node: ast.AST):
         """
@@ -566,6 +640,39 @@ class QpuVisitor(BaseVisitor):
                  col_offset: int = 0):
         super().__init__(name_generator, capturer, filename, line_offset,
                          col_offset)
+
+    @staticmethod
+    def _new_Stmt_expr(expr: QpuExpr, dbg: DebugLoc):
+        return QpuStmt.new_expr(expr, dbg)
+
+    @staticmethod
+    def _new_Stmt_return(expr: QpuExpr, dbg: DebugLoc):
+        return QpuStmt.new_return(expr, dbg)
+
+    @staticmethod
+    def _new_Stmt_assign(lhs: str, rhs: QpuExpr, dbg: DebugLoc):
+        return QpuStmt.new_assign(lhs, rhs, dbg)
+
+    @staticmethod
+    def _new_Stmt_unpack_assign(lhs: List[str], rhs: QpuExpr, dbg: DebugLoc):
+        return QpuStmt.new_unpack_assign(lhs, rhs, dbg)
+
+    @staticmethod
+    def _new_Expr_variable(name: str, dbg: DebugLoc):
+        return QpuExpr.new_variable(name, dbg)
+
+    @staticmethod
+    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc):
+        return QpuExpr.new_bit_literal(bits, dim, dbg)
+
+    @staticmethod
+    def _new_FunctionDef(name: str,
+                         args: List[Tuple[Type, str]],
+                         ret_type: Type,
+                         body: List[QpuStmt],
+                         is_rev: bool,
+                         dbg: DebugLoc):
+        return QpuFunctionDef(name, args, ret_type, body, is_rev, dbg)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
         bv = self.extract_basis_vector(node)
@@ -1074,31 +1181,8 @@ class QpuVisitor(BaseVisitor):
         dbg = self.get_debug_loc(call)
 
         # Handling for `bit[4](0b1101)`, bit literals
-        if isinstance(subscript := call.func, ast.Subscript) \
-                and isinstance(name := subscript.value, ast.Name) \
-                and name.id == 'bit':
-            if not isinstance(dim_const := subscript.slice, ast.Constant) \
-                    or not isinstance(dim := dim_const.value, int):
-                dim_dbg = self.get_debug_loc(dim_const)
-                raise QwertySyntaxError('Dimension N to a bit literal '
-                                        '`bit[N](0b1101)` must be an integer '
-                                        'constant.', dim_dbg)
-            if len(call.args) != 1 \
-                    or not isinstance(bits_const := call.args[0], ast.Constant) \
-                    or not isinstance(bits := bits_const.value, int):
-                # Try to choose a useful source code location to point them to
-                if not call.args:
-                    bits_dbg = dbg
-                elif len(call.args) > 1:
-                    bits_dbg = self.get_debug_loc(call.args[1])
-                else:
-                    bits_dbg = self.get_debug_loc(bits_const)
-
-                raise QwertySyntaxError('A bit literal `bit[N](0bxxxx)` '
-                                        'requires only constant bits `0bxxxx` '
-                                        'between the parentheses.', bits_dbg)
-
-            return QpuExpr.new_bit_literal(bits, dim, dbg)
+        if self.is_bit_literal(call):
+            return self.extract_bit_literal(call)
         elif isinstance(name_node := call.func, ast.Name) \
                 and (intrinsic_name := name_node.id) in INTRINSICS:
             expected_num_args = INTRINSICS[intrinsic_name]
@@ -1335,10 +1419,10 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
                          col_offset)
     return visitor.visit_Module(module)
 
-def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
+def convert_qpu_repl_input(root: ast.Interactive) -> QpuStmt:
     """
-    Convert a line from the Qwerty REPL into a Qwerty AST. Right now, this only
-    handles expressions (e.g., assignment is not supported).
+    Convert a line from the Qwerty REPL into a Qwerty AST. Always returns a
+    statement.
     """
 
     if not isinstance(root, ast.Interactive):
@@ -1347,7 +1431,7 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
     if len(root.body) != 1:
         raise QwertySyntaxError('Expected one statement as input, not '
                                 f'{len(root.body)} statements')
-    
+
     stmt, = root.body
     visitor = QpuVisitor(name_generator=lambda name: name,
                          capturer=TrivialCapturer(),
@@ -1358,21 +1442,56 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
 
 #################### @CLASSICAL DSL ####################
 
-#class ClassicalVisitor(BaseVisitor):
-#    """
-#    Python AST visitor for syntax specific to ``@classical`` kernels.
-#    """
-#    def __init__(self, filename: str = '', line_offset: int = 0,
-#                 col_offset: int = 0):
-#        super().__init__(filename, line_offset, col_offset)
-#
-#    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> Kernel:
-#        """
-#        Convert a ``@classical`` kernel into a ``ClassicalKernel`` Qwerty AST
-#        node.
-#        """
-#        return super().base_visit_FunctionDef(func_def, 'classical', AST_CLASSICAL)
-#
+class ClassicalVisitor(BaseVisitor):
+    """
+    Python AST visitor for syntax specific to ``@classical`` kernels.
+    """
+
+    def __init__(self, name_generator: Callable[[str], str],
+                 capturer: Capturer, filename: str = '', line_offset: int = 0,
+                 col_offset: int = 0):
+        super().__init__(name_generator, capturer, filename, line_offset,
+                         col_offset)
+
+    @staticmethod
+    def _new_Stmt_expr(expr: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
+        return ClassicalStmt.new_expr(expr, dbg)
+
+    @staticmethod
+    def _new_Stmt_return(expr: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
+        return ClassicalStmt.new_return(expr, dbg)
+
+    @staticmethod
+    def _new_Stmt_assign(lhs: str, rhs: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
+        return ClassicalStmt.new_assign(lhs, rhs, dbg)
+
+    @staticmethod
+    def _new_Stmt_unpack_assign(lhs: List[str], rhs: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
+        return ClassicalStmt.new_unpack_assign(lhs, rhs, dbg)
+
+    @staticmethod
+    def _new_Expr_variable(name: str, dbg: DebugLoc) -> ClassicalExpr:
+        return ClassicalExpr.new_variable(name, dbg)
+
+    @staticmethod
+    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc) -> ClassicalExpr:
+        return ClassicalExpr.new_bit_literal(bits, dim, dbg)
+
+    @staticmethod
+    def _new_FunctionDef(name: str,
+                         args: List[Tuple[Type, str]],
+                         ret_type: Type,
+                         body: List[ClassicalStmt],
+                         is_rev: bool,
+                         dbg: DebugLoc) -> ClassicalFunctionDef:
+        return ClassicalFunctionDef(name, args, ret_type, body, is_rev, dbg)
+
+    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> ClassicalFunctionDef:
+        """
+        Convert a ``@classical`` kernel into a Qwerty AST node.
+        """
+        return super().base_visit_FunctionDef(func_def, 'classical')
+
 #    def visit_Name(self, name: ast.Name):
 #        """
 #        Convert a Python AST identitifer node into a Qwerty variable name AST
@@ -1382,24 +1501,24 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
 #        dbg = self.get_debug_loc(name)
 #        return Variable(dbg, var_name)
 #
-#    def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
-#        if isinstance(unaryOp.op, ast.Invert):
-#            return self.visit_UnaryOp_Invert(unaryOp)
-#        else:
-#            op_name = type(unaryOp.op).__name__
-#            raise QwertySyntaxError('Unknown unary operation {}'
-#                                    .format(op_name),
-#                                    self.get_debug_loc(unaryOp))
-#
-#    def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
-#        """
-#        Convert a Python bitwise complement AST node into the same thing in the
-#        Qwerty AST. For example, ``~x`` becomes a ``BitUnaryOp`` Qwerty AST
-#        node.
-#        """
-#        operand = self.visit(unaryOp.operand)
-#        dbg = self.get_debug_loc(unaryOp)
-#        return BitUnaryOp(dbg, BIT_NOT, operand)
+    def visit_UnaryOp(self, unaryOp: ast.UnaryOp) -> ClassicalExpr:
+        if isinstance(unaryOp.op, ast.Invert):
+            return self.visit_UnaryOp_Invert(unaryOp)
+        else:
+            op_name = type(unaryOp.op).__name__
+            raise QwertySyntaxError('Unknown unary operation {}'
+                                    .format(op_name),
+                                    self.get_debug_loc(unaryOp))
+
+    def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp) -> ClassicalExpr:
+        """
+        Convert a Python bitwise complement AST node into the same thing in the
+        Qwerty AST. For example, ``~x`` becomes a ``BitUnaryOp`` Qwerty AST
+        node.
+        """
+        operand = self.visit(unaryOp.operand)
+        dbg = self.get_debug_loc(unaryOp)
+        return ClassicalExpr.new_unary_op(UnaryOpKind.Not, operand, dbg)
 #
 #    def visit_BinOp(self, binOp: ast.BinOp):
 #        if isinstance(binOp.op, ast.BitAnd):
@@ -1483,94 +1602,81 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
 #
 #        dbg = self.get_debug_loc(mod)
 #        return ModMulOp(dbg, x, j, y, modN)
-#
-#    def visit_Call(self, call: ast.Call):
-#        """
-#        Convert a Python call expression into either a ``BitLiteral`` Qwerty
-#        AST node (for e.g. ``bit[4](0b1101)``) or other bitwise operations
-#        expressed as (pseudo)functions in Python syntax.
-#
-#        For example, ``x.repeat(N)`` is converted to a ``BitRepeat`` Qwerty AST
-#        node with one child ``x``; ``x.rotl(y)`` is converted to an appropriate
-#        ``BitBinaryOp`` node with two children; and ``x.xor_reduce()`` is
-#        converted to a ``BitReduceOp`` node with one child.
-#        """
-#        if isinstance(call.func, ast.Subscript) \
-#                and isinstance(call.func.value, ast.Name) \
-#                and call.func.value.id == 'bit':
-#            if len(call.args) != 1:
-#                raise QwertySyntaxError('bit() expects one positional '
-#                                        'argument: the value',
-#                                        self.get_debug_loc(call))
-#            if call.keywords:
-#                raise QwertySyntaxError('bit() does not accept keyword '
-#                                        'arguments',
-#                                        self.get_debug_loc(call))
-#            val = self.extract_dimvar_expr(call.args[0])
-#            n_bits = self.extract_dimvar_expr(call.func.slice)
-#            dbg = self.get_debug_loc(call)
-#            return BitLiteral(dbg, val, n_bits)
-#        else: # xor_reduce(), and_reduce(), etc
-#            func = call.func
-#            if not isinstance(func, ast.Attribute):
-#                raise QwertySyntaxEbrror('I expect function calls to be of the '
-#                                        'form expression.FUNC(), but this call '
-#                                        'is not',
-#                                        self.get_debug_loc(call))
-#            attr = func
-#            operand = attr.value
-#            func_name = attr.attr
-#
-#            reduce_pseudo_funcs = {'xor_reduce': BIT_XOR,
-#                                   'and_reduce': BIT_AND}
-#            binary_pseudo_funcs = {'rotr': BIT_ROTR,
-#                                   'rotl': BIT_ROTL}
-#            if func_name in reduce_pseudo_funcs:
-#                if call.args or call.keywords:
-#                    raise QwertySyntaxError('Arguments cannot be passed to the '
-#                                            'function call',
-#                                            self.get_debug_loc(call))
-#                dbg = self.get_debug_loc(call)
-#                return BitReduceOp(dbg, reduce_pseudo_funcs[func_name],
-#                                   self.visit(operand))
-#            elif func_name in binary_pseudo_funcs:
-#                if call.keywords:
-#                    raise QwertySyntaxError('Keywords arguments not '
-#                                            'supported to {}()'
-#                                            .format(func_name),
-#                                            self.get_debug_loc(call))
-#                if len(call.args) != 1:
-#                    raise QwertySyntaxError('{}() expects one positional '
-#                                            'argument: the rotation amount'
-#                                            .format(func_name),
-#                                            self.get_debug_loc(call))
-#                val = self.visit(operand)
-#                amount_node = call.args[0]
-#                amount = self.visit(amount_node)
-#                dbg = self.get_debug_loc(call)
-#                return BitBinaryOp(dbg, binary_pseudo_funcs[func_name], val,
-#                                   amount)
-#            elif func_name == 'repeat':
-#                if call.keywords:
-#                    raise QwertySyntaxError('Keywords arguments not '
-#                                            'supported to {}()'
-#                                            .format(func_name),
-#                                            self.get_debug_loc(call))
-#                if len(call.args) != 1:
-#                    raise QwertySyntaxError('{}() expects one positional '
-#                                            'argument: the amount of times to '
-#                                            'repeat'
-#                                            .format(func_name),
-#                                            self.get_debug_loc(call))
-#                bits = self.visit(operand)
-#                amount_node = call.args[0]
-#                amount = self.extract_dimvar_expr(amount_node)
-#                dbg = self.get_debug_loc(call)
-#                return BitRepeat(dbg, bits, amount)
-#            else:
-#                raise QwertySyntaxError('Unknown pseudo-function {}'
-#                                        .format(func_name),
-#                                        self.get_debug_loc(call))
+
+    def visit_Call(self, call: ast.Call):
+        """
+        Convert a Python call expression into either a ``BitLiteral`` Qwerty
+        AST node (for e.g. ``bit[4](0b1101)``) or other bitwise operations
+        expressed as (pseudo)functions in Python syntax.
+
+        For example, ``x.repeat(N)`` is converted to a ``BitRepeat`` Qwerty AST
+        node with one child ``x``; ``x.rotl(y)`` is converted to an appropriate
+        ``BitBinaryOp`` node with two children; and ``x.xor_reduce()`` is
+        converted to a ``BitReduceOp`` node with one child.
+        """
+        if self.is_bit_literal(call):
+            return self.extract_bit_literal(call)
+        else: # xor_reduce(), and_reduce(), etc
+            func = call.func
+            if not isinstance(func, ast.Attribute):
+                raise QwertySyntaxError('I expect function calls to be of the '
+                                        'form expression.FUNC(), but this call '
+                                        'is not',
+                                        self.get_debug_loc(call))
+            attr = func
+            operand = attr.value
+            func_name = attr.attr
+
+            #reduce_pseudo_funcs = {'xor_reduce': BIT_XOR,
+            #                       'and_reduce': BIT_AND}
+            #binary_pseudo_funcs = {'rotr': BIT_ROTR,
+            #                       'rotl': BIT_ROTL}
+            #if func_name in reduce_pseudo_funcs:
+            #    if call.args or call.keywords:
+            #        raise QwertySyntaxError('Arguments cannot be passed to the '
+            #                                'function call',
+            #                                self.get_debug_loc(call))
+            #    dbg = self.get_debug_loc(call)
+            #    return BitReduceOp(dbg, reduce_pseudo_funcs[func_name],
+            #                       self.visit(operand))
+            #elif func_name in binary_pseudo_funcs:
+            #    if call.keywords:
+            #        raise QwertySyntaxError('Keywords arguments not '
+            #                                'supported to {}()'
+            #                                .format(func_name),
+            #                                self.get_debug_loc(call))
+            #    if len(call.args) != 1:
+            #        raise QwertySyntaxError('{}() expects one positional '
+            #                                'argument: the rotation amount'
+            #                                .format(func_name),
+            #                                self.get_debug_loc(call))
+            #    val = self.visit(operand)
+            #    amount_node = call.args[0]
+            #    amount = self.visit(amount_node)
+            #    dbg = self.get_debug_loc(call)
+            #    return BitBinaryOp(dbg, binary_pseudo_funcs[func_name], val,
+            #                       amount)
+            #elif func_name == 'repeat':
+            #    if call.keywords:
+            #        raise QwertySyntaxError('Keywords arguments not '
+            #                                'supported to {}()'
+            #                                .format(func_name),
+            #                                self.get_debug_loc(call))
+            #    if len(call.args) != 1:
+            #        raise QwertySyntaxError('{}() expects one positional '
+            #                                'argument: the amount of times to '
+            #                                'repeat'
+            #                                .format(func_name),
+            #                                self.get_debug_loc(call))
+            #    bits = self.visit(operand)
+            #    amount_node = call.args[0]
+            #    amount = self.extract_dimvar_expr(amount_node)
+            #    dbg = self.get_debug_loc(call)
+            #    return BitRepeat(dbg, bits, amount)
+            #else:
+            raise QwertySyntaxError('Unknown pseudo-function {}'
+                                    .format(func_name),
+                                    self.get_debug_loc(call))
 #
 #    def visit_Tuple(self, tup: ast.Tuple):
 #        """
@@ -1611,33 +1717,56 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
 #        dbg = self.get_debug_loc(sub)
 #        return Slice(dbg, val, lower, upper)
 #
-#    def visit(self, node: ast.AST):
-#        if isinstance(node, ast.Name):
-#            return self.visit_Name(node)
-#        elif isinstance(node, ast.UnaryOp):
-#            return self.visit_UnaryOp(node)
-#        elif isinstance(node, ast.BinOp):
-#            return self.visit_BinOp(node)
-#        elif isinstance(node, ast.Call):
-#            return self.visit_Call(node)
-#        elif isinstance(node, ast.Tuple):
-#            return self.visit_Tuple(node)
-#        elif isinstance(node, ast.Subscript):
-#            return self.visit_Subscript(node)
-#        else:
-#            return self.base_visit(node)
+    def visit(self, node: ast.AST):
+        if isinstance(node, ast.UnaryOp):
+            return self.visit_UnaryOp(node)
+        #elif isinstance(node, ast.BinOp):
+        #    return self.visit_BinOp(node)
+        elif isinstance(node, ast.Call):
+            return self.visit_Call(node)
+        #elif isinstance(node, ast.Tuple):
+        #    return self.visit_Tuple(node)
+        #elif isinstance(node, ast.Subscript):
+        #    return self.visit_Subscript(node)
+        else:
+            return self.base_visit(node)
 
-#def convert_classical_ast(module: ast.Module, filename: str = '', line_offset: int = 0,
-#                          col_offset: int = 0) -> Kernel:
-#    """
-#    Run the ``ClassicalVisitor`` on the provided Python AST to convert to a
-#    Qwerty `@classical` AST and return the result. The return value is the same
-#    as ``convert_ast()`` above.
-#    """
-#    if not isinstance(module, ast.Module):
-#        raise QwertySyntaxError('Expected top-level Module node in Python AST',
-#                                None) # This should not happen
-#
-#    #visitor = ClassicalVisitor(filename, line_offset, col_offset)
-#    #return visitor.visit_Module(module), visitor.tvs_has_explicit_value
-#    raise NotImplementedError('coming soon...')
+def convert_classical_ast(module: ast.Module,
+                          name_generator: Callable[[str], str],
+                          capturer: Capturer, filename: str = '',
+                          line_offset: int = 0, col_offset: int = 0) \
+                         -> ClassicalFunctionDef:
+    """
+    Run the ``ClassicalVisitor`` on the provided Python AST to convert to a
+    Qwerty ``@classical`` AST and return the result. The return value is the
+    same as ``convert_ast()`` above.
+    """
+    if not isinstance(module, ast.Module):
+        raise QwertySyntaxError('Expected top-level Module node in Python AST',
+                                None) # This should not happen
+
+    visitor = ClassicalVisitor(name_generator, capturer, filename, line_offset,
+                               col_offset)
+    return visitor.visit_Module(module)
+
+def convert_classical_repl_input(root: ast.Interactive) -> ClassicalStmt:
+    """
+    Convert a line from a hypothetical Qwerty ``@classical`` REPL into a Qwerty
+    classical AST. Always returns a statement. Right now, this is only used in
+    unit tests.
+    """
+
+    if not isinstance(root, ast.Interactive):
+        raise QwertySyntaxError('Expected top-level Interactive node in '
+                                'Python AST')
+    if len(root.body) != 1:
+        raise QwertySyntaxError('Expected one statement as input, not '
+                                f'{len(root.body)} statements')
+
+    stmt, = root.body
+    visitor = ClassicalVisitor(name_generator=lambda name: name,
+                               capturer=TrivialCapturer(),
+                               filename='<input>',
+                               line_offset=0,
+                               col_offset=0)
+    return visitor.visit(stmt)

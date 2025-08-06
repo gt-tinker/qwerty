@@ -3,10 +3,12 @@ import textwrap
 import unittest
 
 from qwerty.err import QwertySyntaxError
-from qwerty.convert_ast import convert_qpu_repl_input
-from qwerty._qwerty_pyrt import QpuExpr, QLit, DebugLoc, Basis, Vector, QpuStmt
+from qwerty.convert_ast import convert_qpu_repl_input, \
+                               convert_classical_repl_input
+from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, QLit, \
+                                DebugLoc, Basis, Vector, QpuStmt, ClassicalStmt
 
-class ConvertAstTests(unittest.TestCase):
+class ConvertAstQpuTests(unittest.TestCase):
     def convert_expr(self, code):
         code = textwrap.dedent(code.strip())
         py_ast = ast.parse(code, mode='single')
@@ -315,4 +317,87 @@ class ConvertAstTests(unittest.TestCase):
                                     "list literals are not supported"):
             self.convert_expr("""
                 [1,2,3]
+            """)
+
+class ConvertAstClassicalTests(unittest.TestCase):
+    def convert_expr(self, code):
+        code = textwrap.dedent(code.strip())
+        py_ast = ast.parse(code, mode='single')
+        return convert_classical_repl_input(py_ast)
+
+    def dbg(self, line, col):
+        return DebugLoc('<input>', line, col)
+
+    def test_qubit_literal_zero(self):
+        actual_qw_ast = self.convert_expr("""
+            ~x
+        """)
+        dbg_neg = self.dbg(1, 1)
+        dbg_var = self.dbg(1, 2)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_unary_op(
+                UnaryOpKind.Not,
+                ClassicalExpr.new_variable("x", dbg_var),
+                dbg_neg), dbg_neg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bit_literal_4bit(self):
+        actual_qw_ast = self.convert_expr("""
+            bit[4](0b1101)
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_bit_literal(0b1101, 4, dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bit_literal_nonint_dim(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "must be an integer constant"):
+            self.convert_expr("""
+                bit[N](0b1101)
+            """)
+
+    def test_bit_literal_float_dim(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "must be an integer constant"):
+            self.convert_expr("""
+                bit[2.0](0b1101)
+            """)
+
+    def test_bit_literal_no_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4]()
+            """)
+
+    def test_bit_literal_two_args(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](0b10, 0b11)
+            """)
+
+    def test_bit_literal_bits_float(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](3.0)
+            """)
+
+    def test_bit_literal_bits_name(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "requires only constant bits .* between .* paren"):
+            self.convert_expr("""
+                bit[4](x)
+            """)
+
+    def test_non_pseudo_func_call(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    r"to be of the form expression\.FUNC\(\), but"):
+            self.convert_expr("""
+                f(x, y)
             """)
