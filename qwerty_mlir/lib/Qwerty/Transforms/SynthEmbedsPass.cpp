@@ -15,7 +15,7 @@
 namespace {
 
 // Create an XOR embedding of a classical circuit.
-qwerty::FuncOp synth_xor(
+qwerty::FuncOp synthXor(
         mlir::RewriterBase &rewriter, ccirc::CircuitOp circ, mlir::Location loc) {
     qwerty::FunctionType func_ty = qwerty::EmbedXorOp::getQwertyFuncTypeOf(circ);
     std::string embed_func_name = circ.getSymName().str() + "__xor";
@@ -41,7 +41,7 @@ qwerty::FuncOp synth_xor(
 }
 
 // Create a sign (phase kickback) embedding of a classical circuit.
-qwerty::FuncOp synth_sign(
+qwerty::FuncOp synthSign(
         mlir::RewriterBase &rewriter,
         ccirc::CircuitOp circ,
         qwerty::FuncOp xor_func,
@@ -102,6 +102,77 @@ qwerty::FuncOp synth_sign(
     return new_func;
 }
 
+qwerty::FuncOp synthInPlace(
+        mlir::RewriterBase &rewriter,
+        ccirc::CircuitOp fwd_circ,
+        qwerty::FuncOp fwd_xor_func,
+        mlir::Location loc) {
+    // Step one: we need an inverse function
+    rewriter.setInsertionPointAfter(fwd_xor_func);
+    std::string inv_circ_name = fwd_circ.getSymName().str() + "__inv";
+    ccirc::CircuitOp inv_circ = fwd_circ.buildInverseCircuit(rewriter, loc, inv_circ_name);
+    qwerty::FuncOp inv_xor_func = synthXor(rewriter, inv_circ, loc);
+
+    // Step two: we need to create a new function that uses Bennett's trick
+
+    size_t dim = fwd_circ.inDim();
+    assert(dim == fwd_circ.outDim()
+           && "Reversible function's input dimension must match its output "
+              "dimension");
+
+    // If the classical func was bit[n] -> bit[n], then the in-place embedding
+    // should have function type rev_qfunc[n].
+    mlir::Type qbundle_type = rewriter.getType<qwerty::QBundleType>(dim);
+    qwerty::FunctionType new_func_ty =
+        rewriter.getType<qwerty::FunctionType>(
+            rewriter.getFunctionType({qbundle_type}, {qbundle_type}),
+            /*reversible=*/true);
+
+    std::string embed_func_name = fwd_circ.getSymName().str() + "__inplace";
+
+    // This will just be a stub function that calls the XOR embedding
+    rewriter.setInsertionPointAfter(inv_xor_func);
+    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, new_func_ty);
+    // Sets insert point to end of this block
+    mlir::Block *block = rewriter.createBlock(&new_func.getBody(), {}, {qbundle_type}, {loc});
+    assert(block->getNumArguments() == 1 && "Wrong number of arguments to inplace block");
+
+    mlir::Value zeros = rewriter.create<qwerty::QBundlePrepOp>(
+            loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, dim).getResult();
+    mlir::ValueRange zeros_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, zeros).getQubits();
+    mlir::Value qbundle_arg = block->getArgument(0);
+    mlir::ValueRange arg_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, qbundle_arg).getQubits();
+    llvm::SmallVector<mlir::Value> all_merged(arg_unpacked.begin(), arg_unpacked.end());
+    all_merged.append(zeros_unpacked.begin(), zeros_unpacked.end());
+    mlir::Value repacked = rewriter.create<qwerty::QBundlePackOp>(loc, all_merged).getQbundle();
+
+    mlir::ValueRange results = rewriter.create<qwerty::CallOp>(loc, fwd_xor_func, repacked).getResults();
+    mlir::ValueRange results_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, results).getQubits();
+
+    llvm::SmallVector<mlir::Value> qubits(results_unpacked);
+    for (size_t i = 0; i < dim; i++) {
+        // Swap by renaming
+        std::swap(qubits[i], qubits[i + dim]);
+    }
+    mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+
+    mlir::ValueRange inv = rewriter.create<qwerty::CallOp>(loc, inv_xor_func, swapped_repacked).getResults();
+    assert(inv.size() == 1 && "XOR embedding should return 1 value");
+    mlir::ValueRange inv_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, inv[0]).getQubits();
+
+    llvm::SmallVector<mlir::Value> discard_qubits(inv_unpacked.begin()+dim, inv_unpacked.end());
+    mlir::Value to_discard = rewriter.create<qwerty::QBundlePackOp>(loc, discard_qubits).getQbundle();
+    rewriter.create<qwerty::QBundleDiscardZeroOp>(loc, to_discard);
+
+    llvm::SmallVector<mlir::Value> output_qubits(inv_unpacked.begin(), inv_unpacked.begin()+dim);
+    mlir::Value output = rewriter.create<qwerty::QBundlePackOp>(loc, output_qubits).getQbundle();
+    rewriter.create<qwerty::ReturnOp>(loc, output);
+
+    // Has non-classical inputs
+    new_func.setPrivate();
+    return new_func;
+}
+
 struct SynthEmbedsPass
         : public qwerty::SynthEmbedsBase<SynthEmbedsPass> {
     void runOnOperation() override {
@@ -135,12 +206,12 @@ struct SynthEmbedsPass
         mlir::IRRewriter rewriter(&getContext());
         for (auto [circ, users] : modify_queues) {
             mlir::Location loc = circ.getLoc();
-            qwerty::FuncOp xor_func, sign_func;
+            qwerty::FuncOp xor_func, sign_func, inplace_func;
 
             for (mlir::Operation *user : users) {
                 if (qwerty::EmbedXorOp embed_xor = llvm::dyn_cast<qwerty::EmbedXorOp>(user)) {
                     if (!xor_func) {
-                        xor_func = synth_xor(rewriter, circ, loc);
+                        xor_func = synthXor(rewriter, circ, loc);
                     }
                     rewriter.setInsertionPoint(embed_xor);
                     rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_xor, xor_func);
@@ -148,12 +219,22 @@ struct SynthEmbedsPass
                     if (!sign_func) {
                         // We still need the XOR embedding
                         if (!xor_func) {
-                            xor_func = synth_xor(rewriter, circ, loc);
+                            xor_func = synthXor(rewriter, circ, loc);
                         }
-                        sign_func = synth_sign(rewriter, circ, xor_func, loc);
+                        sign_func = synthSign(rewriter, circ, xor_func, loc);
                     }
                     rewriter.setInsertionPoint(embed_sign);
                     rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_sign, sign_func);
+                } else if (qwerty::EmbedInPlaceOp embed_inplace = llvm::dyn_cast<qwerty::EmbedInPlaceOp>(user)) {
+                    if (!inplace_func) {
+                        // We use the XOR embedding as the forward func
+                        if (!xor_func) {
+                            xor_func = synthXor(rewriter, circ, loc);
+                        }
+                        inplace_func = synthInPlace(rewriter, circ, xor_func, loc);
+                    }
+                    rewriter.setInsertionPoint(embed_inplace);
+                    rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_inplace, inplace_func);
                 } else {
                     assert(!llvm::isa_and_present<qwerty::QwertyDialect>(user->getDialect())
                            && "Missing handling of embed op");

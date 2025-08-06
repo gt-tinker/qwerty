@@ -170,6 +170,128 @@ mlir::LogicalResult CircuitOp::verify() {
     return mlir::success();
 }
 
+// TODO: Create an op interface like Adjointable instead of hardcoding like
+//       we do below
+CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Location loc, llvm::StringRef inv_circ_name) {
+    assert(getReversible() && "Cannot take inverse of irreversible circuit");
+
+    CircuitOp inv_circ = rewriter.create<CircuitOp>(loc, true, inv_circ_name);
+    inv_circ.setPrivate();
+    mlir::Block &fwd_block = bodyBlock();
+    llvm::DenseMap<mlir::Value, mlir::Value> fwd_to_inv;
+
+    for (mlir::Operation &op_ref : llvm::reverse(fwd_block)) {
+        mlir::Operation *op = &op_ref;
+
+        if (ReturnOp ret = llvm::dyn_cast<ReturnOp>(op)) {
+            llvm::SmallVector<mlir::Type> inv_block_arg_tys;
+            for (mlir::Value fwd_ret_operand : ret.getOperands()) {
+                WireBundleType fwd_ret_operand_ty =
+                    llvm::cast<WireBundleType>(fwd_ret_operand.getType());
+                uint64_t dim = fwd_ret_operand_ty.getDim();
+                inv_block_arg_tys.push_back(
+                    rewriter.getType<WireBundleType>(dim));
+            }
+
+            llvm::SmallVector<mlir::Location> inv_block_arg_locs(
+                inv_block_arg_tys.size(), loc);
+            mlir::Block *inv_block = rewriter.createBlock(
+                &inv_circ.getBody(), {}, inv_block_arg_tys, inv_block_arg_locs);
+            assert(inv_block->getNumArguments() == ret.getOperands().size()
+                   && "Wrong number of arguments for inverse blocks");
+
+            for (auto [fwd_ret_in, inv_block_arg] :
+                    llvm::zip(ret.getOperands(), inv_block->getArguments())) {
+                [[maybe_unused]] bool inserted = fwd_to_inv.insert(
+                    {fwd_ret_in, inv_block_arg}).second;
+                assert(inserted && "Re-encountered a return operand");
+            }
+        } else if (NotOp not_op = llvm::dyn_cast<NotOp>(op)) {
+            assert(!inv_circ.getBody().empty()
+                   && "Inverse circuit body missing");
+
+            mlir::Value fwd_in = not_op.getOperand();
+            mlir::Value fwd_out = not_op.getResult();
+            assert(fwd_to_inv.contains(fwd_out)
+                   && "NotOp result never encountered");
+
+            mlir::Value inv_in = fwd_to_inv.at(fwd_out);
+            mlir::Value inv_out = rewriter.create<NotOp>(
+                not_op.getLoc(), inv_in).getResult();
+
+            [[maybe_unused]] bool inserted = fwd_to_inv.insert(
+                {fwd_in, inv_out}).second;
+            assert(inserted && "Re-encountered a NotOp operand");
+        } else if (WireBundlePackOp pack =
+                llvm::dyn_cast<WireBundlePackOp>(op)) {
+            assert(!inv_circ.getBody().empty()
+                   && "Inverse circuit body missing");
+
+            mlir::ValueRange fwd_ins = pack.getWires();
+            mlir::Value fwd_out = pack.getWire();
+            assert(fwd_to_inv.contains(fwd_out)
+                   && "NotOp result never encountered");
+
+            mlir::Value inv_in = fwd_to_inv.at(fwd_out);
+            mlir::ValueRange inv_unpacked =
+                rewriter.create<WireBundleUnpackOp>(
+                    pack.getLoc(), inv_in).getWires();
+
+            uint64_t wire_idx = 0;
+            for (mlir::Value fwd_in : fwd_ins) {
+                WireBundleType fwd_in_ty =
+                    llvm::cast<WireBundleType>(fwd_in.getType());
+                uint64_t dim = fwd_in_ty.getDim();
+
+                llvm::SmallVector<mlir::Value> wires_to_repack(
+                    inv_unpacked.begin() + wire_idx,
+                    inv_unpacked.begin() + (wire_idx + dim));
+
+                mlir::Value inv_out = rewriter.create<WireBundlePackOp>(
+                    loc, wires_to_repack).getWire();
+                [[maybe_unused]] bool inserted = fwd_to_inv.insert(
+                    {fwd_in, inv_out}).second;
+                assert(inserted && "Re-encountered a return operand");
+
+                wire_idx += dim;
+            }
+        } else if (WireBundleUnpackOp unpack =
+                llvm::dyn_cast<WireBundleUnpackOp>(op)) {
+            assert(!inv_circ.getBody().empty()
+                   && "Inverse circuit body missing");
+
+            mlir::Value fwd_in = unpack.getWire();
+            mlir::ValueRange fwd_outs = unpack.getWires();
+
+            llvm::SmallVector<mlir::Value> inv_ins;
+            for (mlir::Value fwd_out : fwd_outs) {
+                assert(fwd_to_inv.contains(fwd_out)
+                       && "WireBundleUnpackOp result never encountered");
+                inv_ins.push_back(fwd_to_inv.at(fwd_out));
+            }
+            mlir::Value inv_out = rewriter.create<WireBundlePackOp>(
+                loc, inv_ins).getWire();
+            [[maybe_unused]] bool inserted = fwd_to_inv.insert(
+                {fwd_in, inv_out}).second;
+            assert(inserted
+                   && "Re-encountered a WireBundleUnpackOp operand");
+        } else {
+            op->dump();
+            assert(0 && "Missing handling for op in buildInverseCircuit()");
+        }
+    }
+
+    llvm::SmallVector<mlir::Value> ret_operands;
+    for (mlir::BlockArgument fwd_block_arg : fwd_block.getArguments()) {
+        assert(fwd_to_inv.contains(fwd_block_arg)
+               && "fwd block arg never encountered");
+        ret_operands.push_back(fwd_to_inv.at(fwd_block_arg));
+    }
+    rewriter.create<ReturnOp>(loc, ret_operands);
+
+    return inv_circ;
+}
+
 mlir::LogicalResult ConstantOp::inferReturnTypes(
         mlir::MLIRContext *ctx,
         std::optional<mlir::Location> loc,

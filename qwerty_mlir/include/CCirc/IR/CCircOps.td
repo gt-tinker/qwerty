@@ -26,12 +26,21 @@ def CCirc_CircuitOp : CCirc_Op<"circuit", [IsolatedFromAbove, Symbol]> {
     let hasCustomAssemblyFormat = 1;
     let hasVerifier = 1;
 
+    let builders = [
+        OpBuilder<(ins "bool":$reversible, "::llvm::StringRef":$sym_name), [{
+            build($_builder, $_state, reversible, sym_name, nullptr);
+        }]>
+    ];
+
     let extraClassDeclaration = [{
         mlir::Block &bodyBlock() {
             return getBody().front();
         }
         uint64_t inDim();
         uint64_t outDim();
+        CircuitOp buildInverseCircuit(mlir::RewriterBase &rewriter,
+                                      mlir::Location loc,
+                                      llvm::StringRef inv_circ_name);
     }];
 }
 
