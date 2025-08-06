@@ -51,7 +51,7 @@ def CCirc_ReturnOp : CCirc_Op<"return", [Pure, HasParent<"CircuitOp">,
     let assemblyFormat = "attr-dict ($operands^ `:` qualified(type($operands)))?";
 }
 
-def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor]> {
+def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, InferTypeOpAdaptor]> {
     let summary = "Constant bits";
     let description = [{
         Arbitrary-length constant bit
@@ -111,6 +111,7 @@ def Qwerty_WireBundlePackOp : CCirc_Op<"wirepack", [
     let summary = "Combine wire bundles into a wirebundle[N]";
     let arguments = (ins Variadic<CCirc_WireBundle>:$wires);
     let results = (outs CCirc_WireBundle:$wire);
+    let hasCanonicalizer = 1;
     let assemblyFormat = "`(` operands `)` attr-dict `:` functional-type(operands, results)";
 }
 

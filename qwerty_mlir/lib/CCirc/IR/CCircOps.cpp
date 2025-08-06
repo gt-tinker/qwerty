@@ -48,6 +48,20 @@ struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireBundleUnpac
     }
 };
 
+struct SimplifyTrivialPack : public mlir::OpRewritePattern<ccirc::WireBundlePackOp> {
+    using OpRewritePattern<ccirc::WireBundlePackOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::WireBundlePackOp pack,
+                                        mlir::PatternRewriter &rewriter) const override {
+        if (pack.getWires().size() != 1) {
+            return mlir::failure();
+        }
+
+        rewriter.replaceOp(pack, pack.getWires());
+        return mlir::success();
+    }
+};
+
 } // namespace
 
 namespace ccirc {
@@ -364,6 +378,11 @@ mlir::LogicalResult WireBundlePackOp::inferReturnTypes(
     WireBundleType ret_ty = WireBundleType::get(ctx, combined_dim);
     inferredReturnTypes.insert(inferredReturnTypes.end(), ret_ty);
     return mlir::success();
+}
+
+void WireBundlePackOp::getCanonicalizationPatterns(
+        mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
+    results.add<SimplifyTrivialPack>(context);
 }
 
 mlir::LogicalResult WireBundleUnpackOp::inferReturnTypes(
