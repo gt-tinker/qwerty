@@ -20,10 +20,13 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, angle_is_approx_zero, angles_are_approx_equal, Assign, Basis, BasisGenerator,
-        BasisTranslation, BitLiteral, Conditional, Discard, Expr, FunctionDef, Measure, Pipe,
-        Predicated, Program, QLit, RegKind, Return, Stmt, Tensor, UnpackAssign, Variable, Vector,
-        VectorAtomKind,
+        self, angle_is_approx_zero, angles_are_approx_equal,
+        qpu::{
+            Basis, BasisGenerator, BasisTranslation, Conditional, Discard, Expr, Measure, Pipe,
+            Predicated, QLit, Tensor, Vector, VectorAtomKind,
+        },
+        Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, UnpackAssign,
+        Variable,
     },
     dbg::DebugLoc,
     typecheck::{ComputeKind, TypeEnv},
@@ -121,7 +124,7 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
 }
 
 /// Returns the type of a FunctionDef AST node as an mlir::Type.
-fn ast_func_mlir_ty(func_def: &FunctionDef) -> ir::Type<'static> {
+fn ast_func_mlir_ty<E>(func_def: &FunctionDef<E>) -> ir::Type<'static> {
     let mlir_tys = ast_ty_to_mlir_tys(&func_def.get_type());
     assert_eq!(mlir_tys.len(), 1);
     mlir_tys[0]
@@ -1631,13 +1634,13 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, vals)
         }
 
-        Expr::BitLiteral(blit @ BitLiteral { dim, bits, dbg }) => {
+        Expr::BitLiteral(blit @ BitLiteral { val, n_bits, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
             let mlir_vals = vec![mlir_wrap_calc(block, loc, |calc_block| {
-                let bit_vals: Vec<_> = (0..*dim)
+                let bit_vals: Vec<_> = (0..*n_bits)
                     .rev()
                     .map(|idx| {
-                        let bit = bits.bit(idx) as i64;
+                        let bit = val.bit(idx) as i64;
                         calc_block
                             .append_operation(arith::constant(
                                 &MLIR_CTX,
@@ -1668,14 +1671,14 @@ fn ast_expr_to_mlir(
 
 /// Append ops that implement an AST Stmt node to the provided block.
 fn ast_stmt_to_mlir(
-    stmt: &Stmt,
+    stmt: &Stmt<ast::qpu::Expr>,
     ctx: &mut Ctx,
     block: &Block<'static>,
     expected_ret_type: Option<ast::Type>,
 ) -> ComputeKind {
     match stmt {
         Stmt::Expr(expr) => {
-            let (_ty, compute_kind, _vals) = ast_expr_to_mlir(expr, ctx, block);
+            let (_ty, compute_kind, _vals) = ast_expr_to_mlir(&expr.expr, ctx, block);
             compute_kind
         }
 
@@ -1764,7 +1767,7 @@ fn ast_stmt_to_mlir(
 
 /// Converts an AST FunctionDef node into a qwerty::function op.
 fn ast_func_def_to_mlir(
-    func_def: &FunctionDef,
+    func_def: &FunctionDef<ast::qpu::Expr>,
     funcs_available: &[(String, ast::Type, qwerty::FunctionType<'static>)],
 ) -> (Operation<'static>, qwerty::FunctionType<'static>) {
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
@@ -1852,10 +1855,13 @@ fn ast_program_to_mlir(prog: &Program) -> Module {
     let module_block = module.body();
     let mut funcs_available = vec![];
 
-    for func_def in &prog.funcs {
-        let (func_op, mlir_func_ty) = ast_func_def_to_mlir(func_def, &funcs_available);
+    for func in &prog.funcs {
+        let (func_op, mlir_func_ty) = match func {
+            Func::Qpu(func_def) => ast_func_def_to_mlir(func_def, &funcs_available),
+            Func::Classical(_) => todo!("@classical AST lowering"),
+        };
         module_block.append_operation(func_op);
-        funcs_available.push((func_def.name.to_string(), func_def.get_type(), mlir_func_ty));
+        funcs_available.push((func.get_name(), func.get_type(), mlir_func_ty));
     }
 
     assert!(module.as_operation().verify());

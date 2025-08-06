@@ -3,7 +3,10 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
-    Adjoint, BitLiteral, Conditional, Expr, Predicated, QLit, QubitRef, Stmt, Tensor, UnitLiteral,
+    qpu::{
+        Adjoint, Conditional, EmbedClassical, Expr, Predicated, QLit, QubitRef, Tensor, UnitLiteral,
+    },
+    BitLiteral, Stmt,
 };
 use quantum_sparse_sim::QuantumSim;
 use std::collections::HashMap;
@@ -11,7 +14,7 @@ use std::collections::HashMap;
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
     sim: QuantumSim,
-    bindings: HashMap<String, Expr>, // TODO: figure out what expr should be
+    bindings: HashMap<String, Expr>,
 }
 
 impl ReplState {
@@ -24,9 +27,9 @@ impl ReplState {
     }
 
     /// Evaluates an expression and returns a value.
-    pub fn run(&mut self, stmt: &Stmt) -> Expr {
-        if let Stmt::Expr(expr) = stmt {
-            expr.eval_to_value(self)
+    pub fn run(&mut self, stmt: &Stmt<Expr>) -> Expr {
+        if let Stmt::Expr(stmt_expr) = stmt {
+            stmt_expr.expr.eval_to_value(self)
         } else {
             Expr::UnitLiteral(UnitLiteral { dbg: None })
         }
@@ -38,28 +41,33 @@ impl Expr {
         match self {
             Expr::Variable(_) => false,
             Expr::UnitLiteral(_) => true,
-            Expr::Adjoint(Adjoint { func, .. }) => func.is_value(),
+            Expr::EmbedClassical(EmbedClassical { func_name: _, .. }) => true,
+            Expr::Adjoint(Adjoint { func, .. }) => func.as_ref().is_value(),
             Expr::Pipe(_) => false,
             Expr::Measure(_) => true,
             Expr::Discard(_) => true,
             Expr::Tensor(Tensor { vals, .. }) => vals
                 .iter()
-                .all(|v| v.is_value() && !matches!(v, Expr::UnitLiteral { .. })),
+                .all(|v| v.is_value() && !matches!(v, Expr::UnitLiteral(_))),
             Expr::BasisTranslation(_) => true,
             Expr::Predicated(Predicated {
                 then_func,
                 else_func,
                 ..
-            }) => then_func.is_value() && else_func.is_value(),
+            }) => then_func.as_ref().is_value() && else_func.as_ref().is_value(),
             Expr::NonUniformSuperpos(_) => false,
             Expr::Conditional(Conditional {
                 then_expr,
                 else_expr,
                 cond,
                 ..
-            }) => then_expr.is_value() && else_expr.is_value() && cond.is_value(),
+            }) => {
+                then_expr.as_ref().is_value()
+                    && else_expr.as_ref().is_value()
+                    && cond.as_ref().is_value()
+            }
             Expr::QLit(_) => false,
-            Expr::BitLiteral(BitLiteral { dim, .. }) => *dim == 1,
+            Expr::BitLiteral(BitLiteral { n_bits, .. }) => *n_bits == 1,
             Expr::QubitRef(_) => true,
         }
     }
@@ -70,10 +78,10 @@ impl Expr {
                 QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
                     index: state.sim.allocate(),
                 })),
-                _ => todo!("Rest of QLit"),
+                _ => todo!("Rest of QLit eval_step"),
             },
             Expr::QubitRef { .. } => None,
-            _ => todo!("eval_step()"),
+            _ => todo!("eval_step() for Expr"),
         }
     }
 

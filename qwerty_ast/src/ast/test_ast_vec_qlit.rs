@@ -1,6 +1,7 @@
 // Unit tests for vectors and qubit literals
 
-use super::*;
+use super::qpu::*;
+use crate::dbg::DebugLoc;
 
 #[test]
 fn test_vec_to_string_zero() {

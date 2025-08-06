@@ -1,17 +1,21 @@
 // Unit tests for typecheck module
 
 use super::*;
-use crate::ast::{Assign, Expr, FunctionDef, Program, Stmt, Type, UnpackAssign};
+use crate::ast::{
+    qpu::Expr, Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Stmt, Type, UnpackAssign,
+    Variable,
+};
+use crate::error::{TypeError, TypeErrorKind};
 use dashu::integer::UBig;
 
 #[test]
 fn test_typecheck_var_and_assign() {
     let prog = Program {
-        funcs: vec![FunctionDef::new(
-            "main".into(),
-            vec![(Type::UnitType, "x".into())],
-            Type::UnitType,
-            vec![Stmt::Assign(Assign {
+        funcs: vec![Func::Qpu(FunctionDef {
+            name: "main".into(),
+            args: vec![(Type::UnitType, "x".into())],
+            ret_type: Type::UnitType,
+            body: vec![Stmt::Assign(Assign {
                 lhs: "y".into(),
                 rhs: Expr::Variable(Variable {
                     name: "x".into(),
@@ -19,9 +23,9 @@ fn test_typecheck_var_and_assign() {
                 }),
                 dbg: None,
             })],
-            false,
-            None,
-        )],
+            is_rev: false,
+            dbg: None,
+        })],
         dbg: None,
     };
 
@@ -33,7 +37,7 @@ fn test_typecheck_var_and_assign() {
 fn test_unpack_assign_typing() {
     // Case 1: Legal unpack (2 variables, qubit[2])
     let legal_prog = Program {
-        funcs: vec![FunctionDef {
+        funcs: vec![Func::Qpu(FunctionDef {
             name: "main".into(),
             args: vec![],
             ret_type: Type::UnitType,
@@ -47,7 +51,7 @@ fn test_unpack_assign_typing() {
             })],
             is_rev: true,
             dbg: None,
-        }],
+        })],
         dbg: None,
     };
 
@@ -64,7 +68,10 @@ fn test_unpack_assign_typing() {
     .unwrap();
 
     // The typechecker expects to build the environment itself, so let's test the stmt directly:
-    let stmt = &legal_prog.funcs[0].body[0];
+    let stmt = match &legal_prog.funcs[0] {
+        Func::Qpu(func_def) => &func_def.body[0],
+        _ => panic!("Expected Qpu function"),
+    };
     let result = stmt.typecheck(&mut env, Some(Type::UnitType));
     assert!(result.is_ok(), "Legal unpack failed typechecking");
 
@@ -106,8 +113,8 @@ fn test_assign_shadow() {
     let stmt = Stmt::Assign(Assign {
         lhs: "bubba".to_string(),
         rhs: Expr::BitLiteral(BitLiteral {
-            dim: 1,
-            bits: UBig::ZERO,
+            val: UBig::ZERO,
+            n_bits: 1,
             dbg: None,
         }),
         dbg: None,
@@ -171,17 +178,17 @@ fn test_invalid_tupletype_construction() {
 
 #[test]
 fn test_functiondef_get_type_tuple_args() {
-    let func = FunctionDef::new(
-        "f_tuple".to_string(),
-        vec![
+    let func: FunctionDef<qpu::Expr> = FunctionDef {
+        name: "f_tuple".to_string(),
+        args: vec![
             (Type::UnitType, "x".to_string()),
             (Type::UnitType, "y".to_string()),
         ],
-        Type::UnitType,
-        vec![],
-        false,
-        None,
-    );
+        ret_type: Type::UnitType,
+        body: vec![],
+        is_rev: false,
+        dbg: None,
+    };
     let ty = func.get_type();
     if let Type::FuncType { in_ty, .. } = ty {
         assert!(matches!(*in_ty, Type::TupleType { .. }));

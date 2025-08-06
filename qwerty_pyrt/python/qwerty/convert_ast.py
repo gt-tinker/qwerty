@@ -11,8 +11,8 @@ from enum import Enum
 from typing import List, Tuple, Union, Optional
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
-from ._qwerty_pyrt import DebugLoc, RegKind, Type, FunctionDef, QLit, Vector, \
-                          Basis, Stmt, Expr, BasisGenerator
+from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, QLit, Vector, \
+                          Basis, QpuStmt, QpuExpr, BasisGenerator
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -71,7 +71,7 @@ class TrivialCapturer(Capturer):
 def convert_ast(ast_kind: AstKind, module: ast.Module,
                 name_generator: Callable[[str], str], capturer: Capturer,
                 filename: str = '', line_offset: int = 0,
-                col_offset: int = 0) -> FunctionDef:
+                col_offset: int = 0) -> QpuFunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -256,11 +256,12 @@ class BaseVisitor:
         """
         Statement that consists only of an expression
         """
+        dbg = self.get_debug_loc(expr_stmt)
         expr = self.visit(expr_stmt.value)
-        return Stmt.new_expr(expr)
+        return QpuStmt.new_expr(expr, dbg)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
-                               decorator_name: str) -> FunctionDef:
+                               decorator_name: str) -> QpuFunctionDef:
         """
         Common code for processing the function Python AST node for both
         ``@classical`` and ``@qpu`` kernels.
@@ -373,7 +374,7 @@ class BaseVisitor:
         #              body)
 
         generated_func_name = self.name_generator(func_name)
-        return FunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
+        return QpuFunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
 
     def visit_list(self, nodes: List[ast.AST]):
         """
@@ -389,9 +390,9 @@ class BaseVisitor:
         """
         dbg = self.get_debug_loc(ret)
         expr = self.visit(ret.value)
-        return Stmt.new_return(expr, dbg)
+        return QpuStmt.new_return(expr, dbg)
 
-    def visit_Assign(self, assign: ast.Assign) -> Stmt:
+    def visit_Assign(self, assign: ast.Assign) -> QpuStmt:
         """
         Convert a Python assignment statement::
 
@@ -424,7 +425,7 @@ class BaseVisitor:
                                         f'({var_name}) that shadows a Python '
                                         'variable.', dbg)
 
-            return Stmt.new_assign(var_name, expr, dbg)
+            return QpuStmt.new_assign(var_name, expr, dbg)
         elif isinstance(tgt, ast.Tuple) \
                 and all(isinstance(elt, ast.Name) for elt in tgt.elts):
             var_names = [name.id for name in tgt.elts]
@@ -441,7 +442,7 @@ class BaseVisitor:
                                             'Python variable.', dbg)
 
             expr = self.visit(assign.value)
-            return Stmt.new_unpack_assign(var_names, expr, dbg)
+            return QpuStmt.new_unpack_assign(var_names, expr, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -477,7 +478,7 @@ class BaseVisitor:
     #    """
     #    raise QwertySyntaxError('Qwerty does not support mutating values', dbg)
 
-    def visit_Name(self, name: ast.Name) -> Expr:
+    def visit_Name(self, name: ast.Name) -> QpuExpr:
         """
         Convert a Python AST identitifer node into a Qwerty variable name AST
         node. For example, ``foobar`` becomes a Qwerty ``Variable`` AST node.
@@ -492,7 +493,7 @@ class BaseVisitor:
                                     'referenced, but it has Python type '
                                     f'{var_type_name}, which cannot be used '
                                     'in Qwerty kernels.', dbg)
-        return Expr.new_variable(mangled_name, dbg)
+        return QpuExpr.new_variable(mangled_name, dbg)
 
     def base_visit(self, node: ast.AST):
         """
@@ -732,7 +733,7 @@ class QpuVisitor(BaseVisitor):
     #                                .format(node_name),
     #                                self.get_debug_loc(node))
 
-    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> FunctionDef:
+    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> QpuFunctionDef:
         """
         Convert a ``@qpu`` kernel into a ``QpuKernel`` Qwerty AST node.
         """
@@ -743,7 +744,7 @@ class QpuVisitor(BaseVisitor):
         if isinstance(value, str):
             # A top-level string must be a qubit literal
             qlit = self.extract_qubit_literal(const)
-            return Expr.new_qlit(qlit)
+            return QpuExpr.new_qlit(qlit)
         else:
             raise QwertySyntaxError('Unknown constant syntax',
                                     self.get_debug_loc(const))
@@ -799,13 +800,13 @@ class QpuVisitor(BaseVisitor):
     def visit_BinOp_Add(self, binOp: ast.BinOp):
         # A top-level `+` expression must be a qubit literal (a superpos)
         qlit = self.extract_qubit_literal(binOp)
-        return Expr.new_qlit(qlit)
+        return QpuExpr.new_qlit(qlit)
 
     def visit_BinOp_Sub(self, binOp: ast.BinOp):
         # A top-level `-` expression must be a qubit literal (a superpos with a
         # negative phase)
         qlit = self.extract_qubit_literal(binOp)
-        return Expr.new_qlit(qlit)
+        return QpuExpr.new_qlit(qlit)
 
     def visit_BinOp_BitOr(self, binOp: ast.BinOp):
         """
@@ -816,13 +817,13 @@ class QpuVisitor(BaseVisitor):
         left = self.visit(binOp.left)
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
-        return Expr.new_pipe(left, right, dbg)
+        return QpuExpr.new_pipe(left, right, dbg)
 
     def visit_BinOp_Mult(self, binOp: ast.BinOp):
         left = self.visit(binOp.left)
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
-        return Expr.new_tensor([left, right], dbg)
+        return QpuExpr.new_tensor([left, right], dbg)
 
     #def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
     #    """
@@ -899,7 +900,7 @@ class QpuVisitor(BaseVisitor):
         dbg = self.get_debug_loc(binOp)
         basis_in = self.extract_basis(binOp.left)
         basis_out = self.extract_basis(binOp.right)
-        return Expr.new_basis_translation(basis_in, basis_out, dbg)
+        return QpuExpr.new_basis_translation(basis_in, basis_out, dbg)
 
     #def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
     #    if isinstance(unaryOp.op, ast.USub):
@@ -966,7 +967,7 @@ class QpuVisitor(BaseVisitor):
 
         basis_in = Basis.new_basis_literal(bvs_in, dbg)
         basis_out = Basis.new_basis_literal(bvs_out, dbg)
-        return Expr.new_basis_translation(basis_in, basis_out, dbg)
+        return QpuExpr.new_basis_translation(basis_in, basis_out, dbg)
 
     #def list_comp_helper(self, gen: Union[ast.GeneratorExp, ast.ListComp]):
     #    """
@@ -1044,16 +1045,16 @@ class QpuVisitor(BaseVisitor):
         """
         Convert an empty Python list literal AST node into a Qwerty
         ``UnitLiteral`` AST node. That is, ``[]`` becomes an
-        ``Expr::UnitLiteral``.
+        ``qpu::Expr::UnitLiteral``.
         """
         dbg = self.get_debug_loc(list_)
         if list_.elts:
             raise QwertySyntaxError('Python list literals are not supported '
                                     '(except for the Qwerty unit literal '
                                     '`[]`).', dbg)
-        return Expr.new_unit_literal(dbg)
+        return QpuExpr.new_unit_literal(dbg)
 
-    def visit_Call(self, call: ast.Call) -> Expr:
+    def visit_Call(self, call: ast.Call) -> QpuExpr:
         """
         As syntactic sugar, convert a Python call expression into a ``Pipe``
         Qwerty AST node. In general, the shorthand::
@@ -1097,7 +1098,7 @@ class QpuVisitor(BaseVisitor):
                                         'requires only constant bits `0bxxxx` '
                                         'between the parentheses.', bits_dbg)
 
-            return Expr.new_bit_literal(dim, bits, dbg)
+            return QpuExpr.new_bit_literal(bits, dim, dbg)
         elif isinstance(name_node := call.func, ast.Name) \
                 and (intrinsic_name := name_node.id) in INTRINSICS:
             expected_num_args = INTRINSICS[intrinsic_name]
@@ -1111,16 +1112,16 @@ class QpuVisitor(BaseVisitor):
             if intrinsic_name == '__MEASURE__':
                 basis_node, = args
                 basis = self.extract_basis(basis_node)
-                return Expr.new_measure(basis, dbg)
+                return QpuExpr.new_measure(basis, dbg)
             elif intrinsic_name == '__DISCARD__':
-                return Expr.new_discard(dbg)
+                return QpuExpr.new_discard(dbg)
             else:
                 assert False, "intrinsic parsing misconfigured"
         else:
             rhs = self.visit(call.func)
 
             if not call.args:
-                lhs = Expr.new_unit_literal(dbg)
+                lhs = QpuExpr.new_unit_literal(dbg)
             elif len(call.args) == 1:
                 lhs = self.visit(call.args[0])
             else:
@@ -1129,7 +1130,7 @@ class QpuVisitor(BaseVisitor):
                                         'passed to a function call, but got '
                                         f'{n_args} arguments.', dbg)
 
-            return Expr.new_pipe(lhs, rhs, dbg)
+            return QpuExpr.new_pipe(lhs, rhs, dbg)
 
     #def visit_Tuple(self, tuple_: ast.Tuple):
     #    """
@@ -1205,9 +1206,9 @@ class QpuVisitor(BaseVisitor):
         # TODO: do a more granular catch here
         except QwertySyntaxError:
             cond_expr = self.visit(if_expr.test)
-            return Expr.new_conditional(then_expr, else_expr, cond_expr, dbg)
+            return QpuExpr.new_conditional(then_expr, else_expr, cond_expr, dbg)
         else:
-            return Expr.new_predicated(then_expr, else_expr, pred_basis, dbg)
+            return QpuExpr.new_predicated(then_expr, else_expr, pred_basis, dbg)
 
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):
@@ -1320,7 +1321,7 @@ class QpuVisitor(BaseVisitor):
 
 def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
                     capturer: Capturer, filename: str = '',
-                    line_offset: int = 0, col_offset: int = 0) -> FunctionDef:
+                    line_offset: int = 0, col_offset: int = 0) -> QpuFunctionDef:
     """
     Run the ``QpuVisitor`` on the provided Python AST to convert to a Qwerty
     ``@qpu`` AST and return the result. The return value is the same as
@@ -1334,7 +1335,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
                          col_offset)
     return visitor.visit_Module(module)
 
-def convert_qpu_repl_input(root: ast.Interactive) -> Expr:
+def convert_qpu_repl_input(root: ast.Interactive) -> QpuExpr:
     """
     Convert a line from the Qwerty REPL into a Qwerty AST. Right now, this only
     handles expressions (e.g., assignment is not supported).

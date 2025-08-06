@@ -1,4 +1,4 @@
-use crate::ast::VectorAtomKind;
+use crate::ast::qpu::VectorAtomKind;
 use crate::dbg::DebugLoc;
 use std::fmt;
 

@@ -1,11 +1,21 @@
 //! Qwerty typechecker implementation: walks the AST and enforces all typing rules.
 
-use crate::ast::*;
 use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
+
+use crate::ast::{
+    angles_are_approx_equal, anti_phase, classical, in_phase, qpu,
+    qpu::{
+        Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, Expr, Measure,
+        NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor, UnitLiteral, Vector,
+        VectorAtomKind,
+    },
+    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
+    UnpackAssign, Variable,
+};
 
 /// Supplements the type judgment with an additional bit of information:
 /// whether statements and expressions involved are reversible or not. Used to
@@ -90,16 +100,26 @@ impl Program {
         let Program { funcs, .. } = self;
         let mut funcs_available = vec![];
 
-        for func in funcs {
-            func.typecheck(&funcs_available)?;
-            funcs_available.push((func.name.to_string(), func.get_type()));
+        for func_enum in funcs {
+            match func_enum {
+                Func::Qpu(func) => {
+                    // 'func' => '&FunctionDef<qpu::Expr>'
+                    func.typecheck(&funcs_available)?;
+                    funcs_available.push((func.name.to_string(), func.get_type()));
+                }
+                Func::Classical(func) => {
+                    // '&FunctionDef<classical::Expr>'
+                    func.typecheck(&funcs_available)?;
+                    funcs_available.push((func.name.to_string(), func.get_type()));
+                }
+            }
         }
 
         Ok(())
     }
 }
 
-impl FunctionDef {
+impl<E: TypeCheckable> FunctionDef<E> {
     /// Returns a new `TypeEnv` for type checking the body of this function.
     pub fn new_type_env(&self, funcs_available: &[(String, Type)]) -> Result<TypeEnv, TypeError> {
         let mut env = TypeEnv::new();
@@ -187,11 +207,61 @@ impl FunctionDef {
     }
 }
 
+// ────────────────────────────────────────────────────────────────────────────────────
+// --- EXPRESSIONS (TRAIT DEFINITION) ---
+pub trait TypeCheckable {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
+}
+
+// --- EXPRESSIONS (QPU IMPLEMENTATION) ---
+impl TypeCheckable for qpu::Expr {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            qpu::Expr::Variable(var) => var.typecheck(env),
+            qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
+            qpu::Expr::EmbedClassical(_) => {
+                todo!("EmbedClassical typechecking not implemented yet")
+            }
+            qpu::Expr::Adjoint(adj) => adj.typecheck(env),
+            qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
+            qpu::Expr::Measure(measure) => measure.typecheck(),
+            qpu::Expr::Discard(discard) => discard.typecheck(),
+            qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
+            qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
+            qpu::Expr::Predicated(pred) => pred.typecheck(env),
+            qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
+            qpu::Expr::Conditional(cond) => cond.typecheck(env),
+            qpu::Expr::QLit(qlit) => qlit.typecheck(),
+            qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
+            qpu::Expr::QubitRef(qref) => qref.typecheck(),
+        }
+    }
+}
+
+// --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
+// TODO: PENDING!
+impl TypeCheckable for classical::Expr {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            classical::Expr::Variable(var) => var.typecheck(env),
+            classical::Expr::Slice(_) => todo!(),
+            classical::Expr::UnaryOp(_) => todo!(),
+            classical::Expr::BinaryOp(_) => todo!(),
+            classical::Expr::ReduceOp(_) => todo!(),
+            classical::Expr::RotateOp(_) => todo!(),
+            classical::Expr::Concat(_) => todo!(),
+            classical::Expr::Repeat(_) => todo!(),
+            classical::Expr::ModMul(_) => todo!(),
+            classical::Expr::BitLiteral(_) => todo!(),
+        }
+    }
+}
+
 //
 // ─── STATEMENTS ────────────────────────────────────────────────────────────────
 //
 
-impl Assign {
+impl<E: TypeCheckable> Assign<E> {
     pub fn finish_type_checking(
         &self,
         env: &mut TypeEnv,
@@ -214,7 +284,7 @@ impl Assign {
 // 1. RHS must be a register type
 // 2. Number of LHS variables must match register dimension
 // 3. Each LHS variable gets typed as single-element register of same kind "RegType{ elem_ty, dim: 1 }"
-impl UnpackAssign {
+impl<E: TypeCheckable> UnpackAssign<E> {
     pub fn finish_type_checking(
         &self,
         env: &mut TypeEnv,
@@ -263,7 +333,7 @@ impl UnpackAssign {
     }
 }
 
-impl Return {
+impl<E: TypeCheckable> Return<E> {
     /// Performs some final checks after operand was typechecked.
     pub fn finish_type_checking(
         &self,
@@ -302,7 +372,7 @@ impl Return {
     }
 }
 
-impl Stmt {
+impl<E: TypeCheckable> Stmt<E> {
     /// Typecheck a statement.
     /// - env: The current variable/type environment.
     /// - expected_ret_type: Used to check Return statements. If None, we are
@@ -313,7 +383,9 @@ impl Stmt {
         expected_ret_type: Option<Type>,
     ) -> Result<ComputeKind, TypeError> {
         match self {
-            Stmt::Expr(expr) => expr.typecheck(env).map(|(_ty, compute_kind)| compute_kind),
+            Stmt::Expr(StmtExpr { expr, .. }) => {
+                expr.typecheck(env).map(|(_ty, compute_kind)| compute_kind)
+            }
             Stmt::Assign(assign) => assign.typecheck(env),
             Stmt::UnpackAssign(unpack) => unpack.typecheck(env),
             Stmt::Return(ret) => ret.typecheck(env, expected_ret_type),
@@ -1129,13 +1201,18 @@ impl Conditional {
 
 impl BitLiteral {
     pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
-        let BitLiteral { dim, bits, dbg } = self;
-        if *dim == 0 {
+        let BitLiteral {
+            val: _,
+            n_bits,
+            dbg,
+        } = self;
+
+        if *n_bits == 0 {
             Err(TypeError {
                 kind: TypeErrorKind::EmptyLiteral,
                 dbg: dbg.clone(),
             })
-        } else if bits.bit_len() > *dim {
+        } else if n_bits.bit_len() > *n_bits {
             // TODO: use a more descriptive error here
             Err(TypeError {
                 kind: TypeErrorKind::DimMismatch,
@@ -1144,7 +1221,7 @@ impl BitLiteral {
         } else {
             let ty = Type::RegType {
                 elem_ty: RegKind::Bit,
-                dim: *dim,
+                dim: *n_bits,
             };
             Ok((ty, ComputeKind::Rev))
         }
@@ -1185,6 +1262,7 @@ impl Expr {
             Expr::QLit(qlit) => qlit.typecheck(),
             Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
             Expr::QubitRef(qref) => qref.typecheck(),
+            Expr::EmbedClassical(_) => todo!("typecheck EmbedClassical"),
         }
     }
 }
@@ -1647,6 +1725,7 @@ impl Vector {
                     .iter()
                     .map(|q| q.typecheck())
                     .collect::<Result<Vec<Type>, TypeError>>()?;
+
                 let total_dim = types.iter().try_fold(0, |dim_acc, ty| {
                     if let Type::RegType {
                         elem_ty: RegKind::Qubit,

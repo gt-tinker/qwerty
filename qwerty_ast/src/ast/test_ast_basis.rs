@@ -1,6 +1,6 @@
 // Unit tests for typechecking bases
 
-use super::*;
+use super::qpu::*;
 use crate::dbg::DebugLoc;
 
 #[test]

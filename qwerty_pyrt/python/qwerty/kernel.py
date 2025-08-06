@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  _cook_programmer_traceback, get_python_vars, \
                  QwertySyntaxError
-from ._qwerty_pyrt import Program, FunctionDef
+from ._qwerty_pyrt import Program
 from .runtime import dimvar, bit
 from .convert_ast import AstKind, convert_ast, Capturer, CaptureError
 
@@ -142,7 +142,7 @@ def _jit(ast_kind, func, last_dimvars=None):
     capturer = JitCapturer()
     qwerty_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
                                   filename, line_offset, col_offset)
-    program.add_function_def(qwerty_func_def)
+    program.add_qpu_function_def(qwerty_func_def)
     _global_func_counter += 1
     func_name = qwerty_func_def.get_name()
     return KernelHandle(func_name)
