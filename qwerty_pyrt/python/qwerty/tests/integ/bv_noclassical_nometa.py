@@ -1,17 +1,16 @@
 """
-A version of Bernstein–Vazirani with no metaQwerty features.
+A version of Bernstein–Vazirani with neither metaQwerty features nor classical
+function embeddings.
 """
 
 from qwerty import *
 
-@classical
-def oracle(x: bit[3]) -> bit:
-    return (x & bit[3](0b110)).xor_reduce()
-
 @qpu
 def kernel() -> bit[3]:
+    # secret string is 110
+    f_sign = {'010', '011', '100', '101'} >> {-'010', -'011', -'100', -'101'}
     return (('0'+'1')*('0'+'1')*('0'+'1')
-            | __EMBED_SIGN__(oracle)
+            | f_sign
             | {'0'+'1','0'-'1'}*{'0'+'1','0'-'1'}*{'0'+'1','0'-'1'} >> {'0','1'}*{'0','1'}*{'0','1'}
             | __MEASURE__({'0','1'}*{'0','1'}*{'0','1'}))
 
