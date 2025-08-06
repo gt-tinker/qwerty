@@ -2195,7 +2195,6 @@ void determineUnconditional(llvm::SmallVectorImpl<Standardization> &left_stdize,
         } else {
             size_t big_dim = std::max(left_dim, right_dim);
             size_t small_dim = std::min(left_dim, right_dim);
-            size_t delta = big_dim - small_dim;
 
             Standardization &big = (left_dim > right_dim)? left : right;
             Standardization &small = (left_dim > right_dim)? right : left;
