@@ -28,7 +28,6 @@ set(LIBS
   MLIRQCirc
   MLIRQCircTransforms
   MLIRCCirc
-  MLIRCCircTransforms
 )
 
 add_llvm_executable(qwerty-opt
