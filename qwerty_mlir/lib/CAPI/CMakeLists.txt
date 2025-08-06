@@ -26,6 +26,16 @@ add_mlir_public_c_api_library(MLIRCAPIQwerty
   MLIRPass
 )
 
+add_mlir_public_c_api_library(MLIRCAPICCirc
+  CCirc.cpp
+
+  PARTIAL_SOURCES_INTENDED
+
+  LINK_LIBS PUBLIC
+  MLIRCAPIIR
+  MLIRCCirc
+)
+
 add_mlir_public_c_api_library(MLIRCAPIUtils
   Utils.cpp
 

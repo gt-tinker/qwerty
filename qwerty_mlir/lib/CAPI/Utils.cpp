@@ -30,3 +30,12 @@ void mlirExecutionEngineRegisterSymbols(
     });
 }
 
+MlirAttribute mlirIntegerAttrBigIntGet(MlirContext ctx,
+                                       uint64_t bitWidth,
+                                       intptr_t numValChunks,
+                                       uint64_t const *valChunks) {
+    llvm::ArrayRef<uint64_t> chunks(valChunks, numValChunks);
+    llvm::APInt val(bitWidth, chunks);
+    mlir::Type int_ty = mlir::IntegerType::get(unwrap(ctx), bitWidth);
+    return wrap(mlir::IntegerAttr::get(int_ty, val));
+}

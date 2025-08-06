@@ -22,6 +22,14 @@ MLIR_CAPI_EXPORTED void mlirExecutionEngineRegisterSymbols(
     intptr_t numEntries,
     MlirSymbolMapEntry const *entries);
 
+/// Allows getting an arbitrarily-sized IntegerAttr. The numValChunks and
+/// valChunks provided must be of the format expected by llvm::APInt's bigVal
+/// constructor.
+MlirAttribute mlirIntegerAttrBigIntGet(MlirContext ctx,
+                                       uint64_t bitWidth,
+                                       intptr_t numValChunks,
+                                       uint64_t const *valChunks);
+
 #ifdef __cplusplus
 }
 #endif

@@ -9,6 +9,7 @@ use melior::{
             TypeAttribute,
         },
         operation::{OperationPrintingFlags, OperationResult},
+        symbol_table::Visibility,
         r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Operation, OperationLike, Region, RegionLike, Type,
         TypeLike, Value, ValueLike,
@@ -40,6 +41,7 @@ static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
         DialectHandle::func(),
         DialectHandle::math(),
         DialectHandle::llvm(),
+        DialectHandle::ccirc(),
         DialectHandle::qcirc(),
         DialectHandle::qwerty(),
     ];
@@ -1768,7 +1770,6 @@ fn ast_func_def_to_mlir(
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
     let func_ty = ast_func_mlir_ty(func_def);
     let func_ty_attr = TypeAttribute::new(func_ty);
-    let func_attrs = &[];
     let func_loc = dbg_to_loc(func_def.dbg.clone());
 
     let qwerty_func_ty: qwerty::FunctionType = func_ty.try_into().unwrap();
@@ -1836,8 +1837,8 @@ fn ast_func_def_to_mlir(
         &MLIR_CTX,
         sym_name,
         func_ty_attr,
+        Visibility::Public,
         func_region,
-        func_attrs,
         func_loc,
     );
     let qwerty_func_ty = func_ty.try_into().unwrap();
