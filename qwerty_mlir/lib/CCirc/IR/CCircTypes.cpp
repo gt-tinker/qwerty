@@ -13,11 +13,11 @@
 
 namespace ccirc {
 
-mlir::LogicalResult WireBundleType::verify(
+mlir::LogicalResult WireType::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
         uint64_t dim) {
     if (!dim) {
-        return emitError() << "WireBundle cannot be empty";
+        return emitError() << "Wire cannot be empty";
     }
     return mlir::success();
 }

@@ -17,7 +17,7 @@ class CCirc_Type<string name, string typeMnemonic, list<Trait> traits = []> :
     let mnemonic = typeMnemonic;
 }
 
-def CCirc_WireBundle : CCirc_Type<"WireBundle", "wirebundle"> {
+def CCirc_Wire : CCirc_Type<"Wire", "wire"> {
     let summary = "N-bit wire bundle";
     let description = [{
         Constant-sized bundle of Wires

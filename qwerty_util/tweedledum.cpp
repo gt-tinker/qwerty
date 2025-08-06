@@ -51,8 +51,8 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
 
     llvm::DenseMap<mlir::Value, llvm::SmallVector<mockturtle::xag_network::signal>> val_signals;
     for (mlir::BlockArgument block_arg : body.getArguments()) {
-        ccirc::WireBundleType arg_ty =
-            llvm::cast<ccirc::WireBundleType>(block_arg.getType());
+        ccirc::WireType arg_ty =
+            llvm::cast<ccirc::WireType>(block_arg.getType());
         uint64_t dim = arg_ty.getDim();
         llvm::SmallVector<mockturtle::xag_network::signal> input_signals;
         for (uint64_t i = 0; i < dim; i++) {
@@ -86,7 +86,7 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
             [[maybe_unused]] bool inserted = val_signals.try_emplace(
                 const_op.getResult(), std::move(result_signals)).second;
             assert(inserted && "encountered constant twice?");
-        } else if (ccirc::WireBundlePackOp pack_op = llvm::dyn_cast<ccirc::WireBundlePackOp>(&op)) {
+        } else if (ccirc::WirePackOp pack_op = llvm::dyn_cast<ccirc::WirePackOp>(&op)) {
             llvm::SmallVector<mockturtle::xag_network::signal> result_signals;
 
             for (mlir::Value wire : pack_op.getWires()) {
@@ -97,7 +97,7 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
             [[maybe_unused]] bool inserted = val_signals.try_emplace(
                 pack_op.getWire(), std::move(result_signals)).second;
             assert(inserted && "encountered pack twice?");
-        } else if (ccirc::WireBundleUnpackOp unpack_op = llvm::dyn_cast<ccirc::WireBundleUnpackOp>(&op)) {
+        } else if (ccirc::WireUnpackOp unpack_op = llvm::dyn_cast<ccirc::WireUnpackOp>(&op)) {
             assert(val_signals.contains(unpack_op.getWire()) && "unpack wire not tracked");
 
             for (auto [val, signal] : llvm::zip(unpack_op.getWires(), val_signals.at(unpack_op.getWire()))) {

@@ -1,8 +1,8 @@
 // RUN: qwerty-opt -split-input-file -synth-embeds %s | FileCheck %s
 
-// CHECK-LABEL: ccirc.circuit private @flip(%arg0: !ccirc<wirebundle[1]>) rev {
-//  CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   ccirc.return %0 : !ccirc<wirebundle[1]>
+// CHECK-LABEL: ccirc.circuit private @flip(%arg0: !ccirc<wire[1]>) rev {
+//  CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[1]>
 //  CHECK-NEXT: }
 //  CHECK-NEXT: qwerty.func private @flip__xor[](%arg0: !qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]> {
 //  CHECK-NEXT:   %0:2 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[2]>) -> (!qcirc.qubit, !qcirc.qubit)
@@ -21,9 +21,9 @@
 //  CHECK-NEXT:   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>, !qwerty<qbundle[2]>) -> !qwerty<qbundle[2]>
 //  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[2]>
 //  CHECK-NEXT: }
-ccirc.circuit private @flip(%arg0: !ccirc<wirebundle[1]>) rev {
-  %0 = ccirc.not(%arg0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-  ccirc.return %0 : !ccirc<wirebundle[1]>
+ccirc.circuit private @flip(%arg0: !ccirc<wire[1]>) rev {
+  %0 = ccirc.not(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %0 : !ccirc<wire[1]>
 }
 
 qwerty.func @embed_xor1[](%arg0: !qwerty<qbundle[2]>) irrev-> !qwerty<qbundle[2]> {
@@ -40,14 +40,14 @@ qwerty.func @embed_xor2[](%arg0: !qwerty<qbundle[2]>) irrev-> !qwerty<qbundle[2]
 
 // -----
 
-// CHECK-LABEL: ccirc.circuit private @bv_oracle(%arg0: !ccirc<wirebundle[4]>) irrev {
-//  CHECK-NEXT:   %0 = ccirc.constant -3 : i4 : !ccirc<wirebundle[4]>
-//  CHECK-NEXT:   %1 = ccirc.and(%arg0, %0) : (!ccirc<wirebundle[4]>, !ccirc<wirebundle[4]>) -> !ccirc<wirebundle[4]>
-//  CHECK-NEXT:   %2:4 = ccirc.wireunpack %1 : (!ccirc<wirebundle[4]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-//  CHECK-NEXT:   %3 = ccirc.xor(%2#0, %2#1) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %4 = ccirc.xor(%3, %2#2) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %5 = ccirc.xor(%4, %2#3) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   ccirc.return %5 : !ccirc<wirebundle[1]>
+// CHECK-LABEL: ccirc.circuit private @bv_oracle(%arg0: !ccirc<wire[4]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.constant -3 : i4 : !ccirc<wire[4]>
+//  CHECK-NEXT:   %1 = ccirc.and(%arg0, %0) : (!ccirc<wire[4]>, !ccirc<wire[4]>) -> !ccirc<wire[4]>
+//  CHECK-NEXT:   %2:4 = ccirc.wireunpack %1 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+//  CHECK-NEXT:   %3 = ccirc.xor(%2#0, %2#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %4 = ccirc.xor(%3, %2#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %5 = ccirc.xor(%4, %2#3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %5 : !ccirc<wire[1]>
 //  CHECK-NEXT: }
 //  CHECK-NEXT: qwerty.func private @bv_oracle__xor[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
 //  CHECK-NEXT:   %0:5 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
@@ -76,15 +76,15 @@ qwerty.func @embed_xor2[](%arg0: !qwerty<qbundle[2]>) irrev-> !qwerty<qbundle[2]
 //  CHECK-NEXT:   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[4]>
 //  CHECK-NEXT: }
-ccirc.circuit private @bv_oracle(%arg0: !ccirc<wirebundle[4]>) irrev {
+ccirc.circuit private @bv_oracle(%arg0: !ccirc<wire[4]>) irrev {
   // sign extended: 0b1101 | -1 << 4 == -3
-  %0 = ccirc.constant -3 : i4 : !ccirc<wirebundle[4]>
-  %1 = ccirc.and(%arg0, %0) : (!ccirc<wirebundle[4]>, !ccirc<wirebundle[4]>) -> !ccirc<wirebundle[4]>
-  %2:4 = ccirc.wireunpack %1 : (!ccirc<wirebundle[4]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-  %3 = ccirc.xor(%2#0, %2#1) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-  %4 = ccirc.xor(%3, %2#2) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-  %5 = ccirc.xor(%4, %2#3) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-  ccirc.return %5: !ccirc<wirebundle[1]>
+  %0 = ccirc.constant -3 : i4 : !ccirc<wire[4]>
+  %1 = ccirc.and(%arg0, %0) : (!ccirc<wire[4]>, !ccirc<wire[4]>) -> !ccirc<wire[4]>
+  %2:4 = ccirc.wireunpack %1 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+  %3 = ccirc.xor(%2#0, %2#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %4 = ccirc.xor(%3, %2#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %5 = ccirc.xor(%4, %2#3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %5: !ccirc<wire[1]>
 }
 
 qwerty.func @embed_sign[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]> {
@@ -95,13 +95,13 @@ qwerty.func @embed_sign[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]
 
 // -----
 
-// CHECK-LABEL: ccirc.circuit private @silly(%arg0: !ccirc<wirebundle[4]>) rev {
-//  CHECK-NEXT:   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wirebundle[4]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-//  CHECK-NEXT:   %1 = ccirc.wirepack(%0#0, %0#2) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[2]>
-//  CHECK-NEXT:   %2 = ccirc.wirepack(%0#1, %1) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[2]>) -> !ccirc<wirebundle[3]>
-//  CHECK-NEXT:   %3 = ccirc.not(%2) : (!ccirc<wirebundle[3]>) -> !ccirc<wirebundle[3]>
-//  CHECK-NEXT:   %4 = ccirc.not(%0#3) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   ccirc.return %4, %3 : !ccirc<wirebundle[1]>, !ccirc<wirebundle[3]>
+// CHECK-LABEL: ccirc.circuit private @silly(%arg0: !ccirc<wire[4]>) rev {
+//  CHECK-NEXT:   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+//  CHECK-NEXT:   %1 = ccirc.wirepack(%0#0, %0#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[2]>
+//  CHECK-NEXT:   %2 = ccirc.wirepack(%0#1, %1) : (!ccirc<wire[1]>, !ccirc<wire[2]>) -> !ccirc<wire[3]>
+//  CHECK-NEXT:   %3 = ccirc.not(%2) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+//  CHECK-NEXT:   %4 = ccirc.not(%0#3) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %4, %3 : !ccirc<wire[1]>, !ccirc<wire[3]>
 //  CHECK-NEXT: }
 //  CHECK-NEXT: qwerty.func private @silly__xor[](%arg0: !qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]> {
 //  CHECK-NEXT:   %0:8 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[8]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
@@ -116,17 +116,17 @@ qwerty.func @embed_sign[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]
 //  CHECK-NEXT:   %1 = qwerty.qbpack(%controlResults_2, %controlResults_0, %controlResults_4, %controlResults, %result_6, %result_7, %result_8, %result_9) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[8]>
 //  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[8]>
 //  CHECK-NEXT: }
-//  CHECK-NEXT: ccirc.circuit private @silly__inv(%arg0: !ccirc<wirebundle[1]>, %arg1: !ccirc<wirebundle[3]>) rev {
-//  CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %1 = ccirc.not(%arg1) : (!ccirc<wirebundle[3]>) -> !ccirc<wirebundle[3]>
-//  CHECK-NEXT:   %2:3 = ccirc.wireunpack %1 : (!ccirc<wirebundle[3]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-//  CHECK-NEXT:   %3 = ccirc.wirepack(%2#0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %4 = ccirc.wirepack(%2#1, %2#2) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[2]>
-//  CHECK-NEXT:   %5:2 = ccirc.wireunpack %4 : (!ccirc<wirebundle[2]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-//  CHECK-NEXT:   %6 = ccirc.wirepack(%5#0) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %7 = ccirc.wirepack(%5#1) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-//  CHECK-NEXT:   %8 = ccirc.wirepack(%6, %3, %7, %0) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[4]>
-//  CHECK-NEXT:   ccirc.return %8 : !ccirc<wirebundle[4]>
+//  CHECK-NEXT: ccirc.circuit private @silly__inv(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[3]>) rev {
+//  CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %1 = ccirc.not(%arg1) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+//  CHECK-NEXT:   %2:3 = ccirc.wireunpack %1 : (!ccirc<wire[3]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+//  CHECK-NEXT:   %3 = ccirc.wirepack(%2#0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %4 = ccirc.wirepack(%2#1, %2#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[2]>
+//  CHECK-NEXT:   %5:2 = ccirc.wireunpack %4 : (!ccirc<wire[2]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>)
+//  CHECK-NEXT:   %6 = ccirc.wirepack(%5#0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %7 = ccirc.wirepack(%5#1) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %8 = ccirc.wirepack(%6, %3, %7, %0) : (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[4]>
+//  CHECK-NEXT:   ccirc.return %8 : !ccirc<wire[4]>
 //  CHECK-NEXT: }
 //  CHECK-NEXT: qwerty.func private @silly__inv__xor[](%arg0: !qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]> {
 //  CHECK-NEXT:   %0:8 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[8]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
@@ -161,13 +161,13 @@ qwerty.func @embed_sign[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]
 //  CHECK-NEXT:   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[4]>
 //  CHECK-NEXT: }
-ccirc.circuit private @silly(%arg0: !ccirc<wirebundle[4]>) rev {
-  %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wirebundle[4]>) -> (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>)
-  %1 = ccirc.wirepack(%0#0, %0#2) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[1]>) -> !ccirc<wirebundle[2]>
-  %2 = ccirc.wirepack(%0#1, %1) : (!ccirc<wirebundle[1]>, !ccirc<wirebundle[2]>) -> !ccirc<wirebundle[3]>
-  %3 = ccirc.not(%2) : (!ccirc<wirebundle[3]>) -> !ccirc<wirebundle[3]>
-  %4 = ccirc.not(%0#3) : (!ccirc<wirebundle[1]>) -> !ccirc<wirebundle[1]>
-  ccirc.return %4, %3 : !ccirc<wirebundle[1]>, !ccirc<wirebundle[3]>
+ccirc.circuit private @silly(%arg0: !ccirc<wire[4]>) rev {
+  %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+  %1 = ccirc.wirepack(%0#0, %0#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[2]>
+  %2 = ccirc.wirepack(%0#1, %1) : (!ccirc<wire[1]>, !ccirc<wire[2]>) -> !ccirc<wire[3]>
+  %3 = ccirc.not(%2) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+  %4 = ccirc.not(%0#3) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %4, %3 : !ccirc<wire[1]>, !ccirc<wire[3]>
 }
 
 qwerty.func @embed_inplace[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]> {

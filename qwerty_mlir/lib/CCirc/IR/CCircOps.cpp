@@ -32,13 +32,13 @@ struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     }
 };
 
-struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireBundleUnpackOp> {
-    using OpRewritePattern<ccirc::WireBundleUnpackOp>::OpRewritePattern;
+struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
+    using OpRewritePattern<ccirc::WireUnpackOp>::OpRewritePattern;
 
-    mlir::LogicalResult matchAndRewrite(ccirc::WireBundleUnpackOp unpack,
+    mlir::LogicalResult matchAndRewrite(ccirc::WireUnpackOp unpack,
                                         mlir::PatternRewriter &rewriter) const override {
         mlir::Value wire = unpack.getWire();
-        ccirc::WireBundlePackOp pack = wire.getDefiningOp<ccirc::WireBundlePackOp>();
+        ccirc::WirePackOp pack = wire.getDefiningOp<ccirc::WirePackOp>();
         if (!pack) {
             return mlir::failure();
         }
@@ -47,10 +47,10 @@ struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireBundleUnpac
     }
 };
 
-struct SimplifyTrivialPack : public mlir::OpRewritePattern<ccirc::WireBundlePackOp> {
-    using OpRewritePattern<ccirc::WireBundlePackOp>::OpRewritePattern;
+struct SimplifyTrivialPack : public mlir::OpRewritePattern<ccirc::WirePackOp> {
+    using OpRewritePattern<ccirc::WirePackOp>::OpRewritePattern;
 
-    mlir::LogicalResult matchAndRewrite(ccirc::WireBundlePackOp pack,
+    mlir::LogicalResult matchAndRewrite(ccirc::WirePackOp pack,
                                         mlir::PatternRewriter &rewriter) const override {
         if (pack.getWires().size() != 1) {
             return mlir::failure();
@@ -155,7 +155,7 @@ void CircuitOp::print(mlir::OpAsmPrinter &p) {
 uint64_t CircuitOp::inDim() {
     uint64_t in_dim = 0;
     for (mlir::Type arg_ty : bodyBlock().getArgumentTypes()) {
-        in_dim += llvm::cast<WireBundleType>(arg_ty).getDim();
+        in_dim += llvm::cast<WireType>(arg_ty).getDim();
     }
     return in_dim;
 }
@@ -165,7 +165,7 @@ uint64_t CircuitOp::outDim() {
     auto ret_operands =
         llvm::cast<ReturnOp>(bodyBlock().getTerminator()).getOperands();
     for (mlir::Value ret_operand : ret_operands) {
-        out_dim += llvm::cast<WireBundleType>(ret_operand.getType()).getDim();
+        out_dim += llvm::cast<WireType>(ret_operand.getType()).getDim();
     }
     return out_dim;
 }
@@ -199,11 +199,11 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
         if (ReturnOp ret = llvm::dyn_cast<ReturnOp>(op)) {
             llvm::SmallVector<mlir::Type> inv_block_arg_tys;
             for (mlir::Value fwd_ret_operand : ret.getOperands()) {
-                WireBundleType fwd_ret_operand_ty =
-                    llvm::cast<WireBundleType>(fwd_ret_operand.getType());
+                WireType fwd_ret_operand_ty =
+                    llvm::cast<WireType>(fwd_ret_operand.getType());
                 uint64_t dim = fwd_ret_operand_ty.getDim();
                 inv_block_arg_tys.push_back(
-                    rewriter.getType<WireBundleType>(dim));
+                    rewriter.getType<WireType>(dim));
             }
 
             llvm::SmallVector<mlir::Location> inv_block_arg_locs(
@@ -235,8 +235,8 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
             [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                 {fwd_in, inv_out}).second;
             assert(inserted && "Re-encountered a NotOp operand");
-        } else if (WireBundlePackOp pack =
-                llvm::dyn_cast<WireBundlePackOp>(op)) {
+        } else if (WirePackOp pack =
+                llvm::dyn_cast<WirePackOp>(op)) {
             assert(!inv_circ.getBody().empty()
                    && "Inverse circuit body missing");
 
@@ -247,20 +247,20 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
 
             mlir::Value inv_in = fwd_to_inv.at(fwd_out);
             mlir::ValueRange inv_unpacked =
-                rewriter.create<WireBundleUnpackOp>(
+                rewriter.create<WireUnpackOp>(
                     pack.getLoc(), inv_in).getWires();
 
             uint64_t wire_idx = 0;
             for (mlir::Value fwd_in : fwd_ins) {
-                WireBundleType fwd_in_ty =
-                    llvm::cast<WireBundleType>(fwd_in.getType());
+                WireType fwd_in_ty =
+                    llvm::cast<WireType>(fwd_in.getType());
                 uint64_t dim = fwd_in_ty.getDim();
 
                 llvm::SmallVector<mlir::Value> wires_to_repack(
                     inv_unpacked.begin() + wire_idx,
                     inv_unpacked.begin() + (wire_idx + dim));
 
-                mlir::Value inv_out = rewriter.create<WireBundlePackOp>(
+                mlir::Value inv_out = rewriter.create<WirePackOp>(
                     loc, wires_to_repack).getWire();
                 [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                     {fwd_in, inv_out}).second;
@@ -268,8 +268,8 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
 
                 wire_idx += dim;
             }
-        } else if (WireBundleUnpackOp unpack =
-                llvm::dyn_cast<WireBundleUnpackOp>(op)) {
+        } else if (WireUnpackOp unpack =
+                llvm::dyn_cast<WireUnpackOp>(op)) {
             assert(!inv_circ.getBody().empty()
                    && "Inverse circuit body missing");
 
@@ -279,15 +279,15 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
             llvm::SmallVector<mlir::Value> inv_ins;
             for (mlir::Value fwd_out : fwd_outs) {
                 assert(fwd_to_inv.contains(fwd_out)
-                       && "WireBundleUnpackOp result never encountered");
+                       && "WireUnpackOp result never encountered");
                 inv_ins.push_back(fwd_to_inv.at(fwd_out));
             }
-            mlir::Value inv_out = rewriter.create<WireBundlePackOp>(
+            mlir::Value inv_out = rewriter.create<WirePackOp>(
                 loc, inv_ins).getWire();
             [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                 {fwd_in, inv_out}).second;
             assert(inserted
-                   && "Re-encountered a WireBundleUnpackOp operand");
+                   && "Re-encountered a WireUnpackOp operand");
         } else {
             op->dump();
             assert(0 && "Missing handling for op in buildInverseCircuit()");
@@ -311,7 +311,7 @@ mlir::LogicalResult ConstantOp::inferReturnTypes(
         ConstantOp::Adaptor adaptor,
         llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
     inferredReturnTypes.push_back(
-        WireBundleType::get(ctx, adaptor.getValue().getBitWidth()));
+        WireType::get(ctx, adaptor.getValue().getBitWidth()));
     return mlir::success();
 }
 
@@ -361,44 +361,44 @@ void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
     results.add<DoubleNegationPattern>(context);
 }
 
-mlir::LogicalResult WireBundlePackOp::inferReturnTypes(
+mlir::LogicalResult WirePackOp::inferReturnTypes(
         mlir::MLIRContext *ctx,
         std::optional<mlir::Location> loc,
-        WireBundlePackOp::Adaptor adaptor,
+        WirePackOp::Adaptor adaptor,
         llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
     size_t combined_dim = 0;
     for (mlir::Value wire : adaptor.getWires()) {
-        WireBundleType wire_ty = llvm::dyn_cast<WireBundleType>(wire.getType());
+        WireType wire_ty = llvm::dyn_cast<WireType>(wire.getType());
         if (!wire_ty) {
             return mlir::failure();
         }
         combined_dim += wire_ty.getDim();
     }
-    WireBundleType ret_ty = WireBundleType::get(ctx, combined_dim);
+    WireType ret_ty = WireType::get(ctx, combined_dim);
     inferredReturnTypes.insert(inferredReturnTypes.end(), ret_ty);
     return mlir::success();
 }
 
-void WireBundlePackOp::getCanonicalizationPatterns(
+void WirePackOp::getCanonicalizationPatterns(
         mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
     results.add<SimplifyTrivialPack>(context);
 }
 
-mlir::LogicalResult WireBundleUnpackOp::inferReturnTypes(
+mlir::LogicalResult WireUnpackOp::inferReturnTypes(
         mlir::MLIRContext *ctx,
         std::optional<mlir::Location> loc,
-        WireBundleUnpackOp::Adaptor adaptor,
+        WireUnpackOp::Adaptor adaptor,
         llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
-    WireBundleType in_ty = llvm::dyn_cast<WireBundleType>(adaptor.getWire().getType());
+    WireType in_ty = llvm::dyn_cast<WireType>(adaptor.getWire().getType());
     if (!in_ty) {
         return mlir::failure();
     }
     size_t in_dim = in_ty.getDim();
-    inferredReturnTypes.append(in_dim, WireBundleType::get(ctx, 1));
+    inferredReturnTypes.append(in_dim, WireType::get(ctx, 1));
     return mlir::success();
 }
 
-void WireBundleUnpackOp::getCanonicalizationPatterns(
+void WireUnpackOp::getCanonicalizationPatterns(
         mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
     results.add<SimplifyPackUnpack>(context);
 }
