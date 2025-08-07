@@ -441,6 +441,25 @@ impl Basis {
     }
 }
 
+#[pyclass(eq, hash, frozen)]
+#[derive(Clone, PartialEq, Hash)]
+pub enum EmbedKind {
+    Sign,
+    Xor,
+    InPlace,
+}
+
+// Intentionally not annotated with #[pymethods]: this is only for use in Rust
+impl EmbedKind {
+    fn to_ast_kind(&self) -> ast::qpu::EmbedKind {
+        match self {
+            EmbedKind::Sign => ast::qpu::EmbedKind::Sign,
+            EmbedKind::Xor => ast::qpu::EmbedKind::Xor,
+            EmbedKind::InPlace => ast::qpu::EmbedKind::InPlace,
+        }
+    }
+}
+
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct QpuExpr {
@@ -475,6 +494,22 @@ impl QpuExpr {
     fn new_unit_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             expr: ast::qpu::Expr::UnitLiteral(ast::qpu::UnitLiteral {
+                dbg: dbg.map(|dbg| dbg.dbg),
+            }),
+        }
+    }
+
+    #[classmethod]
+    fn new_embed_classical(
+        _cls: &Bound<'_, PyType>,
+        func_name: String,
+        embed_kind: EmbedKind,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: ast::qpu::Expr::EmbedClassical(ast::qpu::EmbedClassical {
+                func_name,
+                embed_kind: embed_kind.to_ast_kind(),
                 dbg: dbg.map(|dbg| dbg.dbg),
             }),
         }
@@ -930,6 +965,13 @@ pub struct Program {
     type_checked: bool,
 }
 
+impl Program {
+    fn add_function_def(&mut self, func: ast::Func) {
+        self.program.funcs.push(func);
+        self.type_checked = false;
+    }
+}
+
 #[pymethods]
 impl Program {
     #[new]
@@ -944,8 +986,11 @@ impl Program {
     }
 
     fn add_qpu_function_def(&mut self, func: QpuFunctionDef) {
-        self.program.funcs.push(ast::Func::Qpu(func.function_def));
-        self.type_checked = false;
+        self.add_function_def(ast::Func::Qpu(func.function_def));
+    }
+
+    fn add_classical_function_def(&mut self, func: ClassicalFunctionDef) {
+        self.add_function_def(ast::Func::Classical(func.function_def));
     }
 
     fn type_check(&mut self, py: Python<'_>) -> PyResult<()> {

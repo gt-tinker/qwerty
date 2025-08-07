@@ -116,12 +116,8 @@ def _jit(ast_kind, func, last_dimvars=None):
     """
     Obtain the Python source code for a function object ``func``, then ask the
     Python interpreter for its Python AST, then convert this Python AST to a
-    Qwerty AST. If all dimension variables can be inferred from captures,
-    immediately type check the AST and compile it to MLIR; otherwise, hold off
-    until dimension variables are provided (see ``__getattr__()`` above).
-
-    The initial Qwerty AST is cached between each time a Qwerty kernel is
-    re-encountered with different captures or explicit dimension variables.
+    Qwerty AST. Return a handle by which it can be called from Python or
+    another Qwerty kernel.
     """
     global QWERTY_DEBUG, _global_func_counter
 
@@ -140,11 +136,17 @@ def _jit(ast_kind, func, last_dimvars=None):
     func_ast = ast.parse(func_src_dedent)
     name_generator = lambda ast_name: f'{ast_name}_{_global_func_counter}'
     capturer = JitCapturer()
-    qwerty_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
-                                  filename, line_offset, col_offset)
-    program.add_qpu_function_def(qwerty_func_def)
+    ast_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
+                               filename, line_offset, col_offset)
+    if ast_kind == AstKind.QPU:
+        program.add_qpu_function_def(ast_func_def)
+    elif ast_kind == AstKind.CLASSICAL:
+        program.add_classical_function_def(ast_func_def)
+    else:
+        assert False, "compiler bug: Missing handling of AstKind"
+
     _global_func_counter += 1
-    func_name = qwerty_func_def.get_name()
+    func_name = ast_func_def.get_name()
     return KernelHandle(func_name)
 
 class JitProxy(ABC):

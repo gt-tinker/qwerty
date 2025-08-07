@@ -29,6 +29,12 @@ class IntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
+    def test_baby_classical_nometa(self):
+        from .integ import baby_classical_nometa
+        shots = 1024
+        expected_histo = {bit[3](0b111): shots}
+        self.assertEqual(expected_histo, baby_classical_nometa.test(shots))
+
     def test_bv_noclassical_nometa(self):
         from .integ import bv_noclassical_nometa
         shots = 1024

@@ -14,6 +14,13 @@ pub struct UnitLiteral {
     pub dbg: Option<DebugLoc>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EmbedKind {
+    Sign,
+    Xor,
+    InPlace,
+}
+
 /// See [`Expr::EmbedClassical`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct EmbedClassical {
@@ -94,13 +101,6 @@ pub struct Conditional {
 #[derive(Debug, Clone, PartialEq)]
 pub struct QubitRef {
     pub index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EmbedKind {
-    Sign,
-    Xor,
-    InPlace,
 }
 
 #[derive(Debug, Clone, PartialEq)]

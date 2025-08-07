@@ -14,7 +14,7 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, QLit, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
-                          BasisGenerator, UnaryOpKind
+                          BasisGenerator, UnaryOpKind, EmbedKind
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -628,6 +628,15 @@ class BaseVisitor(ABC):
 INTRINSICS = {
     '__MEASURE__': 1,
     '__DISCARD__': 0,
+    '__EMBED_XOR__': 1,
+    '__EMBED_SIGN__': 1,
+    '__EMBED_INPLACE__': 1,
+}
+
+EMBED_KINDS = {
+    '__EMBED_XOR__': EmbedKind.Xor,
+    '__EMBED_SIGN__': EmbedKind.Sign,
+    '__EMBED_INPLACE__': EmbedKind.InPlace,
 }
 
 class QpuVisitor(BaseVisitor):
@@ -1199,8 +1208,33 @@ class QpuVisitor(BaseVisitor):
                 return QpuExpr.new_measure(basis, dbg)
             elif intrinsic_name == '__DISCARD__':
                 return QpuExpr.new_discard(dbg)
+            elif intrinsic_name in EMBED_KINDS:
+                name_node, = args
+                if not isinstance(name_node, ast.Name):
+                    node_name = type(name_node).__name__
+                    raise QwertySyntaxError('Classical embedding intrinsics '
+                                            'operate on only variable names, '
+                                            'such as `my_func.sign`, but '
+                                            f'found {node_name} syntax '
+                                            'instead.', dbg)
+
+                func_name = name_node.id
+                try:
+                    mangled_name = self.capturer.capture(func_name)
+                except CaptureError:
+                    raise QwertySyntaxError('Cannot create quantum embedding '
+                                            f'of Python object {func_name} '
+                                            'because it is not a @classical '
+                                            'function.', dbg)
+                if mangled_name is None:
+                    raise QwertySyntaxError('There is no classical function '
+                                            f'named {func_name} to embed.',
+                                            dbg)
+
+                embed_kind = EMBED_KINDS[intrinsic_name]
+                return QpuExpr.new_embed_classical(mangled_name, embed_kind, dbg)
             else:
-                assert False, "intrinsic parsing misconfigured"
+                assert False, "compiler bug: intrinsic parsing misconfigured"
         else:
             rhs = self.visit(call.func)
 
@@ -1419,7 +1453,7 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
                          col_offset)
     return visitor.visit_Module(module)
 
-def convert_qpu_repl_input(root: ast.Interactive) -> QpuStmt:
+def convert_qpu_repl_input(root: ast.Interactive, *, capturer=None) -> QpuStmt:
     """
     Convert a line from the Qwerty REPL into a Qwerty AST. Always returns a
     statement.
@@ -1433,8 +1467,9 @@ def convert_qpu_repl_input(root: ast.Interactive) -> QpuStmt:
                                 f'{len(root.body)} statements')
 
     stmt, = root.body
+    capturer = capturer or TrivialCapturer()
     visitor = QpuVisitor(name_generator=lambda name: name,
-                         capturer=TrivialCapturer(),
+                         capturer=capturer,
                          filename='<input>',
                          line_offset=0,
                          col_offset=0)

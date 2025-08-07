@@ -7,11 +7,13 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 use crate::ast::{
-    angles_are_approx_equal, anti_phase, classical, in_phase, qpu,
+    angles_are_approx_equal, anti_phase,
+    classical::{self, UnaryOp},
+    in_phase, qpu,
     qpu::{
-        Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, Expr, Measure,
-        NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor, UnitLiteral, Vector,
-        VectorAtomKind,
+        Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
+        Expr, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor, UnitLiteral,
+        Vector, VectorAtomKind,
     },
     Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
     UnpackAssign, Variable,
@@ -238,6 +240,27 @@ impl TypeCheckable for qpu::Expr {
     }
 }
 
+impl UnaryOp {
+    pub fn calc_type(
+        &self,
+        _val_ty: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        Ok((
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 3,
+            },
+            ComputeKind::Rev,
+        ))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let UnaryOp { val, .. } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
+}
+
 // --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
 // TODO: PENDING!
 impl TypeCheckable for classical::Expr {
@@ -245,14 +268,14 @@ impl TypeCheckable for classical::Expr {
         match self {
             classical::Expr::Variable(var) => var.typecheck(env),
             classical::Expr::Slice(_) => todo!(),
-            classical::Expr::UnaryOp(_) => todo!(),
+            classical::Expr::UnaryOp(unary) => unary.typecheck(env),
             classical::Expr::BinaryOp(_) => todo!(),
             classical::Expr::ReduceOp(_) => todo!(),
             classical::Expr::RotateOp(_) => todo!(),
             classical::Expr::Concat(_) => todo!(),
             classical::Expr::Repeat(_) => todo!(),
             classical::Expr::ModMul(_) => todo!(),
-            classical::Expr::BitLiteral(_) => todo!(),
+            classical::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
         }
     }
 }
@@ -1232,6 +1255,24 @@ impl BitLiteral {
     }
 }
 
+impl EmbedClassical {
+    pub fn calc_type(&self, _env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        Ok((
+            Type::RevFuncType {
+                in_out_ty: Box::new(Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: 3,
+                }),
+            },
+            ComputeKind::Rev,
+        ))
+    }
+
+    pub fn typecheck(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        self.calc_type(env)
+    }
+}
+
 impl QubitRef {
     pub fn calc_type(&self) -> Result<(Type, ComputeKind), TypeError> {
         Err(TypeError {
@@ -1261,8 +1302,8 @@ impl Expr {
             Expr::Conditional(cond) => cond.typecheck(env),
             Expr::QLit(qlit) => qlit.typecheck(),
             Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
+            Expr::EmbedClassical(embed) => embed.typecheck(env),
             Expr::QubitRef(qref) => qref.typecheck(),
-            Expr::EmbedClassical(_) => todo!("typecheck EmbedClassical"),
         }
     }
 }

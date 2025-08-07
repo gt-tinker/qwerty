@@ -1,12 +1,12 @@
 use dashu::{base::BitTest, integer::UBig};
 use melior::{
-    dialect::{arith, qcirc, qwerty, scf, DialectHandle, DialectRegistry},
+    dialect::{arith, ccirc, qcirc, qwerty, scf, DialectHandle, DialectRegistry},
     execution_engine::SymbolFlags,
     ir::{
         self,
         attribute::{
-            FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute, StringAttribute,
-            TypeAttribute,
+            BoolAttribute, FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute,
+            StringAttribute, TypeAttribute,
         },
         operation::{OperationPrintingFlags, OperationResult},
         r#type::{FunctionType, IntegerType},
@@ -21,15 +21,17 @@ use melior::{
 use qwerty_ast::{
     ast::{
         self, angle_is_approx_zero, angles_are_approx_equal,
+        classical::{self, UnaryOp, UnaryOpKind},
         qpu::{
-            Basis, BasisGenerator, BasisTranslation, Conditional, Discard, Expr, Measure, Pipe,
-            Predicated, QLit, Tensor, Vector, VectorAtomKind,
+            self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
+            EmbedClassical, EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, Tensor,
+            Vector, VectorAtomKind,
         },
         Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, UnpackAssign,
         Variable,
     },
     dbg::DebugLoc,
-    typecheck::{ComputeKind, TypeEnv},
+    typecheck::{ComputeKind, TypeCheckable, TypeEnv},
 };
 use std::{collections::HashMap, env, sync::LazyLock};
 
@@ -72,15 +74,15 @@ fn dbg_to_loc(dbg: Option<DebugLoc>) -> Location<'static> {
 
 /// Converts AST types to mlir::Types. Returns a vec to account for tuples,
 /// which will be represented by multiple MLIR values.
-fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
+fn ast_ty_to_mlir_tys<E: Lowerable>(ty: &ast::Type) -> Vec<ir::Type<'static>> {
     match ty {
         ast::Type::FuncType { in_ty, out_ty } => {
             vec![qwerty::FunctionType::new(
                 &MLIR_CTX,
                 FunctionType::new(
                     &MLIR_CTX,
-                    &ast_ty_to_mlir_tys(&**in_ty),
-                    &ast_ty_to_mlir_tys(&**out_ty),
+                    &ast_ty_to_mlir_tys::<E>(&**in_ty),
+                    &ast_ty_to_mlir_tys::<E>(&**out_ty),
                 ),
                 /*reversible=*/ false,
             )
@@ -88,7 +90,7 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
         }
 
         ast::Type::RevFuncType { in_out_ty } => {
-            let in_out_mlir_tys = ast_ty_to_mlir_tys(&**in_out_ty);
+            let in_out_mlir_tys = ast_ty_to_mlir_tys::<E>(&**in_out_ty);
             vec![qwerty::FunctionType::new(
                 &MLIR_CTX,
                 FunctionType::new(&MLIR_CTX, &in_out_mlir_tys, &in_out_mlir_tys),
@@ -101,7 +103,7 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
             elem_ty: RegKind::Bit,
             dim,
         } if *dim > 0 => {
-            vec![qwerty::BitBundleType::new(&MLIR_CTX, (*dim).try_into().unwrap()).into()]
+            vec![E::bit_register_ty(*dim)]
         }
 
         ast::Type::RegType {
@@ -116,7 +118,7 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
             ..
         } => panic!("Basis has no MLIR type"),
 
-        ast::Type::TupleType { tys } => tys.iter().flat_map(ast_ty_to_mlir_tys).collect(),
+        ast::Type::TupleType { tys } => tys.iter().flat_map(ast_ty_to_mlir_tys::<E>).collect(),
 
         // Fallthrough for RegType where *dim == 0
         ast::Type::UnitType | ast::Type::RegType { .. } => vec![],
@@ -124,8 +126,8 @@ fn ast_ty_to_mlir_tys(ty: &ast::Type) -> Vec<ir::Type<'static>> {
 }
 
 /// Returns the type of a FunctionDef AST node as an mlir::Type.
-fn ast_func_mlir_ty<E>(func_def: &FunctionDef<E>) -> ir::Type<'static> {
-    let mlir_tys = ast_ty_to_mlir_tys(&func_def.get_type());
+fn ast_func_mlir_ty<E: Lowerable>(func_def: &FunctionDef<E>) -> ir::Type<'static> {
+    let mlir_tys = ast_ty_to_mlir_tys::<E>(&func_def.get_type());
     assert_eq!(mlir_tys.len(), 1);
     mlir_tys[0]
 }
@@ -777,9 +779,9 @@ fn synth_function_tensor_product(
     block: &Block<'static>,
     loc: Location<'static>,
 ) -> Value<'static, 'static> {
-    let arg_tys = ast_ty_to_mlir_tys(in_ty);
+    let arg_tys = ast_ty_to_mlir_tys::<qpu::Expr>(in_ty);
     assert!(arg_tys.len() <= 1);
-    let res_tys = ast_ty_to_mlir_tys(out_ty);
+    let res_tys = ast_ty_to_mlir_tys::<qpu::Expr>(out_ty);
     assert!(res_tys.len() <= 1);
 
     mlir_wrap_lambda(
@@ -971,15 +973,15 @@ fn synth_function_tensor_product(
     )
 }
 
-/// Converts an AST Expr node to mlir::Values by appending ops to the provided
-/// block.
-fn ast_expr_to_mlir(
-    expr: &Expr,
+/// Converts a `@qpu` AST Expr node to mlir::Values by appending ops to the
+/// provided block.
+fn ast_qpu_expr_to_mlir(
+    expr: &qpu::Expr,
     ctx: &mut Ctx,
     block: &Block<'static>,
 ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
     match expr {
-        Expr::Variable(var @ Variable { name, dbg }) => {
+        qpu::Expr::Variable(var @ Variable { name, dbg }) => {
             let (ty, compute_kind) = var
                 .calc_type(&mut ctx.type_env)
                 .expect("Variable to pass typechecking");
@@ -1017,16 +1019,20 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        Expr::UnitLiteral(unit) => {
+        qpu::Expr::UnitLiteral(unit) => {
             let (ty, compute_kind) = unit.typecheck().expect("Unit literal to pass typechecking");
             (ty, compute_kind, vec![])
         }
 
-        Expr::Pipe(pipe @ Pipe { lhs, rhs, dbg }) => {
+        qpu::Expr::Pipe(pipe @ Pipe { lhs, rhs, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
-            let (lhs_ty, lhs_compute_kind, lhs_vals) = ast_expr_to_mlir(&**lhs, ctx, block);
-            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(&**rhs, ctx, block);
-            assert_eq!(rhs_vals.len(), 1);
+            let (lhs_ty, lhs_compute_kind, lhs_vals) = ast_qpu_expr_to_mlir(&**lhs, ctx, block);
+            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_qpu_expr_to_mlir(&**rhs, ctx, block);
+            assert_eq!(
+                rhs_vals.len(),
+                1,
+                "Every function value should have 1 MLIR value"
+            );
 
             let (ty, compute_kind) = pipe
                 .calc_type(&(lhs_ty, lhs_compute_kind), &(rhs_ty, rhs_compute_kind))
@@ -1041,7 +1047,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, calli_results)
         }
 
-        Expr::Measure(meas @ Measure { basis, dbg }) => {
+        qpu::Expr::Measure(meas @ Measure { basis, dbg }) => {
             let basis_ty = basis
                 .typecheck()
                 .expect("Measurement basis to pass typechecking");
@@ -1095,7 +1101,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, lambda)
         }
 
-        Expr::Discard(discard @ Discard { dbg }) => {
+        qpu::Expr::Discard(discard @ Discard { dbg }) => {
             let (ty, compute_kind) = discard.typecheck().expect("Discard to pass typechecking");
 
             let loc = dbg_to_loc(dbg.clone());
@@ -1119,13 +1125,13 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, lambda)
         }
 
-        Expr::Tensor(tensor @ Tensor { vals, dbg }) => {
+        qpu::Expr::Tensor(tensor @ Tensor { vals, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
 
             let (val_results, val_vals_2d): (Vec<_>, Vec<_>) = vals
                 .iter()
                 .map(|val| {
-                    let (ty, compute_kind, vals) = ast_expr_to_mlir(val, ctx, block);
+                    let (ty, compute_kind, vals) = ast_qpu_expr_to_mlir(val, ctx, block);
                     ((ty, compute_kind), vals)
                 })
                 .unzip();
@@ -1211,7 +1217,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        Expr::BasisTranslation(btrans @ BasisTranslation { bin, bout, dbg }) => {
+        qpu::Expr::BasisTranslation(btrans @ BasisTranslation { bin, bout, dbg }) => {
             let bin_ty = bin.typecheck().expect("Input basis to pass typechecking");
             let bout_ty = bout.typecheck().expect("Output basis to pass typechecking");
             let (ty, compute_kind) = btrans
@@ -1366,7 +1372,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, lambda)
         }
 
-        Expr::Predicated(
+        qpu::Expr::Predicated(
             predicated @ Predicated {
                 then_func,
                 else_func,
@@ -1376,8 +1382,10 @@ fn ast_expr_to_mlir(
         ) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (then_ty, then_compute_kind, then_vals) = ast_expr_to_mlir(then_func, ctx, block);
-            let (else_ty, else_compute_kind, else_vals) = ast_expr_to_mlir(else_func, ctx, block);
+            let (then_ty, then_compute_kind, then_vals) =
+                ast_qpu_expr_to_mlir(then_func, ctx, block);
+            let (else_ty, else_compute_kind, else_vals) =
+                ast_qpu_expr_to_mlir(else_func, ctx, block);
             let pred_ty = pred
                 .typecheck()
                 .expect("Predicate basis to pass typechecking");
@@ -1557,7 +1565,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, lambda)
         }
 
-        Expr::Conditional(
+        qpu::Expr::Conditional(
             conditional @ Conditional {
                 then_expr,
                 else_expr,
@@ -1567,7 +1575,7 @@ fn ast_expr_to_mlir(
         ) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (cond_ty, cond_compute_kind, cond_vals) = ast_expr_to_mlir(cond, ctx, block);
+            let (cond_ty, cond_compute_kind, cond_vals) = ast_qpu_expr_to_mlir(cond, ctx, block);
             assert_eq!(cond_vals.len(), 1);
             let cond_bitbundle = cond_vals[0];
 
@@ -1582,7 +1590,7 @@ fn ast_expr_to_mlir(
 
             let mut conditional_ctx = conditional.linearity_check_before_then(&ctx.type_env);
             let (then_ty, then_compute_kind, then_vals) =
-                ast_expr_to_mlir(then_expr, ctx, &then_block);
+                ast_qpu_expr_to_mlir(then_expr, ctx, &then_block);
             then_block.append_operation(scf::r#yield(&then_vals, loc));
             conditional
                 .linearity_check_after_then_before_else(&mut ctx.type_env, &mut conditional_ctx);
@@ -1593,7 +1601,7 @@ fn ast_expr_to_mlir(
             let else_block_args = &[];
             let else_block = Block::new(else_block_args);
             let (else_ty, else_compute_kind, else_vals) =
-                ast_expr_to_mlir(else_expr, ctx, &else_block);
+                ast_qpu_expr_to_mlir(else_expr, ctx, &else_block);
             else_block.append_operation(scf::r#yield(&else_vals, loc));
             conditional
                 .linearity_check_after_else(&ctx.type_env, &conditional_ctx)
@@ -1609,7 +1617,7 @@ fn ast_expr_to_mlir(
                     &(cond_ty, cond_compute_kind),
                 )
                 .expect("Conditional to pass typechecking");
-            let result_mlir_tys = ast_ty_to_mlir_tys(&ty);
+            let result_mlir_tys = ast_ty_to_mlir_tys::<qpu::Expr>(&ty);
 
             let mlir_vals: Vec<_> = block
                 .append_operation(scf::r#if(
@@ -1626,7 +1634,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        Expr::QLit(qlit) => {
+        qpu::Expr::QLit(qlit) => {
             let (ty, compute_kind) = qlit
                 .typecheck()
                 .expect("Qubit literal to pass type checking");
@@ -1634,7 +1642,7 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, vals)
         }
 
-        Expr::BitLiteral(blit @ BitLiteral { val, n_bits, dbg }) => {
+        qpu::Expr::BitLiteral(blit @ BitLiteral { val, n_bits, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
             let mlir_vals = vec![mlir_wrap_calc(block, loc, |calc_block| {
                 let bit_vals: Vec<_> = (0..*n_bits)
@@ -1665,25 +1673,257 @@ fn ast_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        _ => todo!("expression {}", expr),
+        qpu::Expr::Adjoint(adj @ Adjoint { func, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (func_ty, func_compute_kind, func_vals) = ast_qpu_expr_to_mlir(&**func, ctx, block);
+            assert_eq!(
+                func_vals.len(),
+                1,
+                "Every function value should have 1 MLIR value"
+            );
+            let func_val = func_vals[0];
+
+            let (ty, compute_kind) = adj
+                .calc_type(&(func_ty, func_compute_kind))
+                .expect("Adjoint to pass typechecking");
+
+            let adj_vals = vec![block
+                .append_operation(qwerty::func_adj(func_val, loc))
+                .result(0)
+                .unwrap()
+                .into()];
+            (ty, compute_kind, adj_vals)
+        }
+
+        qpu::Expr::NonUniformSuperpos(superpos @ NonUniformSuperpos { pairs, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (term_tys, elems): (Vec<_>, Vec<_>) = pairs
+                .iter()
+                .map(|(prob, qlit)| {
+                    let bv = qlit.convert_to_basis_vector();
+                    let (vec_attrs, phase) = ast_vec_to_mlir(&bv);
+
+                    let prob_attr =
+                        FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), *prob);
+                    let phase_attr =
+                        FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), phase);
+                    let elem_attr = qwerty::SuperposElemAttribute::new(
+                        &MLIR_CTX, prob_attr, phase_attr, &vec_attrs,
+                    );
+                    let (qlit_ty, qlit_compute_kind) =
+                        qlit.typecheck().expect("QLit to pass type checking");
+                    ((qlit_ty, qlit_compute_kind), elem_attr)
+                })
+                .unzip();
+
+            let (ty, compute_kind) = superpos
+                .calc_type(&term_tys)
+                .expect("NonUniformSuperpos to pass type checking");
+
+            let superpos_attr = qwerty::SuperposAttribute::new(&MLIR_CTX, &elems);
+            let superpos_vals = vec![block
+                .append_operation(qwerty::superpos(&MLIR_CTX, superpos_attr, loc))
+                .result(0)
+                .unwrap()
+                .into()];
+            (ty, compute_kind, superpos_vals)
+        }
+
+        qpu::Expr::EmbedClassical(
+            embed @ EmbedClassical {
+                func_name,
+                embed_kind,
+                dbg,
+            },
+        ) => {
+            let loc = dbg_to_loc(dbg.clone());
+            let (ty, compute_kind) = embed
+                .calc_type(&ctx.type_env)
+                .expect("EmbedClassical to pass type checking");
+            let mlir_tys = ast_ty_to_mlir_tys::<qpu::Expr>(&ty);
+            assert_eq!(mlir_tys.len(), 1, "function value must have one MLIR value");
+            let mlir_ty = mlir_tys[0]
+                .try_into()
+                .expect("function value does not have function type");
+
+            let embed_op_func = match embed_kind {
+                EmbedKind::Sign => qwerty::embed_sign,
+                EmbedKind::Xor => qwerty::embed_xor,
+                EmbedKind::InPlace => qwerty::embed_inplace,
+            };
+            let circuit_sym_attr = FlatSymbolRefAttribute::new(&MLIR_CTX, func_name);
+            let embed_vals = vec![block
+                .append_operation(embed_op_func(&MLIR_CTX, circuit_sym_attr, mlir_ty, loc))
+                .result(0)
+                .unwrap()
+                .into()];
+            (ty, compute_kind, embed_vals)
+        }
+
+        qpu::Expr::QubitRef(_) => panic!("QubitRef should never be lowered to MLIR"),
+    }
+}
+
+/// Converts a `@classical` AST Expr node to mlir::Values by appending ops to
+/// the provided block.
+fn ast_classical_expr_to_mlir(
+    expr: &classical::Expr,
+    ctx: &mut Ctx,
+    block: &Block<'static>,
+) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
+    match expr {
+        classical::Expr::Variable(var @ Variable { name, .. }) => {
+            let (ty, compute_kind) = var
+                .calc_type(&mut ctx.type_env)
+                .expect("Variable to pass typechecking");
+            let bound_vals = ctx
+                .bindings
+                .get(name)
+                .expect(&format!("Variable {} to be bound", name));
+
+            let mlir_vals = match bound_vals {
+                BoundVals::Materialized(vals) => vals.clone(),
+                BoundVals::UnmaterializedFunction(_) => {
+                    panic!("@classical variables should never require materialization")
+                }
+            };
+
+            (ty, compute_kind, mlir_vals)
+        }
+
+        classical::Expr::Slice(_) => todo!("@classical slice"),
+
+        classical::Expr::UnaryOp(unary @ UnaryOp { kind, val, dbg }) => {
+            let (val_ty, val_compute_kind, val_vals) =
+                ast_classical_expr_to_mlir(&**val, ctx, block);
+            assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
+            let val_val = val_vals[0];
+
+            let (ty, compute_kind) = unary
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("UnaryOp to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let op = match kind {
+                UnaryOpKind::Not => ccirc::not(val_val, loc),
+            };
+            let mlir_vals = vec![block.append_operation(op).result(0).unwrap().into()];
+            (ty, compute_kind, mlir_vals)
+        }
+
+        classical::Expr::BinaryOp(_) => todo!("@classical binary op"),
+
+        classical::Expr::ReduceOp(_) => todo!("@classical reduce op"),
+
+        classical::Expr::RotateOp(_) => todo!("@classical rotate op"),
+
+        classical::Expr::Concat(_) => todo!("@classical concat op"),
+
+        classical::Expr::Repeat(_) => todo!("@classical repeat op"),
+
+        classical::Expr::ModMul(_) => todo!("@classical modmul op"),
+
+        classical::Expr::BitLiteral(_) => todo!("@classical bit literal op"),
+    }
+}
+
+/// This trait is a hack to allow calling either [`ast_qpu_expr_to_mlir`] or
+/// [`ast_classical_expr_to_mlir`] from [`ast_stmt_to_mlir`] as appropriate
+/// depending on the type of `FunctionDef` involved.
+trait Lowerable {
+    fn lower_to_mlir(
+        &self,
+        ctx: &mut Ctx,
+        block: &Block<'static>,
+    ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>);
+
+    fn build_return(vals: &[Value<'static, 'static>], loc: Location<'static>)
+        -> Operation<'static>;
+
+    fn bit_register_ty(dim: usize) -> ir::Type<'static>;
+
+    fn build_bit_register_unpack(
+        reg: Value<'static, 'static>,
+        loc: Location<'static>,
+    ) -> Operation<'static>;
+}
+
+impl Lowerable for qpu::Expr {
+    fn lower_to_mlir(
+        &self,
+        ctx: &mut Ctx,
+        block: &Block<'static>,
+    ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
+        ast_qpu_expr_to_mlir(self, ctx, block)
+    }
+
+    fn build_return(
+        vals: &[Value<'static, 'static>],
+        loc: Location<'static>,
+    ) -> Operation<'static> {
+        qwerty::r#return(vals, loc)
+    }
+
+    fn bit_register_ty(dim: usize) -> ir::Type<'static> {
+        qwerty::BitBundleType::new(&MLIR_CTX, dim.try_into().unwrap()).into()
+    }
+
+    fn build_bit_register_unpack(
+        reg: Value<'static, 'static>,
+        loc: Location<'static>,
+    ) -> Operation<'static> {
+        qwerty::bitunpack(reg, loc)
+    }
+}
+
+impl Lowerable for classical::Expr {
+    fn lower_to_mlir(
+        &self,
+        ctx: &mut Ctx,
+        block: &Block<'static>,
+    ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
+        ast_classical_expr_to_mlir(self, ctx, block)
+    }
+
+    fn build_return(
+        vals: &[Value<'static, 'static>],
+        loc: Location<'static>,
+    ) -> Operation<'static> {
+        ccirc::r#return(vals, loc)
+    }
+
+    fn bit_register_ty(dim: usize) -> ir::Type<'static> {
+        ccirc::WireType::new(&MLIR_CTX, dim.try_into().unwrap()).into()
+    }
+
+    fn build_bit_register_unpack(
+        reg: Value<'static, 'static>,
+        loc: Location<'static>,
+    ) -> Operation<'static> {
+        ccirc::wireunpack(reg, loc)
     }
 }
 
 /// Append ops that implement an AST Stmt node to the provided block.
-fn ast_stmt_to_mlir(
-    stmt: &Stmt<ast::qpu::Expr>,
+fn ast_stmt_to_mlir<E>(
+    stmt: &Stmt<E>,
     ctx: &mut Ctx,
     block: &Block<'static>,
     expected_ret_type: Option<ast::Type>,
-) -> ComputeKind {
+) -> ComputeKind
+where
+    E: Lowerable + TypeCheckable,
+{
     match stmt {
         Stmt::Expr(expr) => {
-            let (_ty, compute_kind, _vals) = ast_expr_to_mlir(&expr.expr, ctx, block);
+            let (_ty, compute_kind, _vals) = expr.expr.lower_to_mlir(ctx, block);
             compute_kind
         }
 
         Stmt::Assign(assign @ Assign { lhs, rhs, .. }) => {
-            let (rhs_type, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(rhs, ctx, block);
+            let (rhs_type, rhs_compute_kind, rhs_vals) = rhs.lower_to_mlir(ctx, block);
             ctx.bindings
                 .insert(lhs.to_string(), BoundVals::Materialized(rhs_vals));
             assign
@@ -1692,7 +1932,7 @@ fn ast_stmt_to_mlir(
         }
 
         Stmt::UnpackAssign(unpack @ UnpackAssign { lhs, rhs, dbg }) => {
-            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_expr_to_mlir(rhs, ctx, block);
+            let (rhs_ty, rhs_compute_kind, rhs_vals) = rhs.lower_to_mlir(ctx, block);
             let loc = dbg_to_loc(dbg.clone());
 
             assert!(!lhs.is_empty());
@@ -1719,7 +1959,7 @@ fn ast_stmt_to_mlir(
                     elem_ty: RegKind::Bit,
                     ..
                 } => block
-                    .append_operation(qwerty::bitunpack(rhs_val, loc))
+                    .append_operation(E::build_bit_register_unpack(rhs_val, loc))
                     .results()
                     .map(|res| {
                         block
@@ -1755,9 +1995,9 @@ fn ast_stmt_to_mlir(
         }
 
         Stmt::Return(ret @ Return { val, dbg }) => {
-            let (val_ty, val_compute_kind, vals) = ast_expr_to_mlir(val, ctx, block);
+            let (val_ty, val_compute_kind, vals) = val.lower_to_mlir(ctx, block);
             let loc = dbg_to_loc(dbg.clone());
-            block.append_operation(qwerty::r#return(&vals, loc));
+            block.append_operation(E::build_return(&vals, loc));
 
             ret.finish_type_checking(&(val_ty, val_compute_kind), expected_ret_type)
                 .expect("Return to finish typechecking")
@@ -1765,9 +2005,9 @@ fn ast_stmt_to_mlir(
     }
 }
 
-/// Converts an AST FunctionDef node into a qwerty::function op.
-fn ast_func_def_to_mlir(
-    func_def: &FunctionDef<ast::qpu::Expr>,
+/// Converts an AST `@qpu` `FunctionDef` node into a `qwerty::func` op.
+fn ast_qpu_func_def_to_mlir(
+    func_def: &FunctionDef<qpu::Expr>,
     funcs_available: &[(String, ast::Type, qwerty::FunctionType<'static>)],
 ) -> (Operation<'static>, qwerty::FunctionType<'static>) {
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
@@ -1848,6 +2088,71 @@ fn ast_func_def_to_mlir(
     (func_op, qwerty_func_ty)
 }
 
+/// Converts an AST `@classical` `FunctionDef` node into a `ccirc::circuit` op.
+fn ast_classical_func_def_to_mlir(func_def: &FunctionDef<classical::Expr>) -> Operation<'static> {
+    let func_loc = dbg_to_loc(func_def.dbg.clone());
+
+    let block_args: Vec<_> = func_def
+        .args
+        .iter()
+        .map(|(arg_ty, _arg_name)| {
+            let mlir_tys = ast_ty_to_mlir_tys::<classical::Expr>(arg_ty);
+            // @classical functions should take only bits
+            assert_eq!(mlir_tys.len(), 1);
+            (mlir_tys[0], func_loc)
+        })
+        .collect();
+    let func_block = Block::new(&block_args);
+
+    let type_env = func_def
+        .new_type_env(/*funcs_available=*/ &[])
+        .expect("valid type env");
+    let mut ctx = Ctx::new(&func_block, type_env);
+
+    // Bind function arguments
+    assert_eq!(func_def.args.len(), func_block.argument_count());
+    for (arg_name, arg_val) in func_def
+        .args
+        .iter()
+        .map(|(_ty, name)| name)
+        .zip(func_block.arguments())
+    {
+        let old_binding = ctx.bindings.insert(
+            arg_name.to_string(),
+            BoundVals::Materialized(vec![arg_val.into()]),
+        );
+        assert!(old_binding.is_none());
+    }
+
+    for stmt in &func_def.body {
+        let compute_kind = ast_stmt_to_mlir(
+            stmt,
+            &mut ctx,
+            &func_block,
+            func_def.get_expected_ret_type(),
+        );
+        func_def
+            .check_stmt_compute_kind(compute_kind)
+            .expect("Statement to have a valid ComputeKind");
+    }
+
+    let func_region = Region::new();
+    func_region.append_block(func_block);
+
+    let is_rev_attr = BoolAttribute::new(&MLIR_CTX, func_def.is_rev);
+    let sym_name_attr = StringAttribute::new(&MLIR_CTX, &func_def.name);
+
+    ccirc::circuit(
+        &MLIR_CTX,
+        is_rev_attr,
+        sym_name_attr,
+        // Can't be called from Python
+        Visibility::Private,
+        func_region,
+        func_loc,
+    )
+}
+
 /// Converts a Qwerty AST into an mlir::ModuleOp.
 fn ast_program_to_mlir(prog: &Program) -> Module {
     let loc = dbg_to_loc(prog.dbg.clone());
@@ -1856,12 +2161,21 @@ fn ast_program_to_mlir(prog: &Program) -> Module {
     let mut funcs_available = vec![];
 
     for func in &prog.funcs {
-        let (func_op, mlir_func_ty) = match func {
-            Func::Qpu(func_def) => ast_func_def_to_mlir(func_def, &funcs_available),
-            Func::Classical(_) => todo!("@classical AST lowering"),
+        let (func_op, mlir_func_ty_opt) = match func {
+            Func::Qpu(func_def) => {
+                let (func_op, mlir_func_ty) = ast_qpu_func_def_to_mlir(func_def, &funcs_available);
+                (func_op, Some(mlir_func_ty))
+            }
+            Func::Classical(func_def) => {
+                let func_op = ast_classical_func_def_to_mlir(func_def);
+                (func_op, None)
+            }
         };
+
         module_block.append_operation(func_op);
-        funcs_available.push((func.get_name(), func.get_type(), mlir_func_ty));
+        if let Some(mlir_func_ty) = mlir_func_ty_opt {
+            funcs_available.push((func.get_name(), func.get_type(), mlir_func_ty));
+        }
     }
 
     assert!(module.as_operation().verify());
@@ -1897,8 +2211,9 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     // Stage 1: Optimize Qwerty dialect
 
     // Running the canonicalizer may introduce lambdas, so run it once first
-    // before the lambda lifter
+    // before the lambda lifter. Also will optimize ccirc
     pm.add_pass(transform::create_canonicalizer());
+    pm.add_pass(qwerty::create_synth_embeds());
     pm.add_pass(qwerty::create_lift_lambdas());
     // Will turn qwerty.call_indirects into qwerty.calls
     pm.add_pass(transform::create_canonicalizer());
@@ -1906,7 +2221,7 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     // It seems the inliner may not run a final round of canonicalization
     // sometimes, so do it ourselves
     pm.add_pass(transform::create_canonicalizer());
-    // Remove any leftover symbols
+    // Remove any leftover symbols, including ccirc.circuits
     pm.add_pass(transform::create_symbol_dce());
 
     // Stage 2: Convert to QCirc dialect
