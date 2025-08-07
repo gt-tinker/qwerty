@@ -14,7 +14,7 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, QLit, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
-                          BasisGenerator, UnaryOpKind, EmbedKind
+                          BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -1554,54 +1554,54 @@ class ClassicalVisitor(BaseVisitor):
         operand = self.visit(unaryOp.operand)
         dbg = self.get_debug_loc(unaryOp)
         return ClassicalExpr.new_unary_op(UnaryOpKind.Not, operand, dbg)
-#
-#    def visit_BinOp(self, binOp: ast.BinOp):
-#        if isinstance(binOp.op, ast.BitAnd):
-#            return self.visit_BinOp_BitAnd(binOp)
-#        elif isinstance(binOp.op, ast.BitXor):
-#            return self.visit_BinOp_BitXor(binOp)
-#        elif isinstance(binOp.op, ast.BitOr):
-#            return self.visit_BinOp_BitOr(binOp)
-#        elif isinstance(binOp.op, ast.Mod):
-#            return self.visit_BinOp_Mod(binOp)
-#        else:
-#            op_name = type(binOp.op).__name__
-#            raise QwertySyntaxError('Unknown binary operation {}'
-#                                    .format(op_name),
-#                                    self.get_debug_loc(binOp))
-#
-#    def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
-#        """
-#        Convert a Python binary bitwise AND expression into the same thing in
-#        the Qwerty AST. For example, ``x & y`` becomes a ``BitBinaryOp`` Qwerty
-#        AST node.
-#        """
-#        left = self.visit(binOp.left)
-#        right = self.visit(binOp.right)
-#        dbg = self.get_debug_loc(binOp)
-#        return BitBinaryOp(dbg, BIT_AND, left, right)
-#
-#    def visit_BinOp_BitXor(self, binOp: ast.BinOp):
-#        """
-#        Convert a Python binary bitwise XOR expression into the same thing in
-#        the Qwerty AST. For example, ``x ^ y`` becomes a ``BitBinaryOp`` Qwerty
-#        AST node.
-#        """
-#        left = self.visit(binOp.left)
-#        right = self.visit(binOp.right)
-#        dbg = self.get_debug_loc(binOp)
-#        return BitBinaryOp(dbg, BIT_XOR, left, right)
-#
-#    def visit_BinOp_BitOr(self, binOp: ast.BinOp):
-#        """
-#        Convert a Python binary bitwise OR expression into the same thing in
-#        the Qwerty AST. For example, ``x | y`` becomes a ``BitBinaryOp`` Qwerty
-#        AST node.
-#        """
-#        left = self.visit(binOp.left)
-#        right = self.visit(binOp.right)
-#        dbg = self.get_debug_loc(binOp)
-#        return BitBinaryOp(dbg, BIT_OR, left, right)
+
+    def visit_BinOp(self, binOp: ast.BinOp):
+        if isinstance(binOp.op, ast.BitAnd):
+            return self.visit_BinOp_BitAnd(binOp)
+        elif isinstance(binOp.op, ast.BitXor):
+            return self.visit_BinOp_BitXor(binOp)
+        elif isinstance(binOp.op, ast.BitOr):
+            return self.visit_BinOp_BitOr(binOp)
+        #elif isinstance(binOp.op, ast.Mod):
+        #    return self.visit_BinOp_Mod(binOp)
+        else:
+            op_name = type(binOp.op).__name__
+            raise QwertySyntaxError('Unknown binary operation {}'
+                                    .format(op_name),
+                                    self.get_debug_loc(binOp))
+
+    def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
+        """
+        Convert a Python binary bitwise AND expression into the same thing in
+        the Qwerty AST. For example, ``x & y`` becomes a ``BitBinaryOp`` Qwerty
+        AST node.
+        """
+        left = self.visit(binOp.left)
+        right = self.visit(binOp.right)
+        dbg = self.get_debug_loc(binOp)
+        return ClassicalExpr.new_binary_op(BinaryOpKind.And, left, right, dbg)
+
+    def visit_BinOp_BitXor(self, binOp: ast.BinOp):
+        """
+        Convert a Python binary bitwise XOR expression into the same thing in
+        the Qwerty AST. For example, ``x ^ y`` becomes a ``BitBinaryOp`` Qwerty
+        AST node.
+        """
+        left = self.visit(binOp.left)
+        right = self.visit(binOp.right)
+        dbg = self.get_debug_loc(binOp)
+        return ClassicalExpr.new_binary_op(BinaryOpKind.Xor, left, right, dbg)
+
+    def visit_BinOp_BitOr(self, binOp: ast.BinOp):
+        """
+        Convert a Python binary bitwise OR expression into the same thing in
+        the Qwerty AST. For example, ``x | y`` becomes a ``BitBinaryOp`` Qwerty
+        AST node.
+        """
+        left = self.visit(binOp.left)
+        right = self.visit(binOp.right)
+        dbg = self.get_debug_loc(binOp)
+        return ClassicalExpr.new_binary_op(BinaryOpKind.Or, left, right, dbg)
 #
 #    # Modular multiplication: X**2**J*y % N
 #    def visit_BinOp_Mod(self, mod: ast.BinOp):
@@ -1662,18 +1662,20 @@ class ClassicalVisitor(BaseVisitor):
             operand = attr.value
             func_name = attr.attr
 
-            #reduce_pseudo_funcs = {'xor_reduce': BIT_XOR,
-            #                       'and_reduce': BIT_AND}
+            reduce_pseudo_funcs = {'xor_reduce': BinaryOpKind.Xor,
+                                   'and_reduce': BinaryOpKind.And,
+                                   'or_reduce': BinaryOpKind.Or}
             #binary_pseudo_funcs = {'rotr': BIT_ROTR,
             #                       'rotl': BIT_ROTL}
-            #if func_name in reduce_pseudo_funcs:
-            #    if call.args or call.keywords:
-            #        raise QwertySyntaxError('Arguments cannot be passed to the '
-            #                                'function call',
-            #                                self.get_debug_loc(call))
-            #    dbg = self.get_debug_loc(call)
-            #    return BitReduceOp(dbg, reduce_pseudo_funcs[func_name],
-            #                       self.visit(operand))
+            if func_name in reduce_pseudo_funcs:
+                if call.args or call.keywords:
+                    raise QwertySyntaxError('Arguments cannot be passed to a '
+                                            'reduction pseudo-function',
+                                            self.get_debug_loc(call))
+                dbg = self.get_debug_loc(call)
+                kind = reduce_pseudo_funcs[func_name]
+                val = self.visit(operand)
+                return ClassicalExpr.new_reduce_op(kind, val, dbg)
             #elif func_name in binary_pseudo_funcs:
             #    if call.keywords:
             #        raise QwertySyntaxError('Keywords arguments not '
@@ -1708,10 +1710,10 @@ class ClassicalVisitor(BaseVisitor):
             #    amount = self.extract_dimvar_expr(amount_node)
             #    dbg = self.get_debug_loc(call)
             #    return BitRepeat(dbg, bits, amount)
-            #else:
-            raise QwertySyntaxError('Unknown pseudo-function {}'
-                                    .format(func_name),
-                                    self.get_debug_loc(call))
+            else:
+                raise QwertySyntaxError('Unknown pseudo-function {}'
+                                        .format(func_name),
+                                        self.get_debug_loc(call))
 #
 #    def visit_Tuple(self, tup: ast.Tuple):
 #        """
@@ -1755,8 +1757,8 @@ class ClassicalVisitor(BaseVisitor):
     def visit(self, node: ast.AST):
         if isinstance(node, ast.UnaryOp):
             return self.visit_UnaryOp(node)
-        #elif isinstance(node, ast.BinOp):
-        #    return self.visit_BinOp(node)
+        elif isinstance(node, ast.BinOp):
+            return self.visit_BinOp(node)
         elif isinstance(node, ast.Call):
             return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):

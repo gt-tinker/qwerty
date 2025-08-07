@@ -657,6 +657,25 @@ impl UnaryOpKind {
     }
 }
 
+#[pyclass(eq, hash, frozen)]
+#[derive(Clone, PartialEq, Hash)]
+pub enum BinaryOpKind {
+    And,
+    Or,
+    Xor,
+}
+
+// Intentionally not annotated with #[pymethods]: this is only for use in Rust
+impl BinaryOpKind {
+    fn to_ast_kind(&self) -> ast::classical::BinaryOpKind {
+        match self {
+            BinaryOpKind::And => ast::classical::BinaryOpKind::And,
+            BinaryOpKind::Or => ast::classical::BinaryOpKind::Or,
+            BinaryOpKind::Xor => ast::classical::BinaryOpKind::Xor,
+        }
+    }
+}
+
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct ClassicalExpr {
@@ -696,6 +715,40 @@ impl ClassicalExpr {
     ) -> Self {
         Self {
             expr: ast::classical::Expr::UnaryOp(ast::classical::UnaryOp {
+                kind: kind.to_ast_kind(),
+                val: Box::new(val.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            }),
+        }
+    }
+
+    #[classmethod]
+    fn new_binary_op(
+        _cls: &Bound<'_, PyType>,
+        kind: BinaryOpKind,
+        left: ClassicalExpr,
+        right: ClassicalExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: ast::classical::Expr::BinaryOp(ast::classical::BinaryOp {
+                kind: kind.to_ast_kind(),
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            }),
+        }
+    }
+
+    #[classmethod]
+    fn new_reduce_op(
+        _cls: &Bound<'_, PyType>,
+        kind: BinaryOpKind,
+        val: ClassicalExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: ast::classical::Expr::ReduceOp(ast::classical::ReduceOp {
                 kind: kind.to_ast_kind(),
                 val: Box::new(val.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),

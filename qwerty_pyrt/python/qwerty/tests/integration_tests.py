@@ -41,7 +41,6 @@ class IntegrationTests(unittest.TestCase):
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_noclassical_nometa.test(shots))
 
-    @unittest.skip('you wouldnt believe how busted this is')
     def test_bv_nometa(self):
         from .integ import bv_nometa
         shots = 1024

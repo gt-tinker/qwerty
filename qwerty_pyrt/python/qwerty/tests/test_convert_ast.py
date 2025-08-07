@@ -7,9 +7,9 @@ from qwerty.err import QwertySyntaxError
 from qwerty.convert_ast import convert_qpu_repl_input, \
                                convert_classical_repl_input, Capturer, \
                                CaptureError
-from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, QLit, \
-                                DebugLoc, Basis, Vector, QpuStmt, \
-                                ClassicalStmt, EmbedKind
+from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, \
+                                BinaryOpKind, QLit, DebugLoc, Basis, Vector, \
+                                QpuStmt, ClassicalStmt, EmbedKind
 
 class SingleVarCapturer(Capturer):
     def __init__(self, name: str):
@@ -492,9 +492,114 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 bit[4](x)
             """)
 
+    def test_xor_reduce(self):
+        actual_qw_ast = self.convert_expr("""
+            x.xor_reduce()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_reduce_op(
+                BinaryOpKind.Xor,
+                ClassicalExpr.new_variable("x", dbg),
+                dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_and_reduce(self):
+        actual_qw_ast = self.convert_expr("""
+            x.and_reduce()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_reduce_op(
+                BinaryOpKind.And,
+                ClassicalExpr.new_variable("x", dbg),
+                dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_or_reduce(self):
+        actual_qw_ast = self.convert_expr("""
+            x.or_reduce()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_reduce_op(
+                BinaryOpKind.Or,
+                ClassicalExpr.new_variable("x", dbg),
+                dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_xor_reduce_argument(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Arguments cannot be passed to a "
+                                    "reduction"):
+            self.convert_expr("""
+                x.xor_reduce(0)
+            """)
+
     def test_non_pseudo_func_call(self):
         with self.assertRaisesRegex(QwertySyntaxError,
                                     r"to be of the form expression\.FUNC\(\), but"):
             self.convert_expr("""
                 f(x, y)
+            """)
+
+    def test_bitwise_and(self):
+        actual_qw_ast = self.convert_expr("""
+            x & y
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 5)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_binary_op(
+                BinaryOpKind.And,
+                ClassicalExpr.new_variable("x", dbg_x),
+                ClassicalExpr.new_variable("y", dbg_y),
+                dbg_x),
+            dbg_x)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bitwise_or(self):
+        actual_qw_ast = self.convert_expr("""
+            x | y
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 5)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_binary_op(
+                BinaryOpKind.Or,
+                ClassicalExpr.new_variable("x", dbg_x),
+                ClassicalExpr.new_variable("y", dbg_y),
+                dbg_x),
+            dbg_x)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_bitwise_xor(self):
+        actual_qw_ast = self.convert_expr("""
+            x ^ y
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 5)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_binary_op(
+                BinaryOpKind.Xor,
+                ClassicalExpr.new_variable("x", dbg_x),
+                ClassicalExpr.new_variable("y", dbg_y),
+                dbg_x),
+            dbg_x)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_binop_unknown(self):
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "Unknown binary operation FloorDiv"):
+            self.convert_expr("""
+                x // y
             """)
