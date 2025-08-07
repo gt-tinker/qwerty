@@ -70,8 +70,8 @@ impl Type {
 }
 
 impl fmt::Display for Type {
-    /// Returns a string representation of a type that matches the syntax for
-    /// the Python DSL.
+    /// Returns a representation of a type that matches the syntax for the
+    /// Python DSL.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::FuncType { in_ty, out_ty } => match (&**in_ty, &**out_ty) {

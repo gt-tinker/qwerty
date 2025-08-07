@@ -7,6 +7,7 @@ use crate::{
     dbg::DebugLoc,
 };
 use dashu::integer::UBig;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DimExpr {
@@ -52,6 +53,20 @@ pub enum DimExpr {
     },
 }
 
+impl fmt::Display for DimExpr {
+    /// Returns a representation of a dimension variable expression that
+    /// matches the syntax in the Python DSL.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DimExpr::DimVar { name, .. } => write!(f, "{}", name),
+            DimExpr::DimConst { val, .. } => write!(f, "{}", val),
+            DimExpr::DimSum { left, right, .. } => write!(f, "({})+({})", left, right),
+            DimExpr::DimProd { left, right, .. } => write!(f, "({})*({})", left, right),
+            DimExpr::DimNeg { val, .. } => write!(f, "-({})", val),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetaType {
     FuncType {
@@ -69,6 +84,72 @@ pub enum MetaType {
         tys: Vec<MetaType>,
     },
     UnitType,
+}
+
+// TODO: Don't duplicate this with ast.rs
+impl fmt::Display for MetaType {
+    /// Returns a representation of a type that matches the syntax for the
+    /// Python DSL.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MetaType::FuncType { in_ty, out_ty } => match (&**in_ty, &**out_ty) {
+                (
+                    MetaType::RegType {
+                        elem_ty: in_elem_ty,
+                        dim: in_dim,
+                    },
+                    MetaType::RegType {
+                        elem_ty: out_elem_ty,
+                        dim: out_dim,
+                    },
+                ) if *in_elem_ty != RegKind::Basis && *out_elem_ty != RegKind::Basis => {
+                    let prefix = match (in_elem_ty, out_elem_ty) {
+                        (RegKind::Qubit, RegKind::Qubit) => "q",
+                        (RegKind::Qubit, RegKind::Bit) => "qb",
+                        (RegKind::Bit, RegKind::Qubit) => "bq",
+                        (RegKind::Bit, RegKind::Bit) => "b",
+                        (RegKind::Basis, _) | (_, RegKind::Basis) => {
+                            unreachable!("bases cannot be function arguments/results")
+                        }
+                    };
+                    write!(f, "{}func[", prefix)?;
+                    if in_elem_ty == out_elem_ty && in_dim == out_dim {
+                        write!(f, "{}]", in_dim)
+                    } else {
+                        write!(f, "{},{}]", in_dim, out_dim)
+                    }
+                }
+                _ => write!(f, "func[{},{}]", in_ty, out_ty),
+            },
+            MetaType::RevFuncType { in_out_ty } => match &**in_out_ty {
+                MetaType::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim,
+                } => write!(f, "rev_qfunc[{}]", dim),
+                MetaType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } => write!(f, "rev_bfunc[{}]", dim),
+                _ => write!(f, "rev_func[{}]", in_out_ty),
+            },
+            MetaType::RegType { elem_ty, dim } => match elem_ty {
+                RegKind::Qubit => write!(f, "qubit[{}]", dim),
+                RegKind::Bit => write!(f, "bit[{}]", dim),
+                RegKind::Basis => write!(f, "basis[{}]", dim),
+            },
+            MetaType::TupleType { tys } => {
+                write!(f, "(")?;
+                for (i, ty) in tys.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", ty)?;
+                }
+                write!(f, ")")
+            }
+            MetaType::UnitType => write!(f, "None"),
+        }
+    }
 }
 
 /// A function (kernel) definition.
@@ -148,6 +229,21 @@ pub mod qpu {
             val: Box<FloatExpr>,
             dbg: Option<DebugLoc>,
         },
+    }
+
+    impl fmt::Display for FloatExpr {
+        /// Returns a representation of a dimension variable expression that
+        /// matches the syntax in the Python DSL.
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                FloatExpr::FloatDimExpr { expr, .. } => write!(f, "{}", expr),
+                FloatExpr::FloatConst { val, .. } => write!(f, "{}", val),
+                FloatExpr::FloatSum { left, right, .. } => write!(f, "({})+({})", left, right),
+                FloatExpr::FloatProd { left, right, .. } => write!(f, "({})*({})", left, right),
+                FloatExpr::FloatDiv { left, right, .. } => write!(f, "({})/({})", left, right),
+                FloatExpr::FloatNeg { val, .. } => write!(f, "-({})", val),
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -236,6 +332,35 @@ pub mod qpu {
         /// ''
         /// ```
         VectorUnit { dbg: Option<DebugLoc> },
+    }
+
+    // TODO: don't duplicate with qpu.rs
+    impl fmt::Display for MetaVector {
+        /// Represents a vector in a human-readable form for error messages sent
+        /// back to the programmer.
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaVector::VectorAlias { name, .. } => write!(f, "{}", name),
+                MetaVector::VectorSymbol { sym, .. } => write!(f, "'{}'", sym),
+                MetaVector::VectorBroadcastTensor { val, factor, .. } => {
+                    write!(f, "({})*({})", *val, factor)
+                }
+                MetaVector::ZeroVector { .. } => write!(f, "'0'"),
+                MetaVector::OneVector { .. } => write!(f, "'1'"),
+                MetaVector::PadVector { .. } => write!(f, "'?'"),
+                MetaVector::TargetVector { .. } => write!(f, "'_'"),
+                MetaVector::VectorTilt { q, angle_deg, .. } => {
+                    write!(f, "({})@({})", **q, *angle_deg)
+                }
+                MetaVector::UniformVectorSuperpos { q1, q2, .. } => {
+                    write!(f, "({}) + ({})", **q1, **q2)
+                }
+                MetaVector::VectorBiTensor { left, right, .. } => {
+                    write!(f, "({}) * ({})", **left, **right)
+                }
+                MetaVector::VectorUnit { .. } => write!(f, "''"),
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq)]
