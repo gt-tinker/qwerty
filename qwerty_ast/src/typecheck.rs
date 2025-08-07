@@ -8,7 +8,7 @@ use std::iter::zip;
 
 use crate::ast::{
     angles_are_approx_equal, anti_phase,
-    classical::{self, UnaryOp},
+    classical::{self, BinaryOp, ReduceOp, UnaryOp},
     in_phase, qpu,
     qpu::{
         Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
@@ -261,6 +261,50 @@ impl UnaryOp {
     }
 }
 
+impl BinaryOp {
+    pub fn calc_type(
+        &self,
+        _left_ty: &(Type, ComputeKind),
+        _right_ty: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        Ok((
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 3,
+            },
+            ComputeKind::Irrev,
+        ))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let BinaryOp { left, right, .. } = self;
+        let left_result = left.typecheck(env)?;
+        let right_result = right.typecheck(env)?;
+        self.calc_type(&left_result, &right_result)
+    }
+}
+
+impl ReduceOp {
+    pub fn calc_type(
+        &self,
+        _val_ty: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        Ok((
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 1,
+            },
+            ComputeKind::Irrev,
+        ))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let ReduceOp { val, .. } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
+}
+
 // --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
 // TODO: PENDING!
 impl TypeCheckable for classical::Expr {
@@ -269,8 +313,8 @@ impl TypeCheckable for classical::Expr {
             classical::Expr::Variable(var) => var.typecheck(env),
             classical::Expr::Slice(_) => todo!(),
             classical::Expr::UnaryOp(unary) => unary.typecheck(env),
-            classical::Expr::BinaryOp(_) => todo!(),
-            classical::Expr::ReduceOp(_) => todo!(),
+            classical::Expr::BinaryOp(binary) => binary.typecheck(env),
+            classical::Expr::ReduceOp(reduce) => reduce.typecheck(env),
             classical::Expr::RotateOp(_) => todo!(),
             classical::Expr::Concat(_) => todo!(),
             classical::Expr::Repeat(_) => todo!(),

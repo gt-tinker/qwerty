@@ -21,7 +21,7 @@ use melior::{
 use qwerty_ast::{
     ast::{
         self, angle_is_approx_zero, angles_are_approx_equal,
-        classical::{self, UnaryOp, UnaryOpKind},
+        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, UnaryOp, UnaryOpKind},
         qpu::{
             self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
             EmbedClassical, EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, Tensor,
@@ -1813,9 +1813,68 @@ fn ast_classical_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        classical::Expr::BinaryOp(_) => todo!("@classical binary op"),
+        classical::Expr::BinaryOp(
+            binary @ BinaryOp {
+                kind,
+                left,
+                right,
+                dbg,
+            },
+        ) => {
+            let (left_ty, left_compute_kind, left_vals) =
+                ast_classical_expr_to_mlir(&**left, ctx, block);
+            assert_eq!(left_vals.len(), 1, "wire should have 1 mlir value");
+            let left_val = left_vals[0];
 
-        classical::Expr::ReduceOp(_) => todo!("@classical reduce op"),
+            let (right_ty, right_compute_kind, right_vals) =
+                ast_classical_expr_to_mlir(&**right, ctx, block);
+            assert_eq!(right_vals.len(), 1, "wire should have 1 mlir value");
+            let right_val = right_vals[0];
+
+            let (ty, compute_kind) = binary
+                .calc_type(
+                    &(left_ty, left_compute_kind),
+                    &(right_ty, right_compute_kind),
+                )
+                .expect("BinaryOp to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let op = match kind {
+                BinaryOpKind::And => ccirc::and(left_val, right_val, loc),
+                BinaryOpKind::Or => ccirc::or(left_val, right_val, loc),
+                BinaryOpKind::Xor => ccirc::xor(left_val, right_val, loc),
+            };
+            let mlir_vals = vec![block.append_operation(op).result(0).unwrap().into()];
+            (ty, compute_kind, mlir_vals)
+        }
+
+        classical::Expr::ReduceOp(reduce @ ReduceOp { kind, val, dbg }) => {
+            let (val_ty, val_compute_kind, val_vals) =
+                ast_classical_expr_to_mlir(&**val, ctx, block);
+            assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
+            let val_val = val_vals[0];
+
+            let (ty, compute_kind) = reduce
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("ReduceOp to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let reduced_wire = block
+                .append_operation(ccirc::wireunpack(val_val, loc))
+                .results()
+                .map(OperationResult::into)
+                .reduce(|acc, wire| {
+                    let op = match kind {
+                        BinaryOpKind::And => ccirc::and(acc, wire, loc),
+                        BinaryOpKind::Or => ccirc::or(acc, wire, loc),
+                        BinaryOpKind::Xor => ccirc::xor(acc, wire, loc),
+                    };
+                    block.append_operation(op).result(0).unwrap().into()
+                })
+                .expect("A wire should never be unpacked into zero wires");
+            let mlir_vals = vec![reduced_wire];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::RotateOp(_) => todo!("@classical rotate op"),
 
@@ -1825,7 +1884,20 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::ModMul(_) => todo!("@classical modmul op"),
 
-        classical::Expr::BitLiteral(_) => todo!("@classical bit literal op"),
+        classical::Expr::BitLiteral(blit @ BitLiteral { val, n_bits, dbg }) => {
+            let (ty, compute_kind) = blit.calc_type().expect("BitLiteral to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let value_attr =
+                IntegerAttribute::from_ubig(&MLIR_CTX, (*n_bits).try_into().unwrap(), val);
+            let mlir_vals = vec![block
+                .append_operation(ccirc::constant(&MLIR_CTX, value_attr, loc))
+                .result(0)
+                .unwrap()
+                .into()];
+
+            (ty, compute_kind, mlir_vals)
+        }
     }
 }
 
