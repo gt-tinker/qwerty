@@ -7,9 +7,11 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 use crate::ast::{
+    classical::{
+        self, BinaryOp, Concat, ModMul, ReduceOp, Repeat, RotateOp, Slice, UnaryOp, UnaryOpKind,
+    },
     Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
     UnpackAssign, Variable, angles_are_approx_equal, anti_phase,
-    classical::{self, BinaryOp, ReduceOp, UnaryOp},
     in_phase, qpu,
     qpu::{
         Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
@@ -205,121 +207,6 @@ impl<E: TypeCheckable> FunctionDef<E> {
         }
 
         self.final_linearity_check(&env)
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────────────────────
-// --- EXPRESSIONS (TRAIT DEFINITION) ---
-pub trait TypeCheckable {
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
-}
-
-// --- EXPRESSIONS (QPU IMPLEMENTATION) ---
-impl TypeCheckable for qpu::Expr {
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        match self {
-            qpu::Expr::Variable(var) => var.typecheck(env),
-            qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
-            qpu::Expr::EmbedClassical(_) => {
-                todo!("EmbedClassical typechecking not implemented yet")
-            }
-            qpu::Expr::Adjoint(adj) => adj.typecheck(env),
-            qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
-            qpu::Expr::Measure(measure) => measure.typecheck(),
-            qpu::Expr::Discard(discard) => discard.typecheck(),
-            qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
-            qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
-            qpu::Expr::Predicated(pred) => pred.typecheck(env),
-            qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
-            qpu::Expr::Conditional(cond) => cond.typecheck(env),
-            qpu::Expr::QLit(qlit) => qlit.typecheck(),
-            qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-            qpu::Expr::QubitRef(qref) => qref.typecheck(),
-        }
-    }
-}
-
-impl UnaryOp {
-    pub fn calc_type(
-        &self,
-        _val_ty: &(Type, ComputeKind),
-    ) -> Result<(Type, ComputeKind), TypeError> {
-        Ok((
-            Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim: 3,
-            },
-            ComputeKind::Rev,
-        ))
-    }
-
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let UnaryOp { val, .. } = self;
-        let val_result = val.typecheck(env)?;
-        self.calc_type(&val_result)
-    }
-}
-
-impl BinaryOp {
-    pub fn calc_type(
-        &self,
-        _left_ty: &(Type, ComputeKind),
-        _right_ty: &(Type, ComputeKind),
-    ) -> Result<(Type, ComputeKind), TypeError> {
-        Ok((
-            Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim: 3,
-            },
-            ComputeKind::Irrev,
-        ))
-    }
-
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let BinaryOp { left, right, .. } = self;
-        let left_result = left.typecheck(env)?;
-        let right_result = right.typecheck(env)?;
-        self.calc_type(&left_result, &right_result)
-    }
-}
-
-impl ReduceOp {
-    pub fn calc_type(
-        &self,
-        _val_ty: &(Type, ComputeKind),
-    ) -> Result<(Type, ComputeKind), TypeError> {
-        Ok((
-            Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim: 1,
-            },
-            ComputeKind::Irrev,
-        ))
-    }
-
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let ReduceOp { val, .. } = self;
-        let val_result = val.typecheck(env)?;
-        self.calc_type(&val_result)
-    }
-}
-
-// --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
-// TODO: PENDING!
-impl TypeCheckable for classical::Expr {
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        match self {
-            classical::Expr::Variable(var) => var.typecheck(env),
-            classical::Expr::Slice(_) => todo!(),
-            classical::Expr::UnaryOp(unary) => unary.typecheck(env),
-            classical::Expr::BinaryOp(binary) => binary.typecheck(env),
-            classical::Expr::ReduceOp(reduce) => reduce.typecheck(env),
-            classical::Expr::RotateOp(_) => todo!(),
-            classical::Expr::Concat(_) => todo!(),
-            classical::Expr::Repeat(_) => todo!(),
-            classical::Expr::ModMul(_) => todo!(),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-        }
     }
 }
 
@@ -1341,6 +1228,8 @@ impl QubitRef {
     }
 }
 
+// ────────────────────────────────────────────────────────────────────────────────────
+
 impl Expr {
     pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         match self {
@@ -1359,6 +1248,455 @@ impl Expr {
             Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
             Expr::EmbedClassical(embed) => embed.typecheck(env),
             Expr::QubitRef(qref) => qref.typecheck(),
+        }
+    }
+}
+
+// --- EXPRESSIONS (TRAIT DEFINITION) ---
+pub trait TypeCheckable {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
+}
+
+// --- EXPRESSIONS (QPU IMPLEMENTATION) ---
+impl TypeCheckable for qpu::Expr {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            qpu::Expr::Variable(var) => var.typecheck(env),
+            qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
+            qpu::Expr::EmbedClassical(_) => {
+                todo!("EmbedClassical typechecking not implemented yet")
+            }
+            qpu::Expr::Adjoint(adj) => adj.typecheck(env),
+            qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
+            qpu::Expr::Measure(measure) => measure.typecheck(),
+            qpu::Expr::Discard(discard) => discard.typecheck(),
+            qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
+            qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
+            qpu::Expr::Predicated(pred) => pred.typecheck(env),
+            qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
+            qpu::Expr::Conditional(cond) => cond.typecheck(env),
+            qpu::Expr::QLit(qlit) => qlit.typecheck(),
+            qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
+            qpu::Expr::QubitRef(qref) => qref.typecheck(),
+        }
+    }
+}
+
+// --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
+impl TypeCheckable for classical::Expr {
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
+            classical::Expr::Variable(var) => var.typecheck(env),
+            classical::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
+            classical::Expr::Slice(slice) => slice.typecheck(env),
+            classical::Expr::UnaryOp(unary_op) => unary_op.typecheck(env),
+            classical::Expr::BinaryOp(binary_op) => binary_op.typecheck(env),
+            classical::Expr::ReduceOp(reduce_op) => reduce_op.typecheck(env),
+            classical::Expr::RotateOp(rotate_op) => rotate_op.typecheck(env),
+            classical::Expr::Concat(concat) => concat.typecheck(env),
+            classical::Expr::Repeat(repeat) => repeat.typecheck(env),
+            classical::Expr::ModMul(mod_mul) => mod_mul.typecheck(env),
+        }
+    }
+}
+
+// --- CLASSICAL EXPRESSION IMPLEMENTATIONS ---
+
+impl Slice {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Slice {
+            val,
+            lower,
+            upper,
+            dbg,
+        } = self;
+
+        // Typecheck the value being sliced
+        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+
+        // Must be a bit register
+        if let Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim,
+        } = val_ty
+        {
+            // Check bounds
+            if *upper > dim {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("[{}..{}] on bit[{}]", lower, upper, dim),
+                        ty: "upper bound exceeds register size".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            if *lower >= *upper {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("[{}..{}]", lower, upper),
+                        ty: "lower bound must be less than upper bound".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            if *lower >= dim {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("[{}..{}] on bit[{}]", lower, upper, dim),
+                        ty: "lower bound exceeds register size".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            let slice_width = upper - lower;
+            Ok((
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: slice_width,
+                },
+                val_compute_kind,
+            ))
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "slicing requires bit register, found {}",
+                    val_ty
+                )),
+                dbg: dbg.clone(),
+            })
+        }
+    }
+}
+
+impl UnaryOp {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let UnaryOp { kind, val, dbg } = self;
+
+        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+
+        match kind {
+            UnaryOpKind::Not => {
+                // NOT works on any bit register
+                if let Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } = val_ty
+                {
+                    Ok((
+                        Type::RegType {
+                            elem_ty: RegKind::Bit,
+                            dim,
+                        },
+                        val_compute_kind,
+                    ))
+                } else {
+                    Err(TypeError {
+                        kind: TypeErrorKind::InvalidType(format!(
+                            "bitwise NOT requires bit register, found {}",
+                            val_ty
+                        )),
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+        }
+    }
+}
+
+impl BinaryOp {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let BinaryOp {
+            kind: _,
+            left,
+            right,
+            dbg,
+        } = self;
+
+        let (left_ty, left_compute_kind) = left.typecheck(env)?;
+        let (right_ty, right_compute_kind) = right.typecheck(env)?;
+
+        // Both operands must be bit registers of same dimension
+        match (&left_ty, &right_ty) {
+            (
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: left_dim,
+                },
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: right_dim,
+                },
+            ) if left_dim == right_dim => {
+                let compute_kind = left_compute_kind.join(right_compute_kind);
+                Ok((
+                    Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: *left_dim,
+                    },
+                    compute_kind,
+                ))
+            }
+            (
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    ..
+                },
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    ..
+                },
+            ) => Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: format!("bit register with {} bits", left_ty),
+                    found: format!("bit register with different size: {}", right_ty),
+                },
+                dbg: dbg.clone(),
+            }),
+            _ => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "binary operations require bit registers, found {} and {}",
+                    left_ty, right_ty
+                )),
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
+impl ReduceOp {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let ReduceOp { kind: _, val, dbg } = self;
+
+        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+
+        if let Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim,
+        } = val_ty
+        {
+            if dim == 0 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Reduction always produces a single bit
+            Ok((
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: 1,
+                },
+                val_compute_kind,
+            ))
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "reduce operations require bit register, found {}",
+                    val_ty
+                )),
+                dbg: dbg.clone(),
+            })
+        }
+    }
+}
+
+impl RotateOp {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let RotateOp {
+            kind: _,
+            val,
+            amt,
+            dbg,
+        } = self;
+
+        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+        let (amt_ty, amt_compute_kind) = amt.typecheck(env)?;
+
+        // Value must be bit register, amount must be bit register
+        match (&val_ty, &amt_ty) {
+            (
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: val_dim,
+                },
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: _amt_dim,
+                },
+            ) => {
+                let compute_kind = val_compute_kind.join(amt_compute_kind);
+                Ok((
+                    Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: *val_dim,
+                    },
+                    compute_kind,
+                ))
+            }
+            _ => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "rotate operations require bit registers, found value: {} and amount: {}",
+                    val_ty, amt_ty
+                )),
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
+impl Concat {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Concat { left, right, dbg } = self;
+
+        let (left_ty, left_compute_kind) = left.typecheck(env)?;
+        let (right_ty, right_compute_kind) = right.typecheck(env)?;
+
+        match (&left_ty, &right_ty) {
+            (
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: left_dim,
+                },
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: right_dim,
+                },
+            ) => {
+                let total_dim = left_dim + right_dim;
+                let compute_kind = left_compute_kind.join(right_compute_kind);
+                Ok((
+                    Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: total_dim,
+                    },
+                    compute_kind,
+                ))
+            }
+            _ => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "concatenation requires bit registers, found {} and {}",
+                    left_ty, right_ty
+                )),
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
+impl Repeat {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Repeat { val, amt, dbg } = self;
+
+        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+
+        if let Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim,
+        } = val_ty
+        {
+            if *amt == 0 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("* {}", amt),
+                        ty: "repeat amount cannot be 0".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Check for potential overflow
+            if let Some(total_dim) = dim.checked_mul(*amt) {
+                Ok((
+                    Type::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: total_dim,
+                    },
+                    val_compute_kind,
+                ))
+            } else {
+                Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("* {}", amt),
+                        ty: "dimension overflow".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                })
+            }
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "repeat operation requires bit register, found {}",
+                    val_ty
+                )),
+                dbg: dbg.clone(),
+            })
+        }
+    }
+}
+
+impl ModMul {
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let ModMul {
+            x: _x,
+            j: _j,
+            y,
+            mod_n,
+            dbg,
+        } = self;
+
+        let (y_ty, y_compute_kind) = y.typecheck(env)?;
+
+        // y must be a bit register
+        if let Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim,
+        } = y_ty
+        {
+            // Check that mod_n is valid
+            if *mod_n <= 1 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("mod_mul(..., mod_n={})", mod_n),
+                        ty: "modulus must be > 1".to_string(),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Additional validation: check that 2^dim > mod_n
+            // This ensures the register can represent values in the modular arithmetic domain
+            let max_representable = 1u64 << dim.min(63); // Prevent overflow
+            if *mod_n as u64 >= max_representable {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("mod_mul(..., mod_n={})", mod_n),
+                        ty: format!("modulus {} too large for {}-bit register", mod_n, dim),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Result has same dimension as input y
+            // ModMul is reversible in the quantum computing context
+            Ok((
+                Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                },
+                y_compute_kind,
+            ))
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "modular multiplication requires bit register, found {}",
+                    y_ty
+                )),
+                dbg: dbg.clone(),
+            })
         }
     }
 }
