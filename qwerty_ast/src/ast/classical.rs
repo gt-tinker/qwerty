@@ -97,15 +97,64 @@ pub struct ModMul {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    /// A variable name used in an expression. Example syntax:
+    /// ```text
+    /// my_var
+    /// ```
     Variable(Variable),
+
+    /// Extract a subsequence of bits from a register. Example syntax:
+    /// ```text
+    /// my_bit_reg[2:4]
+    /// ```
     Slice(Slice),
+
+    /// A unary bitwise operation. Example syntax:
+    /// ```text
+    /// ~x
+    /// ```
     UnaryOp(UnaryOp),
+
+    /// A binary bitwise operation. Example syntax:
+    /// ```text
+    /// x & y
+    /// ```
     BinaryOp(BinaryOp),
+
+    /// A logical reduction operation. Example syntax:
+    /// ```text
+    /// x.xor_reduce()
+    /// ```
     ReduceOp(ReduceOp),
+
+    /// A bit rotation. Example syntax:
+    /// ```text
+    /// val_reg.rotl(amt_reg)
+    /// ```
     RotateOp(RotateOp),
+
+    /// Concatenate bit registers. Example syntax:
+    /// ```text
+    /// x.concat(y)
+    /// ```
     Concat(Concat),
+
+    /// Copy a bit n times. Example syntax:
+    /// ```text
+    /// x.repeat(37)
+    /// ```
     Repeat(Repeat),
+
+    /// Modular multiplication. Example syntax:
+    /// ```text
+    /// x**2**J * y % modN
+    /// ```
     ModMul(ModMul),
+
+    /// A constant bit register. Example syntax:
+    /// ```text
+    /// bit[4](0b1101)
+    /// ```
     BitLiteral(BitLiteral),
 }
 

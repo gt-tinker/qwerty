@@ -1,5 +1,9 @@
 use crate::{
-    ast::{qpu::EmbedKind, RegKind},
+    ast::{
+        classical::{BinaryOpKind, UnaryOpKind},
+        qpu::EmbedKind,
+        RegKind,
+    },
     dbg::DebugLoc,
 };
 use dashu::integer::UBig;
@@ -483,7 +487,7 @@ pub mod qpu {
         /// ```
         BitLiteral {
             val: UBig,
-            n_bits: usize,
+            n_bits: DimExpr,
             dbg: Option<DebugLoc>,
         },
     }
@@ -616,5 +620,97 @@ pub mod qpu {
     #[derive(Debug, Clone, PartialEq)]
     pub struct Prelude {
         pub body: Vec<MetaStmt>,
+    }
+}
+
+pub mod classical {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum MetaExpr {
+        /// A variable name used in an expression. Example syntax:
+        /// ```text
+        /// my_var
+        /// ```
+        Variable { name: String, dbg: Option<DebugLoc> },
+
+        /// A unary bitwise operation. Example syntax:
+        /// ```text
+        /// ~x
+        /// ```
+        UnaryOp {
+            kind: UnaryOpKind,
+            val: Box<MetaExpr>,
+            dbg: Option<DebugLoc>,
+        },
+
+        /// A binary bitwise operation. Example syntax:
+        /// ```text
+        /// x & y
+        /// ```
+        BinaryOp {
+            kind: BinaryOpKind,
+            left: Box<MetaExpr>,
+            right: Box<MetaExpr>,
+            dbg: Option<DebugLoc>,
+        },
+
+        /// A logical reduction operation. Example syntax:
+        /// ```text
+        /// x.xor_reduce()
+        /// ```
+        ReduceOp {
+            kind: BinaryOpKind,
+            val: Box<MetaExpr>,
+            dbg: Option<DebugLoc>,
+        },
+
+        /// A constant bit register. Example syntax:
+        /// ```text
+        /// bit[N](0b0)
+        /// ```
+        BitLiteral {
+            val: UBig,
+            n_bits: DimExpr,
+            dbg: Option<DebugLoc>,
+        },
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum MetaStmt {
+        /// An expression statement. Example syntax:
+        /// ```text
+        /// f(x)
+        /// ```
+        Expr { expr: MetaExpr },
+
+        /// An assignment statement. Example syntax:
+        /// ```text
+        /// q = '0'
+        /// ```
+        Assign {
+            lhs: String,
+            rhs: MetaExpr,
+            dbg: Option<DebugLoc>,
+        },
+
+        /// A register-unpacking assignment statement. Example syntax:
+        /// ```text
+        /// q1, q2 = '01'
+        /// ```
+        UnpackAssign {
+            lhs: Vec<String>,
+            rhs: MetaExpr,
+            dbg: Option<DebugLoc>,
+        },
+
+        /// A return statement. Example syntax:
+        /// ```text
+        /// return q
+        /// ```
+        Return {
+            val: MetaExpr,
+            dbg: Option<DebugLoc>,
+        },
     }
 }
