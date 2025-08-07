@@ -21,7 +21,8 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  QwertySyntaxError
 from ._qwerty_pyrt import Program
 from .runtime import dimvar, bit
-from .convert_ast import AstKind, convert_ast, Capturer, CaptureError
+from .convert_ast import AstKind, convert_ast, Capturer, CaptureError, \
+                         CapturedSymbol, CapturedBitReg
 
 QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
 QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
@@ -90,7 +91,7 @@ class KernelHandle:
             bits, = histo.keys()
             return bits
 
-class JitCapturer(Capturer):
+class PyCapturer(Capturer):
     """
     A ``Capturer`` (see ``convert_ast.py``) that grabs Python variables from
     the stack frame.
@@ -106,7 +107,9 @@ class JitCapturer(Capturer):
         if var_name in self.python_vars:
             python_obj = self.python_vars[var_name]
             if isinstance(kernel := python_obj, KernelHandle):
-                return kernel.func_name
+                return CapturedSymbol(kernel.func_name)
+            elif isinstance(bit_reg := python_obj, bit):
+                return CapturedBitReg(bit_reg)
             else:
                 raise CaptureError(type(python_obj).__name__)
         else:
@@ -135,7 +138,7 @@ def _jit(ast_kind, func, last_dimvars=None):
 
     func_ast = ast.parse(func_src_dedent)
     name_generator = lambda ast_name: f'{ast_name}_{_global_func_counter}'
-    capturer = JitCapturer()
+    capturer = PyCapturer()
     ast_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
                                filename, line_offset, col_offset)
     if ast_kind == AstKind.QPU:

@@ -3,28 +3,31 @@ import textwrap
 import unittest
 from typing import Optional
 
+from qwerty.runtime import bit
 from qwerty.err import QwertySyntaxError
 from qwerty.convert_ast import convert_qpu_repl_input, \
                                convert_classical_repl_input, Capturer, \
-                               CaptureError
+                               CaptureError, CapturedSymbol, CapturedValue, \
+                               CapturedBitReg
 from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, \
                                 BinaryOpKind, QLit, DebugLoc, Basis, Vector, \
                                 QpuStmt, ClassicalStmt, EmbedKind
 
 class SingleVarCapturer(Capturer):
-    def __init__(self, name: str):
+    def __init__(self, name: str, captured: CapturedValue):
         self.name = name
+        self.captured = captured
 
     def shadows_python_variable(self, var_name: str) -> bool:
         return var_name == self.name
 
     def capture(self, var_name: str) -> Optional[str]:
         if var_name == self.name:
-            return var_name + '__mangled'
+            return self.captured
         else:
             return None
 
-class WrongTypeCapturer(Capturer):
+class BadTypeCapturer(Capturer):
     def __init__(self, name: str):
         self.name = name
 
@@ -333,7 +336,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_intrinsic_embed_xor(self):
-        capturer = SingleVarCapturer("bubba")
+        capturer = SingleVarCapturer("bubba", CapturedSymbol('bubba__mangled'))
         actual_qw_ast = self.convert_expr("""
             __EMBED_XOR__(bubba)
         """, capturer=capturer)
@@ -348,7 +351,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_intrinsic_embed_sign(self):
-        capturer = SingleVarCapturer("bubba")
+        capturer = SingleVarCapturer("bubba", CapturedSymbol('bubba__mangled'))
         actual_qw_ast = self.convert_expr("""
             __EMBED_SIGN__(bubba)
         """, capturer=capturer)
@@ -363,7 +366,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_intrinsic_embed_inplace(self):
-        capturer = SingleVarCapturer("bubba")
+        capturer = SingleVarCapturer("bubba", CapturedSymbol('bubba__mangled'))
         actual_qw_ast = self.convert_expr("""
             __EMBED_INPLACE__(bubba)
         """, capturer=capturer)
@@ -385,15 +388,24 @@ class ConvertAstQpuTests(unittest.TestCase):
             """)
 
     def test_intrinsic_embed_nonexistent_func(self):
-        capturer = SingleVarCapturer("skippy")
+        capturer = SingleVarCapturer("bubba", CapturedSymbol('bubba__mangled'))
         with self.assertRaisesRegex(QwertySyntaxError,
-                                    "no classical function named bubba"):
+                                    "no classical function named skippy"):
+            self.convert_expr("""
+                __EMBED_XOR__(skippy)
+            """, capturer=capturer)
+
+    def test_intrinsic_embed_not_a_func(self):
+        capturer = SingleVarCapturer("bubba", CapturedBitReg(bit[4](0b1101)))
+        with self.assertRaisesRegex(QwertySyntaxError,
+                                    "variable bubba is not a classical "
+                                    "function"):
             self.convert_expr("""
                 __EMBED_XOR__(bubba)
             """, capturer=capturer)
 
-    def test_intrinsic_embed_wrongly_typed_func(self):
-        capturer = WrongTypeCapturer("bubba")
+    def test_intrinsic_embed_badly_typed_func(self):
+        capturer = BadTypeCapturer("bubba")
         with self.assertRaisesRegex(QwertySyntaxError,
                                     "not a @classical function"):
             self.convert_expr("""
@@ -416,11 +428,23 @@ class ConvertAstQpuTests(unittest.TestCase):
                 [1,2,3]
             """)
 
+    def test_captured_bit_reg(self):
+        capturer = SingleVarCapturer("bubba", CapturedBitReg(bit[4](0b1101)))
+        actual_qw_ast = self.convert_expr("""
+            bubba
+        """, capturer=capturer)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = QpuStmt.new_expr(
+            QpuExpr.new_bit_literal(0b1101, 4, dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
 class ConvertAstClassicalTests(unittest.TestCase):
-    def convert_expr(self, code):
+    def convert_expr(self, code, *, capturer=None):
         code = textwrap.dedent(code.strip())
         py_ast = ast.parse(code, mode='single')
-        return convert_classical_repl_input(py_ast)
+        return convert_classical_repl_input(py_ast, capturer=capturer)
 
     def dbg(self, line, col):
         return DebugLoc('<input>', line, col)
@@ -603,3 +627,15 @@ class ConvertAstClassicalTests(unittest.TestCase):
             self.convert_expr("""
                 x // y
             """)
+
+    def test_captured_bit_reg(self):
+        capturer = SingleVarCapturer("bubba", CapturedBitReg(bit[4](0b1101)))
+        actual_qw_ast = self.convert_expr("""
+            bubba
+        """, capturer=capturer)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_bit_literal(0b1101, 4, dbg),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
 from typing import List, Tuple, Union, Optional
+from .runtime import bit
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
@@ -21,6 +22,35 @@ from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
 class AstKind(Enum):
     QPU = 1
     CLASSICAL = 2
+
+class CapturedValue(ABC):
+    """A captured value."""
+    @abstractmethod
+    def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
+                dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        ...
+
+class CapturedSymbol(CapturedValue):
+    """A captured (and mangled) function name."""
+
+    def __init__(self, mangled_name: str):
+        self.mangled_name = mangled_name
+
+    def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
+                dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        return expr_class.new_variable(self.mangled_name, dbg)
+
+class CapturedBitReg(CapturedValue):
+    """A captured bit[N]."""
+
+    def __init__(self, bit_reg: bit):
+        self.bit_reg = bit_reg
+
+    def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
+                dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        return expr_class.new_bit_literal(int(self.bit_reg),
+                                          self.bit_reg.n_bits,
+                                          dbg)
 
 class CaptureError(Exception):
     """
@@ -42,24 +72,14 @@ class Capturer(ABC):
         ...
 
     @abstractmethod
-    def capture(self, var_name: str) -> Optional[str]:
+    def capture(self, var_name: str) -> Optional[CapturedValue]:
         """
         If ``var_name`` is a Python variable, capture it and return the mangled
-        name. If it is not a Python variable, return None. If its Python type
-        forbids it from being mangled, throw a ``CaptureError``.
+        name (or bit instance if a bit register was captured). If it is not a
+        Python variable, return None. If its Python type forbids it from being
+        mangled, throw a ``CaptureError``.
         """
         ...
-
-    def mangle(self, var_name: str) -> str:
-        """
-        Convenience API. For any ``Name`` encounterd in the Python AST, one can
-        simply call this and get its AST name, doing a capture if needed.
-        """
-        mangled = self.capture(var_name)
-        if mangled is None:
-            return var_name
-        else:
-            return mangled
 
 class TrivialCapturer(Capturer):
     """A ``Capturer`` that never captures any Python variables."""
@@ -91,12 +111,16 @@ def convert_ast(ast_kind: AstKind, module: ast.Module,
     else:
         raise ValueError('unknown AST type {}'.format(ast_kind))
 
-class BaseVisitor(ABC):
+class BaseVisitor:
     """
     Common Python AST visitor for both ``@classical`` and ``@qpu`` kernels.
     """
 
-    def __init__(self, name_generator: Callable[[str], str],
+    def __init__(self,
+                 expr_class: type[QpuExpr | ClassicalExpr],
+                 stmt_class: type[QpuStmt | ClassicalStmt],
+                 func_class: type[QpuFunctionDef | ClassicalFunctionDef],
+                 name_generator: Callable[[str], str],
                  capturer: Capturer,
                  filename: str = '', line_offset: int = 0,
                  col_offset: int = 0):
@@ -104,52 +128,15 @@ class BaseVisitor(ABC):
         Constructor. The ``name_generator`` argument mangles the Python AST
         name to produce a Qwerty AST name.
         """
+        self._expr_class = expr_class
+        self._stmt_class = stmt_class
+        self._func_class = func_class
         self.name_generator = name_generator
         self.capturer = capturer
         self.filename = filename
         self.line_offset = line_offset
         self.col_offset = col_offset
         self.frame = get_frame()
-
-    @staticmethod
-    @abstractmethod
-    def _new_Stmt_expr(expr: QpuExpr | ClassicalExpr, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_Stmt_return(expr: QpuExpr | ClassicalExpr, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_Stmt_assign(lhs: str, rhs: QpuExpr | ClassicalExpr, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_Stmt_unpack_assign(lhs: List[str], rhs: QpuExpr | ClassicalExpr, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_Expr_variable(name: str, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc):
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def _new_FunctionDef(name: str,
-                         args: List[Tuple[Type, str]],
-                         ret_type: Type,
-                         body: List[QpuStmt | ClassicalStmt],
-                         is_rev: bool,
-                         dbg: DebugLoc):
-        ...
 
     def get_node_row_col(self, node: ast.AST):
         if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
@@ -308,7 +295,7 @@ class BaseVisitor(ABC):
                                     'requires only constant bits `0bxxxx` '
                                     'between the parentheses.', bits_dbg)
 
-        return self._new_Expr_bit_literal(bits, dim, dbg)
+        return self._expr_class.new_bit_literal(bits, dim, dbg)
 
     def visit_Module(self, module: ast.Module):
         """
@@ -334,7 +321,7 @@ class BaseVisitor(ABC):
         """
         dbg = self.get_debug_loc(expr_stmt)
         expr = self.visit(expr_stmt.value)
-        return self._new_Stmt_expr(expr, dbg)
+        return self._stmt_class.new_expr(expr, dbg)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
                                decorator_name: str) \
@@ -448,7 +435,7 @@ class BaseVisitor(ABC):
         body = self.visit(func_def.body)
 
         generated_func_name = self.name_generator(func_name)
-        return self._new_FunctionDef(generated_func_name, args, ret_type, body, is_rev, dbg)
+        return self._func_class(generated_func_name, args, ret_type, body, is_rev, dbg)
 
     def visit_list(self, nodes: List[ast.AST]):
         """
@@ -464,7 +451,7 @@ class BaseVisitor(ABC):
         """
         dbg = self.get_debug_loc(ret)
         expr = self.visit(ret.value)
-        return self._new_Stmt_return(expr, dbg)
+        return self._stmt_class.new_return(expr, dbg)
 
     def visit_Assign(self, assign: ast.Assign) -> QpuStmt:
         """
@@ -499,7 +486,7 @@ class BaseVisitor(ABC):
                                         f'({var_name}) that shadows a Python '
                                         'variable.', dbg)
 
-            return self._new_Stmt_assign(var_name, expr, dbg)
+            return self._stmt_class.new_assign(var_name, expr, dbg)
         elif isinstance(tgt, ast.Tuple) \
                 and all(isinstance(elt, ast.Name) for elt in tgt.elts):
             var_names = [name.id for name in tgt.elts]
@@ -516,7 +503,7 @@ class BaseVisitor(ABC):
                                             'Python variable.', dbg)
 
             expr = self.visit(assign.value)
-            return self._new_Stmt_unpack_assign(var_names, expr, dbg)
+            return self._stmt_class.new_unpack_assign(var_names, expr, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -552,7 +539,7 @@ class BaseVisitor(ABC):
     #    """
     #    raise QwertySyntaxError('Qwerty does not support mutating values', dbg)
 
-    def visit_Name(self, name: ast.Name) -> QpuExpr:
+    def visit_Name(self, name: ast.Name) -> QpuExpr | ClassicalExpr:
         """
         Convert a Python AST identitifer node into a Qwerty variable name AST
         node. For example, ``foobar`` becomes a Qwerty ``Variable`` AST node.
@@ -560,14 +547,18 @@ class BaseVisitor(ABC):
         var_name = name.id
         dbg = self.get_debug_loc(name)
         try:
-            mangled_name = self.capturer.mangle(var_name)
+            captured = self.capturer.capture(var_name)
         except CaptureError as err:
             var_type_name = err.type_name
             raise QwertySyntaxError(f'The Python object named {var_name} is '
                                     'referenced, but it has Python type '
                                     f'{var_type_name}, which cannot be used '
                                     'in Qwerty kernels.', dbg)
-        return self._new_Expr_variable(mangled_name, dbg)
+
+        if captured is None:
+            return self._expr_class.new_variable(var_name, dbg)
+        else:
+            return captured.to_expr(self._expr_class, dbg)
 
     def base_visit(self, node: ast.AST):
         """
@@ -647,41 +638,8 @@ class QpuVisitor(BaseVisitor):
     def __init__(self, name_generator: Callable[[str], str],
                  capturer: Capturer, filename: str = '', line_offset: int = 0,
                  col_offset: int = 0):
-        super().__init__(name_generator, capturer, filename, line_offset,
-                         col_offset)
-
-    @staticmethod
-    def _new_Stmt_expr(expr: QpuExpr, dbg: DebugLoc):
-        return QpuStmt.new_expr(expr, dbg)
-
-    @staticmethod
-    def _new_Stmt_return(expr: QpuExpr, dbg: DebugLoc):
-        return QpuStmt.new_return(expr, dbg)
-
-    @staticmethod
-    def _new_Stmt_assign(lhs: str, rhs: QpuExpr, dbg: DebugLoc):
-        return QpuStmt.new_assign(lhs, rhs, dbg)
-
-    @staticmethod
-    def _new_Stmt_unpack_assign(lhs: List[str], rhs: QpuExpr, dbg: DebugLoc):
-        return QpuStmt.new_unpack_assign(lhs, rhs, dbg)
-
-    @staticmethod
-    def _new_Expr_variable(name: str, dbg: DebugLoc):
-        return QpuExpr.new_variable(name, dbg)
-
-    @staticmethod
-    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc):
-        return QpuExpr.new_bit_literal(bits, dim, dbg)
-
-    @staticmethod
-    def _new_FunctionDef(name: str,
-                         args: List[Tuple[Type, str]],
-                         ret_type: Type,
-                         body: List[QpuStmt],
-                         is_rev: bool,
-                         dbg: DebugLoc):
-        return QpuFunctionDef(name, args, ret_type, body, is_rev, dbg)
+        super().__init__(QpuExpr, QpuStmt, QpuFunctionDef, name_generator,
+                         capturer, filename, line_offset, col_offset)
 
     def extract_qubit_literal(self, node: ast.AST) -> QLit:
         bv = self.extract_basis_vector(node)
@@ -1220,17 +1178,21 @@ class QpuVisitor(BaseVisitor):
 
                 func_name = name_node.id
                 try:
-                    mangled_name = self.capturer.capture(func_name)
+                    captured = self.capturer.capture(func_name)
                 except CaptureError:
                     raise QwertySyntaxError('Cannot create quantum embedding '
                                             f'of Python object {func_name} '
                                             'because it is not a @classical '
                                             'function.', dbg)
-                if mangled_name is None:
+                if captured is None:
                     raise QwertySyntaxError('There is no classical function '
                                             f'named {func_name} to embed.',
                                             dbg)
+                elif not isinstance(captured, CapturedSymbol):
+                    raise QwertySyntaxError(f'The variable {func_name} is not '
+                                            'a classical function.', dbg)
 
+                mangled_name = captured.mangled_name
                 embed_kind = EMBED_KINDS[intrinsic_name]
                 return QpuExpr.new_embed_classical(mangled_name, embed_kind, dbg)
             else:
@@ -1485,41 +1447,9 @@ class ClassicalVisitor(BaseVisitor):
     def __init__(self, name_generator: Callable[[str], str],
                  capturer: Capturer, filename: str = '', line_offset: int = 0,
                  col_offset: int = 0):
-        super().__init__(name_generator, capturer, filename, line_offset,
+        super().__init__(ClassicalExpr, ClassicalStmt, ClassicalFunctionDef,
+                         name_generator, capturer, filename, line_offset,
                          col_offset)
-
-    @staticmethod
-    def _new_Stmt_expr(expr: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
-        return ClassicalStmt.new_expr(expr, dbg)
-
-    @staticmethod
-    def _new_Stmt_return(expr: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
-        return ClassicalStmt.new_return(expr, dbg)
-
-    @staticmethod
-    def _new_Stmt_assign(lhs: str, rhs: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
-        return ClassicalStmt.new_assign(lhs, rhs, dbg)
-
-    @staticmethod
-    def _new_Stmt_unpack_assign(lhs: List[str], rhs: ClassicalExpr, dbg: DebugLoc) -> ClassicalStmt:
-        return ClassicalStmt.new_unpack_assign(lhs, rhs, dbg)
-
-    @staticmethod
-    def _new_Expr_variable(name: str, dbg: DebugLoc) -> ClassicalExpr:
-        return ClassicalExpr.new_variable(name, dbg)
-
-    @staticmethod
-    def _new_Expr_bit_literal(bits: int, dim: int, dbg: DebugLoc) -> ClassicalExpr:
-        return ClassicalExpr.new_bit_literal(bits, dim, dbg)
-
-    @staticmethod
-    def _new_FunctionDef(name: str,
-                         args: List[Tuple[Type, str]],
-                         ret_type: Type,
-                         body: List[ClassicalStmt],
-                         is_rev: bool,
-                         dbg: DebugLoc) -> ClassicalFunctionDef:
-        return ClassicalFunctionDef(name, args, ret_type, body, is_rev, dbg)
 
     def visit_FunctionDef(self, func_def: ast.FunctionDef) -> ClassicalFunctionDef:
         """
@@ -1786,7 +1716,7 @@ def convert_classical_ast(module: ast.Module,
                                col_offset)
     return visitor.visit_Module(module)
 
-def convert_classical_repl_input(root: ast.Interactive) -> ClassicalStmt:
+def convert_classical_repl_input(root: ast.Interactive, *, capturer=None) -> ClassicalStmt:
     """
     Convert a line from a hypothetical Qwerty ``@classical`` REPL into a Qwerty
     classical AST. Always returns a statement. Right now, this is only used in
@@ -1801,8 +1731,9 @@ def convert_classical_repl_input(root: ast.Interactive) -> ClassicalStmt:
                                 f'{len(root.body)} statements')
 
     stmt, = root.body
+    capturer = capturer or TrivialCapturer()
     visitor = ClassicalVisitor(name_generator=lambda name: name,
-                               capturer=TrivialCapturer(),
+                               capturer=capturer,
                                filename='<input>',
                                line_offset=0,
                                col_offset=0)

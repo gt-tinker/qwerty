@@ -42,6 +42,12 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(expected_histo, bv_noclassical_nometa.test(shots))
 
     def test_bv_nometa(self):
+        from .integ import bv_nocap_nometa
+        shots = 1024
+        expected_histo = {bit[3](0b110): shots}
+        self.assertEqual(expected_histo, bv_nocap_nometa.test(shots))
+
+    def test_bv_nometa(self):
         from .integ import bv_nometa
         shots = 1024
         expected_histo = {bit[3](0b110): shots}

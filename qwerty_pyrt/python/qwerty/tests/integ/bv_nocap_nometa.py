@@ -1,14 +1,14 @@
 """
-A version of Bernstein–Vazirani with no metaQwerty features.
+A version of Bernstein–Vazirani with no metaQwerty features and no captures in
+``@classical` functions. (That is, the secret string is hard-coded as a bit
+literal.)
 """
 
 from qwerty import *
 
-secret_string = bit[3](0b110)
-
 @classical
 def oracle(x: bit[3]) -> bit:
-    return (x & secret_string).xor_reduce()
+    return (x & bit[3](0b110)).xor_reduce()
 
 @qpu
 def kernel() -> bit[3]:
