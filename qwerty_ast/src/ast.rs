@@ -10,9 +10,12 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegKind {
-    Bit,   // Classical bit register
-    Qubit, // Quantum bit register
-    Basis, // Register for basis states
+    /// Classical bit register
+    Bit,
+    /// Quantum bit register
+    Qubit,
+    /// A basis, represented as a register for implementation convenience
+    Basis,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

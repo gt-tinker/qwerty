@@ -119,7 +119,7 @@ pub enum Expr {
 
     /// Embeds a classical function into a quantum context. Example syntax:
     /// ```text
-    /// embed_classical(my_bit_func, Sign)
+    /// my_classical_func.sign
     /// ```
     EmbedClassical(EmbedClassical),
 
@@ -137,7 +137,7 @@ pub enum Expr {
 
     /// A function value that measures its input when called. Example syntax:
     /// ```text
-    /// measure
+    /// {'0','1'}.measure
     /// ```
     Measure(Measure),
 
@@ -376,35 +376,64 @@ impl fmt::Display for VectorAtomKind {
 
 #[derive(Debug, Clone)]
 pub enum Vector {
-    ZeroVector {
-        dbg: Option<DebugLoc>,
-    },
-    OneVector {
-        dbg: Option<DebugLoc>,
-    },
-    PadVector {
-        dbg: Option<DebugLoc>,
-    },
-    TargetVector {
-        dbg: Option<DebugLoc>,
-    },
+    /// The first standard basis vector, |0⟩. Example syntax:
+    /// ```text
+    /// '0'
+    /// ```
+    ZeroVector { dbg: Option<DebugLoc> },
+
+    /// The second standard basis vector, |1⟩. Example syntax:
+    /// ```text
+    /// '1'
+    /// ```
+    OneVector { dbg: Option<DebugLoc> },
+
+    /// The pad atom. Example syntax:
+    /// ```text
+    /// '?'
+    /// ```
+    PadVector { dbg: Option<DebugLoc> },
+
+    /// The target atom. Example syntax:
+    /// ```text
+    /// '_'
+    /// ```
+    TargetVector { dbg: Option<DebugLoc> },
+
+    /// Tilts a vector. Example syntax:
+    /// ```text
+    /// '1' @ 180
+    /// ```
     VectorTilt {
         q: Box<Vector>,
         angle_deg: f64,
         dbg: Option<DebugLoc>,
     },
+
+    /// A uniform vector superposition. Example syntax:
+    /// ```text
+    /// '0' + '1'
+    /// ```
     UniformVectorSuperpos {
         q1: Box<Vector>,
         q2: Box<Vector>,
         dbg: Option<DebugLoc>,
     },
+
+    /// A tensor product. Example syntax:
+    /// ```text
+    /// '0' * '1'
+    /// ```
     VectorTensor {
         qs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
-    VectorUnit {
-        dbg: Option<DebugLoc>,
-    },
+
+    /// An empty vector. Example syntax:
+    /// ```text
+    /// ''
+    /// ```
+    VectorUnit { dbg: Option<DebugLoc> },
 }
 
 impl Vector {
@@ -1065,6 +1094,10 @@ impl fmt::Display for Vector {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BasisGenerator {
+    /// A revolve generator, used to define the Fourier basis. Example syntax:
+    /// ```text
+    /// __REVOLVE__('0', '1')
+    /// ```
     Revolve {
         v1: Vector,
         v2: Vector,
@@ -1123,17 +1156,34 @@ impl fmt::Display for BasisGenerator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Basis {
+    /// A basis literal. Example syntax:
+    /// ```text
+    /// {'0', '1'}
+    /// ```
     BasisLiteral {
         vecs: Vec<Vector>,
         dbg: Option<DebugLoc>,
     },
-    EmptyBasisLiteral {
-        dbg: Option<DebugLoc>,
-    },
+
+    /// An empty basis literal. Example syntax:
+    /// ```text
+    /// {}
+    /// ```
+    EmptyBasisLiteral { dbg: Option<DebugLoc> },
+
+    /// Tensor product of bases. Example syntax:
+    /// ```text
+    /// {'0', '1'} * {'0'+'1', '0'-'1'} * {'0', '1'}
+    /// ```
     BasisTensor {
         bases: Vec<Basis>,
         dbg: Option<DebugLoc>,
     },
+
+    /// Apply a basis generator. Example syntax:
+    /// ```text
+    /// {'0'+'1', '0'-'1'} // __REVOLVE__('0', '1')
+    /// ```
     ApplyBasisGenerator {
         basis: Box<Basis>,
         gen: BasisGenerator,

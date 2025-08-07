@@ -13,6 +13,10 @@ def default_prelude():
     'm'.sym = '0' + '1'@180
     'j'.sym = '0' + '1'@270
 
+    # Vector symbols
+    '?'.sym = __SYM_PAD__()
+    '_'.sym = __SYM_TARGET__()
+
     # Common bases
     std = {'0', '1'}
     pm = {'p', 'm'}
