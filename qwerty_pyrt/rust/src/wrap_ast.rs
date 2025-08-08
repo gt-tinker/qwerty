@@ -1,6 +1,6 @@
+mod py_glue;
 mod wrap_classical;
 mod wrap_prog;
-mod py_glue;
 mod wrap_qpu;
 mod wrap_type;
 

@@ -1,8 +1,8 @@
 use crate::{
     mlir::run_ast,
     wrap_ast::{
-        wrap_classical::ClassicalFunctionDef,
         py_glue::{get_bit_reg, get_err, ProgErrKind, UBigWrap},
+        wrap_classical::ClassicalFunctionDef,
         wrap_qpu::QpuFunctionDef,
         wrap_type::DebugLoc,
     },
