@@ -1,5 +1,5 @@
 use crate::{ast::qpu::VectorAtomKind, dbg::DebugLoc};
-use dashu::integer::UBig;
+use dashu::integer::IBig;
 use std::fmt;
 
 // For type checking
@@ -94,7 +94,8 @@ pub struct TypeError {
 pub enum ExtractErrorKind {
     // TODO: add more details
     NotFullyFolded,
-    IntegerTooBig { offender: UBig },
+    IntegerTooBig { offender: IBig },
+    NegativeInteger { offender: IBig },
 }
 
 impl fmt::Display for ExtractErrorKind {
@@ -105,7 +106,21 @@ impl fmt::Display for ExtractErrorKind {
                 "Cannot extract since metaQwerty constructs are not fully expanded."
             ),
             ExtractErrorKind::IntegerTooBig { offender } => {
-                write!(f, "Integer {} is too big", offender)
+                write!(
+                    f,
+                    concat!(
+                        "Computed dimension variable expression is {}, ",
+                        "which is too big to fit in a native integer"
+                    ),
+                    offender
+                )
+            }
+            ExtractErrorKind::NegativeInteger { offender } => {
+                write!(
+                    f,
+                    "Computed dimension variable expression is {}, a negative value",
+                    offender
+                )
             }
         }
     }

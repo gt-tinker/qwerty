@@ -3,7 +3,7 @@ use crate::{
     dbg::DebugLoc,
     error::{ExtractError, ExtractErrorKind},
 };
-use dashu::integer::UBig;
+use dashu::{base::Signed, integer::IBig};
 use std::fmt;
 
 pub mod classical;
@@ -21,7 +21,7 @@ pub enum DimExpr {
     /// ```text
     /// 2
     /// ```
-    DimConst { val: UBig, dbg: Option<DebugLoc> },
+    DimConst { val: IBig, dbg: Option<DebugLoc> },
 
     /// Sum of dimension variable values. Example syntax:
     /// ```text
@@ -58,12 +58,23 @@ impl DimExpr {
     /// return `None` if it is not fully folded yet.
     pub fn extract(&self) -> Result<usize, ExtractError> {
         match self {
-            DimExpr::DimConst { val, dbg } => val.try_into().map_err(|_err| ExtractError {
-                kind: ExtractErrorKind::IntegerTooBig {
-                    offender: val.clone(),
-                },
-                dbg: dbg.clone(),
-            }),
+            DimExpr::DimConst { val, dbg } => {
+                if val.is_negative() {
+                    Err(ExtractError {
+                        kind: ExtractErrorKind::NegativeInteger {
+                            offender: val.clone(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    val.try_into().map_err(|_err| ExtractError {
+                        kind: ExtractErrorKind::IntegerTooBig {
+                            offender: val.clone(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
             DimExpr::DimVar { dbg, .. }
             | DimExpr::DimSum { dbg, .. }
             | DimExpr::DimProd { dbg, .. }
