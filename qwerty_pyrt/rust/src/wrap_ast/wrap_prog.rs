@@ -1,10 +1,10 @@
 use crate::{
     mlir::run_ast,
     wrap_ast::{
-        classical::ClassicalFunctionDef,
+        wrap_classical::ClassicalFunctionDef,
         py_glue::{get_bit_reg, get_err, ProgErrKind, UBigWrap},
-        qpu::QpuFunctionDef,
-        ty::DebugLoc,
+        wrap_qpu::QpuFunctionDef,
+        wrap_type::DebugLoc,
     },
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};

@@ -1,12 +1,12 @@
-mod classical;
-mod prog;
+mod wrap_classical;
+mod wrap_prog;
 mod py_glue;
-mod qpu;
-mod ty;
+mod wrap_qpu;
+mod wrap_type;
 
-pub use classical::{
+pub use wrap_classical::{
     BinaryOpKind, ClassicalExpr, ClassicalFunctionDef, ClassicalStmt, UnaryOpKind,
 };
-pub use prog::Program;
-pub use qpu::{Basis, BasisGenerator, EmbedKind, QpuExpr, QpuFunctionDef, QpuStmt, Vector};
-pub use ty::{DebugLoc, RegKind, Type};
+pub use wrap_prog::Program;
+pub use wrap_qpu::{Basis, BasisGenerator, EmbedKind, QpuExpr, QpuFunctionDef, QpuStmt, Vector};
+pub use wrap_type::{DebugLoc, RegKind, Type};

@@ -1,6 +1,6 @@
 use crate::wrap_ast::{
     py_glue::UBigWrap,
-    ty::{DebugLoc, Type},
+    wrap_type::{DebugLoc, Type},
 };
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, meta};

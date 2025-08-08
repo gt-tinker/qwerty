@@ -1,4 +1,4 @@
-use crate::wrap_ast::ty::DebugLoc;
+use crate::wrap_ast::wrap_type::DebugLoc;
 use dashu::integer::UBig;
 use pyo3::{
     conversion::{FromPyObject, IntoPyObject},
