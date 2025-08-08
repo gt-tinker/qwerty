@@ -60,6 +60,66 @@ pub enum MetaExpr {
     },
 }
 
+impl MetaExpr {
+    /// Returns the debug location for this expression.
+    pub fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            MetaExpr::Variable { dbg, .. }
+            | MetaExpr::UnaryOp { dbg, .. }
+            | MetaExpr::BinaryOp { dbg, .. }
+            | MetaExpr::ReduceOp { dbg, .. }
+            | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
+        }
+    }
+
+    /// Extracts a plain-AST `@classical` expression from a metaQwerty
+    /// `@classical` expression.
+    pub fn extract(&self) -> Result<ast::classical::Expr, ExtractError> {
+        match self {
+            MetaExpr::Variable { name, dbg } => Ok(ast::classical::Expr::Variable(ast::Variable {
+                name: name.to_string(),
+                dbg: dbg.clone(),
+            })),
+            MetaExpr::UnaryOp { kind, val, dbg } => val.extract().map(|ast_val| {
+                ast::classical::Expr::UnaryOp(ast::classical::UnaryOp {
+                    kind: *kind,
+                    val: Box::new(ast_val),
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaExpr::BinaryOp {
+                kind,
+                left,
+                right,
+                dbg,
+            } => left.extract().and_then(|ast_left| {
+                right.extract().map(|ast_right| {
+                    ast::classical::Expr::BinaryOp(ast::classical::BinaryOp {
+                        kind: *kind,
+                        left: Box::new(ast_left),
+                        right: Box::new(ast_right),
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
+            MetaExpr::ReduceOp { kind, val, dbg } => val.extract().map(|ast_val| {
+                ast::classical::Expr::ReduceOp(ast::classical::ReduceOp {
+                    kind: *kind,
+                    val: Box::new(ast_val),
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaExpr::BitLiteral { val, n_bits, dbg } => n_bits.extract().map(|n_bits_int| {
+                ast::classical::Expr::BitLiteral(ast::BitLiteral {
+                    val: val.clone(),
+                    n_bits: n_bits_int,
+                    dbg: dbg.clone(),
+                })
+            }),
+        }
+    }
+}
+
 // TODO: don't duplicate this code with classical.rs
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -135,8 +195,37 @@ pub enum MetaStmt {
 }
 
 impl MetaStmt {
+    /// Extracts a plain-AST `@classical` statement from a metaQwerty
+    /// `@classical` statement.
     pub fn extract(&self) -> Result<ast::Stmt<ast::classical::Expr>, ExtractError> {
-        todo!("classical::MetaStmt::extract")
+        match self {
+            MetaStmt::Expr { expr } => expr.extract().map(|ast_expr| {
+                ast::Stmt::Expr(ast::StmtExpr {
+                    expr: ast_expr,
+                    dbg: expr.get_dbg(),
+                })
+            }),
+            MetaStmt::Assign { lhs, rhs, dbg } => rhs.extract().map(|ast_rhs| {
+                ast::Stmt::Assign(ast::Assign {
+                    lhs: lhs.to_string(),
+                    rhs: ast_rhs,
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaStmt::UnpackAssign { lhs, rhs, dbg } => rhs.extract().map(|ast_rhs| {
+                ast::Stmt::UnpackAssign(ast::UnpackAssign {
+                    lhs: lhs.clone(),
+                    rhs: ast_rhs,
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaStmt::Return { val, dbg } => val.extract().map(|ast_val| {
+                ast::Stmt::Return(ast::Return {
+                    val: ast_val,
+                    dbg: dbg.clone(),
+                })
+            }),
+        }
     }
 }
 
