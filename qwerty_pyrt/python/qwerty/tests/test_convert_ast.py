@@ -440,6 +440,51 @@ class ConvertAstQpuTests(unittest.TestCase):
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
+    def test_qubit_literal_zero_intrinsic(self):
+        actual_qw_ast = self.convert_expr("""
+            __SYM_STD0__()
+        """)
+        dbg = self.dbg(1, 1)
+        expected_qw_ast = QpuStmt.new_expr(
+            QpuExpr.new_qlit(QLit.new_zero_qubit(dbg)),
+            dbg)
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_basis_singleton_zero_intrinsic(self):
+        actual_qw_ast = self.convert_expr("""
+            __SYM_STD0__() >> __SYM_STD0__()
+        """)
+        dbg_call1 = self.dbg(1, 1)
+        dbg_call2 = self.dbg(1, 19)
+        expected_qw_ast = QpuStmt.new_expr(QpuExpr.new_basis_translation(
+            Basis.new_basis_literal([
+                Vector.new_zero_vector(dbg_call1)],
+                dbg_call1),
+            Basis.new_basis_literal([
+                Vector.new_zero_vector(dbg_call2)],
+                dbg_call2),
+            dbg_call1), dbg_call1)
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_basis_translation_zero_intrinsic(self):
+        actual_qw_ast = self.convert_expr("""
+            {__SYM_STD0__()} >> {__SYM_STD0__()}
+        """)
+        dbg_set1 = self.dbg(1, 1)
+        dbg_call1 = self.dbg(1, 2)
+        dbg_set2 = self.dbg(1, 21)
+        dbg_call2 = self.dbg(1, 22)
+        expected_qw_ast = QpuStmt.new_expr(QpuExpr.new_basis_translation(
+            Basis.new_basis_literal([
+                Vector.new_zero_vector(dbg_call1)],
+                dbg_set1),
+            Basis.new_basis_literal([
+                Vector.new_zero_vector(dbg_call2)],
+                dbg_set2),
+            dbg_set1), dbg_set1)
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
 class ConvertAstClassicalTests(unittest.TestCase):
     def convert_expr(self, code, *, capturer=None):
         code = textwrap.dedent(code.strip())

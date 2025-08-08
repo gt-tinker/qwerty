@@ -7,11 +7,11 @@ from qwerty import *
 
 @qpu
 def get_p() -> qubit:
-    return '0'+'1'
+    return __SYM_STD0__()+__SYM_STD1__()
 
 @qpu
 def kernel() -> bit:
-    return get_p() | __MEASURE__({'0','1'})
+    return get_p() | __MEASURE__({__SYM_STD0__(),__SYM_STD1__()})
 
 def test(shots):
     return kernel(shots=shots)

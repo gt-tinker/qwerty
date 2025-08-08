@@ -6,7 +6,7 @@ from qwerty import *
 
 @qpu
 def kernel() -> bit:
-    return '0'+'1' | __MEASURE__({'0','1'})
+    return __SYM_STD0__()+__SYM_STD1__() | __MEASURE__({__SYM_STD0__(),__SYM_STD1__()})
 
 def test(shots):
     return kernel(shots=shots)

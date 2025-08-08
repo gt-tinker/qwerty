@@ -630,6 +630,11 @@ EMBED_KINDS = {
     '__EMBED_INPLACE__': EmbedKind.InPlace,
 }
 
+VECTOR_ATOM_INTRINSICS = {'__SYM_STD0__': Vector.new_zero_vector,
+                          '__SYM_STD1__': Vector.new_one_vector,
+                          '__SYM_PAD__': Vector.new_pad_vector,
+                          '__SYM_TARGET__': Vector.new_target_vector}
+
 class QpuVisitor(BaseVisitor):
     """
     Python AST visitor for syntax specific to ``@qpu`` kernels.
@@ -663,6 +668,19 @@ class QpuVisitor(BaseVisitor):
         else:
             raise QwertySyntaxError(f'Unknown qubit symbol {sym}', dbg)
 
+    def is_vector_atom_intrinsic(self, node: ast.AST) -> bool:
+        return isinstance(call := node, ast.Call) \
+            and not call.args \
+            and not call.keywords \
+            and isinstance(name := call.func, ast.Name) \
+            and (intrinsic_name := name.id) in VECTOR_ATOM_INTRINSICS
+
+    def extract_vector_atom_intrinsic(self, call: ast.AST) -> Vector:
+        dbg = self.get_debug_loc(call)
+        name = call.func
+        intrinsic_name = name.id
+        return VECTOR_ATOM_INTRINSICS[intrinsic_name](dbg)
+
     def extract_basis_vector(self, node: ast.AST) -> Vector:
         dbg = self.get_debug_loc(node)
 
@@ -686,6 +704,8 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
             q = self.extract_basis_vector(node.operand)
             return Vector.new_vector_tilt(q, 180.0, dbg)
+        elif self.is_vector_atom_intrinsic(node):
+            return self.extract_vector_atom_intrinsic(node)
         elif isinstance(node, ast.Constant) and node.value == '':
             return Vector.new_vector_unit(dbg)
         elif isinstance(node, ast.Constant) and len(node.value) == 1:
@@ -733,8 +753,11 @@ class QpuVisitor(BaseVisitor):
             basis = self.extract_basis(node.left)
             gen = self.extract_basis_generator(node.right)
             return Basis.new_apply_basis_generator(basis, gen, dbg)
-        elif (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)) \
-                or (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        elif (isinstance(node, ast.UnaryOp)
+                    and isinstance(node.op, ast.USub)) \
+                or (isinstance(node, ast.Constant) \
+                    and isinstance(node.value, str)) \
+                or self.is_vector_atom_intrinsic(node):
             return Basis.new_basis_literal([self.extract_basis_vector(node)], dbg)
         else:
             node_name = type(node).__name__
@@ -1150,6 +1173,8 @@ class QpuVisitor(BaseVisitor):
         # Handling for `bit[4](0b1101)`, bit literals
         if self.is_bit_literal(call):
             return self.extract_bit_literal(call)
+        elif self.is_vector_atom_intrinsic(call):
+            return QpuExpr.new_qlit(self.extract_qubit_literal(call))
         elif isinstance(name_node := call.func, ast.Name) \
                 and (intrinsic_name := name_node.id) in INTRINSICS:
             expected_num_args = INTRINSICS[intrinsic_name]

@@ -11,9 +11,9 @@ class IntegrationTests(unittest.TestCase):
         _reset_compiler_state()
 
     def test_randbit_nometa(self):
-        from .integ import randbit_nometa
+        from .integ.nometa import randbit
         shots = 1024
-        actual_histo = randbit_nometa.test(shots)
+        actual_histo = randbit.test(shots)
         zero, one = bit[1](0b0), bit[1](0b1)
         self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
@@ -21,58 +21,58 @@ class IntegrationTests(unittest.TestCase):
 
     def test_interproc_nometa(self):
         # Like randbit_nometa above except involves a call from one kernel to another
-        from .integ import interproc_nometa
+        from .integ.nometa import interproc
         shots = 1024
-        actual_histo = interproc_nometa.test(shots)
+        actual_histo = interproc.test(shots)
         zero, one = bit[1](0b0), bit[1](0b1)
         self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
     def test_baby_classical_nometa(self):
-        from .integ import baby_classical_nometa
+        from .integ.nometa import baby_classical
         shots = 1024
         expected_histo = {bit[3](0b111): shots}
-        self.assertEqual(expected_histo, baby_classical_nometa.test(shots))
+        self.assertEqual(expected_histo, baby_classical.test(shots))
 
     def test_bv_noclassical_nometa(self):
-        from .integ import bv_noclassical_nometa
+        from .integ.nometa import bv_noclassical
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
-        self.assertEqual(expected_histo, bv_noclassical_nometa.test(shots))
+        self.assertEqual(expected_histo, bv_noclassical.test(shots))
 
     def test_bv_nometa(self):
-        from .integ import bv_nocap_nometa
+        from .integ.nometa import bv_nocap
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
-        self.assertEqual(expected_histo, bv_nocap_nometa.test(shots))
+        self.assertEqual(expected_histo, bv_nocap.test(shots))
 
     def test_bv_nometa(self):
-        from .integ import bv_nometa
+        from .integ.nometa import bv
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
-        self.assertEqual(expected_histo, bv_nometa.test(shots))
+        self.assertEqual(expected_histo, bv.test(shots))
 
     def test_func_tens_nometa(self):
-        from .integ import func_tens_nometa
+        from .integ.nometa import func_tens
         shots = 1024
         expected_histo = {bit[1](0b1): shots}
-        self.assertEqual(expected_histo, func_tens_nometa.test(shots))
+        self.assertEqual(expected_histo, func_tens.test(shots))
 
     def test_pack_unpack_nometa(self):
-        from .integ import pack_unpack_nometa
+        from .integ.nometa import pack_unpack
         shots = 1024
         expected_histo = {bit[3](0b101): shots}
-        self.assertEqual(expected_histo, pack_unpack_nometa.test(shots))
+        self.assertEqual(expected_histo, pack_unpack.test(shots))
 
     def test_pad_nometa(self):
-        from .integ import pad_nometa
+        from .integ.nometa import pad
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
-        self.assertEqual(expected_histo, pad_nometa.test(shots))
+        self.assertEqual(expected_histo, pad.test(shots))
 
     def test_superdense_nocap(self):
-        from .integ import superdense_nocap
+        from .integ.nometa import superdense_nocap
         shots = 1024
         expected_histos = (
             {bit[2](0b00): shots},
@@ -83,7 +83,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(expected_histos, superdense_nocap.test(shots))
 
     def test_teleport_nometa(self):
-        from .integ import teleport_nometa
+        from .integ.nometa import teleport
         shots = 1024
         expected_histos = (
             {bit[1](0b0): shots},
@@ -91,10 +91,10 @@ class IntegrationTests(unittest.TestCase):
             {bit[1](0b0): shots},
             {bit[1](0b1): shots},
         )
-        self.assertEqual(expected_histos, teleport_nometa.test(shots))
+        self.assertEqual(expected_histos, teleport.test(shots))
 
     def test_tilt_nometa(self):
-        from .integ import tilt_nometa
+        from .integ.nometa import tilt
         shots = 1024
         expected_histos = (
             {bit[1](0b0): shots},
@@ -102,10 +102,10 @@ class IntegrationTests(unittest.TestCase):
             {bit[1](0b0): shots},
             {bit[1](0b1): shots},
         )
-        self.assertEqual(expected_histos, tilt_nometa.test(shots))
+        self.assertEqual(expected_histos, tilt.test(shots))
 
     def test_fourier_nometa(self):
-        from .integ import fourier_nometa
+        from .integ.nometa import fourier
         shots = 1024
         expected_histo = {bit[3](0b101): shots}
-        self.assertEqual(expected_histo, fourier_nometa.test(shots))
+        self.assertEqual(expected_histo, fourier.test(shots))
