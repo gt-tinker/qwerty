@@ -4,8 +4,8 @@ mod wrap_repl;
 
 use crate::wrap_ast::{
     Basis, BasisGenerator, BinaryOpKind, ClassicalExpr, ClassicalFunctionDef, ClassicalStmt,
-    DebugLoc, EmbedKind, Program, QLit, QpuExpr, QpuFunctionDef, QpuStmt, RegKind, Type, TypeEnv,
-    UnaryOpKind, Vector,
+    DebugLoc, EmbedKind, Program, QpuExpr, QpuFunctionDef, QpuStmt, RegKind, Type, UnaryOpKind,
+    Vector,
 };
 use crate::wrap_repl::ReplState;
 use pyo3::prelude::*;
@@ -21,7 +21,6 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<DebugLoc>()?;
     module.add_class::<RegKind>()?;
     module.add_class::<Type>()?;
-    module.add_class::<QLit>()?;
     module.add_class::<Vector>()?;
     module.add_class::<BasisGenerator>()?;
     module.add_class::<Basis>()?;
@@ -36,7 +35,6 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<ClassicalFunctionDef>()?;
     module.add_class::<Program>()?;
     module.add_class::<ReplState>()?;
-    module.add_class::<TypeEnv>()?;
 
     Ok(())
 }

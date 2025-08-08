@@ -3,7 +3,7 @@
 
 use crate::wrap_ast::{QpuExpr, QpuStmt};
 use pyo3::prelude::*;
-use qwerty_ast::repl;
+use qwerty_ast::{meta, repl};
 use std::sync::Mutex;
 
 /// Thin wrapper for qwerty_ast::repl::ReplState.
@@ -24,7 +24,11 @@ impl ReplState {
         }
     }
 
-    fn run(&self, stmt: QpuStmt) -> QpuExpr {
-        QpuExpr::new(self.state.lock().unwrap().run(&stmt.stmt))
+    fn run(&self, _stmt: QpuStmt) -> QpuExpr {
+        //self.state.lock().unwrap().run(&stmt.stmt);
+        // TODO: fix this
+        QpuExpr {
+            expr: meta::qpu::MetaExpr::UnitLiteral { dbg: None },
+        }
     }
 }

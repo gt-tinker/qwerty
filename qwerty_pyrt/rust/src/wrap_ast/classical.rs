@@ -3,7 +3,7 @@ use crate::wrap_ast::{
     ty::{DebugLoc, Type},
 };
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::ast;
+use qwerty_ast::{ast, meta};
 use std::fmt;
 
 #[pyclass(eq, hash, frozen)]
@@ -43,11 +43,11 @@ impl BinaryOpKind {
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct ClassicalExpr {
-    pub(crate) expr: ast::classical::Expr,
+    pub expr: meta::classical::MetaExpr,
 }
 
 impl ClassicalExpr {
-    pub fn new(expr: ast::classical::Expr) -> Self {
+    pub fn new(expr: meta::classical::MetaExpr) -> Self {
         Self { expr }
     }
 }
@@ -63,10 +63,10 @@ impl ClassicalExpr {
     #[classmethod]
     fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::classical::Expr::Variable(ast::Variable {
+            expr: meta::classical::MetaExpr::Variable {
                 name,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -78,11 +78,11 @@ impl ClassicalExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::classical::Expr::UnaryOp(ast::classical::UnaryOp {
+            expr: meta::classical::MetaExpr::UnaryOp {
                 kind: kind.to_ast_kind(),
                 val: Box::new(val.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -95,12 +95,12 @@ impl ClassicalExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::classical::Expr::BinaryOp(ast::classical::BinaryOp {
+            expr: meta::classical::MetaExpr::BinaryOp {
                 kind: kind.to_ast_kind(),
                 left: Box::new(left.expr),
                 right: Box::new(right.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -112,11 +112,11 @@ impl ClassicalExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::classical::Expr::ReduceOp(ast::classical::ReduceOp {
+            expr: meta::classical::MetaExpr::ReduceOp {
                 kind: kind.to_ast_kind(),
                 val: Box::new(val.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -127,12 +127,16 @@ impl ClassicalExpr {
         n_bits: usize,
         dbg: Option<DebugLoc>,
     ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
-            expr: ast::classical::Expr::BitLiteral(ast::BitLiteral {
+            expr: meta::classical::MetaExpr::BitLiteral {
                 val: val.0,
-                n_bits,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+                n_bits: meta::DimExpr::DimConst {
+                    val: n_bits.into(),
+                    dbg: dbg.clone(),
+                },
+                dbg,
+            },
         }
     }
 
@@ -146,7 +150,7 @@ impl ClassicalExpr {
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct ClassicalStmt {
-    pub(crate) stmt: ast::Stmt<ast::classical::Expr>,
+    pub stmt: meta::classical::MetaStmt,
 }
 
 impl fmt::Display for ClassicalStmt {
@@ -158,12 +162,9 @@ impl fmt::Display for ClassicalStmt {
 #[pymethods]
 impl ClassicalStmt {
     #[classmethod]
-    fn new_expr(_cls: &Bound<'_, PyType>, expr: ClassicalExpr, dbg: Option<DebugLoc>) -> Self {
+    fn new_expr(_cls: &Bound<'_, PyType>, expr: ClassicalExpr) -> Self {
         Self {
-            stmt: ast::Stmt::Expr(ast::StmtExpr {
-                expr: expr.expr,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            stmt: meta::classical::MetaStmt::Expr { expr: expr.expr },
         }
     }
 
@@ -175,11 +176,11 @@ impl ClassicalStmt {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            stmt: ast::Stmt::Assign(ast::Assign {
+            stmt: meta::classical::MetaStmt::Assign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -191,21 +192,21 @@ impl ClassicalStmt {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            stmt: ast::Stmt::UnpackAssign(ast::UnpackAssign {
+            stmt: meta::classical::MetaStmt::UnpackAssign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
     fn new_return(_cls: &Bound<'_, PyType>, val: ClassicalExpr, dbg: Option<DebugLoc>) -> Self {
         Self {
-            stmt: ast::Stmt::Return(ast::Return {
+            stmt: meta::classical::MetaStmt::Return {
                 val: val.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -219,7 +220,7 @@ impl ClassicalStmt {
 #[pyclass]
 #[derive(Clone)]
 pub struct ClassicalFunctionDef {
-    pub function_def: ast::FunctionDef<ast::classical::Expr>,
+    pub function_def: meta::MetaFunctionDef<meta::classical::MetaStmt>,
 }
 
 #[pymethods]
@@ -234,7 +235,7 @@ impl ClassicalFunctionDef {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            function_def: ast::FunctionDef {
+            function_def: meta::MetaFunctionDef {
                 name,
                 args: args
                     .iter()
@@ -243,6 +244,7 @@ impl ClassicalFunctionDef {
                 ret_type: ret_type.ty.clone(),
                 body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
                 is_rev,
+                dim_vars: vec![],
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

@@ -5,6 +5,7 @@ formed by Qwerty syntax.
 
 import ast
 import math
+import functools
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
@@ -13,7 +14,7 @@ from .runtime import bit
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
-                          ClassicalFunctionDef, QLit, Vector, Basis, \
+                          ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
                           BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind
 
@@ -319,9 +320,8 @@ class BaseVisitor:
         """
         Statement that consists only of an expression
         """
-        dbg = self.get_debug_loc(expr_stmt)
         expr = self.visit(expr_stmt.value)
-        return self._stmt_class.new_expr(expr, dbg)
+        return self._stmt_class.new_expr(expr)
 
     def base_visit_FunctionDef(self, func_def: ast.FunctionDef,
                                decorator_name: str) \
@@ -646,27 +646,8 @@ class QpuVisitor(BaseVisitor):
         super().__init__(QpuExpr, QpuStmt, QpuFunctionDef, name_generator,
                          capturer, filename, line_offset, col_offset)
 
-    def extract_qubit_literal(self, node: ast.AST) -> QLit:
-        bv = self.extract_basis_vector(node)
-        qlit = bv.convert_to_qubit_literal()
-        if qlit is None:
-            dbg = self.get_debug_loc(node)
-            raise QwertySyntaxError(f"The symbols '?' and '_' are not allowed "
-                                    "in qubit literals.", dbg)
-        else:
-            return qlit
-
-    def convert_vector_atom(self, sym: str, dbg: DebugLoc) -> QLit:
-        if sym == '0':
-            return Vector.new_zero_vector(dbg)
-        elif sym == '1':
-            return Vector.new_one_vector(dbg)
-        elif sym == '?':
-            return Vector.new_pad_vector(dbg)
-        elif sym == '_':
-            return Vector.new_target_vector(dbg)
-        else:
-            raise QwertySyntaxError(f'Unknown qubit symbol {sym}', dbg)
+    def extract_qubit_literal(self, node: ast.AST) -> QpuExpr:
+        return QpuExpr.new_qlit(self.extract_basis_vector(node))
 
     def is_vector_atom_intrinsic(self, node: ast.AST) -> bool:
         return isinstance(call := node, ast.Call) \
@@ -696,7 +677,7 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
             left = self.extract_basis_vector(node.left)
             right = self.extract_basis_vector(node.right)
-            return Vector.new_vector_tensor([left, right], dbg)
+            return Vector.new_vector_bi_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
             q = self.extract_basis_vector(node.left)
             angle_deg = self.extract_float_const(node.right)
@@ -708,11 +689,10 @@ class QpuVisitor(BaseVisitor):
             return self.extract_vector_atom_intrinsic(node)
         elif isinstance(node, ast.Constant) and node.value == '':
             return Vector.new_vector_unit(dbg)
-        elif isinstance(node, ast.Constant) and len(node.value) == 1:
-            return self.convert_vector_atom(node.value, dbg)
-        elif isinstance(node, ast.Constant): # len(node.value) > 1
-            return Vector.new_vector_tensor([self.convert_vector_atom(sym, dbg)
-                                             for sym in node.value], dbg)
+        elif isinstance(node, ast.Constant):
+            return functools.reduce(
+                lambda acc, atom: Vector.new_vector_bi_tensor(acc, atom, dbg),
+                (Vector.new_vector_symbol(sym, dbg) for sym in node.value))
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
@@ -748,7 +728,7 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
             left = self.extract_basis(node.left)
             right = self.extract_basis(node.right)
-            return Basis.new_basis_tensor([left, right], dbg)
+            return Basis.new_basis_bi_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.FloorDiv):
             basis = self.extract_basis(node.left)
             gen = self.extract_basis_generator(node.right)
@@ -840,8 +820,7 @@ class QpuVisitor(BaseVisitor):
         value = const.value
         if isinstance(value, str):
             # A top-level string must be a qubit literal
-            qlit = self.extract_qubit_literal(const)
-            return QpuExpr.new_qlit(qlit)
+            return self.extract_qubit_literal(const)
         else:
             raise QwertySyntaxError('Unknown constant syntax',
                                     self.get_debug_loc(const))
@@ -896,14 +875,12 @@ class QpuVisitor(BaseVisitor):
 
     def visit_BinOp_Add(self, binOp: ast.BinOp):
         # A top-level `+` expression must be a qubit literal (a superpos)
-        qlit = self.extract_qubit_literal(binOp)
-        return QpuExpr.new_qlit(qlit)
+        return self.extract_qubit_literal(binOp)
 
     def visit_BinOp_Sub(self, binOp: ast.BinOp):
         # A top-level `-` expression must be a qubit literal (a superpos with a
         # negative phase)
-        qlit = self.extract_qubit_literal(binOp)
-        return QpuExpr.new_qlit(qlit)
+        return self.extract_qubit_literal(binOp)
 
     def visit_BinOp_BitOr(self, binOp: ast.BinOp):
         """
@@ -920,7 +897,7 @@ class QpuVisitor(BaseVisitor):
         left = self.visit(binOp.left)
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
-        return QpuExpr.new_tensor([left, right], dbg)
+        return QpuExpr.new_bi_tensor(left, right, dbg)
 
     #def visit_BinOp_BitAnd(self, binOp: ast.BinOp):
     #    """
@@ -1174,7 +1151,7 @@ class QpuVisitor(BaseVisitor):
         if self.is_bit_literal(call):
             return self.extract_bit_literal(call)
         elif self.is_vector_atom_intrinsic(call):
-            return QpuExpr.new_qlit(self.extract_qubit_literal(call))
+            return self.extract_qubit_literal(call)
         elif isinstance(name_node := call.func, ast.Name) \
                 and (intrinsic_name := name_node.id) in INTRINSICS:
             expected_num_args = INTRINSICS[intrinsic_name]

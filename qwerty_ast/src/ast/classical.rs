@@ -183,11 +183,11 @@ impl fmt::Display for Expr {
             }
             Expr::ReduceOp(ReduceOp { kind, val, .. }) => {
                 let kind_str = match kind {
-                    BinaryOpKind::And => "&",
-                    BinaryOpKind::Or => "|",
-                    BinaryOpKind::Xor => "^",
+                    BinaryOpKind::And => "and",
+                    BinaryOpKind::Or => "or",
+                    BinaryOpKind::Xor => "xor",
                 };
-                write!(f, "{}({})", kind_str, *val)
+                write!(f, "({}).{}_reduce()", kind_str, *val)
             }
             Expr::RotateOp(RotateOp { kind, val, amt, .. }) => {
                 let kind_str = match kind {

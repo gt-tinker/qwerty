@@ -8,18 +8,16 @@ use crate::{
     },
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};
-use qwerty_ast::ast;
+use qwerty_ast::meta;
 
 #[pyclass]
 pub struct Program {
-    program: ast::Program,
-    type_checked: bool,
+    program: meta::MetaProgram,
 }
 
 impl Program {
-    fn add_function_def(&mut self, func: ast::Func) {
+    fn add_function_def(&mut self, func: meta::MetaFunc) {
         self.program.funcs.push(func);
-        self.type_checked = false;
     }
 }
 
@@ -28,35 +26,19 @@ impl Program {
     #[new]
     fn new(dbg: Option<DebugLoc>) -> Self {
         Self {
-            program: ast::Program {
+            program: meta::MetaProgram {
                 funcs: vec![],
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
-            type_checked: false,
         }
     }
 
     fn add_qpu_function_def(&mut self, func: QpuFunctionDef) {
-        self.add_function_def(ast::Func::Qpu(func.function_def));
+        self.add_function_def(meta::MetaFunc::Qpu(func.function_def));
     }
 
     fn add_classical_function_def(&mut self, func: ClassicalFunctionDef) {
-        self.add_function_def(ast::Func::Classical(func.function_def));
-    }
-
-    fn type_check(&mut self, py: Python<'_>) -> PyResult<()> {
-        if !self.type_checked {
-            if let Err(type_err) = self.program.typecheck() {
-                return Err(get_err(
-                    py,
-                    ProgErrKind::Type,
-                    type_err.kind.to_string(),
-                    type_err.dbg,
-                ));
-            }
-            self.type_checked = true;
-        }
-        Ok(())
+        self.add_function_def(meta::MetaFunc::Classical(func.function_def));
     }
 
     fn call<'py>(
@@ -66,9 +48,18 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        self.type_check(py)?;
+        let expanded_program = self.program.expand();
 
-        run_ast(&self.program, &func_name, num_shots, debug)
+        if let Err(type_err) = expanded_program.typecheck() {
+            return Err(get_err(
+                py,
+                ProgErrKind::Type,
+                type_err.kind.to_string(),
+                type_err.dbg,
+            ));
+        }
+
+        run_ast(&expanded_program, &func_name, num_shots, debug)
             .into_iter()
             .map(|shot_result| {
                 let as_int = UBigWrap(shot_result.bits).into_pyobject(py)?;

@@ -1,5 +1,5 @@
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::{ast, dbg, typecheck};
+use qwerty_ast::{ast, dbg, meta};
 
 #[pyclass(eq, hash, frozen)]
 #[derive(Clone, PartialEq, Hash)]
@@ -47,7 +47,7 @@ impl RegKind {
 #[pyclass]
 #[derive(Clone)]
 pub struct Type {
-    pub ty: ast::Type,
+    pub ty: meta::MetaType,
 }
 
 #[pymethods]
@@ -55,7 +55,7 @@ impl Type {
     #[classmethod]
     fn new_func(_cls: &Bound<'_, PyType>, in_ty: Type, out_ty: Type) -> Self {
         Self {
-            ty: ast::Type::FuncType {
+            ty: meta::MetaType::FuncType {
                 in_ty: Box::new(in_ty.ty),
                 out_ty: Box::new(out_ty.ty),
             },
@@ -65,7 +65,7 @@ impl Type {
     #[classmethod]
     fn new_rev_func(_cls: &Bound<'_, PyType>, in_out_ty: Type) -> Self {
         Self {
-            ty: ast::Type::RevFuncType {
+            ty: meta::MetaType::RevFuncType {
                 in_out_ty: Box::new(in_out_ty.ty),
             },
         }
@@ -74,9 +74,12 @@ impl Type {
     #[classmethod]
     fn new_reg(_cls: &Bound<'_, PyType>, elem_ty: RegKind, dim: usize) -> Self {
         Self {
-            ty: ast::Type::RegType {
+            ty: meta::MetaType::RegType {
                 elem_ty: elem_ty.to_ast_kind(),
-                dim: dim,
+                dim: meta::DimExpr::DimConst {
+                    val: dim.into(),
+                    dbg: None,
+                },
             },
         }
     }
@@ -84,22 +87,7 @@ impl Type {
     #[classmethod]
     fn new_unit(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            ty: ast::Type::UnitType,
-        }
-    }
-}
-
-#[pyclass]
-pub struct TypeEnv {
-    pub env: typecheck::TypeEnv,
-}
-
-#[pymethods]
-impl TypeEnv {
-    #[new]
-    pub fn new() -> Self {
-        TypeEnv {
-            env: typecheck::TypeEnv::new(),
+            ty: meta::MetaType::UnitType,
         }
     }
 }

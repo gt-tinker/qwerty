@@ -1,5 +1,6 @@
 use crate::{
     ast::{
+        self,
         classical::{BinaryOpKind, UnaryOpKind},
         qpu::EmbedKind,
         RegKind,
@@ -161,13 +162,38 @@ impl fmt::Display for MetaType {
 ///     return '0'**N
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionDef<S> {
+pub struct MetaFunctionDef<S> {
     pub name: String,
     pub args: Vec<(MetaType, String)>,
     pub ret_type: MetaType,
     pub body: Vec<S>,
     pub is_rev: bool,
+    pub dim_vars: Vec<String>,
     pub dbg: Option<DebugLoc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MetaFunc {
+    /// A `@qpu` kernel.
+    Qpu(MetaFunctionDef<qpu::MetaStmt>),
+    /// A `@classical` function.
+    Classical(MetaFunctionDef<classical::MetaStmt>),
+}
+
+/// The top-level node in a Qwerty program that holds all function defintiions.
+///
+/// In the current implementation, there is only one of these per Python
+/// interpreter.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MetaProgram {
+    pub funcs: Vec<MetaFunc>,
+    pub dbg: Option<DebugLoc>,
+}
+
+impl MetaProgram {
+    pub fn expand(&self) -> ast::Program {
+        todo!("MetaProgram::expand()")
+    }
 }
 
 pub mod qpu {
@@ -387,6 +413,20 @@ pub mod qpu {
         },
     }
 
+    // TODO: don't duplicate with qpu.rs
+    impl fmt::Display for MetaBasisGenerator {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaBasisGenerator::BasisGeneratorMacro { name, arg, .. } => {
+                    write!(f, "({}).{}", arg, name)
+                }
+                MetaBasisGenerator::Revolve { v1, v2, .. } => {
+                    write!(f, "{{{},{}}}.revolve", v1, v2)
+                }
+            }
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq)]
     pub enum MetaBasis {
         /// A basis alias name. Example syntax:
@@ -439,6 +479,34 @@ pub mod qpu {
             gen: MetaBasisGenerator,
             dbg: Option<DebugLoc>,
         },
+    }
+
+    impl fmt::Display for MetaBasis {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaBasis::BasisAlias { name, .. } => write!(f, "{}", name),
+                MetaBasis::BasisBroadcastTensor { val, factor, .. } => {
+                    write!(f, "({})**({})", val, factor)
+                }
+                MetaBasis::BasisLiteral { vecs, .. } => {
+                    write!(f, "{{")?;
+                    for (i, vec) in vecs.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", vec)?;
+                    }
+                    Ok(())
+                }
+                MetaBasis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
+                MetaBasis::BasisBiTensor { left, right, .. } => {
+                    write!(f, "({})*({})", *left, *right)
+                }
+                MetaBasis::ApplyBasisGenerator { basis, gen, .. } => {
+                    write!(f, "({}) // ({})", *basis, gen)
+                }
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -582,10 +650,10 @@ pub mod qpu {
         /// A superposition of qubit literals that may not have uniform
         /// probabilities. Example syntax:
         /// ```text
-        /// 0.25*'p' + 0.75*'m'
+        /// (1/4)*'p' + (3/4)*'m'
         /// ```
         NonUniformSuperpos {
-            pairs: Vec<(f64, MetaVector)>,
+            pairs: Vec<(FloatExpr, MetaVector)>,
             dbg: Option<DebugLoc>,
         },
 
@@ -617,6 +685,72 @@ pub mod qpu {
         },
     }
 
+    // TODO: don't duplicate with qpu.rs
+    impl fmt::Display for MetaExpr {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaExpr::Macro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
+                MetaExpr::BroadcastTensor { val, factor, .. } => {
+                    write!(f, "({})**({})", *val, factor)
+                }
+                MetaExpr::Instantiate { name, param, .. } => write!(f, "{}[[{}]]", name, param),
+                MetaExpr::Repeat {
+                    for_each,
+                    iter_var,
+                    upper_bound,
+                    ..
+                } => write!(
+                    f,
+                    "({} for {} in range({}))",
+                    *for_each, iter_var, upper_bound
+                ),
+                MetaExpr::Variable { name, .. } => write!(f, "{}", name),
+                MetaExpr::UnitLiteral { .. } => write!(f, "[]"),
+                MetaExpr::EmbedClassical {
+                    func, embed_kind, ..
+                } => {
+                    let embed_kind_str = match embed_kind {
+                        EmbedKind::Sign => "sign",
+                        EmbedKind::Xor => "xor",
+                        EmbedKind::InPlace => "inplace",
+                    };
+                    write!(f, "({}).{}", func, embed_kind_str)
+                }
+                MetaExpr::Adjoint { func, .. } => write!(f, "~({})", *func),
+                MetaExpr::Pipe { lhs, rhs, .. } => write!(f, "({}) | ({})", *lhs, *rhs),
+                MetaExpr::Measure { basis, .. } => write!(f, "({}).measure", basis),
+                MetaExpr::Discard { .. } => write!(f, "discard"),
+                MetaExpr::BiTensor { left, right, .. } => write!(f, "({})*({})", *left, *right),
+                MetaExpr::BasisTranslation { bin, bout, .. } => {
+                    write!(f, "({}) >> ({})", bin, bout)
+                }
+                MetaExpr::Predicated {
+                    then_func,
+                    else_func,
+                    pred,
+                    ..
+                } => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
+                MetaExpr::NonUniformSuperpos { pairs, .. } => {
+                    for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, " + ")?;
+                        }
+                        write!(f, "({})*({})", prob, qlit)?;
+                    }
+                    Ok(())
+                }
+                MetaExpr::Conditional {
+                    then_expr,
+                    else_expr,
+                    cond,
+                    ..
+                } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
+                MetaExpr::QLit { vec } => write!(f, "{}", vec),
+                MetaExpr::BitLiteral { val, n_bits, .. } => write!(f, "bit[{}]({})", val, n_bits),
+            }
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq)]
     pub enum BasisMacroPattern {
         /// Match an arbitrary basis and bind it to a name. Example syntax:
@@ -635,6 +769,24 @@ pub mod qpu {
             vec_names: Vec<String>,
             dbg: Option<DebugLoc>,
         },
+    }
+
+    impl fmt::Display for BasisMacroPattern {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                BasisMacroPattern::AnyBasis { name, .. } => write!(f, "{}", name),
+                BasisMacroPattern::BasisLiteral { vec_names, .. } => {
+                    write!(f, "{{")?;
+                    for (i, vec_name) in vec_names.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", vec_name)?;
+                    }
+                    write!(f, "}}")
+                }
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -732,6 +884,43 @@ pub mod qpu {
         },
     }
 
+    // TODO: don't duplicate with ast.rs
+    impl fmt::Display for MetaStmt {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaStmt::MacroDef {
+                    lhs_pat,
+                    lhs_name,
+                    rhs,
+                    ..
+                } => write!(f, "{}.{} = {}", lhs_pat, lhs_name, rhs),
+                MetaStmt::BasisGeneratorMacroDef {
+                    lhs_pat,
+                    lhs_name,
+                    rhs,
+                    ..
+                } => write!(f, "{}.{} = {}", lhs_pat, lhs_name, rhs),
+                MetaStmt::VectorSymbolDef { lhs, rhs, .. } => write!(f, "'{}'.sym = {}", lhs, rhs),
+                MetaStmt::BasisAliasDef { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
+                MetaStmt::BasisAliasRecDef {
+                    lhs, param, rhs, ..
+                } => write!(f, "{}[{}] = {}", lhs, param, rhs),
+                MetaStmt::Expr { expr, .. } => write!(f, "{}", expr),
+                MetaStmt::Assign { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
+                MetaStmt::UnpackAssign { lhs, rhs, .. } => {
+                    for (i, name) in lhs.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", name)?;
+                    }
+                    write!(f, " = {}", rhs)
+                }
+                MetaStmt::Return { val, .. } => write!(f, "return {}", val),
+            }
+        }
+    }
+
     /// A list of statements that are prepended to every `@qpu` kernel.
     ///
     /// Example syntax:
@@ -801,6 +990,42 @@ pub mod classical {
         },
     }
 
+    // TODO: don't duplicate this code with classical.rs
+    impl fmt::Display for MetaExpr {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaExpr::Variable { name, .. } => write!(f, "{}", name),
+                MetaExpr::UnaryOp { kind, val, .. } => {
+                    let kind_str = match kind {
+                        UnaryOpKind::Not => "~",
+                    };
+                    write!(f, "{}({})", kind_str, *val)
+                }
+                MetaExpr::BinaryOp {
+                    kind, left, right, ..
+                } => {
+                    let kind_str = match kind {
+                        BinaryOpKind::And => "&",
+                        BinaryOpKind::Or => "|",
+                        BinaryOpKind::Xor => "^",
+                    };
+                    write!(f, "({}) {} ({})", *left, kind_str, *right)
+                }
+                MetaExpr::ReduceOp { kind, val, .. } => {
+                    let kind_str = match kind {
+                        BinaryOpKind::And => "and",
+                        BinaryOpKind::Or => "or",
+                        BinaryOpKind::Xor => "xor",
+                    };
+                    write!(f, "({}).{}_reduce()", kind_str, *val)
+                }
+                MetaExpr::BitLiteral { val, n_bits, .. } => {
+                    write!(f, "bit[{}](0b{:b})", n_bits, val)
+                }
+            }
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq)]
     pub enum MetaStmt {
         /// An expression statement. Example syntax:
@@ -837,5 +1062,25 @@ pub mod classical {
             val: MetaExpr,
             dbg: Option<DebugLoc>,
         },
+    }
+
+    // TODO: don't duplicate with ast.rs
+    impl fmt::Display for MetaStmt {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                MetaStmt::Expr { expr, .. } => write!(f, "{}", expr),
+                MetaStmt::Assign { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
+                MetaStmt::UnpackAssign { lhs, rhs, .. } => {
+                    for (i, name) in lhs.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", name)?;
+                    }
+                    write!(f, " = {}", rhs)
+                }
+                MetaStmt::Return { val, .. } => write!(f, "return {}", val),
+            }
+        }
     }
 }

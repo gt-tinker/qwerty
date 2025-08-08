@@ -1,101 +1,33 @@
 use crate::wrap_ast::{
-    py_glue::{get_err, ProgErrKind, UBigWrap},
-    ty::{DebugLoc, Type, TypeEnv},
+    py_glue::UBigWrap,
+    ty::{DebugLoc, Type},
 };
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::ast;
+use qwerty_ast::{ast, meta};
 use std::fmt;
 
 #[pyclass]
 #[derive(Clone)]
-pub struct QLit {
-    qlit: ast::qpu::QLit,
-}
-
-#[pymethods]
-impl QLit {
-    #[classmethod]
-    fn new_zero_qubit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::ZeroQubit {
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-
-    #[classmethod]
-    fn new_one_qubit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::OneQubit {
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-
-    #[classmethod]
-    fn new_uniform_superpos(
-        _cls: &Bound<'_, PyType>,
-        q1: QLit,
-        q2: QLit,
-        dbg: Option<DebugLoc>,
-    ) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::UniformSuperpos {
-                q1: Box::new(q1.qlit),
-                q2: Box::new(q2.qlit),
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-
-    #[classmethod]
-    fn new_qubit_tensor(_cls: &Bound<'_, PyType>, qs: Vec<QLit>, dbg: Option<DebugLoc>) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::QubitTensor {
-                qs: qs.iter().map(|ql| ql.qlit.clone()).collect(),
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-
-    #[classmethod]
-    fn new_qubit_tilt(
-        _cls: &Bound<'_, PyType>,
-        q: QLit,
-        angle_deg: f64,
-        dbg: Option<DebugLoc>,
-    ) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::QubitTilt {
-                q: Box::new(q.qlit.clone()),
-                angle_deg,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-
-    #[classmethod]
-    fn new_qubit_unit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
-        Self {
-            qlit: ast::qpu::QLit::QubitUnit {
-                dbg: dbg.map(|dbg| dbg.dbg),
-            },
-        }
-    }
-}
-
-#[pyclass]
-#[derive(Clone)]
 pub struct Vector {
-    vec: ast::qpu::Vector,
+    vec: meta::qpu::MetaVector,
 }
 
 #[pymethods]
 impl Vector {
     #[classmethod]
+    fn new_vector_symbol(_cls: &Bound<'_, PyType>, sym: char, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: meta::qpu::MetaVector::VectorSymbol {
+                sym,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_zero_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            vec: ast::qpu::Vector::ZeroVector {
+            vec: meta::qpu::MetaVector::ZeroVector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -104,7 +36,7 @@ impl Vector {
     #[classmethod]
     fn new_one_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            vec: ast::qpu::Vector::OneVector {
+            vec: meta::qpu::MetaVector::OneVector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -113,7 +45,7 @@ impl Vector {
     #[classmethod]
     fn new_pad_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            vec: ast::qpu::Vector::PadVector {
+            vec: meta::qpu::MetaVector::PadVector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -122,7 +54,7 @@ impl Vector {
     #[classmethod]
     fn new_target_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            vec: ast::qpu::Vector::TargetVector {
+            vec: meta::qpu::MetaVector::TargetVector {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -136,7 +68,7 @@ impl Vector {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            vec: ast::qpu::Vector::UniformVectorSuperpos {
+            vec: meta::qpu::MetaVector::UniformVectorSuperpos {
                 q1: Box::new(q1.vec.clone()),
                 q2: Box::new(q2.vec.clone()),
                 dbg: dbg.map(|dbg| dbg.dbg),
@@ -145,10 +77,16 @@ impl Vector {
     }
 
     #[classmethod]
-    fn new_vector_tensor(_cls: &Bound<'_, PyType>, qs: Vec<Vector>, dbg: Option<DebugLoc>) -> Self {
+    fn new_vector_bi_tensor(
+        _cls: &Bound<'_, PyType>,
+        left: Vector,
+        right: Vector,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
-            vec: ast::qpu::Vector::VectorTensor {
-                qs: qs.iter().map(|vec| vec.vec.clone()).collect(),
+            vec: meta::qpu::MetaVector::VectorBiTensor {
+                left: Box::new(left.vec),
+                right: Box::new(right.vec),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -161,11 +99,15 @@ impl Vector {
         angle_deg: f64,
         dbg: Option<DebugLoc>,
     ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
-            vec: ast::qpu::Vector::VectorTilt {
+            vec: meta::qpu::MetaVector::VectorTilt {
                 q: Box::new(q.vec.clone()),
-                angle_deg,
-                dbg: dbg.map(|dbg| dbg.dbg),
+                angle_deg: meta::qpu::FloatExpr::FloatConst {
+                    val: angle_deg,
+                    dbg: dbg.clone(),
+                },
+                dbg,
             },
         }
     }
@@ -173,23 +115,17 @@ impl Vector {
     #[classmethod]
     fn new_vector_unit(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            vec: ast::qpu::Vector::VectorUnit {
+            vec: meta::qpu::MetaVector::VectorUnit {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
-    }
-
-    fn convert_to_qubit_literal(&self) -> Option<QLit> {
-        self.vec
-            .convert_to_qubit_literal()
-            .map(|qlit| QLit { qlit })
     }
 }
 
 #[pyclass]
 #[derive(Clone)]
 pub struct BasisGenerator {
-    gen: ast::qpu::BasisGenerator,
+    gen: meta::qpu::MetaBasisGenerator,
 }
 
 #[pymethods]
@@ -202,7 +138,7 @@ impl BasisGenerator {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            gen: ast::qpu::BasisGenerator::Revolve {
+            gen: meta::qpu::MetaBasisGenerator::Revolve {
                 v1: v1.vec,
                 v2: v2.vec,
                 dbg: dbg.map(|dbg| dbg.dbg),
@@ -214,7 +150,7 @@ impl BasisGenerator {
 #[pyclass]
 #[derive(Clone)]
 pub struct Basis {
-    basis: ast::qpu::Basis,
+    basis: meta::qpu::MetaBasis,
 }
 
 #[pymethods]
@@ -222,7 +158,7 @@ impl Basis {
     #[classmethod]
     fn new_empty_basis_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            basis: ast::qpu::Basis::EmptyBasisLiteral {
+            basis: meta::qpu::MetaBasis::EmptyBasisLiteral {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -235,7 +171,7 @@ impl Basis {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            basis: ast::qpu::Basis::BasisLiteral {
+            basis: meta::qpu::MetaBasis::BasisLiteral {
                 vecs: vecs.iter().map(|vec| vec.vec.clone()).collect(),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
@@ -243,14 +179,16 @@ impl Basis {
     }
 
     #[classmethod]
-    fn new_basis_tensor(
+    fn new_basis_bi_tensor(
         _cls: &Bound<'_, PyType>,
-        bases: Vec<Basis>,
+        left: Basis,
+        right: Basis,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            basis: ast::qpu::Basis::BasisTensor {
-                bases: bases.iter().map(|b| b.basis.clone()).collect(),
+            basis: meta::qpu::MetaBasis::BasisBiTensor {
+                left: Box::new(left.basis),
+                right: Box::new(right.basis),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -264,7 +202,7 @@ impl Basis {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            basis: ast::qpu::Basis::ApplyBasisGenerator {
+            basis: meta::qpu::MetaBasis::ApplyBasisGenerator {
                 basis: Box::new(basis.basis),
                 gen: gen.gen,
                 dbg: dbg.map(|dbg| dbg.dbg),
@@ -295,13 +233,7 @@ impl EmbedKind {
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct QpuExpr {
-    pub(crate) expr: ast::qpu::Expr,
-}
-
-impl QpuExpr {
-    pub fn new(expr: ast::qpu::Expr) -> Self {
-        Self { expr }
-    }
+    pub expr: meta::qpu::MetaExpr,
 }
 
 impl fmt::Display for QpuExpr {
@@ -315,19 +247,19 @@ impl QpuExpr {
     #[classmethod]
     fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::qpu::Expr::Variable(ast::Variable {
+            expr: meta::qpu::MetaExpr::Variable {
                 name,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
     fn new_unit_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::qpu::Expr::UnitLiteral(ast::qpu::UnitLiteral {
+            expr: meta::qpu::MetaExpr::UnitLiteral {
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -338,22 +270,26 @@ impl QpuExpr {
         embed_kind: EmbedKind,
         dbg: Option<DebugLoc>,
     ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
-            expr: ast::qpu::Expr::EmbedClassical(ast::qpu::EmbedClassical {
-                func_name,
+            expr: meta::qpu::MetaExpr::EmbedClassical {
+                func: Box::new(meta::qpu::MetaExpr::Variable {
+                    name: func_name,
+                    dbg: dbg.clone(),
+                }),
                 embed_kind: embed_kind.to_ast_kind(),
-                dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+                dbg,
+            },
         }
     }
 
     #[classmethod]
     fn new_measure(_cls: &Bound<'_, PyType>, basis: Basis, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::qpu::Expr::Measure(ast::qpu::Measure {
+            expr: meta::qpu::MetaExpr::Measure {
                 basis: basis.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -365,30 +301,36 @@ impl QpuExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::qpu::Expr::Pipe(ast::qpu::Pipe {
+            expr: meta::qpu::MetaExpr::Pipe {
                 lhs: Box::new(lhs.expr),
                 rhs: Box::new(rhs.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
     fn new_discard(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
-            expr: ast::qpu::Expr::Discard(ast::qpu::Discard {
+            expr: meta::qpu::MetaExpr::Discard {
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
-    fn new_tensor(_cls: &Bound<'_, PyType>, vals: Vec<QpuExpr>, dbg: Option<DebugLoc>) -> Self {
+    fn new_bi_tensor(
+        _cls: &Bound<'_, PyType>,
+        left: QpuExpr,
+        right: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
         Self {
-            expr: ast::qpu::Expr::Tensor(ast::qpu::Tensor {
-                vals: vals.iter().map(|v| v.expr.clone()).collect(),
+            expr: meta::qpu::MetaExpr::BiTensor {
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -400,11 +342,11 @@ impl QpuExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::qpu::Expr::BasisTranslation(ast::qpu::BasisTranslation {
-                bin: bin.basis.clone(),
-                bout: bout.basis.clone(),
+            expr: meta::qpu::MetaExpr::BasisTranslation {
+                bin: bin.basis,
+                bout: bout.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -417,12 +359,12 @@ impl QpuExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::qpu::Expr::Predicated(ast::qpu::Predicated {
+            expr: meta::qpu::MetaExpr::Predicated {
                 then_func: Box::new(then_func.expr),
                 else_func: Box::new(else_func.expr),
                 pred: pred.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -435,19 +377,19 @@ impl QpuExpr {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            expr: ast::qpu::Expr::Conditional(ast::qpu::Conditional {
+            expr: meta::qpu::MetaExpr::Conditional {
                 then_expr: Box::new(then_expr.expr),
                 else_expr: Box::new(else_expr.expr),
                 cond: Box::new(cond.expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
-    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: QLit) -> Self {
+    fn new_qlit(_cls: &Bound<'_, PyType>, qlit: Vector) -> Self {
         Self {
-            expr: ast::qpu::Expr::QLit(qlit.qlit),
+            expr: meta::qpu::MetaExpr::QLit { vec: qlit.vec },
         }
     }
 
@@ -458,12 +400,16 @@ impl QpuExpr {
         n_bits: usize,
         dbg: Option<DebugLoc>,
     ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
-            expr: ast::qpu::Expr::BitLiteral(ast::BitLiteral {
+            expr: meta::qpu::MetaExpr::BitLiteral {
                 val: val.0,
-                n_bits,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+                n_bits: meta::DimExpr::DimConst {
+                    val: n_bits.into(),
+                    dbg: dbg.clone(),
+                },
+                dbg,
+            },
         }
     }
 
@@ -477,7 +423,7 @@ impl QpuExpr {
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
 pub struct QpuStmt {
-    pub stmt: ast::Stmt<ast::qpu::Expr>,
+    pub stmt: meta::qpu::MetaStmt,
 }
 
 impl fmt::Display for QpuStmt {
@@ -489,12 +435,9 @@ impl fmt::Display for QpuStmt {
 #[pymethods]
 impl QpuStmt {
     #[classmethod]
-    fn new_expr(_cls: &Bound<'_, PyType>, expr: QpuExpr, dbg: Option<DebugLoc>) -> Self {
+    fn new_expr(_cls: &Bound<'_, PyType>, expr: QpuExpr) -> Self {
         Self {
-            stmt: ast::Stmt::Expr(ast::StmtExpr {
-                expr: expr.expr,
-                dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            stmt: meta::qpu::MetaStmt::Expr { expr: expr.expr },
         }
     }
 
@@ -506,11 +449,11 @@ impl QpuStmt {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            stmt: ast::Stmt::Assign(ast::Assign {
+            stmt: meta::qpu::MetaStmt::Assign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -522,21 +465,21 @@ impl QpuStmt {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            stmt: ast::Stmt::UnpackAssign(ast::UnpackAssign {
+            stmt: meta::qpu::MetaStmt::UnpackAssign {
                 lhs,
                 rhs: rhs.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
     #[classmethod]
     fn new_return(_cls: &Bound<'_, PyType>, val: QpuExpr, dbg: Option<DebugLoc>) -> Self {
         Self {
-            stmt: ast::Stmt::Return(ast::Return {
+            stmt: meta::qpu::MetaStmt::Return {
                 val: val.expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
-            }),
+            },
         }
     }
 
@@ -545,25 +488,12 @@ impl QpuStmt {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.stmt)
     }
-
-    pub fn type_check(
-        &self,
-        py: Python<'_>,
-        env: &mut TypeEnv,
-        expected_ret_type: Option<Type>,
-    ) -> PyResult<()> {
-        self.stmt
-            .typecheck(&mut env.env, expected_ret_type.map(|ty| ty.ty))
-            // Discard compute kind for now, since Python does not need it
-            .map(|_compute_kind| ())
-            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
-    }
 }
 
 #[pyclass]
 #[derive(Clone)]
 pub struct QpuFunctionDef {
-    pub function_def: ast::FunctionDef<ast::qpu::Expr>,
+    pub function_def: meta::MetaFunctionDef<meta::qpu::MetaStmt>,
 }
 
 #[pymethods]
@@ -578,7 +508,7 @@ impl QpuFunctionDef {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            function_def: ast::FunctionDef {
+            function_def: meta::MetaFunctionDef {
                 name,
                 args: args
                     .iter()
@@ -587,6 +517,7 @@ impl QpuFunctionDef {
                 ret_type: ret_type.ty.clone(),
                 body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
                 is_rev,
+                dim_vars: vec![],
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

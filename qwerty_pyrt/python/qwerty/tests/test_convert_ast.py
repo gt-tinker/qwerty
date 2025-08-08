@@ -10,7 +10,7 @@ from qwerty.convert_ast import convert_qpu_repl_input, \
                                CaptureError, CapturedSymbol, CapturedValue, \
                                CapturedBitReg
 from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, \
-                                BinaryOpKind, QLit, DebugLoc, Basis, Vector, \
+                                BinaryOpKind, DebugLoc, Basis, Vector, \
                                 QpuStmt, ClassicalStmt, EmbedKind
 
 class SingleVarCapturer(Capturer):
@@ -55,8 +55,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_qlit(QLit.new_zero_qubit(dbg)),
-            dbg)
+            QpuExpr.new_qlit(Vector.new_vector_symbol('0', dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -66,8 +65,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_qlit(QLit.new_one_qubit(dbg)),
-            dbg)
+            QpuExpr.new_qlit(Vector.new_vector_symbol('1', dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -77,8 +75,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_qlit(QLit.new_qubit_unit(dbg)),
-            dbg)
+            QpuExpr.new_qlit(Vector.new_vector_unit(dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -88,22 +85,19 @@ class ConvertAstQpuTests(unittest.TestCase):
                 None
             """)
 
-    def test_qubit_literal_mystery_symbol(self):
-        with self.assertRaisesRegex(QwertySyntaxError, "Unknown qubit symbol"):
-            self.convert_expr("""
-                'a'
-            """)
-
     def test_qubit_literal_multibit(self):
         actual_qw_ast = self.convert_expr("""
             '010'
         """)
         dbg = self.dbg(1, 1)
-        expected_qw_ast = QpuStmt.new_expr(QpuExpr.new_qlit(QLit.new_qubit_tensor([
-            QLit.new_zero_qubit(dbg),
-            QLit.new_one_qubit(dbg),
-            QLit.new_zero_qubit(dbg),
-        ], dbg)), dbg)
+        expected_qw_ast = QpuStmt.new_expr(QpuExpr.new_qlit(
+            Vector.new_vector_bi_tensor(
+                Vector.new_vector_bi_tensor(
+                    Vector.new_vector_symbol('0', dbg),
+                    Vector.new_vector_symbol('1', dbg),
+                    dbg,
+                ),
+                Vector.new_vector_symbol('0', dbg), dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -116,22 +110,27 @@ class ConvertAstQpuTests(unittest.TestCase):
         dbg3 = self.dbg(1, 10)
         expected_qw_ast = QpuStmt.new_expr(QpuExpr.new_basis_translation(
             Basis.new_basis_literal([
-                Vector.new_vector_tensor([
-                    Vector.new_zero_vector(dbg1),
-                    Vector.new_one_vector(dbg1),
-                    Vector.new_zero_vector(dbg1),
-                ], dbg1)], dbg1),
+                Vector.new_vector_bi_tensor(
+                    Vector.new_vector_bi_tensor(
+                        Vector.new_vector_symbol('0', dbg1),
+                        Vector.new_vector_symbol('1', dbg1),
+                        dbg1),
+                    Vector.new_vector_symbol('0', dbg1),
+                    dbg1)
+                ], dbg1),
             Basis.new_basis_literal([
                 Vector.new_vector_tilt(
-                    Vector.new_vector_tensor([
-                        Vector.new_zero_vector(dbg2),
-                        Vector.new_one_vector(dbg2),
-                        Vector.new_zero_vector(dbg2),
-                    ], dbg2),
+                    Vector.new_vector_bi_tensor(
+                        Vector.new_vector_bi_tensor(
+                            Vector.new_vector_symbol('0', dbg2),
+                            Vector.new_vector_symbol('1', dbg2),
+                            dbg2),
+                        Vector.new_vector_symbol('0', dbg2),
+                        dbg2),
                     180.0,
                     dbg3)
             ], dbg3),
-            dbg1), dbg1)
+            dbg1))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_assign_multi_target(self):
@@ -165,7 +164,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         dbg_assign = self.dbg(1, 1)
         dbg_str = self.dbg(1, 5)
         expected_qw_ast = QpuStmt.new_assign('x', QpuExpr.new_qlit(
-            QLit.new_zero_qubit(dbg_str)), dbg_assign)
+            Vector.new_vector_symbol('0', dbg_str)), dbg_assign)
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -194,16 +193,16 @@ class ConvertAstQpuTests(unittest.TestCase):
         dbg_str4 = self.dbg(1, 18)
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_basis_translation(
-                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str1),
-                                         Vector.new_one_vector(dbg_str3)],
+                Basis.new_basis_literal([Vector.new_vector_symbol('0', dbg_str1),
+                                         Vector.new_vector_symbol('1', dbg_str3)],
                                         dbg_set),
-                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str2),
+                Basis.new_basis_literal([Vector.new_vector_symbol('0', dbg_str2),
                                          Vector.new_vector_tilt(
-                                             Vector.new_one_vector(dbg_str4),
+                                             Vector.new_vector_symbol('1', dbg_str4),
                                              180.0,
                                              dbg_neg)],
                                         dbg_set),
-                dbg_set), dbg_set)
+                dbg_set))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -213,8 +212,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_bit_literal(0b1101, 4, dbg),
-            dbg)
+            QpuExpr.new_bit_literal(0b1101, 4, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -276,8 +274,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_pipe(QpuExpr.new_variable('x', dbg_x),
                           QpuExpr.new_variable('f', dbg_f),
-                          dbg_f),
-            dbg_f)
+                          dbg_f))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -289,8 +286,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_pipe(QpuExpr.new_unit_literal(dbg),
                           QpuExpr.new_variable('f', dbg),
-                          dbg),
-            dbg)
+                          dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -304,11 +300,10 @@ class ConvertAstQpuTests(unittest.TestCase):
         dbg_str2 = self.dbg(1, 18)
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_measure(
-                Basis.new_basis_literal([Vector.new_zero_vector(dbg_str1),
-                                         Vector.new_one_vector(dbg_str2)],
+                Basis.new_basis_literal([Vector.new_vector_symbol('0', dbg_str1),
+                                         Vector.new_vector_symbol('1', dbg_str2)],
                                         dbg_set),
-                dbg_call),
-            dbg_call)
+                dbg_call))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -332,7 +327,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_discard(dbg), dbg)
+            QpuExpr.new_discard(dbg))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_intrinsic_embed_xor(self):
@@ -345,8 +340,7 @@ class ConvertAstQpuTests(unittest.TestCase):
             QpuExpr.new_embed_classical(
                 "bubba__mangled",
                 EmbedKind.Xor,
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -360,8 +354,7 @@ class ConvertAstQpuTests(unittest.TestCase):
             QpuExpr.new_embed_classical(
                 "bubba__mangled",
                 EmbedKind.Sign,
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -375,8 +368,7 @@ class ConvertAstQpuTests(unittest.TestCase):
             QpuExpr.new_embed_classical(
                 "bubba__mangled",
                 EmbedKind.InPlace,
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -418,7 +410,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_unit_literal(dbg), dbg)
+            QpuExpr.new_unit_literal(dbg))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_unit_literal_nonempty(self):
@@ -435,8 +427,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """, capturer=capturer)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_bit_literal(0b1101, 4, dbg),
-            dbg)
+            QpuExpr.new_bit_literal(0b1101, 4, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -446,8 +437,7 @@ class ConvertAstQpuTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = QpuStmt.new_expr(
-            QpuExpr.new_qlit(QLit.new_zero_qubit(dbg)),
-            dbg)
+            QpuExpr.new_qlit(Vector.new_zero_vector(dbg)))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -464,7 +454,7 @@ class ConvertAstQpuTests(unittest.TestCase):
             Basis.new_basis_literal([
                 Vector.new_zero_vector(dbg_call2)],
                 dbg_call2),
-            dbg_call1), dbg_call1)
+            dbg_call1))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
     def test_basis_translation_zero_intrinsic(self):
@@ -482,7 +472,7 @@ class ConvertAstQpuTests(unittest.TestCase):
             Basis.new_basis_literal([
                 Vector.new_zero_vector(dbg_call2)],
                 dbg_set2),
-            dbg_set1), dbg_set1)
+            dbg_set1))
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
 class ConvertAstClassicalTests(unittest.TestCase):
@@ -504,7 +494,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
             ClassicalExpr.new_unary_op(
                 UnaryOpKind.Not,
                 ClassicalExpr.new_variable("x", dbg_var),
-                dbg_neg), dbg_neg)
+                dbg_neg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -514,8 +504,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
         """)
         dbg = self.dbg(1, 1)
         expected_qw_ast = ClassicalStmt.new_expr(
-            ClassicalExpr.new_bit_literal(0b1101, 4, dbg),
-            dbg)
+            ClassicalExpr.new_bit_literal(0b1101, 4, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -570,8 +559,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
             ClassicalExpr.new_reduce_op(
                 BinaryOpKind.Xor,
                 ClassicalExpr.new_variable("x", dbg),
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -584,8 +572,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
             ClassicalExpr.new_reduce_op(
                 BinaryOpKind.And,
                 ClassicalExpr.new_variable("x", dbg),
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -598,8 +585,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
             ClassicalExpr.new_reduce_op(
                 BinaryOpKind.Or,
                 ClassicalExpr.new_variable("x", dbg),
-                dbg),
-            dbg)
+                dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -629,8 +615,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 BinaryOpKind.And,
                 ClassicalExpr.new_variable("x", dbg_x),
                 ClassicalExpr.new_variable("y", dbg_y),
-                dbg_x),
-            dbg_x)
+                dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -645,8 +630,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 BinaryOpKind.Or,
                 ClassicalExpr.new_variable("x", dbg_x),
                 ClassicalExpr.new_variable("y", dbg_y),
-                dbg_x),
-            dbg_x)
+                dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -661,8 +645,7 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 BinaryOpKind.Xor,
                 ClassicalExpr.new_variable("x", dbg_x),
                 ClassicalExpr.new_variable("y", dbg_y),
-                dbg_x),
-            dbg_x)
+                dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -680,7 +663,6 @@ class ConvertAstClassicalTests(unittest.TestCase):
         """, capturer=capturer)
         dbg = self.dbg(1, 1)
         expected_qw_ast = ClassicalStmt.new_expr(
-            ClassicalExpr.new_bit_literal(0b1101, 4, dbg),
-            dbg)
+            ClassicalExpr.new_bit_literal(0b1101, 4, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
