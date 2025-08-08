@@ -1,6 +1,10 @@
 use crate::{
-    ast::classical::{BinaryOpKind, UnaryOpKind},
+    ast::{
+        self,
+        classical::{BinaryOpKind, UnaryOpKind},
+    },
     dbg::DebugLoc,
+    error::ExtractError,
     meta::DimExpr,
 };
 use dashu::integer::UBig;
@@ -128,6 +132,12 @@ pub enum MetaStmt {
         val: MetaExpr,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl MetaStmt {
+    pub fn extract(&self) -> Result<ast::Stmt<ast::classical::Expr>, ExtractError> {
+        todo!("classical::MetaStmt::extract")
+    }
 }
 
 // TODO: don't duplicate with ast.rs

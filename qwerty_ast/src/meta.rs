@@ -55,7 +55,7 @@ pub enum DimExpr {
 
 impl DimExpr {
     /// Extract a constant integer from this dimension variable expression or /
-    /// return `None` if it is not fully folded yet.
+    /// return an error if it is not fully folded yet.
     pub fn extract(&self) -> Result<usize, ExtractError> {
         match self {
             DimExpr::DimConst { val, dbg } => {
@@ -120,8 +120,8 @@ pub enum MetaType {
 }
 
 impl MetaType {
-    /// Extract an [`ast::Type`] from this MetaQwerty type or return `None` if
-    /// contained dimension variable expressions are not fully folded yet.
+    /// Extract an [`ast::Type`] from this MetaQwerty type or return an error
+    /// if contained dimension variable expressions are not fully folded yet.
     pub fn extract(&self) -> Result<ast::Type, ExtractError> {
         match self {
             MetaType::FuncType { in_ty, out_ty } => in_ty.extract().and_then(|in_ast_ty| {
@@ -236,12 +236,118 @@ pub struct MetaFunctionDef<S> {
     pub dbg: Option<DebugLoc>,
 }
 
+// TODO: don't duplicate this with MetaFunctionDef<classical::MetaStmt>
+impl MetaFunctionDef<qpu::MetaStmt> {
+    /// Extract a plain `@qpu` `FunctionDef` from this MetaQwerty `@qpu`
+    /// `MetaFunctionDef` or return an error if e.g. contained dimension variable
+    /// expressions are not fully folded yet.
+    pub fn extract(&self) -> Result<ast::FunctionDef<ast::qpu::Expr>, ExtractError> {
+        let MetaFunctionDef {
+            name,
+            args,
+            ret_type,
+            body,
+            is_rev,
+            dim_vars,
+            dbg,
+        } = self;
+
+        if !dim_vars.is_empty() {
+            Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            })
+        } else {
+            let ast_args = args
+                .iter()
+                .map(|(arg_ty, arg_name)| {
+                    arg_ty
+                        .extract()
+                        .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                })
+                .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
+            let ast_body = body
+                .iter()
+                .map(|stmt| stmt.extract())
+                .collect::<Result<Vec<ast::Stmt<ast::qpu::Expr>>, ExtractError>>()?;
+
+            Ok(ast::FunctionDef {
+                name: name.to_string(),
+                args: ast_args,
+                ret_type: ret_type.extract()?,
+                body: ast_body,
+                is_rev: *is_rev,
+                dbg: dbg.clone(),
+            })
+        }
+    }
+}
+
+// TODO: don't duplicate this with MetaFunctionDef<qpu::MetaStmt>
+impl MetaFunctionDef<classical::MetaStmt> {
+    /// Extract a plain `@classical` `FunctionDef` from this MetaQwerty `@classical`
+    /// `MetaFunctionDef` or return an error if e.g. contained dimension variable
+    /// expressions are not fully folded yet.
+    pub fn extract(&self) -> Result<ast::FunctionDef<ast::classical::Expr>, ExtractError> {
+        let MetaFunctionDef {
+            name,
+            args,
+            ret_type,
+            body,
+            is_rev,
+            dim_vars,
+            dbg,
+        } = self;
+
+        if !dim_vars.is_empty() {
+            Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            })
+        } else {
+            let ast_args = args
+                .iter()
+                .map(|(arg_ty, arg_name)| {
+                    arg_ty
+                        .extract()
+                        .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                })
+                .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
+            let ast_body = body
+                .iter()
+                .map(|stmt| stmt.extract())
+                .collect::<Result<Vec<ast::Stmt<ast::classical::Expr>>, ExtractError>>()?;
+
+            Ok(ast::FunctionDef {
+                name: name.to_string(),
+                args: ast_args,
+                ret_type: ret_type.extract()?,
+                body: ast_body,
+                is_rev: *is_rev,
+                dbg: dbg.clone(),
+            })
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetaFunc {
     /// A `@qpu` kernel.
     Qpu(MetaFunctionDef<qpu::MetaStmt>),
     /// A `@classical` function.
     Classical(MetaFunctionDef<classical::MetaStmt>),
+}
+
+impl MetaFunc {
+    /// Extract a plain [`ast::Func`] from this MetaQwerty [`MetaFunc`] or
+    /// return an error if e.g. contained dimension variable expressions are
+    /// not fully folded yet.
+    pub fn extract(&self) -> Result<ast::Func, ExtractError> {
+        Ok(match self {
+            MetaFunc::Qpu(qpu_func) => ast::Func::Qpu(qpu_func.extract()?),
+            MetaFunc::Classical(classical_func) => ast::Func::Classical(classical_func.extract()?),
+        })
+    }
 }
 
 /// The top-level node in a Qwerty program that holds all function defintiions.

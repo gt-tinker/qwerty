@@ -1,4 +1,9 @@
-use crate::{ast::qpu::EmbedKind, dbg::DebugLoc, meta::DimExpr};
+use crate::{
+    ast::{self, qpu::EmbedKind},
+    dbg::DebugLoc,
+    error::ExtractError,
+    meta::DimExpr,
+};
 use dashu::integer::UBig;
 use std::fmt;
 
@@ -685,6 +690,12 @@ pub enum MetaStmt {
         val: MetaExpr,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl MetaStmt {
+    pub fn extract(&self) -> Result<ast::Stmt<ast::qpu::Expr>, ExtractError> {
+        todo!("qpu::MetaStmt::extract")
+    }
 }
 
 // TODO: don't duplicate with ast.rs
