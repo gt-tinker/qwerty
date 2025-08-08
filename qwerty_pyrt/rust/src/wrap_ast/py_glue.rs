@@ -9,7 +9,8 @@ use pyo3::{
 use qwerty_ast::dbg;
 
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
-static QWERTY_PROGRAMMER_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static QWERTY_TYPE_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static QWERTY_EXPAND_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
 pub fn get_bit_reg<'py>(
     py: Python<'py>,
@@ -56,12 +57,14 @@ impl<'py> FromPyObject<'py> for UBigWrap {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ProgErrKind {
     Type,
+    Expand,
 }
 
 fn get_err_ty<'py>(py: Python<'py>, kind: ProgErrKind) -> PyResult<Bound<'py, PyType>> {
     match kind {
-        ProgErrKind::Type => {
-            QWERTY_PROGRAMMER_ERROR_TYPE.import(py, "qwerty.err", "QwertyTypeError")
+        ProgErrKind::Type => QWERTY_TYPE_ERROR_TYPE.import(py, "qwerty.err", "QwertyTypeError"),
+        ProgErrKind::Expand => {
+            QWERTY_EXPAND_ERROR_TYPE.import(py, "qwerty.err", "QwertyExpandError")
         }
     }
     .cloned()

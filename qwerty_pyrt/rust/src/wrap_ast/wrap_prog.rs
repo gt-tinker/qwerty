@@ -48,16 +48,14 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let expanded_program = self.program.expand();
+        let expanded_program = self
+            .program
+            .expand()
+            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
 
-        if let Err(type_err) = expanded_program.typecheck() {
-            return Err(get_err(
-                py,
-                ProgErrKind::Type,
-                type_err.kind.to_string(),
-                type_err.dbg,
-            ));
-        }
+        expanded_program
+            .typecheck()
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
 
         run_ast(&expanded_program, &func_name, num_shots, debug)
             .into_iter()
