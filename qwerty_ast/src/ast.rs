@@ -8,7 +8,7 @@ use std::fmt;
 
 // ----- Types -----
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegKind {
     /// Classical bit register
     Bit,

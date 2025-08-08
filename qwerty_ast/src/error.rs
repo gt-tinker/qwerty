@@ -1,6 +1,8 @@
-use crate::ast::qpu::VectorAtomKind;
-use crate::dbg::DebugLoc;
+use crate::{ast::qpu::VectorAtomKind, dbg::DebugLoc};
+use dashu::integer::UBig;
 use std::fmt;
+
+// For type checking
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeErrorKind {
@@ -83,5 +85,34 @@ impl fmt::Display for TypeErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeError {
     pub kind: TypeErrorKind,
+    pub dbg: Option<DebugLoc>,
+}
+
+// For extracting a plain AST from a meta-AST
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExtractErrorKind {
+    // TODO: add more details
+    NotFullyFolded,
+    IntegerTooBig { offender: UBig },
+}
+
+impl fmt::Display for ExtractErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExtractErrorKind::NotFullyFolded => write!(
+                f,
+                "Cannot extract since metaQwerty constructs are not fully expanded."
+            ),
+            ExtractErrorKind::IntegerTooBig { offender } => {
+                write!(f, "Integer {} is too big", offender)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtractError {
+    pub kind: ExtractErrorKind,
     pub dbg: Option<DebugLoc>,
 }

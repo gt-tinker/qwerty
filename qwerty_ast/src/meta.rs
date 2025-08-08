@@ -6,6 +6,7 @@ use crate::{
         RegKind,
     },
     dbg::DebugLoc,
+    error::{ExtractError, ExtractErrorKind},
 };
 use dashu::integer::UBig;
 use std::fmt;
@@ -54,6 +55,28 @@ pub enum DimExpr {
     },
 }
 
+impl DimExpr {
+    /// Extract a constant integer from this dimension variable expression or /
+    /// return `None` if it is not fully folded yet.
+    pub fn extract(&self) -> Result<usize, ExtractError> {
+        match self {
+            DimExpr::DimConst { val, dbg } => val.try_into().map_err(|_err| ExtractError {
+                kind: ExtractErrorKind::IntegerTooBig {
+                    offender: val.clone(),
+                },
+                dbg: dbg.clone(),
+            }),
+            DimExpr::DimVar { dbg, .. }
+            | DimExpr::DimSum { dbg, .. }
+            | DimExpr::DimProd { dbg, .. }
+            | DimExpr::DimNeg { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
 impl fmt::Display for DimExpr {
     /// Returns a representation of a dimension variable expression that
     /// matches the syntax in the Python DSL.
@@ -85,6 +108,38 @@ pub enum MetaType {
         tys: Vec<MetaType>,
     },
     UnitType,
+}
+
+impl MetaType {
+    /// Extract an [`ast::Type`] from this MetaQwerty type or return `None` if
+    /// contained dimension variable expressions are not fully folded yet.
+    pub fn extract(&self) -> Result<ast::Type, ExtractError> {
+        match self {
+            MetaType::FuncType { in_ty, out_ty } => in_ty.extract().and_then(|in_ast_ty| {
+                out_ty.extract().map(|out_ast_ty| ast::Type::FuncType {
+                    in_ty: Box::new(in_ast_ty),
+                    out_ty: Box::new(out_ast_ty),
+                })
+            }),
+            MetaType::RevFuncType { in_out_ty } => {
+                in_out_ty
+                    .extract()
+                    .map(|in_out_ast_ty| ast::Type::RevFuncType {
+                        in_out_ty: Box::new(in_out_ast_ty),
+                    })
+            }
+            MetaType::RegType { elem_ty, dim } => dim.extract().map(|dim_val| ast::Type::RegType {
+                elem_ty: *elem_ty,
+                dim: dim_val,
+            }),
+            MetaType::TupleType { tys } => {
+                let extracted_tys: Result<Vec<_>, ExtractError> =
+                    tys.iter().map(MetaType::extract).collect();
+                extracted_tys.map(|ex_tys| ast::Type::TupleType { tys: ex_tys })
+            }
+            MetaType::UnitType => Ok(ast::Type::UnitType),
+        }
+    }
 }
 
 // TODO: Don't duplicate this with ast.rs
