@@ -48,16 +48,16 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let expanded_program = self
+        let plain_ast = self
             .program
-            .expand()
+            .extract()
             .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
 
-        expanded_program
+        plain_ast
             .typecheck()
             .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
 
-        run_ast(&expanded_program, &func_name, num_shots, debug)
+        run_ast(&plain_ast, &func_name, num_shots, debug)
             .into_iter()
             .map(|shot_result| {
                 let as_int = UBigWrap(shot_result.bits).into_pyobject(py)?;

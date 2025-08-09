@@ -361,8 +361,8 @@ pub struct MetaProgram {
 }
 
 impl MetaProgram {
-    /// Expand a metaQwerty AST to a plain Qwerty AST.
-    pub fn expand(&self) -> Result<ast::Program, ExtractError> {
+    /// Extract a plain Qwerty AST from a metaQwerty AST.
+    pub fn extract(&self) -> Result<ast::Program, ExtractError> {
         let MetaProgram { funcs, dbg } = self;
 
         let ast_funcs = funcs
