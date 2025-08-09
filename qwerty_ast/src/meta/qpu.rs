@@ -1056,14 +1056,17 @@ impl MetaStmt {
                 })
             }),
 
+            // These are just macro definitions. No harm in replacing them with
+            // unit literals (`[]`) that downstream canonicalization will
+            // hopefully fold away.
             MetaStmt::MacroDef { dbg, .. }
             | MetaStmt::BasisGeneratorMacroDef { dbg, .. }
             | MetaStmt::VectorSymbolDef { dbg, .. }
             | MetaStmt::BasisAliasDef { dbg, .. }
-            | MetaStmt::BasisAliasRecDef { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | MetaStmt::BasisAliasRecDef { dbg, .. } => Ok(ast::Stmt::Expr(ast::StmtExpr {
+                expr: ast::qpu::Expr::UnitLiteral(ast::qpu::UnitLiteral { dbg: dbg.clone() }),
                 dbg: dbg.clone(),
-            }),
+            })),
         }
     }
 }
