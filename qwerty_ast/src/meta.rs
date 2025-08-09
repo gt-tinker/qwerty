@@ -10,7 +10,7 @@ pub mod classical;
 mod expand;
 pub mod qpu;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DimExpr {
     /// Dimension variable. Example syntax:
     /// ```text
@@ -249,38 +249,31 @@ impl MetaFunctionDef<qpu::MetaStmt> {
             ret_type,
             body,
             is_rev,
-            dim_vars,
+            dim_vars: _,
             dbg,
         } = self;
 
-        if !dim_vars.is_empty() {
-            Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
-                dbg: dbg.clone(),
+        let ast_args = args
+            .iter()
+            .map(|(arg_ty, arg_name)| {
+                arg_ty
+                    .extract()
+                    .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
             })
-        } else {
-            let ast_args = args
-                .iter()
-                .map(|(arg_ty, arg_name)| {
-                    arg_ty
-                        .extract()
-                        .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
-                })
-                .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
-            let ast_body = body
-                .iter()
-                .map(|stmt| stmt.extract())
-                .collect::<Result<Vec<ast::Stmt<ast::qpu::Expr>>, ExtractError>>()?;
+            .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
+        let ast_body = body
+            .iter()
+            .map(|stmt| stmt.extract())
+            .collect::<Result<Vec<ast::Stmt<ast::qpu::Expr>>, ExtractError>>()?;
 
-            Ok(ast::FunctionDef {
-                name: name.to_string(),
-                args: ast_args,
-                ret_type: ret_type.extract()?,
-                body: ast_body,
-                is_rev: *is_rev,
-                dbg: dbg.clone(),
-            })
-        }
+        Ok(ast::FunctionDef {
+            name: name.to_string(),
+            args: ast_args,
+            ret_type: ret_type.extract()?,
+            body: ast_body,
+            is_rev: *is_rev,
+            dbg: dbg.clone(),
+        })
     }
 }
 
@@ -296,38 +289,31 @@ impl MetaFunctionDef<classical::MetaStmt> {
             ret_type,
             body,
             is_rev,
-            dim_vars,
+            dim_vars: _,
             dbg,
         } = self;
 
-        if !dim_vars.is_empty() {
-            Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
-                dbg: dbg.clone(),
+        let ast_args = args
+            .iter()
+            .map(|(arg_ty, arg_name)| {
+                arg_ty
+                    .extract()
+                    .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
             })
-        } else {
-            let ast_args = args
-                .iter()
-                .map(|(arg_ty, arg_name)| {
-                    arg_ty
-                        .extract()
-                        .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
-                })
-                .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
-            let ast_body = body
-                .iter()
-                .map(|stmt| stmt.extract())
-                .collect::<Result<Vec<ast::Stmt<ast::classical::Expr>>, ExtractError>>()?;
+            .collect::<Result<Vec<(ast::Type, String)>, ExtractError>>()?;
+        let ast_body = body
+            .iter()
+            .map(|stmt| stmt.extract())
+            .collect::<Result<Vec<ast::Stmt<ast::classical::Expr>>, ExtractError>>()?;
 
-            Ok(ast::FunctionDef {
-                name: name.to_string(),
-                args: ast_args,
-                ret_type: ret_type.extract()?,
-                body: ast_body,
-                is_rev: *is_rev,
-                dbg: dbg.clone(),
-            })
-        }
+        Ok(ast::FunctionDef {
+            name: name.to_string(),
+            args: ast_args,
+            ret_type: ret_type.extract()?,
+            body: ast_body,
+            is_rev: *is_rev,
+            dbg: dbg.clone(),
+        })
     }
 }
 

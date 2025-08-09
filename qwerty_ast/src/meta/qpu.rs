@@ -892,6 +892,24 @@ impl fmt::Display for MetaExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ExprMacroPattern {
+    /// Match an arbitrary expression and bind it to a name. Example syntax:
+    /// ```text
+    /// f.expr.xor = __EMBED_XOR__(f)
+    /// ^
+    /// ```
+    AnyExpr { name: String, dbg: Option<DebugLoc> },
+}
+
+impl fmt::Display for ExprMacroPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExprMacroPattern::AnyExpr { name, .. } => write!(f, "{}", name),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum BasisMacroPattern {
     /// Match an arbitrary basis and bind it to a name. Example syntax:
     /// ```text
@@ -931,22 +949,36 @@ impl fmt::Display for BasisMacroPattern {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetaStmt {
-    /// A macro definition that expands to an expression. Example syntax:
+    /// A macro definition that takes an expression argument and expands to an
+    /// expression. Example syntax:
+    /// ```text
+    /// f.expr.xor = __EMBED_XOR__(f)
+    /// ```
+    ExprMacroDef {
+        lhs_pat: ExprMacroPattern,
+        lhs_name: String,
+        rhs: MetaExpr,
+        dbg: Option<DebugLoc>,
+    },
+
+    /// A macro definition that takes a basis argument and expands to an
+    /// expression. Example syntax:
     /// ```text
     /// {bv1, bv2}.flip = {bv1, bv2} >> {bv2, bv1}
     /// ```
     /// Another example:
     /// ```text
-    /// f.sign = __EMBED_SIGN__(f)
+    /// b.measure = __MEASURE__(b)
     /// ```
-    MacroDef {
+    BasisMacroDef {
         lhs_pat: BasisMacroPattern,
         lhs_name: String,
         rhs: MetaExpr,
         dbg: Option<DebugLoc>,
     },
 
-    /// A macro definition that expands to a basis generator. Example syntax:
+    /// A macro definition with a basis argument that expands to a basis
+    /// generator. Example syntax:
     /// ```text
     /// {bv1, bv2}.revolve = __REVOLVE__(bv1, bv2)
     /// ```
@@ -1056,17 +1088,27 @@ impl MetaStmt {
                 })
             }),
 
-            // These are just macro definitions. No harm in replacing them with
-            // unit literals (`[]`) that downstream canonicalization will
-            // hopefully fold away.
-            MetaStmt::MacroDef { dbg, .. }
+            // Expansion should've replaced these with trivial statements.
+            // Something is fishy here, so let's be noisy about it.
+            MetaStmt::ExprMacroDef { dbg, .. }
+            | MetaStmt::BasisMacroDef { dbg, .. }
             | MetaStmt::BasisGeneratorMacroDef { dbg, .. }
             | MetaStmt::VectorSymbolDef { dbg, .. }
             | MetaStmt::BasisAliasDef { dbg, .. }
-            | MetaStmt::BasisAliasRecDef { dbg, .. } => Ok(ast::Stmt::Expr(ast::StmtExpr {
-                expr: ast::qpu::Expr::UnitLiteral(ast::qpu::UnitLiteral { dbg: dbg.clone() }),
+            | MetaStmt::BasisAliasRecDef { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
-            })),
+            }),
+        }
+    }
+}
+
+impl MetaStmt {
+    /// Returns a trivial statement. Replacing a statement with this trivial
+    /// statement effectively deletes it.
+    pub fn trivial(dbg: Option<DebugLoc>) -> MetaStmt {
+        MetaStmt::Expr {
+            expr: MetaExpr::UnitLiteral { dbg },
         }
     }
 }
@@ -1075,7 +1117,13 @@ impl MetaStmt {
 impl fmt::Display for MetaStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetaStmt::MacroDef {
+            MetaStmt::ExprMacroDef {
+                lhs_pat,
+                lhs_name,
+                rhs,
+                ..
+            } => write!(f, "{}.expr.{} = {}", lhs_pat, lhs_name, rhs),
+            MetaStmt::BasisMacroDef {
                 lhs_pat,
                 lhs_name,
                 rhs,

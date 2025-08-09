@@ -33,9 +33,9 @@ def default_prelude():
     fourier[N] = fourier[N-1] // std.revolve
 
     # Classical embeddings
-    f.sign = __EMBED_SIGN__(f)
-    f.xor = __EMBED_XOR__(f)
-    f.inplace = __EMBED_INPLACE__(f)
+    f.expr.sign = __EMBED_SIGN__(f)
+    f.expr.xor = __EMBED_XOR__(f)
+    f.expr.inplace = __EMBED_INPLACE__(f)
 
     # Built-in functions
     id = '?' >> '?'
