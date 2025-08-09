@@ -14,7 +14,8 @@ use std::collections::HashMap;
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
     sim: QuantumSim,
-    bindings: HashMap<String, Expr>,
+    // TODO: use this
+    _bindings: HashMap<String, Expr>,
 }
 
 impl ReplState {
@@ -22,7 +23,7 @@ impl ReplState {
     pub fn new() -> Self {
         ReplState {
             sim: QuantumSim::new(None),
-            bindings: HashMap::new(),
+            _bindings: HashMap::new(),
         }
     }
 

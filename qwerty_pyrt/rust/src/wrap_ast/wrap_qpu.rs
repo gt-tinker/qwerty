@@ -1,10 +1,52 @@
 use crate::wrap_ast::{
-    py_glue::UBigWrap,
-    wrap_type::{DebugLoc, Type},
+    py_glue::{get_err, ProgErrKind, UBigWrap},
+    wrap_type::{DebugLoc, Type, TypeEnv},
 };
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, meta};
 use std::fmt;
+
+/// A "plain" Qwerty expression AST node, that is, an expression without any
+/// metaQwerty features (e.g., `__SYM_STD0__()` instead of `'0'`).
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
+pub struct PlainQpuExpr {
+    pub expr: ast::qpu::Expr,
+}
+
+impl fmt::Display for PlainQpuExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.expr)
+    }
+}
+
+/// A "plain" Qwerty statement AST node, that is, a statement without any
+/// metaQwerty features (e.g., no basis alias definitions such as
+/// `std = {'0','1'}`).
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
+pub struct PlainQpuStmt {
+    pub stmt: ast::Stmt<ast::qpu::Expr>,
+}
+
+#[pymethods]
+impl PlainQpuStmt {
+    /// Perform type checking on this statement, but do not allow return
+    /// statements. Used in the REPL.
+    pub fn type_check_no_ret(&self, py: Python<'_>, env: &mut TypeEnv) -> PyResult<()> {
+        self.stmt
+            .typecheck(&mut env.env, /*expected_ret_type=*/ None)
+            // Discard compute kind for now, since Python does not need it
+            .map(|_compute_kind| ())
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
+    }
+}
+
+impl fmt::Display for PlainQpuStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.stmt)
+    }
+}
 
 #[pyclass]
 #[derive(Clone)]
@@ -481,6 +523,13 @@ impl QpuStmt {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
+    }
+
+    pub fn extract<'py>(&self, py: Python<'py>) -> PyResult<PlainQpuStmt> {
+        self.stmt
+            .extract()
+            .map(|ast_stmt| PlainQpuStmt { stmt: ast_stmt })
+            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))
     }
 
     /// Return the Debug form of this Stmt from __repr__(). By contrast,

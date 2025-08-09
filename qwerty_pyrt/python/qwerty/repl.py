@@ -13,7 +13,7 @@ import ast
 from collections.abc import Callable
 from .convert_ast import convert_qpu_repl_input
 from .err import QwertyProgrammerError
-from ._qwerty_pyrt import ReplState
+from ._qwerty_pyrt import ReplState, TypeEnv
 
 def repl(prompt_func: Callable[[], str] = input,
          print_func: Callable[[str], None] = print) -> None:
@@ -24,6 +24,7 @@ def repl(prompt_func: Callable[[], str] = input,
     of ``print()``. Both arguments exist to enable unit testing.
     """
     state = ReplState()
+    env = TypeEnv()
 
     while True:
         try:
@@ -47,9 +48,11 @@ def repl(prompt_func: Callable[[], str] = input,
 
         try:
             stmt_ast = convert_qpu_repl_input(py_ast)
+            plain_ast = stmt_ast.extract()
+            plain_ast.type_check_no_ret(env)
         except QwertyProgrammerError as err:
             print_func(f'{err.kind()}: {err}')
             continue
 
-        result_expr_ast = state.run(stmt_ast)
+        result_expr_ast = state.run(plain_ast)
         print_func(str(result_expr_ast))

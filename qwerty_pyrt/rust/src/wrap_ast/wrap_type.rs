@@ -1,5 +1,5 @@
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::{ast, dbg, meta};
+use qwerty_ast::{ast, dbg, meta, typecheck};
 
 #[pyclass(eq, hash, frozen)]
 #[derive(Clone, PartialEq, Hash)]
@@ -88,6 +88,21 @@ impl Type {
     fn new_unit(_cls: &Bound<'_, PyType>) -> Self {
         Self {
             ty: meta::MetaType::UnitType,
+        }
+    }
+}
+
+#[pyclass]
+pub struct TypeEnv {
+    pub env: typecheck::TypeEnv,
+}
+
+#[pymethods]
+impl TypeEnv {
+    #[new]
+    pub fn new() -> Self {
+        TypeEnv {
+            env: typecheck::TypeEnv::new(),
         }
     }
 }

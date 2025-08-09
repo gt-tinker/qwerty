@@ -1,9 +1,9 @@
 //! Wraps qwerty_ast::repl::ReplState in a Python object. Used by repl.py to
 //! run the Qwerty REPL.
 
-use crate::wrap_ast::{QpuExpr, QpuStmt};
+use crate::wrap_ast::{PlainQpuExpr, PlainQpuStmt};
 use pyo3::prelude::*;
-use qwerty_ast::{meta, repl};
+use qwerty_ast::repl;
 use std::sync::Mutex;
 
 /// Thin wrapper for qwerty_ast::repl::ReplState.
@@ -24,11 +24,9 @@ impl ReplState {
         }
     }
 
-    fn run(&self, _stmt: QpuStmt) -> QpuExpr {
-        //self.state.lock().unwrap().run(&stmt.stmt);
-        // TODO: fix this
-        QpuExpr {
-            expr: meta::qpu::MetaExpr::UnitLiteral { dbg: None },
+    fn run(&self, stmt: PlainQpuStmt) -> PlainQpuExpr {
+        PlainQpuExpr {
+            expr: self.state.lock().unwrap().run(&stmt.stmt),
         }
     }
 }
