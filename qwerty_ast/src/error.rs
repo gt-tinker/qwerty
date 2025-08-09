@@ -94,6 +94,7 @@ pub struct TypeError {
 pub enum ExtractErrorKind {
     // TODO: add more details
     NotFullyFolded,
+    Malformed,
     IntegerTooBig { offender: IBig },
     NegativeInteger { offender: IBig },
 }
@@ -104,6 +105,13 @@ impl fmt::Display for ExtractErrorKind {
             ExtractErrorKind::NotFullyFolded => write!(
                 f,
                 "Cannot extract since metaQwerty constructs are not fully expanded."
+            ),
+            ExtractErrorKind::Malformed => write!(
+                f,
+                concat!(
+                    "metaQwerty is malformed in a way that should be caught by its ",
+                    "type checker. This is a compiler bug."
+                )
             ),
             ExtractErrorKind::IntegerTooBig { offender } => {
                 write!(

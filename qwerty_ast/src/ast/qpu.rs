@@ -14,7 +14,7 @@ pub struct UnitLiteral {
     pub dbg: Option<DebugLoc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmbedKind {
     Sign,
     Xor,

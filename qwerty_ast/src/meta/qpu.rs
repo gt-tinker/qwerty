@@ -1,7 +1,7 @@
 use crate::{
     ast::{self, qpu::EmbedKind},
     dbg::DebugLoc,
-    error::ExtractError,
+    error::{ExtractError, ExtractErrorKind},
     meta::DimExpr,
 };
 use dashu::integer::UBig;
@@ -63,6 +63,24 @@ pub enum FloatExpr {
         val: Box<FloatExpr>,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl FloatExpr {
+    /// Extract a constant double-precision float from this float expression or
+    /// return an error if it is not fully folded yet.
+    pub fn extract(&self) -> Result<f64, ExtractError> {
+        match self {
+            FloatExpr::FloatConst { val, .. } => Ok(*val),
+            FloatExpr::FloatDimExpr { dbg, .. }
+            | FloatExpr::FloatSum { dbg, .. }
+            | FloatExpr::FloatProd { dbg, .. }
+            | FloatExpr::FloatDiv { dbg, .. }
+            | FloatExpr::FloatNeg { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
+    }
 }
 
 impl fmt::Display for FloatExpr {
@@ -168,6 +186,73 @@ pub enum MetaVector {
     VectorUnit { dbg: Option<DebugLoc> },
 }
 
+impl MetaVector {
+    /// Returns the debug location for this vector.
+    pub fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            MetaVector::VectorAlias { dbg, .. }
+            | MetaVector::VectorSymbol { dbg, .. }
+            | MetaVector::VectorBroadcastTensor { dbg, .. }
+            | MetaVector::ZeroVector { dbg }
+            | MetaVector::OneVector { dbg }
+            | MetaVector::PadVector { dbg }
+            | MetaVector::TargetVector { dbg }
+            | MetaVector::VectorTilt { dbg, .. }
+            | MetaVector::UniformVectorSuperpos { dbg, .. }
+            | MetaVector::VectorBiTensor { dbg, .. }
+            | MetaVector::VectorUnit { dbg } => dbg.clone(),
+        }
+    }
+
+    /// Extracts a plain-AST `@qpu` Vector from this metaQwerty vector. Returns
+    /// an error instead if metaQwerty constructs are still present.
+    pub fn extract(&self) -> Result<ast::qpu::Vector, ExtractError> {
+        match self {
+            MetaVector::ZeroVector { dbg } => Ok(ast::qpu::Vector::ZeroVector { dbg: dbg.clone() }),
+            MetaVector::OneVector { dbg } => Ok(ast::qpu::Vector::OneVector { dbg: dbg.clone() }),
+            MetaVector::PadVector { dbg } => Ok(ast::qpu::Vector::PadVector { dbg: dbg.clone() }),
+            MetaVector::TargetVector { dbg } => {
+                Ok(ast::qpu::Vector::TargetVector { dbg: dbg.clone() })
+            }
+            MetaVector::VectorTilt { q, angle_deg, dbg } => q.extract().and_then(|ast_q| {
+                angle_deg
+                    .extract()
+                    .map(|angle_deg_double| ast::qpu::Vector::VectorTilt {
+                        q: Box::new(ast_q),
+                        angle_deg: angle_deg_double,
+                        dbg: dbg.clone(),
+                    })
+            }),
+            MetaVector::UniformVectorSuperpos { q1, q2, dbg } => q1.extract().and_then(|ast_q1| {
+                q2.extract()
+                    .map(|ast_q2| ast::qpu::Vector::UniformVectorSuperpos {
+                        q1: Box::new(ast_q1),
+                        q2: Box::new(ast_q2),
+                        dbg: dbg.clone(),
+                    })
+            }),
+            MetaVector::VectorBiTensor { left, right, dbg } => {
+                left.extract().and_then(|ast_left| {
+                    right
+                        .extract()
+                        .map(|ast_right| ast::qpu::Vector::VectorTensor {
+                            qs: vec![ast_left, ast_right],
+                            dbg: dbg.clone(),
+                        })
+                })
+            }
+            MetaVector::VectorUnit { dbg } => Ok(ast::qpu::Vector::VectorUnit { dbg: dbg.clone() }),
+
+            MetaVector::VectorAlias { dbg, .. }
+            | MetaVector::VectorSymbol { dbg, .. }
+            | MetaVector::VectorBroadcastTensor { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
 // TODO: don't duplicate with qpu.rs
 impl fmt::Display for MetaVector {
     /// Represents a vector in a human-readable form for error messages sent
@@ -219,6 +304,29 @@ pub enum MetaBasisGenerator {
         v2: MetaVector,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl MetaBasisGenerator {
+    /// Extracts a plain-AST `@qpu` BasisGenerator from this metaQwerty basis
+    /// generator. Returns an error instead if metaQwerty constructs are still
+    /// present.
+    pub fn extract(&self) -> Result<ast::qpu::BasisGenerator, ExtractError> {
+        match self {
+            MetaBasisGenerator::Revolve { v1, v2, dbg } => v1.extract().and_then(|ast_v1| {
+                v2.extract()
+                    .map(|ast_v2| ast::qpu::BasisGenerator::Revolve {
+                        v1: ast_v1,
+                        v2: ast_v2,
+                        dbg: dbg.clone(),
+                    })
+            }),
+
+            MetaBasisGenerator::BasisGeneratorMacro { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
+    }
 }
 
 // TODO: don't duplicate with qpu.rs
@@ -287,6 +395,50 @@ pub enum MetaBasis {
         gen: MetaBasisGenerator,
         dbg: Option<DebugLoc>,
     },
+}
+
+impl MetaBasis {
+    /// Extracts a plain-AST `@qpu` Basis from this metaQwerty basis.
+    pub fn extract(&self) -> Result<ast::qpu::Basis, ExtractError> {
+        match self {
+            MetaBasis::BasisLiteral { vecs, dbg } => vecs
+                .iter()
+                .map(MetaVector::extract)
+                .collect::<Result<Vec<ast::qpu::Vector>, ExtractError>>()
+                .map(|ast_vecs| ast::qpu::Basis::BasisLiteral {
+                    vecs: ast_vecs,
+                    dbg: dbg.clone(),
+                }),
+            MetaBasis::EmptyBasisLiteral { dbg } => {
+                Ok(ast::qpu::Basis::EmptyBasisLiteral { dbg: dbg.clone() })
+            }
+            MetaBasis::BasisBiTensor { left, right, dbg } => left.extract().and_then(|ast_left| {
+                right
+                    .extract()
+                    .map(|ast_right| ast::qpu::Basis::BasisTensor {
+                        bases: vec![ast_left, ast_right],
+                        dbg: dbg.clone(),
+                    })
+            }),
+            MetaBasis::ApplyBasisGenerator { basis, gen, dbg } => {
+                basis.extract().and_then(|ast_basis| {
+                    gen.extract()
+                        .map(|ast_gen| ast::qpu::Basis::ApplyBasisGenerator {
+                            basis: Box::new(ast_basis),
+                            gen: ast_gen,
+                            dbg: dbg.clone(),
+                        })
+                })
+            }
+
+            MetaBasis::BasisAlias { dbg, .. } | MetaBasis::BasisBroadcastTensor { dbg, .. } => {
+                Err(ExtractError {
+                    kind: ExtractErrorKind::NotFullyFolded,
+                    dbg: dbg.clone(),
+                })
+            }
+        }
+    }
 }
 
 impl fmt::Display for MetaBasis {
@@ -493,6 +645,186 @@ pub enum MetaExpr {
     },
 }
 
+impl MetaExpr {
+    /// Returns the debug location for this expression.
+    pub fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            MetaExpr::Macro { dbg, .. }
+            | MetaExpr::BroadcastTensor { dbg, .. }
+            | MetaExpr::Instantiate { dbg, .. }
+            | MetaExpr::Repeat { dbg, .. }
+            | MetaExpr::Variable { dbg, .. }
+            | MetaExpr::UnitLiteral { dbg }
+            | MetaExpr::EmbedClassical { dbg, .. }
+            | MetaExpr::Adjoint { dbg, .. }
+            | MetaExpr::Pipe { dbg, .. }
+            | MetaExpr::Measure { dbg, .. }
+            | MetaExpr::Discard { dbg }
+            | MetaExpr::BiTensor { dbg, .. }
+            | MetaExpr::BasisTranslation { dbg, .. }
+            | MetaExpr::Predicated { dbg, .. }
+            | MetaExpr::NonUniformSuperpos { dbg, .. }
+            | MetaExpr::Conditional { dbg, .. }
+            | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
+            MetaExpr::QLit { vec } => vec.get_dbg(),
+        }
+    }
+
+    /// Extracts a plain-AST `@qpu` expression from this metaQwerty expression.
+    pub fn extract(&self) -> Result<ast::qpu::Expr, ExtractError> {
+        match self {
+            MetaExpr::Variable { name, dbg } => Ok(ast::qpu::Expr::Variable(ast::Variable {
+                name: name.to_string(),
+                dbg: dbg.clone(),
+            })),
+            MetaExpr::UnitLiteral { dbg } => {
+                Ok(ast::qpu::Expr::UnitLiteral(ast::qpu::UnitLiteral {
+                    dbg: dbg.clone(),
+                }))
+            }
+            MetaExpr::EmbedClassical {
+                func,
+                embed_kind,
+                dbg,
+            } => {
+                if let MetaExpr::Variable { name, dbg: _ } = &**func {
+                    Ok(ast::qpu::Expr::EmbedClassical(ast::qpu::EmbedClassical {
+                        func_name: name.to_string(),
+                        embed_kind: *embed_kind,
+                        dbg: dbg.clone(),
+                    }))
+                } else {
+                    Err(ExtractError {
+                        kind: ExtractErrorKind::Malformed,
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+            MetaExpr::Adjoint { func, dbg } => func.extract().map(|ast_func| {
+                ast::qpu::Expr::Adjoint(ast::qpu::Adjoint {
+                    func: Box::new(ast_func),
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaExpr::Pipe { lhs, rhs, dbg } => lhs.extract().and_then(|ast_lhs| {
+                rhs.extract().map(|ast_rhs| {
+                    ast::qpu::Expr::Pipe(ast::qpu::Pipe {
+                        lhs: Box::new(ast_lhs),
+                        rhs: Box::new(ast_rhs),
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
+            MetaExpr::Measure { basis, dbg } => basis.extract().map(|ast_basis| {
+                ast::qpu::Expr::Measure(ast::qpu::Measure {
+                    basis: ast_basis,
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaExpr::Discard { dbg } => Ok(ast::qpu::Expr::Discard(ast::qpu::Discard {
+                dbg: dbg.clone(),
+            })),
+            MetaExpr::BiTensor { left, right, dbg } => left.extract().and_then(|ast_left| {
+                right.extract().map(|ast_right| {
+                    ast::qpu::Expr::Tensor(ast::qpu::Tensor {
+                        vals: vec![ast_left, ast_right],
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
+            MetaExpr::BasisTranslation { bin, bout, dbg } => bin.extract().and_then(|ast_bin| {
+                bout.extract().map(|ast_bout| {
+                    ast::qpu::Expr::BasisTranslation(ast::qpu::BasisTranslation {
+                        bin: ast_bin,
+                        bout: ast_bout,
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
+            MetaExpr::Predicated {
+                then_func,
+                else_func,
+                pred,
+                dbg,
+            } => then_func.extract().and_then(|ast_then| {
+                else_func.extract().and_then(|ast_else| {
+                    pred.extract().map(|ast_pred| {
+                        ast::qpu::Expr::Predicated(ast::qpu::Predicated {
+                            then_func: Box::new(ast_then),
+                            else_func: Box::new(ast_else),
+                            pred: ast_pred,
+                            dbg: dbg.clone(),
+                        })
+                    })
+                })
+            }),
+            MetaExpr::NonUniformSuperpos { pairs, dbg } => pairs
+                .iter()
+                .map(|(prob, vec)| {
+                    prob.extract().and_then(|prob_double| {
+                        vec.extract().and_then(|ast_vec| {
+                            ast_vec
+                                .convert_to_qubit_literal()
+                                .ok_or_else(|| ExtractError {
+                                    kind: ExtractErrorKind::Malformed,
+                                    dbg: ast_vec.get_dbg(),
+                                })
+                                .map(|ast_qlit| (prob_double, ast_qlit))
+                        })
+                    })
+                })
+                .collect::<Result<Vec<(f64, ast::qpu::QLit)>, ExtractError>>()
+                .map(|ast_pairs| {
+                    ast::qpu::Expr::NonUniformSuperpos(ast::qpu::NonUniformSuperpos {
+                        pairs: ast_pairs,
+                        dbg: dbg.clone(),
+                    })
+                }),
+            MetaExpr::Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                dbg,
+            } => then_expr.extract().and_then(|ast_then| {
+                else_expr.extract().and_then(|ast_else| {
+                    cond.extract().map(|ast_cond| {
+                        ast::qpu::Expr::Conditional(ast::qpu::Conditional {
+                            then_expr: Box::new(ast_then),
+                            else_expr: Box::new(ast_else),
+                            cond: Box::new(ast_cond),
+                            dbg: dbg.clone(),
+                        })
+                    })
+                })
+            }),
+            MetaExpr::QLit { vec } => vec.extract().and_then(|ast_vec| {
+                ast_vec
+                    .convert_to_qubit_literal()
+                    .ok_or_else(|| ExtractError {
+                        kind: ExtractErrorKind::Malformed,
+                        dbg: ast_vec.get_dbg(),
+                    })
+                    .map(|ast_qlit| ast::qpu::Expr::QLit(ast_qlit))
+            }),
+            MetaExpr::BitLiteral { val, n_bits, dbg } => n_bits.extract().map(|n_bits_int| {
+                ast::qpu::Expr::BitLiteral(ast::BitLiteral {
+                    val: val.clone(),
+                    n_bits: n_bits_int,
+                    dbg: dbg.clone(),
+                })
+            }),
+
+            MetaExpr::Macro { dbg, .. }
+            | MetaExpr::BroadcastTensor { dbg, .. }
+            | MetaExpr::Instantiate { dbg, .. }
+            | MetaExpr::Repeat { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+}
+
 // TODO: don't duplicate with qpu.rs
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -693,8 +1025,46 @@ pub enum MetaStmt {
 }
 
 impl MetaStmt {
+    // TODO: don't duplicate with classical.rs
+    /// Extracts a plain-AST `@qpu` statement from this metaQwerty statement.
     pub fn extract(&self) -> Result<ast::Stmt<ast::qpu::Expr>, ExtractError> {
-        todo!("qpu::MetaStmt::extract")
+        match self {
+            MetaStmt::Expr { expr } => expr.extract().map(|ast_expr| {
+                ast::Stmt::Expr(ast::StmtExpr {
+                    expr: ast_expr,
+                    dbg: expr.get_dbg(),
+                })
+            }),
+            MetaStmt::Assign { lhs, rhs, dbg } => rhs.extract().map(|ast_rhs| {
+                ast::Stmt::Assign(ast::Assign {
+                    lhs: lhs.to_string(),
+                    rhs: ast_rhs,
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaStmt::UnpackAssign { lhs, rhs, dbg } => rhs.extract().map(|ast_rhs| {
+                ast::Stmt::UnpackAssign(ast::UnpackAssign {
+                    lhs: lhs.clone(),
+                    rhs: ast_rhs,
+                    dbg: dbg.clone(),
+                })
+            }),
+            MetaStmt::Return { val, dbg } => val.extract().map(|ast_val| {
+                ast::Stmt::Return(ast::Return {
+                    val: ast_val,
+                    dbg: dbg.clone(),
+                })
+            }),
+
+            MetaStmt::MacroDef { dbg, .. }
+            | MetaStmt::BasisGeneratorMacroDef { dbg, .. }
+            | MetaStmt::VectorSymbolDef { dbg, .. }
+            | MetaStmt::BasisAliasDef { dbg, .. }
+            | MetaStmt::BasisAliasRecDef { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
+        }
     }
 }
 

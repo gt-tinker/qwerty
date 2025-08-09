@@ -54,7 +54,7 @@ pub enum DimExpr {
 }
 
 impl DimExpr {
-    /// Extract a constant integer from this dimension variable expression or /
+    /// Extract a constant integer from this dimension variable expression or
     /// return an error if it is not fully folded yet.
     pub fn extract(&self) -> Result<usize, ExtractError> {
         match self {
