@@ -7,6 +7,7 @@ use dashu::{base::Signed, integer::IBig};
 use std::fmt;
 
 pub mod classical;
+mod expand;
 pub mod qpu;
 
 #[derive(Debug, Clone, PartialEq)]

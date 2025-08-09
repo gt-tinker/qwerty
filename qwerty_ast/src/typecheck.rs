@@ -29,7 +29,7 @@ pub enum ComputeKind {
 }
 
 impl ComputeKind {
-    /// Returns the compute kind `K` such that `K.join(K') == K'`.
+    /// Returns the compute kind `K` such that `K.join(K') == K'` for any `K'`.
     pub fn identity() -> Self {
         ComputeKind::Rev
     }
