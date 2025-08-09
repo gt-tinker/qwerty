@@ -35,16 +35,19 @@ impl ExpansionProgress {
     }
 }
 
-enum Binding {
-    Variable(MetaType),
+enum AliasBinding {
     BasisAlias(MetaBasis),
     BasisAliasRec(HashMap<DimExpr, MetaBasis>),
+}
+
+enum MacroBinding {
     ExprMacro(MetaExpr),
     BasisGeneratorMacro(MetaBasisGenerator),
 }
 
 struct MetaEnv {
-    bindings: HashMap<String, Binding>,
+    aliases: HashMap<String, AliasBinding>,
+    macros: HashMap<String, MacroBinding>,
     dim_vars: HashMap<String, DimExpr>,
     vec_symbols: HashMap<char, MetaVector>,
 }
@@ -52,7 +55,8 @@ struct MetaEnv {
 impl MetaEnv {
     fn new() -> MetaEnv {
         MetaEnv {
-            bindings: HashMap::new(),
+            aliases: HashMap::new(),
+            macros: HashMap::new(),
             dim_vars: HashMap::new(),
             vec_symbols: HashMap::new(),
         }
