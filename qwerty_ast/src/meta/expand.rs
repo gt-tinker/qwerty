@@ -132,9 +132,55 @@ impl DimExpr {
                 })
             }
 
-            DimExpr::DimConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            DimExpr::DimProd { left, right, dbg } => {
+                left.expand(env).and_then(|(expanded_left, left_prog)| {
+                    right.expand(env).map(|(expanded_right, right_prog)| {
+                        match (&expanded_left, &expanded_right, left_prog.join(right_prog)) {
+                            (
+                                DimExpr::DimConst { val: left_val, .. },
+                                DimExpr::DimConst { val: right_val, .. },
+                                prog @ ExpansionProgress::Full,
+                            ) => (
+                                DimExpr::DimConst {
+                                    val: left_val * right_val,
+                                    dbg: dbg.clone(),
+                                },
+                                prog,
+                            ),
+                            (_, _, prog) => (
+                                DimExpr::DimProd {
+                                    left: Box::new(expanded_left),
+                                    right: Box::new(expanded_right),
+                                    dbg: dbg.clone(),
+                                },
+                                prog,
+                            ),
+                        }
+                    })
+                })
+            }
 
-            _ => todo!("DimExpr::expand()"),
+            DimExpr::DimNeg { val, dbg } => {
+                val.expand(env)
+                    .map(|(expanded_val, val_prog)| match (&expanded_val, val_prog) {
+                        (DimExpr::DimConst { val: val_val, .. }, ExpansionProgress::Full) => (
+                            DimExpr::DimConst {
+                                val: -val_val,
+                                dbg: dbg.clone(),
+                            },
+                            val_prog,
+                        ),
+                        _ => (
+                            DimExpr::DimNeg {
+                                val: Box::new(expanded_val),
+                                dbg: dbg.clone(),
+                            },
+                            val_prog,
+                        ),
+                    })
+            }
+
+            DimExpr::DimConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
         }
     }
 }
