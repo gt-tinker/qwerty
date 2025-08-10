@@ -136,11 +136,10 @@ impl qpu::MetaExpr {
                                 dbg: pat_dbg,
                             },
                         rhs,
-                    }) =>
-                    // The progress of expanding the arg doesn't even
-                    // matter since the result of rhs.substitute_variable(...)
-                    // .expand() will incorporate that progress.
-                    {
+                    }) => {
+                        // The progress of expanding the arg doesn't even
+                        // matter since the result of rhs.substitute_variable(...)
+                        // .expand() will incorporate that progress.
                         arg.expand(env).and_then(|(expanded_arg, _arg_progress)| {
                             rhs.substitute_variable(pat_name.to_string(), expanded_arg.clone())
                                 .expand(env)
@@ -182,9 +181,8 @@ impl qpu::MetaExpr {
                                     dbg: pat_dbg,
                                 },
                             rhs,
-                        }) =>
-                        // As mentioned above, we can ignore arg_progress
-                        {
+                        }) => {
+                            // As mentioned above, we can ignore arg_progress
                             arg.expand(env).and_then(|(expanded_arg, _arg_progress)| {
                                 rhs.substitute_basis_alias(
                                     pat_name.to_string(),
