@@ -183,6 +183,97 @@ impl DimExpr {
             DimExpr::DimConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
         }
     }
+
+    fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> DimExpr {
+        match self {
+            DimExpr::DimVar { name, .. } => {
+                if *name == dim_var_name {
+                    new_dim_expr
+                } else {
+                    self.clone()
+                }
+            }
+
+            DimExpr::DimSum { left, right, dbg } => DimExpr::DimSum {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            DimExpr::DimProd { left, right, dbg } => DimExpr::DimProd {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            DimExpr::DimNeg { val, dbg } => DimExpr::DimNeg {
+                val: Box::new(
+                    val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            DimExpr::DimConst { .. } => self.clone(),
+        }
+    }
+}
+
+impl qpu::FloatExpr {
+    fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::FloatExpr {
+        match self {
+            qpu::FloatExpr::FloatDimExpr { expr, dbg } => qpu::FloatExpr::FloatDimExpr {
+                expr: expr.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
+            qpu::FloatExpr::FloatSum { left, right, dbg } => qpu::FloatExpr::FloatSum {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            qpu::FloatExpr::FloatProd { left, right, dbg } => qpu::FloatExpr::FloatProd {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            qpu::FloatExpr::FloatDiv { left, right, dbg } => qpu::FloatExpr::FloatDiv {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            qpu::FloatExpr::FloatNeg { val, dbg } => qpu::FloatExpr::FloatNeg {
+                val: Box::new(
+                    val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            qpu::FloatExpr::FloatConst { .. } => self.clone(),
+        }
+    }
 }
 
 impl qpu::MetaVector {
@@ -242,6 +333,58 @@ impl qpu::MetaVector {
             | qpu::MetaVector::VectorUnit { .. } => self.clone(),
         }
     }
+
+    fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::MetaVector {
+        match self {
+            MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
+                MetaVector::VectorBroadcastTensor {
+                    val: Box::new(
+                        val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    ),
+                    factor: factor
+                        .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            MetaVector::VectorTilt { q, angle_deg, dbg } => MetaVector::VectorTilt {
+                q: Box::new(q.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone())),
+                angle_deg: angle_deg
+                    .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
+            MetaVector::UniformVectorSuperpos { q1, q2, dbg } => {
+                MetaVector::UniformVectorSuperpos {
+                    q1: Box::new(
+                        q1.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    ),
+                    q2: Box::new(
+                        q2.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    ),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            MetaVector::VectorBiTensor { left, right, dbg } => MetaVector::VectorBiTensor {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(
+                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                dbg: dbg.clone(),
+            },
+
+            MetaVector::VectorAlias { .. }
+            | MetaVector::VectorSymbol { .. }
+            | MetaVector::ZeroVector { .. }
+            | MetaVector::OneVector { .. }
+            | MetaVector::PadVector { .. }
+            | MetaVector::TargetVector { .. }
+            | MetaVector::VectorUnit { .. } => self.clone(),
+        }
+    }
 }
 
 impl qpu::MetaBasisGenerator {
@@ -280,6 +423,28 @@ impl qpu::MetaBasisGenerator {
             qpu::MetaBasisGenerator::Revolve { v1, v2, dbg } => qpu::MetaBasisGenerator::Revolve {
                 v1: v1.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
                 v2: v2.substitute_vector_alias(vector_alias, new_vector),
+                dbg: dbg.clone(),
+            },
+        }
+    }
+
+    fn substitute_dim_var(
+        &self,
+        dim_var_name: String,
+        new_dim_expr: DimExpr,
+    ) -> qpu::MetaBasisGenerator {
+        match self {
+            qpu::MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
+                qpu::MetaBasisGenerator::BasisGeneratorMacro {
+                    name: name.to_string(),
+                    arg: Box::new(arg.substitute_dim_var(dim_var_name, new_dim_expr)),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaBasisGenerator::Revolve { v1, v2, dbg } => qpu::MetaBasisGenerator::Revolve {
+                v1: v1.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                v2: v2.substitute_dim_var(dim_var_name, new_dim_expr),
                 dbg: dbg.clone(),
             },
         }
@@ -457,7 +622,54 @@ impl qpu::MetaBasis {
     }
 
     fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::MetaBasis {
-        todo!("MetaBasis::substitute_dim_var")
+        match self {
+            MetaBasis::BasisAliasRec { name, param, dbg } => MetaBasis::BasisAliasRec {
+                name: name.to_string(),
+                param: param.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                MetaBasis::BasisBroadcastTensor {
+                    val: val.clone(),
+                    factor: factor
+                        .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            MetaBasis::BasisLiteral { vecs, dbg } => MetaBasis::BasisLiteral {
+                vecs: vecs
+                    .iter()
+                    .map(|vec| {
+                        vec.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone())
+                    })
+                    .collect(),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
+                left: Box::new(
+                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                right: Box::new(right.substitute_dim_var(dim_var_name, new_dim_expr)),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => MetaBasis::ApplyBasisGenerator {
+                basis: Box::new(
+                    basis.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                ),
+                generator: generator.substitute_dim_var(dim_var_name, new_dim_expr),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::BasisAlias { .. } | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+        }
     }
 }
 
