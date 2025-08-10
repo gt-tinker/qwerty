@@ -4,7 +4,7 @@ use crate::{
     error::{ExtractError, ExtractErrorKind},
     meta::DimExpr,
 };
-use dashu::integer::UBig;
+use dashu::integer::{IBig, UBig};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -351,6 +351,16 @@ pub enum MetaBasis {
     /// ```
     BasisAlias { name: String, dbg: Option<DebugLoc> },
 
+    /// A recursive basis alias with a parameter. Example syntax:
+    /// ```text
+    /// fourier[N]
+    /// ```
+    BasisAliasRec {
+        name: String,
+        param: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// An n-fold tensor product of a basis. Example syntax:
     /// ```text
     /// pm**N
@@ -434,12 +444,12 @@ impl MetaBasis {
                     })
             }),
 
-            MetaBasis::BasisAlias { dbg, .. } | MetaBasis::BasisBroadcastTensor { dbg, .. } => {
-                Err(ExtractError {
-                    kind: ExtractErrorKind::NotFullyFolded,
-                    dbg: dbg.clone(),
-                })
-            }
+            MetaBasis::BasisAlias { dbg, .. }
+            | MetaBasis::BasisAliasRec { dbg, .. }
+            | MetaBasis::BasisBroadcastTensor { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
         }
     }
 }
@@ -448,6 +458,7 @@ impl fmt::Display for MetaBasis {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MetaBasis::BasisAlias { name, .. } => write!(f, "{}", name),
+            MetaBasis::BasisAliasRec { name, param, .. } => write!(f, "{}[{}]", name, param),
             MetaBasis::BasisBroadcastTensor { val, factor, .. } => {
                 write!(f, "({})**({})", val, factor)
             }
@@ -962,6 +973,21 @@ impl fmt::Display for BasisMacroPattern {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum RecDefParam {
+    Base(IBig),
+    Rec(String),
+}
+
+impl fmt::Display for RecDefParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RecDefParam::Base(constant) => write!(f, "{}", constant),
+            RecDefParam::Rec(dim_var_name) => write!(f, "{}", dim_var_name),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum MetaStmt {
     /// A macro definition that takes an expression argument and expands to an
     /// expression. Example syntax:
@@ -1029,7 +1055,7 @@ pub enum MetaStmt {
     /// ```
     BasisAliasRecDef {
         lhs: String,
-        param: DimExpr,
+        param: RecDefParam,
         rhs: MetaBasis,
         dbg: Option<DebugLoc>,
     },

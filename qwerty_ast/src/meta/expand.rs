@@ -40,8 +40,13 @@ impl ExpansionProgress {
 }
 
 enum AliasBinding {
-    BasisAlias(MetaBasis),
-    BasisAliasRec(HashMap<DimExpr, MetaBasis>),
+    BasisAlias {
+        rhs: MetaBasis,
+    },
+    BasisAliasRec {
+        base_cases: HashMap<IBig, MetaBasis>,
+        recursive_step: Option<(String, MetaBasis)>,
+    },
 }
 
 enum MacroBinding {
@@ -78,6 +83,58 @@ impl MacroEnv {
             macros: HashMap::new(),
             dim_vars: HashMap::new(),
             vec_symbols: HashMap::new(),
+        }
+    }
+}
+
+impl DimExpr {
+    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, ExpansionProgress), ExtractError> {
+        match self {
+            DimExpr::DimVar { name, dbg } => {
+                if let Some(DimVarValue::Known(val)) = env.dim_vars.get(name) {
+                    Ok((
+                        DimExpr::DimConst {
+                            val: val.clone(),
+                            dbg: dbg.clone(),
+                        },
+                        ExpansionProgress::Full,
+                    ))
+                } else {
+                    Ok((self.clone(), ExpansionProgress::Partial))
+                }
+            }
+
+            DimExpr::DimSum { left, right, dbg } => {
+                left.expand(env).and_then(|(expanded_left, left_prog)| {
+                    right.expand(env).map(|(expanded_right, right_prog)| {
+                        match (&expanded_left, &expanded_right, left_prog.join(right_prog)) {
+                            (
+                                DimExpr::DimConst { val: left_val, .. },
+                                DimExpr::DimConst { val: right_val, .. },
+                                prog @ ExpansionProgress::Full,
+                            ) => (
+                                DimExpr::DimConst {
+                                    val: left_val + right_val,
+                                    dbg: dbg.clone(),
+                                },
+                                prog,
+                            ),
+                            (_, _, prog) => (
+                                DimExpr::DimSum {
+                                    left: Box::new(expanded_left),
+                                    right: Box::new(expanded_right),
+                                    dbg: dbg.clone(),
+                                },
+                                prog,
+                            ),
+                        }
+                    })
+                })
+            }
+
+            DimExpr::DimConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+
+            _ => todo!("DimExpr::expand()"),
         }
     }
 }
@@ -185,7 +242,74 @@ impl qpu::MetaBasisGenerator {
 
 impl qpu::MetaBasis {
     fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasis, ExpansionProgress), ExtractError> {
-        todo!("MetaBasis::expand()")
+        match self {
+            qpu::MetaBasis::BasisAlias { name, dbg } => {
+                match env.aliases.get(name) {
+                    Some(AliasBinding::BasisAlias { rhs }) => rhs.expand(env),
+
+                    // Wrong type of alias or alias missing
+                    Some(AliasBinding::BasisAliasRec { .. }) | None => Err(ExtractError {
+                        kind: ExtractErrorKind::Malformed,
+                        dbg: dbg.clone(),
+                    }),
+                }
+            }
+
+            qpu::MetaBasis::BasisAliasRec { name, param, dbg } => {
+                match env.aliases.get(name) {
+                    Some(AliasBinding::BasisAliasRec {
+                        base_cases,
+                        recursive_step,
+                    }) => param.expand(env).and_then(|(expanded_param, param_prog)| {
+                        match (&expanded_param, param_prog) {
+                            (
+                                DimExpr::DimConst {
+                                    val,
+                                    dbg: dim_const_dbg,
+                                },
+                                ExpansionProgress::Full,
+                            ) => {
+                                if let Some(base_case_basis) = base_cases.get(&val) {
+                                    base_case_basis.expand(env)
+                                } else if let Some((dim_var_name, rec_basis)) = recursive_step {
+                                    rec_basis
+                                        .substitute_dim_var(
+                                            dim_var_name.to_string(),
+                                            DimExpr::DimConst {
+                                                val: val.clone(),
+                                                dbg: dim_const_dbg.clone(),
+                                            },
+                                        )
+                                        .expand(env)
+                                } else {
+                                    // Missing recursive step
+                                    Err(ExtractError {
+                                        kind: ExtractErrorKind::Malformed,
+                                        dbg: dbg.clone(),
+                                    })
+                                }
+                            }
+                            _ => Ok((
+                                qpu::MetaBasis::BasisAliasRec {
+                                    name: name.to_string(),
+                                    param: expanded_param,
+                                    dbg: dbg.clone(),
+                                },
+                                param_prog,
+                            )),
+                        }
+                    }),
+
+                    // Wrong type of alias or alias missing
+                    Some(AliasBinding::BasisAlias { .. }) | None => Err(ExtractError {
+                        kind: ExtractErrorKind::Malformed,
+                        dbg: dbg.clone(),
+                    }),
+                }
+            }
+
+            _ => todo!("qpu::MetaBasis::expand()"),
+        }
     }
 
     fn substitute_basis_alias(
@@ -230,7 +354,9 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisLiteral { .. } | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+            MetaBasis::BasisAliasRec { .. }
+            | MetaBasis::BasisLiteral { .. }
+            | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
         }
     }
 
@@ -278,8 +404,14 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisAlias { .. } | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+            MetaBasis::BasisAlias { .. }
+            | MetaBasis::BasisAliasRec { .. }
+            | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
         }
+    }
+
+    fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::MetaBasis {
+        todo!("MetaBasis::substitute_dim_var")
     }
 }
 
@@ -761,6 +893,7 @@ impl qpu::MetaExpr {
                                     MetaBasis::EmptyBasisLiteral { dbg, .. }
                                     | MetaBasis::BasisLiteral { dbg, .. }
                                     | MetaBasis::BasisAlias { dbg, .. }
+                                    | MetaBasis::BasisAliasRec { dbg, .. }
                                     | MetaBasis::BasisBroadcastTensor { dbg, .. }
                                     | MetaBasis::BasisBiTensor { dbg, .. }
                                     | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
@@ -891,7 +1024,10 @@ impl qpu::MetaStmt {
             qpu::MetaStmt::BasisAliasDef { lhs, rhs, dbg } => {
                 if env
                     .aliases
-                    .insert(lhs.to_string(), AliasBinding::BasisAlias(rhs.clone()))
+                    .insert(
+                        lhs.to_string(),
+                        AliasBinding::BasisAlias { rhs: rhs.clone() },
+                    )
                     .is_some()
                 {
                     // Duplicate basis alias
@@ -912,35 +1048,65 @@ impl qpu::MetaStmt {
             } => {
                 if let Some(existing_alias) = env.aliases.get_mut(lhs) {
                     match existing_alias {
-                        AliasBinding::BasisAlias(_) =>
-                        // Duplicate basis alias
-                        {
+                        AliasBinding::BasisAlias { .. } => {
+                            // Duplicate basis alias
                             Err(ExtractError {
                                 kind: ExtractErrorKind::Malformed,
                                 dbg: dbg.clone(),
                             })
                         }
 
-                        AliasBinding::BasisAliasRec(defs) => {
-                            if defs.insert(param.clone(), rhs.clone()).is_some() {
-                                // Duplicate basis alias
-                                Err(ExtractError {
-                                    kind: ExtractErrorKind::Malformed,
-                                    dbg: dbg.clone(),
-                                })
-                            } else {
-                                Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                        AliasBinding::BasisAliasRec {
+                            base_cases,
+                            recursive_step,
+                        } => {
+                            match param {
+                                qpu::RecDefParam::Base(constant) => {
+                                    if base_cases.insert(constant.clone(), rhs.clone()).is_none() {
+                                        Ok((self.clone(), ExpansionProgress::Full))
+                                    } else {
+                                        // Duplicate basis alias
+                                        Err(ExtractError {
+                                            kind: ExtractErrorKind::Malformed,
+                                            dbg: dbg.clone(),
+                                        })
+                                    }
+                                }
+                                qpu::RecDefParam::Rec(dim_var_name) => {
+                                    if recursive_step.is_none() {
+                                        *recursive_step =
+                                            Some((dim_var_name.to_string(), rhs.clone()));
+                                        Ok((self.clone(), ExpansionProgress::Full))
+                                    } else {
+                                        // Only 1 recursive def is allowed
+                                        Err(ExtractError {
+                                            kind: ExtractErrorKind::Malformed,
+                                            dbg: dbg.clone(),
+                                        })
+                                    }
+                                }
                             }
                         }
                     }
                 } else {
-                    let mut defs = HashMap::new();
-                    defs.insert(param.clone(), rhs.clone());
-                    let existed = env
-                        .aliases
-                        .insert(lhs.to_string(), AliasBinding::BasisAliasRec(defs))
-                        .is_some();
-                    assert!(!existed, "alias didn't exist but now it does!");
+                    let base_cases = {
+                        let mut base_cases = HashMap::new();
+                        if let qpu::RecDefParam::Base(constant) = param {
+                            base_cases.insert(constant.clone(), rhs.clone());
+                        }
+                        base_cases
+                    };
+                    let recursive_step = if let qpu::RecDefParam::Rec(dim_var_name) = param {
+                        Some((dim_var_name.to_string(), rhs.clone()))
+                    } else {
+                        None
+                    };
+                    let binding = AliasBinding::BasisAliasRec {
+                        base_cases,
+                        recursive_step,
+                    };
+                    let inserted = env.aliases.insert(lhs.to_string(), binding).is_none();
+                    assert!(inserted, "alias didn't exist but now it does!");
                     Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
