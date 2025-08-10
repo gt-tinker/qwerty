@@ -1,11 +1,11 @@
 use crate::{
     error::{ExtractError, ExtractErrorKind},
     meta::{
+        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType,
         qpu::{
             self, BasisMacroPattern, ExprMacroPattern, MetaBasis, MetaBasisGenerator, MetaExpr,
             MetaVector,
         },
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType,
     },
 };
 use dashu::integer::IBig;

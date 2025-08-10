@@ -1,7 +1,7 @@
 use crate::mlir::{ctx::MLIR_CTX, lower_prog_stmt::Lowerable};
 use melior::{
     dialect::qwerty,
-    ir::{self, r#type::FunctionType, Location},
+    ir::{self, Location, r#type::FunctionType},
 };
 use qwerty_ast::{
     ast::{self, FunctionDef, RegKind},
@@ -21,26 +21,30 @@ pub fn dbg_to_loc(dbg: Option<DebugLoc>) -> Location<'static> {
 pub fn ast_ty_to_mlir_tys<E: Lowerable>(ty: &ast::Type) -> Vec<ir::Type<'static>> {
     match ty {
         ast::Type::FuncType { in_ty, out_ty } => {
-            vec![qwerty::FunctionType::new(
-                &MLIR_CTX,
-                FunctionType::new(
+            vec![
+                qwerty::FunctionType::new(
                     &MLIR_CTX,
-                    &ast_ty_to_mlir_tys::<E>(&**in_ty),
-                    &ast_ty_to_mlir_tys::<E>(&**out_ty),
-                ),
-                /*reversible=*/ false,
-            )
-            .into()]
+                    FunctionType::new(
+                        &MLIR_CTX,
+                        &ast_ty_to_mlir_tys::<E>(&**in_ty),
+                        &ast_ty_to_mlir_tys::<E>(&**out_ty),
+                    ),
+                    /*reversible=*/ false,
+                )
+                .into(),
+            ]
         }
 
         ast::Type::RevFuncType { in_out_ty } => {
             let in_out_mlir_tys = ast_ty_to_mlir_tys::<E>(&**in_out_ty);
-            vec![qwerty::FunctionType::new(
-                &MLIR_CTX,
-                FunctionType::new(&MLIR_CTX, &in_out_mlir_tys, &in_out_mlir_tys),
-                /*reversible=*/ true,
-            )
-            .into()]
+            vec![
+                qwerty::FunctionType::new(
+                    &MLIR_CTX,
+                    FunctionType::new(&MLIR_CTX, &in_out_mlir_tys, &in_out_mlir_tys),
+                    /*reversible=*/ true,
+                )
+                .into(),
+            ]
         }
 
         ast::Type::RegType {

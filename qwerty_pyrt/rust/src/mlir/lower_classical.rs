@@ -1,23 +1,21 @@
 use crate::mlir::{
     ctx::{BoundVals, Ctx, MLIR_CTX},
-    lower_prog_stmt::{ast_stmt_to_mlir, Lowerable},
+    lower_prog_stmt::{Lowerable, ast_stmt_to_mlir},
     lower_type::{ast_ty_to_mlir_tys, dbg_to_loc},
 };
 use melior::{
     dialect::ccirc,
     ir::{
-        self,
+        self, Block, BlockLike, Location, Operation, OperationLike, Region, RegionLike, Value,
         attribute::{BoolAttribute, IntegerAttribute, StringAttribute},
         operation::OperationResult,
         symbol_table::Visibility,
-        Block, BlockLike, Location, Operation, OperationLike, Region, RegionLike, Value,
     },
 };
 use qwerty_ast::{
     ast::{
-        self,
+        self, BitLiteral, FunctionDef, Variable,
         classical::{self, BinaryOp, BinaryOpKind, ReduceOp, UnaryOp, UnaryOpKind},
-        BitLiteral, FunctionDef, Variable,
     },
     typecheck::ComputeKind,
 };
@@ -174,11 +172,13 @@ fn ast_classical_expr_to_mlir(
             let loc = dbg_to_loc(dbg.clone());
             let value_attr =
                 IntegerAttribute::from_ubig(&MLIR_CTX, (*n_bits).try_into().unwrap(), val);
-            let mlir_vals = vec![block
-                .append_operation(ccirc::constant(&MLIR_CTX, value_attr, loc))
-                .result(0)
-                .unwrap()
-                .into()];
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::constant(&MLIR_CTX, value_attr, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
 
             (ty, compute_kind, mlir_vals)
         }

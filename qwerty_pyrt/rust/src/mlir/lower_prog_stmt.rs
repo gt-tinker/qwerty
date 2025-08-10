@@ -24,7 +24,7 @@ pub trait Lowerable {
     ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>);
 
     fn build_return(vals: &[Value<'static, 'static>], loc: Location<'static>)
-        -> Operation<'static>;
+    -> Operation<'static>;
 
     fn bit_register_ty(dim: usize) -> ir::Type<'static>;
 

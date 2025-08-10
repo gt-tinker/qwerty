@@ -1,8 +1,8 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    angle_approx_total_cmp, angle_is_approx_zero, angles_are_approx_equal, canon_angle,
-    equals_2_to_the_n, BitLiteral, Variable,
+    BitLiteral, Variable, angle_approx_total_cmp, angle_is_approx_zero, angles_are_approx_equal,
+    canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
 use std::cmp::Ordering;
@@ -1186,7 +1186,7 @@ pub enum Basis {
     /// ```
     ApplyBasisGenerator {
         basis: Box<Basis>,
-        gen: BasisGenerator,
+        generator: BasisGenerator,
         dbg: Option<DebugLoc>,
     },
 }
@@ -1220,9 +1220,11 @@ impl Basis {
                 bases: bases.iter().map(Basis::strip_dbg).collect(),
                 dbg: None,
             },
-            Basis::ApplyBasisGenerator { basis, gen, .. } => Basis::ApplyBasisGenerator {
+            Basis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => Basis::ApplyBasisGenerator {
                 basis: Box::new(basis.strip_dbg()),
-                gen: gen.strip_dbg(),
+                generator: generator.strip_dbg(),
                 dbg: None,
             },
         }
@@ -1271,9 +1273,11 @@ impl Basis {
                 }
             }
 
-            Basis::ApplyBasisGenerator { basis, gen, .. } => {
-                basis.get_dim().map(|basis_dim| basis_dim + gen.get_dim())
-            }
+            Basis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => basis
+                .get_dim()
+                .map(|basis_dim| basis_dim + generator.get_dim()),
         }
     }
 
@@ -1376,9 +1380,13 @@ impl Basis {
             }
 
             // The '?' and '_' atoms are banned in basis generators
-            Basis::ApplyBasisGenerator { basis, gen, dbg } => Basis::ApplyBasisGenerator {
+            Basis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => Basis::ApplyBasisGenerator {
                 basis: Box::new(basis.make_explicit()),
-                gen: gen.clone(),
+                generator: generator.clone(),
                 dbg: dbg.clone(),
             },
         }
@@ -1432,9 +1440,13 @@ impl Basis {
                 }
             }
 
-            Basis::ApplyBasisGenerator { basis, gen, dbg } => Basis::ApplyBasisGenerator {
+            Basis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => Basis::ApplyBasisGenerator {
                 basis: Box::new(basis.canonicalize()),
-                gen: gen.canonicalize(),
+                generator: generator.canonicalize(),
                 dbg: dbg.clone(),
             },
         }
@@ -1481,9 +1493,9 @@ impl Basis {
 
             Basis::BasisTensor { bases, .. } => bases.iter().all(Basis::fully_spans),
 
-            Basis::ApplyBasisGenerator { basis, gen, .. } => {
-                basis.fully_spans() && gen.fully_spans()
-            }
+            Basis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => basis.fully_spans() && generator.fully_spans(),
         }
     }
 
@@ -1538,7 +1550,9 @@ impl fmt::Display for Basis {
                 }
                 Ok(())
             }
-            Basis::ApplyBasisGenerator { basis, gen, .. } => write!(f, "({}) // ({})", basis, gen),
+            Basis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => write!(f, "({}) // ({})", basis, generator),
         }
     }
 }

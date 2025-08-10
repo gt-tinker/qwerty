@@ -1,33 +1,32 @@
 use crate::mlir::{
     ctx::{BoundVals, Ctx, MLIR_CTX},
-    lower_prog_stmt::{ast_stmt_to_mlir, Lowerable},
+    lower_prog_stmt::{Lowerable, ast_stmt_to_mlir},
     lower_type::{ast_func_mlir_ty, ast_ty_to_mlir_tys, dbg_to_loc},
 };
 use dashu::{base::BitTest, integer::UBig};
 use melior::{
     dialect::{arith, qcirc, qwerty, scf},
     ir::{
-        self,
+        self, Block, BlockLike, Location, Operation, OperationLike, Region, RegionLike, Type,
+        TypeLike, Value, ValueLike,
         attribute::{
             FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute, StringAttribute,
             TypeAttribute,
         },
         operation::OperationResult,
-        r#type::{FunctionType, IntegerType},
         symbol_table::Visibility,
-        Block, BlockLike, Location, Operation, OperationLike, Region, RegionLike, Type, TypeLike,
-        Value, ValueLike,
+        r#type::{FunctionType, IntegerType},
     },
 };
 use qwerty_ast::{
     ast::{
-        self, angle_is_approx_zero, angles_are_approx_equal,
+        self, BitLiteral, FunctionDef, RegKind, Variable, angle_is_approx_zero,
+        angles_are_approx_equal,
         qpu::{
             self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
             EmbedClassical, EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, Tensor,
             Vector, VectorAtomKind,
         },
-        BitLiteral, FunctionDef, RegKind, Variable,
     },
     typecheck::ComputeKind,
 };
@@ -313,15 +312,20 @@ struct MlirBasis {
 /// Determines if a basis literal containing vectors `vecs` represents the Bell
 /// basis. This is a hard-coded hack that should be removed in the future.
 fn is_bell_basis(vecs: &[Vector]) -> bool {
-    if let [Vector::UniformVectorSuperpos {
-        q1: q11, q2: q12, ..
-    }, Vector::UniformVectorSuperpos {
-        q1: q21, q2: q22, ..
-    }, Vector::UniformVectorSuperpos {
-        q1: q31, q2: q32, ..
-    }, Vector::UniformVectorSuperpos {
-        q1: q41, q2: q42, ..
-    }] = vecs
+    if let [
+        Vector::UniformVectorSuperpos {
+            q1: q11, q2: q12, ..
+        },
+        Vector::UniformVectorSuperpos {
+            q1: q21, q2: q22, ..
+        },
+        Vector::UniformVectorSuperpos {
+            q1: q31, q2: q32, ..
+        },
+        Vector::UniformVectorSuperpos {
+            q1: q41, q2: q42, ..
+        },
+    ] = vecs
     {
         let q11_is_00 = if let Vector::VectorTensor { qs: vecs11, .. } = &**q11 {
             matches!(
@@ -457,7 +461,7 @@ fn is_fourier(basis: &Basis) -> bool {
 
         Basis::ApplyBasisGenerator {
             basis: inner_basis,
-            gen:
+            generator:
                 BasisGenerator::Revolve {
                     v1: Vector::ZeroVector { .. },
                     v2: Vector::OneVector { .. },
@@ -845,19 +849,23 @@ fn synth_function_tensor_product(
                 ast::Type::RegType {
                     elem_ty: RegKind::Bit,
                     dim,
-                } if *dim > 0 => vec![lambda_block
-                    .append_operation(qwerty::bitpack(&after_func_unpacked, loc))
-                    .result(0)
-                    .unwrap()
-                    .into()],
+                } if *dim > 0 => vec![
+                    lambda_block
+                        .append_operation(qwerty::bitpack(&after_func_unpacked, loc))
+                        .result(0)
+                        .unwrap()
+                        .into(),
+                ],
                 ast::Type::RegType {
                     elem_ty: RegKind::Qubit,
                     dim,
-                } if *dim > 0 => vec![lambda_block
-                    .append_operation(qwerty::qbpack(&after_func_unpacked, loc))
-                    .result(0)
-                    .unwrap()
-                    .into()],
+                } if *dim > 0 => vec![
+                    lambda_block
+                        .append_operation(qwerty::qbpack(&after_func_unpacked, loc))
+                        .result(0)
+                        .unwrap()
+                        .into(),
+                ],
                 ast::Type::RegType {
                     elem_ty: RegKind::Basis,
                     ..
@@ -896,21 +904,22 @@ fn ast_qpu_expr_to_mlir(
                 BoundVals::UnmaterializedFunction(func_ty) => {
                     let loc = dbg_to_loc(dbg.clone());
                     // We use root_block in case block is inside e.g. an scf.if.
-                    let vals = vec![ctx
-                        .root_block
-                        .insert_operation(
-                            0,
-                            qwerty::func_const(
-                                &MLIR_CTX,
-                                FlatSymbolRefAttribute::new(&MLIR_CTX, name),
-                                &[],
-                                *func_ty,
-                                loc,
-                            ),
-                        )
-                        .result(0)
-                        .unwrap()
-                        .into()];
+                    let vals = vec![
+                        ctx.root_block
+                            .insert_operation(
+                                0,
+                                qwerty::func_const(
+                                    &MLIR_CTX,
+                                    FlatSymbolRefAttribute::new(&MLIR_CTX, name),
+                                    &[],
+                                    *func_ty,
+                                    loc,
+                                ),
+                            )
+                            .result(0)
+                            .unwrap()
+                            .into(),
+                    ];
                     ctx.bindings
                         .insert(name.to_string(), BoundVals::Materialized(vals.clone()));
                     vals
@@ -1253,7 +1262,9 @@ fn ast_qpu_expr_to_mlir(
                                 {
                                     repack_ready.push(qubit);
                                 } else {
-                                    unreachable!("qubit neither went through basis translation nor bypassed it");
+                                    unreachable!(
+                                        "qubit neither went through basis translation nor bypassed it"
+                                    );
                                 }
                             }
                             repack_ready
@@ -1450,7 +1461,9 @@ fn ast_qpu_expr_to_mlir(
                         {
                             repack_ready.push(qubit);
                         } else {
-                            unreachable!("qubit was neither part of the explicit basis, a padding, nor a target");
+                            unreachable!(
+                                "qubit was neither part of the explicit basis, a padding, nor a target"
+                            );
                         }
                     }
 
@@ -1589,11 +1602,13 @@ fn ast_qpu_expr_to_mlir(
                 .calc_type(&(func_ty, func_compute_kind))
                 .expect("Adjoint to pass typechecking");
 
-            let adj_vals = vec![block
-                .append_operation(qwerty::func_adj(func_val, loc))
-                .result(0)
-                .unwrap()
-                .into()];
+            let adj_vals = vec![
+                block
+                    .append_operation(qwerty::func_adj(func_val, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
             (ty, compute_kind, adj_vals)
         }
 
@@ -1624,11 +1639,13 @@ fn ast_qpu_expr_to_mlir(
                 .expect("NonUniformSuperpos to pass type checking");
 
             let superpos_attr = qwerty::SuperposAttribute::new(&MLIR_CTX, &elems);
-            let superpos_vals = vec![block
-                .append_operation(qwerty::superpos(&MLIR_CTX, superpos_attr, loc))
-                .result(0)
-                .unwrap()
-                .into()];
+            let superpos_vals = vec![
+                block
+                    .append_operation(qwerty::superpos(&MLIR_CTX, superpos_attr, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
             (ty, compute_kind, superpos_vals)
         }
 
@@ -1655,11 +1672,13 @@ fn ast_qpu_expr_to_mlir(
                 EmbedKind::InPlace => qwerty::embed_inplace,
             };
             let circuit_sym_attr = FlatSymbolRefAttribute::new(&MLIR_CTX, func_name);
-            let embed_vals = vec![block
-                .append_operation(embed_op_func(&MLIR_CTX, circuit_sym_attr, mlir_ty, loc))
-                .result(0)
-                .unwrap()
-                .into()];
+            let embed_vals = vec![
+                block
+                    .append_operation(embed_op_func(&MLIR_CTX, circuit_sym_attr, mlir_ty, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
             (ty, compute_kind, embed_vals)
         }
 

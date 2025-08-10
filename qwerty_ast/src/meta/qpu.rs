@@ -392,7 +392,7 @@ pub enum MetaBasis {
     /// ```
     ApplyBasisGenerator {
         basis: Box<MetaBasis>,
-        gen: MetaBasisGenerator,
+        generator: MetaBasisGenerator,
         dbg: Option<DebugLoc>,
     },
 }
@@ -420,16 +420,19 @@ impl MetaBasis {
                         dbg: dbg.clone(),
                     })
             }),
-            MetaBasis::ApplyBasisGenerator { basis, gen, dbg } => {
-                basis.extract().and_then(|ast_basis| {
-                    gen.extract()
-                        .map(|ast_gen| ast::qpu::Basis::ApplyBasisGenerator {
-                            basis: Box::new(ast_basis),
-                            gen: ast_gen,
-                            dbg: dbg.clone(),
-                        })
-                })
-            }
+            MetaBasis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => basis.extract().and_then(|ast_basis| {
+                generator
+                    .extract()
+                    .map(|ast_generator| ast::qpu::Basis::ApplyBasisGenerator {
+                        basis: Box::new(ast_basis),
+                        generator: ast_generator,
+                        dbg: dbg.clone(),
+                    })
+            }),
 
             MetaBasis::BasisAlias { dbg, .. } | MetaBasis::BasisBroadcastTensor { dbg, .. } => {
                 Err(ExtractError {
@@ -462,8 +465,10 @@ impl fmt::Display for MetaBasis {
             MetaBasis::BasisBiTensor { left, right, .. } => {
                 write!(f, "({})*({})", *left, *right)
             }
-            MetaBasis::ApplyBasisGenerator { basis, gen, .. } => {
-                write!(f, "({}) // ({})", *basis, gen)
+            MetaBasis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => {
+                write!(f, "({}) // ({})", *basis, generator)
             }
         }
     }

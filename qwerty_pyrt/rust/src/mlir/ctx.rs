@@ -1,8 +1,8 @@
 use melior::{
-    dialect::{qwerty, DialectHandle, DialectRegistry},
+    Context,
+    dialect::{DialectHandle, DialectRegistry, qwerty},
     ir::{Block, Value},
     utility::register_inliner_extensions,
-    Context,
 };
 use qwerty_ast::typecheck::TypeEnv;
 use std::{collections::HashMap, sync::LazyLock};

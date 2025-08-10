@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::ast::{
-    qpu::Expr, Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Stmt, Type, UnpackAssign,
-    Variable,
+    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Stmt, Type, UnpackAssign, Variable,
+    qpu::Expr,
 };
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::integer::UBig;

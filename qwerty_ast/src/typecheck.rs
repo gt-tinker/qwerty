@@ -7,7 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 use crate::ast::{
-    angles_are_approx_equal, anti_phase,
+    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
+    UnpackAssign, Variable, angles_are_approx_equal, anti_phase,
     classical::{self, BinaryOp, ReduceOp, UnaryOp},
     in_phase, qpu,
     qpu::{
@@ -15,8 +16,6 @@ use crate::ast::{
         Expr, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor, UnitLiteral,
         Vector, VectorAtomKind,
     },
-    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
-    UnpackAssign, Variable,
 };
 
 /// Supplements the type judgment with an additional bit of information:
@@ -643,7 +642,7 @@ impl Adjoint {
         // Must be a reversible function on qubit registers only
         match func_ty {
             Type::RevFuncType { in_out_ty } => match &**in_out_ty {
-                Type::RegType { ref elem_ty, dim } if *elem_ty == RegKind::Qubit && *dim > 0 => {
+                Type::RegType { elem_ty, dim } if *elem_ty == RegKind::Qubit && *dim > 0 => {
                     Ok((func_ty.clone(), *compute_kind))
                 }
                 _ => Err(TypeError {
@@ -1000,7 +999,14 @@ impl Predicated {
 
         // Ensure both operands are reversible functions (Same signature required)
         match (t_ty, e_ty) {
-            (Type::RevFuncType { in_out_ty: t_in_out }, Type::RevFuncType { in_out_ty: e_in_out }) => {
+            (
+                Type::RevFuncType {
+                    in_out_ty: t_in_out,
+                },
+                Type::RevFuncType {
+                    in_out_ty: e_in_out,
+                },
+            ) => {
                 if t_in_out != e_in_out {
                     return Err(TypeError {
                         kind: TypeErrorKind::MismatchedTypes {
@@ -1010,55 +1016,60 @@ impl Predicated {
                         dbg: dbg.clone(),
                     });
                 }
-                if let Type::RegType { elem_ty: RegKind::Qubit, dim: reg_dim } = &**t_in_out {
+                if let Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: reg_dim,
+                } = &**t_in_out
+                {
                     if *reg_dim == 0 {
                         Err(TypeError {
-                            kind: TypeErrorKind::InvalidType("Cannot predicate function that takes no qubits".to_string()),
+                            kind: TypeErrorKind::InvalidType(
+                                "Cannot predicate function that takes no qubits".to_string(),
+                            ),
                             dbg: dbg.clone(),
                         })
                     } else {
                         let ty = Type::RevFuncType {
-                            in_out_ty: Box::new(Type::RegType { elem_ty: RegKind::Qubit, dim: *pred_dim }),
+                            in_out_ty: Box::new(Type::RegType {
+                                elem_ty: RegKind::Qubit,
+                                dim: *pred_dim,
+                            }),
                         };
                         Ok((ty, compute_kind))
                     }
                 } else {
                     Err(TypeError {
-                        kind: TypeErrorKind::InvalidType("Can only predicate functions that take qubits".to_string()),
+                        kind: TypeErrorKind::InvalidType(
+                            "Can only predicate functions that take qubits".to_string(),
+                        ),
                         dbg: dbg.clone(),
                     })
                 }
             }
 
-            (Type::RevFuncType { .. }, _) => {
-                Err(TypeError {
-                    kind: TypeErrorKind::InvalidType(format!(
-                        "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {}",
-                        e_ty
-                    )),
-                    dbg: dbg.clone(),
-                })
-            }
+            (Type::RevFuncType { .. }, _) => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "Predicated expression requires both operands to be reversible functions, but 'else' branch has type: {}",
+                    e_ty
+                )),
+                dbg: dbg.clone(),
+            }),
 
-            (_, Type::RevFuncType { .. }) => {
-                Err(TypeError {
-                    kind: TypeErrorKind::InvalidType(format!(
-                        "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {}",
-                        t_ty
-                    )),
-                    dbg: dbg.clone(),
-                })
-            }
+            (_, Type::RevFuncType { .. }) => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "Predicated expression requires both operands to be reversible functions, but 'then' branch has type: {}",
+                    t_ty
+                )),
+                dbg: dbg.clone(),
+            }),
 
-            (_, _) => {
-                Err(TypeError {
-                    kind: TypeErrorKind::InvalidType(format!(
-                        "Predicated expression requires both operands to be reversible functions, found: then={}, else={}",
-                        t_ty, e_ty
-                    )),
-                    dbg: dbg.clone(),
-                })
-            }
+            (_, _) => Err(TypeError {
+                kind: TypeErrorKind::InvalidType(format!(
+                    "Predicated expression requires both operands to be reversible functions, found: then={}, else={}",
+                    t_ty, e_ty
+                )),
+                dbg: dbg.clone(),
+            }),
         }
     }
 
@@ -1938,7 +1949,7 @@ impl Basis {
 
             Basis::ApplyBasisGenerator {
                 basis,
-                gen: gen @ BasisGenerator::Revolve { v1, v2, dbg },
+                generator: generator @ BasisGenerator::Revolve { v1, v2, dbg },
                 ..
             } => {
                 let basis_ty = basis.typecheck()?;
@@ -2018,7 +2029,7 @@ impl Basis {
 
                 Ok(Type::RegType {
                     elem_ty: RegKind::Basis,
-                    dim: basis_dim + gen.get_dim(),
+                    dim: basis_dim + generator.get_dim(),
                 })
             }
         }

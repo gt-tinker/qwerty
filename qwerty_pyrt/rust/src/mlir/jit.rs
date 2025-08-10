@@ -1,11 +1,11 @@
 use crate::mlir::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
 use dashu::integer::UBig;
 use melior::{
+    Error, ExecutionEngine,
     dialect::{qcirc, qwerty},
     execution_engine::SymbolFlags,
-    ir::{operation::OperationPrintingFlags, Module},
-    pass::{transform, PassIrPrintingOptions, PassManager},
-    Error, ExecutionEngine,
+    ir::{Module, operation::OperationPrintingFlags},
+    pass::{PassIrPrintingOptions, PassManager, transform},
 };
 use qwerty_ast::ast::Program;
 use std::{collections::HashMap, env};

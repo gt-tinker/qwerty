@@ -3,10 +3,10 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
+    BitLiteral, Stmt,
     qpu::{
         Adjoint, Conditional, EmbedClassical, Expr, Predicated, QLit, QubitRef, Tensor, UnitLiteral,
     },
-    BitLiteral, Stmt,
 };
 use quantum_sparse_sim::QuantumSim;
 use std::collections::HashMap;

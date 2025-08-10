@@ -1,5 +1,5 @@
 use crate::wrap_ast::{
-    py_glue::{get_err, ProgErrKind, UBigWrap},
+    py_glue::{ProgErrKind, UBigWrap, get_err},
     wrap_type::{DebugLoc, Type, TypeEnv},
 };
 use pyo3::{prelude::*, types::PyType};
@@ -167,7 +167,7 @@ impl Vector {
 #[pyclass]
 #[derive(Clone)]
 pub struct BasisGenerator {
-    gen: meta::qpu::MetaBasisGenerator,
+    generator: meta::qpu::MetaBasisGenerator,
 }
 
 #[pymethods]
@@ -180,7 +180,7 @@ impl BasisGenerator {
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
-            gen: meta::qpu::MetaBasisGenerator::Revolve {
+            generator: meta::qpu::MetaBasisGenerator::Revolve {
                 v1: v1.vec,
                 v2: v2.vec,
                 dbg: dbg.map(|dbg| dbg.dbg),
@@ -240,13 +240,13 @@ impl Basis {
     fn new_apply_basis_generator(
         _cls: &Bound<'_, PyType>,
         basis: Basis,
-        gen: BasisGenerator,
+        generator: BasisGenerator,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
             basis: meta::qpu::MetaBasis::ApplyBasisGenerator {
                 basis: Box::new(basis.basis),
-                gen: gen.gen,
+                generator: generator.generator,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
