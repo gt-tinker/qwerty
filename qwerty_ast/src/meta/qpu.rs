@@ -476,15 +476,21 @@ impl fmt::Display for MetaBasis {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetaExpr {
-    /// Invokes a macro. Example syntax:
-    /// ```text
-    /// {'0','1'}.measure
-    /// ```
     /// Another example:
     /// ```text
     /// my_classical_func.inplace
     /// ```
-    Macro {
+    ExprMacro {
+        name: String,
+        arg: Box<MetaExpr>,
+        dbg: Option<DebugLoc>,
+    },
+
+    /// Invokes a macro with a basis argument. Example syntax:
+    /// ```text
+    /// {'0','1'}.measure
+    /// ```
+    BasisMacro {
         name: String,
         arg: Box<MetaBasis>,
         dbg: Option<DebugLoc>,
@@ -654,7 +660,8 @@ impl MetaExpr {
     /// Returns the debug location for this expression.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
-            MetaExpr::Macro { dbg, .. }
+            MetaExpr::ExprMacro { dbg, .. }
+            | MetaExpr::BasisMacro { dbg, .. }
             | MetaExpr::BroadcastTensor { dbg, .. }
             | MetaExpr::Instantiate { dbg, .. }
             | MetaExpr::Repeat { dbg, .. }
@@ -819,7 +826,8 @@ impl MetaExpr {
                 })
             }),
 
-            MetaExpr::Macro { dbg, .. }
+            MetaExpr::ExprMacro { dbg, .. }
+            | MetaExpr::BasisMacro { dbg, .. }
             | MetaExpr::BroadcastTensor { dbg, .. }
             | MetaExpr::Instantiate { dbg, .. }
             | MetaExpr::Repeat { dbg, .. } => Err(ExtractError {
@@ -834,7 +842,8 @@ impl MetaExpr {
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetaExpr::Macro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
+            MetaExpr::ExprMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
+            MetaExpr::BasisMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
             MetaExpr::BroadcastTensor { val, factor, .. } => {
                 write!(f, "({})**({})", *val, factor)
             }

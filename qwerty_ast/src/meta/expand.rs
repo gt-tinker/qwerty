@@ -82,28 +82,189 @@ impl MacroEnv {
     }
 }
 
+impl qpu::MetaBasis {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasis, ExpansionProgress), ExtractError> {
+        todo!("MetaBasis::expand()")
+    }
+
+    fn substitute_basis_alias(
+        &self,
+        basis_alias: String,
+        new_basis: qpu::MetaBasis,
+    ) -> qpu::MetaBasis {
+        todo!("MetaBasis::substitute_basis_alias()")
+    }
+
+    fn substitute_vector_alias(
+        &self,
+        vector_alias: String,
+        new_vector: qpu::MetaVector,
+    ) -> qpu::MetaBasis {
+        todo!("MetaBasis::substitute_vector_alias()")
+    }
+}
+
 impl qpu::MetaExpr {
+    fn substitute_variable(&self, var_name: String, new_expr: qpu::MetaExpr) -> qpu::MetaExpr {
+        todo!("MetaExpr::substitute_variable()")
+    }
+
+    fn substitute_basis_alias(
+        &self,
+        basis_alias: String,
+        new_basis: qpu::MetaBasis,
+    ) -> qpu::MetaExpr {
+        todo!("MetaExpr::substitute_basis_alias()")
+    }
+
+    fn substitute_vector_alias(
+        &self,
+        vector_alias: String,
+        new_vector: qpu::MetaVector,
+    ) -> qpu::MetaExpr {
+        todo!("MetaExpr::substitute_vector_alias()")
+    }
+
     fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaExpr, ExpansionProgress), ExtractError> {
         match self {
-            MetaExpr::Macro { name, arg, dbg } => {
+            MetaExpr::ExprMacro { name, arg, dbg } => {
                 match env.macros.get(name) {
-                    Some(MacroBinding::ExprMacro { lhs_pat, rhs }) => {
-                        todo!()
-                    }
-
-                    Some(MacroBinding::BasisMacro { lhs_pat, rhs }) => {
-                        todo!()
+                    Some(MacroBinding::ExprMacro {
+                        lhs_pat:
+                            ExprMacroPattern::AnyExpr {
+                                name: pat_name,
+                                dbg: pat_dbg,
+                            },
+                        rhs,
+                    }) =>
+                    // The progress of expanding the arg doesn't even
+                    // matter since the result of rhs.substitute_variable(...)
+                    // .expand() will incorporate that progress.
+                    {
+                        arg.expand(env).and_then(|(expanded_arg, _arg_progress)| {
+                            rhs.substitute_variable(pat_name.to_string(), expanded_arg.clone())
+                                .expand(env)
+                        })
                     }
 
                     // Not defined or param doesn't match
-                    None | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(ExtractError {
+                    None
+                    | Some(MacroBinding::BasisMacro { .. })
+                    | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(ExtractError {
                         kind: ExtractErrorKind::Malformed,
                         dbg: dbg.clone(),
                     }),
                 }
             }
 
-            _ => todo!(),
+            MetaExpr::BasisMacro { name, arg, dbg } => {
+                if let MetaBasis::BasisAlias {
+                    name: arg_alias_name,
+                    dbg: arg_dbg,
+                } = &**arg
+                    && !env.aliases.contains_key(arg_alias_name)
+                {
+                    MetaExpr::ExprMacro {
+                        name: name.to_string(),
+                        arg: Box::new(MetaExpr::Variable {
+                            name: arg_alias_name.to_string(),
+                            dbg: arg_dbg.clone(),
+                        }),
+                        dbg: dbg.clone(),
+                    }
+                    .expand(env)
+                } else {
+                    match env.macros.get(name) {
+                        Some(MacroBinding::BasisMacro {
+                            lhs_pat:
+                                BasisMacroPattern::AnyBasis {
+                                    name: pat_name,
+                                    dbg: pat_dbg,
+                                },
+                            rhs,
+                        }) =>
+                        // As mentioned above, we can ignore arg_progress
+                        {
+                            arg.expand(env).and_then(|(expanded_arg, _arg_progress)| {
+                                rhs.substitute_basis_alias(
+                                    pat_name.to_string(),
+                                    expanded_arg.clone(),
+                                )
+                                .expand(env)
+                            })
+                        }
+
+                        Some(MacroBinding::BasisMacro {
+                            lhs_pat:
+                                BasisMacroPattern::BasisLiteral {
+                                    vec_names: pat_vec_names,
+                                    dbg: pat_dbg,
+                                },
+                            rhs,
+                        }) => arg.expand(env).and_then(|(expanded_arg, arg_progress)| {
+                            match arg_progress {
+                                // This is unfortunate, but we cannot actually
+                                // match yet. Consider fourier[N] where N=1, for
+                                // example.
+                                ExpansionProgress::Partial => Ok((
+                                    MetaExpr::BasisMacro {
+                                        name: name.to_string(),
+                                        arg: Box::new(expanded_arg),
+                                        dbg: dbg.clone(),
+                                    },
+                                    ExpansionProgress::Partial,
+                                )),
+
+                                ExpansionProgress::Full => match expanded_arg {
+                                    MetaBasis::EmptyBasisLiteral { .. }
+                                        if pat_vec_names.is_empty() =>
+                                    {
+                                        rhs.expand(env)
+                                    }
+
+                                    MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
+                                        if arg_vecs.len() == pat_vec_names.len() =>
+                                    {
+                                        let mut subst_rhs = rhs.clone();
+                                        for (pat_vec_name, arg_vec) in
+                                            pat_vec_names.into_iter().zip(arg_vecs.into_iter())
+                                        {
+                                            subst_rhs = subst_rhs.substitute_vector_alias(
+                                                pat_vec_name.to_string(),
+                                                arg_vec,
+                                            );
+                                        }
+                                        subst_rhs.expand(env)
+                                    }
+
+                                    // Operand doesn't match or wasn't actually fully expanded
+                                    MetaBasis::EmptyBasisLiteral { dbg, .. }
+                                    | MetaBasis::BasisLiteral { dbg, .. }
+                                    | MetaBasis::BasisAlias { dbg, .. }
+                                    | MetaBasis::BasisBroadcastTensor { dbg, .. }
+                                    | MetaBasis::BasisBiTensor { dbg, .. }
+                                    | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
+                                        Err(ExtractError {
+                                            kind: ExtractErrorKind::Malformed,
+                                            dbg: dbg.clone(),
+                                        })
+                                    }
+                                },
+                            }
+                        }),
+
+                        // Not defined or param doesn't match
+                        None
+                        | Some(MacroBinding::ExprMacro { .. })
+                        | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(ExtractError {
+                            kind: ExtractErrorKind::Malformed,
+                            dbg: dbg.clone(),
+                        }),
+                    }
+                }
+            }
+
+            _ => todo!("MetaExpr::expand()"),
         }
     }
 }
@@ -137,7 +298,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
@@ -164,7 +325,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
@@ -191,7 +352,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
@@ -203,7 +364,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
@@ -219,7 +380,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
@@ -260,7 +421,7 @@ impl qpu::MetaStmt {
                         .insert(lhs.to_string(), AliasBinding::BasisAliasRec(defs))
                         .is_some();
                     assert!(!existed, "alias didn't exist but now it does!");
-                    Ok((qpu::MetaStmt::trivial(dbg.clone()), ExpansionProgress::Full))
+                    Ok((self.clone(), ExpansionProgress::Full))
                 }
             }
 
