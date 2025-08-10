@@ -411,6 +411,15 @@ pub fn equals_2_to_the_n(num: usize, n: u32) -> bool {
     num.count_ones() == 1 && num.trailing_zeros() == n
 }
 
+/// Try to convert a `usize` into an `f64`. Returns `None` if precision was
+/// lost in the conversion. In the future, if we need more of these kinds of
+/// conversions, we can use the `conv2` crate. But for now, we use this simple
+/// code from [a reddit post](https://www.reddit.com/r/learnrust/comments/df65g9/comment/f31d3ho/).
+pub fn usize_try_into_angle(num: usize) -> Option<f64> {
+    let ret = num as f64;
+    if ret as usize == num { Some(ret) } else { None }
+}
+
 //
 // ─── UNIT TESTS ─────────────────────────────────────────────────────────────────
 //

@@ -152,6 +152,7 @@ pub enum ExtractErrorKind {
     Malformed,
     IntegerTooBig { offender: IBig },
     NegativeInteger { offender: IBig },
+    DivisionByZero,
 }
 
 impl fmt::Display for ExtractErrorKind {
@@ -185,6 +186,7 @@ impl fmt::Display for ExtractErrorKind {
                     offender
                 )
             }
+            ExtractErrorKind::DivisionByZero => write!(f, "Division by zero"),
         }
     }
 }
