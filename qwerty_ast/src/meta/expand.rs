@@ -1,7 +1,7 @@
 use crate::{
     error::{ExtractError, ExtractErrorKind},
     meta::{
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType,
+        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram,
         qpu::{
             self, BasisMacroPattern, ExprMacroPattern, MetaBasis, MetaBasisGenerator, MetaExpr,
             MetaVector,
@@ -82,6 +82,107 @@ impl MacroEnv {
     }
 }
 
+impl qpu::MetaVector {
+    fn substitute_vector_alias(
+        &self,
+        vector_alias: String,
+        new_vector: qpu::MetaVector,
+    ) -> qpu::MetaVector {
+        match self {
+            qpu::MetaVector::VectorAlias { name, dbg } => {
+                if *name == vector_alias {
+                    new_vector
+                } else {
+                    self.clone()
+                }
+            }
+
+            qpu::MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
+                qpu::MetaVector::VectorBroadcastTensor {
+                    val: Box::new(val.substitute_vector_alias(vector_alias, new_vector)),
+                    factor: factor.clone(),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaVector::VectorTilt { q, angle_deg, dbg } => qpu::MetaVector::VectorTilt {
+                q: Box::new(q.substitute_vector_alias(vector_alias, new_vector)),
+                angle_deg: angle_deg.clone(),
+                dbg: dbg.clone(),
+            },
+
+            qpu::MetaVector::UniformVectorSuperpos { q1, q2, dbg } => {
+                qpu::MetaVector::UniformVectorSuperpos {
+                    q1: Box::new(
+                        q1.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
+                    ),
+                    q2: Box::new(q1.substitute_vector_alias(vector_alias, new_vector)),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaVector::VectorBiTensor { left, right, dbg } => {
+                qpu::MetaVector::VectorBiTensor {
+                    left: Box::new(
+                        left.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
+                    ),
+                    right: Box::new(left.substitute_vector_alias(vector_alias, new_vector)),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaVector::VectorSymbol { .. }
+            | qpu::MetaVector::ZeroVector { .. }
+            | qpu::MetaVector::OneVector { .. }
+            | qpu::MetaVector::PadVector { .. }
+            | qpu::MetaVector::TargetVector { .. }
+            | qpu::MetaVector::VectorUnit { .. } => self.clone(),
+        }
+    }
+}
+
+impl qpu::MetaBasisGenerator {
+    fn substitute_basis_alias(
+        &self,
+        basis_alias: String,
+        new_basis: qpu::MetaBasis,
+    ) -> qpu::MetaBasisGenerator {
+        match self {
+            qpu::MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
+                qpu::MetaBasisGenerator::BasisGeneratorMacro {
+                    name: name.to_string(),
+                    arg: Box::new(arg.substitute_basis_alias(basis_alias, new_basis)),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaBasisGenerator::Revolve { .. } => self.clone(),
+        }
+    }
+
+    fn substitute_vector_alias(
+        &self,
+        vector_alias: String,
+        new_vector: qpu::MetaVector,
+    ) -> qpu::MetaBasisGenerator {
+        match self {
+            qpu::MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
+                qpu::MetaBasisGenerator::BasisGeneratorMacro {
+                    name: name.to_string(),
+                    arg: Box::new(arg.substitute_vector_alias(vector_alias, new_vector)),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            qpu::MetaBasisGenerator::Revolve { v1, v2, dbg } => qpu::MetaBasisGenerator::Revolve {
+                v1: v1.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
+                v2: v2.substitute_vector_alias(vector_alias, new_vector),
+                dbg: dbg.clone(),
+            },
+        }
+    }
+}
+
 impl qpu::MetaBasis {
     fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasis, ExpansionProgress), ExtractError> {
         todo!("MetaBasis::expand()")
@@ -92,7 +193,45 @@ impl qpu::MetaBasis {
         basis_alias: String,
         new_basis: qpu::MetaBasis,
     ) -> qpu::MetaBasis {
-        todo!("MetaBasis::substitute_basis_alias()")
+        match self {
+            MetaBasis::BasisAlias { name, dbg } => {
+                if *name == basis_alias {
+                    new_basis
+                } else {
+                    self.clone()
+                }
+            }
+
+            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                MetaBasis::BasisBroadcastTensor {
+                    val: Box::new(val.substitute_basis_alias(basis_alias, new_basis)),
+                    factor: factor.clone(),
+                    dbg: dbg.clone(),
+                }
+            }
+
+            MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
+                left: Box::new(
+                    left.substitute_basis_alias(basis_alias.to_string(), new_basis.clone()),
+                ),
+                right: Box::new(right.substitute_basis_alias(basis_alias, new_basis)),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => MetaBasis::ApplyBasisGenerator {
+                basis: Box::new(
+                    basis.substitute_basis_alias(basis_alias.to_string(), new_basis.clone()),
+                ),
+                generator: generator.substitute_basis_alias(basis_alias, new_basis),
+                dbg: dbg.clone(),
+            },
+
+            MetaBasis::BasisLiteral { .. } | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+        }
     }
 
     fn substitute_vector_alias(
