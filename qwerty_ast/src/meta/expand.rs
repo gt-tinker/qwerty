@@ -385,6 +385,12 @@ impl qpu::MetaVector {
             | MetaVector::VectorUnit { .. } => self.clone(),
         }
     }
+
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaVector, ExpansionProgress), ExtractError> {
+        match self {
+            _ => todo!("MetaVector::expand()"),
+        }
+    }
 }
 
 impl qpu::MetaBasisGenerator {
@@ -448,6 +454,13 @@ impl qpu::MetaBasisGenerator {
                 dbg: dbg.clone(),
             },
         }
+    }
+
+    fn expand(
+        &self,
+        env: &MacroEnv,
+    ) -> Result<(qpu::MetaBasisGenerator, ExpansionProgress), ExtractError> {
+        todo!("MetaBasisGenerator::expand()")
     }
 }
 
@@ -519,7 +532,81 @@ impl qpu::MetaBasis {
                 }
             }
 
-            _ => todo!("qpu::MetaBasis::expand()"),
+            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                val.expand(env).and_then(|(expanded_val, val_prog)| {
+                    factor.expand(env).and_then(|(expanded_factor, factor_prog)| {
+                        match (&expanded_factor, factor_prog) {
+                            (DimExpr::DimConst { .. }, ExpansionProgress::Full) => expanded_factor
+                                .extract()
+                                .map(|factor_int| {
+                                    if factor_int == 0 {
+                                        (MetaBasis::EmptyBasisLiteral { dbg: dbg.clone() },
+                                         ExpansionProgress::Full)
+                                    } else {
+                                        let n_fold_tensor_product = std::iter::repeat(expanded_val)
+                                            .take(factor_int)
+                                            .reduce(|acc, cloned_val| MetaBasis::BasisBiTensor {
+                                                left: Box::new(acc),
+                                                right: Box::new(cloned_val),
+                                                dbg: dbg.clone()
+                                            })
+                                            .expect("factor_int > 0, so tensor product should not be empty");
+                                        (n_fold_tensor_product, val_prog.join(factor_prog))
+                                    }
+                                }),
+
+                            _ => Ok((
+                                MetaBasis::BasisBroadcastTensor {
+                                    val: Box::new(expanded_val),
+                                    factor: expanded_factor,
+                                    dbg: dbg.clone()
+                                },
+                                val_prog.join(factor_prog)
+                            )),
+                        }
+                    })
+                })
+            }
+
+            MetaBasis::BasisLiteral { vecs, dbg } => {
+                vecs.iter()
+                    .map(|vec| vec.expand(env))
+                    .collect::<Result<Vec<_>, _>>().map(|expanded_pairs| {
+                        let (expanded_vecs, vec_progs) : (Vec<_>, Vec<_>) = expanded_pairs
+                            .into_iter()
+                            .unzip();
+                        let prog = vec_progs
+                            .iter()
+                            .fold(ExpansionProgress::identity(),
+                                  |acc, vec_prog| acc.join(*vec_prog));
+                        (MetaBasis::BasisLiteral { vecs: expanded_vecs, dbg: dbg.clone() }, prog)
+                    })
+            }
+
+            MetaBasis::BasisBiTensor { left, right, dbg } => left
+                .expand(env)
+                .and_then(|(expanded_left, left_prog)|
+                    right.expand(env).map(|(expanded_right, right_prog)|
+                        (MetaBasis::BasisBiTensor {
+                            left: Box::new(expanded_left),
+                            right: Box::new(expanded_right),
+                            dbg: dbg.clone()
+                        },
+                        left_prog.join(right_prog))
+            )),
+
+            MetaBasis::ApplyBasisGenerator { basis, generator, dbg } => basis
+                .expand(env)
+                .and_then(|(expanded_basis, basis_prog)|
+                    generator.expand(env).map(|(expanded_generator, generator_prog)|
+                        (MetaBasis::ApplyBasisGenerator {
+                            basis: Box::new(expanded_basis),
+                            generator: expanded_generator,
+                            dbg: dbg.clone()
+                        },
+                        basis_prog.join(generator_prog)))),
+
+            MetaBasis::EmptyBasisLiteral { .. } => Ok((self.clone(), ExpansionProgress::Full)),
         }
     }
 
