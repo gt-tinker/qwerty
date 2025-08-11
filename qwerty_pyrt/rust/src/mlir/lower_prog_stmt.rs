@@ -134,7 +134,7 @@ where
 }
 
 /// Converts a Qwerty AST into an mlir::ModuleOp.
-pub fn ast_program_to_mlir(prog: &Program) -> Module {
+pub fn ast_program_to_mlir(prog: &Program) -> Module<'static> {
     let loc = dbg_to_loc(prog.dbg.clone());
     let module = Module::new(loc);
     let module_block = module.body();

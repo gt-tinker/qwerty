@@ -1,38 +1,10 @@
 use crate::{
     ast::{angle_is_approx_zero, usize_try_into_angle},
     error::{ExtractError, ExtractErrorKind},
-    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, qpu},
+    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, Progress, qpu},
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
-
-/// Allows expansion to report on whether it is completed yet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExpansionProgress {
-    /// More rounds of expansion are needed.
-    Partial,
-
-    /// Expansion is finished. Extraction will work successfully.
-    Full,
-}
-
-impl ExpansionProgress {
-    /// Returns the expansion progress `P` such that `P.join(P') == P'` for any `P'`.
-    fn identity() -> Self {
-        ExpansionProgress::Full
-    }
-
-    /// If a parent node contains two sub-nodes who reported expansion progress
-    /// `self` and `other`, then returns the expansion progress of the parent node.
-    fn join(self, other: ExpansionProgress) -> ExpansionProgress {
-        match (self, other) {
-            (ExpansionProgress::Full, ExpansionProgress::Full) => ExpansionProgress::Full,
-            (ExpansionProgress::Partial, _) | (_, ExpansionProgress::Partial) => {
-                ExpansionProgress::Partial
-            }
-        }
-    }
-}
 
 enum AliasBinding {
     BasisAlias {
@@ -124,7 +96,7 @@ impl DimExpr {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), ExtractError> {
         match self {
             DimExpr::DimVar { name, dbg } => {
                 if let Some(DimVarValue::Known(val)) = env.dim_vars.get(name) {
@@ -133,10 +105,10 @@ impl DimExpr {
                             val: val.clone(),
                             dbg: dbg.clone(),
                         },
-                        ExpansionProgress::Full,
+                        Progress::Full,
                     ))
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Partial))
+                    Ok((self.clone(), Progress::Partial))
                 }
             }
 
@@ -147,7 +119,7 @@ impl DimExpr {
                             (
                                 DimExpr::DimConst { val: left_val, .. },
                                 DimExpr::DimConst { val: right_val, .. },
-                                prog @ ExpansionProgress::Full,
+                                prog @ Progress::Full,
                             ) => (
                                 DimExpr::DimConst {
                                     val: left_val + right_val,
@@ -175,7 +147,7 @@ impl DimExpr {
                             (
                                 DimExpr::DimConst { val: left_val, .. },
                                 DimExpr::DimConst { val: right_val, .. },
-                                prog @ ExpansionProgress::Full,
+                                prog @ Progress::Full,
                             ) => (
                                 DimExpr::DimConst {
                                     val: left_val * right_val,
@@ -199,7 +171,7 @@ impl DimExpr {
             DimExpr::DimNeg { val, dbg } => {
                 val.expand(env)
                     .map(|(expanded_val, val_prog)| match (&expanded_val, val_prog) {
-                        (DimExpr::DimConst { val: val_val, .. }, ExpansionProgress::Full) => (
+                        (DimExpr::DimConst { val: val_val, .. }, Progress::Full) => (
                             DimExpr::DimConst {
                                 val: -val_val,
                                 dbg: dbg.clone(),
@@ -216,7 +188,7 @@ impl DimExpr {
                     })
             }
 
-            DimExpr::DimConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            DimExpr::DimConst { .. } => Ok((self.clone(), Progress::Full)),
         }
     }
 }
@@ -270,7 +242,7 @@ impl qpu::FloatExpr {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(qpu::FloatExpr, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::FloatExpr, Progress), ExtractError> {
         match self {
             qpu::FloatExpr::FloatDimExpr { expr, dbg } => {
                 expr.expand(env).and_then(|(expanded_expr, expr_prog)| {
@@ -280,7 +252,7 @@ impl qpu::FloatExpr {
                                 val: expr_val,
                                 dbg: expr_dbg,
                             },
-                            ExpansionProgress::Full,
+                            Progress::Full,
                         ) => expanded_expr.extract().and_then(|expr_int| {
                             usize_try_into_angle(expr_int)
                                 .ok_or_else(|| ExtractError {
@@ -295,7 +267,7 @@ impl qpu::FloatExpr {
                                             val: expr_float,
                                             dbg: dbg.clone(),
                                         },
-                                        ExpansionProgress::Full,
+                                        Progress::Full,
                                     )
                                 })
                         }),
@@ -318,7 +290,7 @@ impl qpu::FloatExpr {
                             (
                                 qpu::FloatExpr::FloatConst { val: left_val, .. },
                                 qpu::FloatExpr::FloatConst { val: right_val, .. },
-                                prog @ ExpansionProgress::Full,
+                                prog @ Progress::Full,
                             ) => (
                                 qpu::FloatExpr::FloatConst {
                                     val: left_val + right_val,
@@ -346,7 +318,7 @@ impl qpu::FloatExpr {
                             (
                                 qpu::FloatExpr::FloatConst { val: left_val, .. },
                                 qpu::FloatExpr::FloatConst { val: right_val, .. },
-                                prog @ ExpansionProgress::Full,
+                                prog @ Progress::Full,
                             ) => (
                                 qpu::FloatExpr::FloatConst {
                                     val: left_val * right_val,
@@ -374,7 +346,7 @@ impl qpu::FloatExpr {
                             (
                                 qpu::FloatExpr::FloatConst { val: left_val, .. },
                                 qpu::FloatExpr::FloatConst { val: right_val, .. },
-                                prog @ ExpansionProgress::Full,
+                                prog @ Progress::Full,
                             ) => {
                                 if angle_is_approx_zero(*right_val) {
                                     Err(ExtractError {
@@ -407,10 +379,7 @@ impl qpu::FloatExpr {
             qpu::FloatExpr::FloatNeg { val, dbg } => {
                 val.expand(env)
                     .map(|(expanded_val, val_prog)| match (&expanded_val, val_prog) {
-                        (
-                            qpu::FloatExpr::FloatConst { val: val_val, .. },
-                            ExpansionProgress::Full,
-                        ) => (
+                        (qpu::FloatExpr::FloatConst { val: val_val, .. }, Progress::Full) => (
                             qpu::FloatExpr::FloatConst {
                                 val: -val_val,
                                 dbg: dbg.clone(),
@@ -427,7 +396,7 @@ impl qpu::FloatExpr {
                     })
             }
 
-            qpu::FloatExpr::FloatConst { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            qpu::FloatExpr::FloatConst { .. } => Ok((self.clone(), Progress::Full)),
         }
     }
 }
@@ -544,10 +513,10 @@ impl qpu::MetaVector {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaVector, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaVector, Progress), ExtractError> {
         match self {
             // Only substitution can remove this
-            qpu::MetaVector::VectorAlias { .. } => Ok((self.clone(), ExpansionProgress::Partial)),
+            qpu::MetaVector::VectorAlias { .. } => Ok((self.clone(), Progress::Partial)),
 
             qpu::MetaVector::VectorSymbol { sym, dbg } => if let Some(vec) = env.vec_symbols.get(sym) {
                 vec.expand(env)
@@ -563,10 +532,10 @@ impl qpu::MetaVector {
                 .and_then(|(expanded_val, val_prog)|
                     factor.expand(env).and_then(|(expanded_factor, factor_prog)|
                         match (&expanded_factor, factor_prog) {
-                            (DimExpr::DimConst { .. }, ExpansionProgress::Full) =>
+                            (DimExpr::DimConst { .. }, Progress::Full) =>
                                 expanded_factor.extract().map(|factor_int|
                                     if factor_int == 0 {
-                                        (qpu::MetaVector::VectorUnit { dbg: dbg.clone() }, ExpansionProgress::Full)
+                                        (qpu::MetaVector::VectorUnit { dbg: dbg.clone() }, Progress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
@@ -631,7 +600,7 @@ impl qpu::MetaVector {
             | qpu::MetaVector::OneVector { .. }
             | qpu::MetaVector::PadVector { .. }
             | qpu::MetaVector::TargetVector { .. }
-            | qpu::MetaVector::VectorUnit { .. } => Ok((self.clone(), ExpansionProgress::Full))
+            | qpu::MetaVector::VectorUnit { .. } => Ok((self.clone(), Progress::Full))
         }
     }
 }
@@ -699,10 +668,7 @@ impl qpu::MetaBasisGenerator {
         }
     }
 
-    fn expand(
-        &self,
-        env: &MacroEnv,
-    ) -> Result<(qpu::MetaBasisGenerator, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasisGenerator, Progress), ExtractError> {
         match self {
             qpu::MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
                 if let Some(MacroBinding::BasisGeneratorMacro { lhs_pat, rhs }) =
@@ -722,16 +688,16 @@ impl qpu::MetaBasisGenerator {
                                 dbg: _,
                             } => match arg_prog {
                                 // Unfortunately, we don't know if this matches yet.
-                                ExpansionProgress::Partial => Ok((
+                                Progress::Partial => Ok((
                                     qpu::MetaBasisGenerator::BasisGeneratorMacro {
                                         name: name.to_string(),
                                         arg: Box::new(expanded_arg),
                                         dbg: dbg.clone(),
                                     },
-                                    ExpansionProgress::Partial,
+                                    Progress::Partial,
                                 )),
 
-                                ExpansionProgress::Full => match expanded_arg {
+                                Progress::Full => match expanded_arg {
                                     qpu::MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
@@ -797,7 +763,7 @@ impl qpu::MetaBasisGenerator {
 }
 
 impl qpu::MetaBasis {
-    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasis, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaBasis, Progress), ExtractError> {
         match self {
             qpu::MetaBasis::BasisAlias { name, dbg } => {
                 match env.aliases.get(name) {
@@ -823,7 +789,7 @@ impl qpu::MetaBasis {
                                     val,
                                     dbg: dim_const_dbg,
                                 },
-                                ExpansionProgress::Full,
+                                Progress::Full,
                             ) => {
                                 if let Some(base_case_basis) = base_cases.get(&val) {
                                     base_case_basis.expand(env)
@@ -868,12 +834,12 @@ impl qpu::MetaBasis {
                 val.expand(env).and_then(|(expanded_val, val_prog)| {
                     factor.expand(env).and_then(|(expanded_factor, factor_prog)| {
                         match (&expanded_factor, factor_prog) {
-                            (DimExpr::DimConst { .. }, ExpansionProgress::Full) => expanded_factor
+                            (DimExpr::DimConst { .. }, Progress::Full) => expanded_factor
                                 .extract()
                                 .map(|factor_int| {
                                     if factor_int == 0 {
                                         (qpu::MetaBasis::EmptyBasisLiteral { dbg: dbg.clone() },
-                                         ExpansionProgress::Full)
+                                         Progress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
@@ -909,7 +875,7 @@ impl qpu::MetaBasis {
                             .unzip();
                         let prog = vec_progs
                             .iter()
-                            .fold(ExpansionProgress::identity(),
+                            .fold(Progress::identity(),
                                   |acc, vec_prog| acc.join(*vec_prog));
                         (qpu::MetaBasis::BasisLiteral { vecs: expanded_vecs, dbg: dbg.clone() }, prog)
                     })
@@ -938,7 +904,7 @@ impl qpu::MetaBasis {
                         },
                         basis_prog.join(generator_prog)))),
 
-            qpu::MetaBasis::EmptyBasisLiteral { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            qpu::MetaBasis::EmptyBasisLiteral { .. } => Ok((self.clone(), Progress::Full)),
         }
     }
 
@@ -1603,7 +1569,7 @@ impl qpu::MetaExpr {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaExpr, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaExpr, Progress), ExtractError> {
         match self {
             qpu::MetaExpr::ExprMacro { name, arg, dbg } => {
                 match env.macros.get(name) {
@@ -1682,16 +1648,16 @@ impl qpu::MetaExpr {
                                 // This is unfortunate, but we cannot actually
                                 // match yet. Consider fourier[N] where N=1, for
                                 // example.
-                                ExpansionProgress::Partial => Ok((
+                                Progress::Partial => Ok((
                                     qpu::MetaExpr::BasisMacro {
                                         name: name.to_string(),
                                         arg: Box::new(expanded_arg),
                                         dbg: dbg.clone(),
                                     },
-                                    ExpansionProgress::Partial,
+                                    Progress::Partial,
                                 )),
 
-                                ExpansionProgress::Full => match expanded_arg {
+                                Progress::Full => match expanded_arg {
                                     qpu::MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
@@ -1746,10 +1712,10 @@ impl qpu::MetaExpr {
                 .and_then(|(expanded_val, val_prog)|
                     factor.expand(env).and_then(|(expanded_factor, factor_prog)|
                         match (&expanded_factor, factor_prog) {
-                            (DimExpr::DimConst { .. }, ExpansionProgress::Full) =>
+                            (DimExpr::DimConst { .. }, Progress::Full) =>
                                 expanded_factor.extract().map(|factor_int|
                                     if factor_int == 0 {
-                                        (qpu::MetaExpr::UnitLiteral { dbg: dbg.clone() }, ExpansionProgress::Full)
+                                        (qpu::MetaExpr::UnitLiteral { dbg: dbg.clone() }, Progress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
@@ -1784,7 +1750,7 @@ impl qpu::MetaExpr {
 
             qpu::MetaExpr::Repeat { for_each, iter_var, upper_bound, dbg } => upper_bound
                 .expand(env).and_then(|(expanded_ub, ub_prog)|
-                    if let (DimExpr::DimConst { .. }, ExpansionProgress::Full) = (&expanded_ub, ub_prog) {
+                    if let (DimExpr::DimConst { .. }, Progress::Full) = (&expanded_ub, ub_prog) {
                         expanded_ub.extract().and_then(|ub_int|
                             if ub_int == 0 {
                                 // TODO: if we ever have an identity node,
@@ -1932,7 +1898,7 @@ impl qpu::MetaExpr {
                     let (expanded_pairs, progs): (Vec<_>, Vec<_>) = pair_pairs.into_iter().unzip();
                     let prog = progs
                         .into_iter()
-                        .fold(ExpansionProgress::identity(), |acc, prog| acc.join(prog));
+                        .fold(Progress::identity(), |acc, prog| acc.join(prog));
                     let expanded_superpos = qpu::MetaExpr::NonUniformSuperpos {
                         pairs: expanded_pairs,
                         dbg: dbg.clone(),
@@ -1985,16 +1951,13 @@ impl qpu::MetaExpr {
 
             qpu::MetaExpr::Variable { .. }
             | qpu::MetaExpr::UnitLiteral { .. }
-            | qpu::MetaExpr::Discard { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            | qpu::MetaExpr::Discard { .. } => Ok((self.clone(), Progress::Full)),
         }
     }
 }
 
 impl qpu::MetaStmt {
-    fn expand(
-        &self,
-        env: &mut MacroEnv,
-    ) -> Result<(qpu::MetaStmt, ExpansionProgress), ExtractError> {
+    fn expand(&self, env: &mut MacroEnv) -> Result<(qpu::MetaStmt, Progress), ExtractError> {
         match self {
             qpu::MetaStmt::ExprMacroDef {
                 lhs_pat,
@@ -2019,7 +1982,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2046,7 +2009,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2073,7 +2036,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2085,7 +2048,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2104,7 +2067,7 @@ impl qpu::MetaStmt {
                         dbg: dbg.clone(),
                     })
                 } else {
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2131,7 +2094,7 @@ impl qpu::MetaStmt {
                             match param {
                                 qpu::RecDefParam::Base(constant) => {
                                     if base_cases.insert(constant.clone(), rhs.clone()).is_none() {
-                                        Ok((self.clone(), ExpansionProgress::Full))
+                                        Ok((self.clone(), Progress::Full))
                                     } else {
                                         // Duplicate basis alias
                                         Err(ExtractError {
@@ -2144,7 +2107,7 @@ impl qpu::MetaStmt {
                                     if recursive_step.is_none() {
                                         *recursive_step =
                                             Some((dim_var_name.to_string(), rhs.clone()));
-                                        Ok((self.clone(), ExpansionProgress::Full))
+                                        Ok((self.clone(), Progress::Full))
                                     } else {
                                         // Only 1 recursive def is allowed
                                         Err(ExtractError {
@@ -2175,7 +2138,7 @@ impl qpu::MetaStmt {
                     };
                     let inserted = env.aliases.insert(lhs.to_string(), binding).is_none();
                     assert!(inserted, "alias didn't exist but now it does!");
-                    Ok((self.clone(), ExpansionProgress::Full))
+                    Ok((self.clone(), Progress::Full))
                 }
             }
 
@@ -2230,7 +2193,7 @@ impl qpu::MetaStmt {
 }
 
 impl MetaFunctionDef<qpu::MetaStmt> {
-    fn expand(&self) -> Result<(MetaFunctionDef<qpu::MetaStmt>, ExpansionProgress), ExtractError> {
+    fn expand(&self) -> Result<(MetaFunctionDef<qpu::MetaStmt>, Progress), ExtractError> {
         let MetaFunctionDef {
             name,
             args,
@@ -2259,11 +2222,11 @@ impl MetaFunctionDef<qpu::MetaStmt> {
         let expanded_pairs = body
             .iter()
             .map(|stmt| stmt.expand(&mut env))
-            .collect::<Result<Vec<(qpu::MetaStmt, ExpansionProgress)>, ExtractError>>()?;
+            .collect::<Result<Vec<(qpu::MetaStmt, Progress)>, ExtractError>>()?;
         let (expanded_stmts, progresses): (Vec<_>, Vec<_>) = expanded_pairs.into_iter().unzip();
         let progress = progresses
             .into_iter()
-            .fold(ExpansionProgress::identity(), |acc, stmt| acc.join(stmt));
+            .fold(Progress::identity(), |acc, stmt| acc.join(stmt));
 
         let expanded_func_def = MetaFunctionDef {
             name: name.to_string(),
@@ -2279,7 +2242,7 @@ impl MetaFunctionDef<qpu::MetaStmt> {
 }
 
 impl MetaFunc {
-    fn expand(&self) -> Result<(MetaFunc, ExpansionProgress), ExtractError> {
+    fn expand(&self) -> Result<(MetaFunc, Progress), ExtractError> {
         match self {
             MetaFunc::Qpu(qpu_func_def) => qpu_func_def
                 .expand()
@@ -2288,7 +2251,7 @@ impl MetaFunc {
             // TODO: actually expand classical functions instead of lying here
             MetaFunc::Classical(classical_func_def) => Ok((
                 MetaFunc::Classical(classical_func_def.clone()),
-                ExpansionProgress::Full,
+                Progress::Full,
             )),
         }
     }
@@ -2297,16 +2260,16 @@ impl MetaFunc {
 impl MetaProgram {
     /// Try to expand as many metaQwerty constructs in this program, returning
     /// a new one.
-    pub fn expand(&self) -> Result<(MetaProgram, ExpansionProgress), ExtractError> {
+    pub fn expand(&self) -> Result<(MetaProgram, Progress), ExtractError> {
         let MetaProgram { funcs, dbg } = self;
         let funcs_pairs = funcs
             .iter()
             .map(MetaFunc::expand)
-            .collect::<Result<Vec<(MetaFunc, ExpansionProgress)>, ExtractError>>()?;
+            .collect::<Result<Vec<(MetaFunc, Progress)>, ExtractError>>()?;
         let (expanded_funcs, progresses): (Vec<_>, Vec<_>) = funcs_pairs.into_iter().unzip();
         let progress = progresses
             .into_iter()
-            .fold(ExpansionProgress::identity(), |acc, prog| acc.join(prog));
+            .fold(Progress::identity(), |acc, prog| acc.join(prog));
 
         Ok((
             MetaProgram {

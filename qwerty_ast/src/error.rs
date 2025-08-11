@@ -153,6 +153,7 @@ pub enum ExtractErrorKind {
     IntegerTooBig { offender: IBig },
     NegativeInteger { offender: IBig },
     DivisionByZero,
+    Stuck,
 }
 
 impl fmt::Display for ExtractErrorKind {
@@ -187,6 +188,13 @@ impl fmt::Display for ExtractErrorKind {
                 )
             }
             ExtractErrorKind::DivisionByZero => write!(f, "Division by zero"),
+            ExtractErrorKind::Stuck => write!(
+                f,
+                concat!(
+                    "metaQwerty lowering is stuck. ",
+                    "Some dimension variables may need to be provided explicitly."
+                )
+            ),
         }
     }
 }

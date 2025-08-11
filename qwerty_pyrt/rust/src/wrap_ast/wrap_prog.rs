@@ -50,7 +50,7 @@ impl Program {
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
         let plain_ast = self
             .program
-            .extract()
+            .lower()
             .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
 
         plain_ast
