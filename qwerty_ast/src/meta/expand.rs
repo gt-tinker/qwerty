@@ -1,13 +1,7 @@
 use crate::{
     ast::{angle_is_approx_zero, usize_try_into_angle},
     error::{ExtractError, ExtractErrorKind},
-    meta::{
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram,
-        qpu::{
-            self, BasisMacroPattern, ExprMacroPattern, MetaBasis, MetaBasisGenerator, MetaExpr,
-            MetaVector,
-        },
-    },
+    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, qpu},
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
@@ -42,26 +36,26 @@ impl ExpansionProgress {
 
 enum AliasBinding {
     BasisAlias {
-        rhs: MetaBasis,
+        rhs: qpu::MetaBasis,
     },
     BasisAliasRec {
-        base_cases: HashMap<IBig, MetaBasis>,
-        recursive_step: Option<(String, MetaBasis)>,
+        base_cases: HashMap<IBig, qpu::MetaBasis>,
+        recursive_step: Option<(String, qpu::MetaBasis)>,
     },
 }
 
 enum MacroBinding {
     ExprMacro {
-        lhs_pat: ExprMacroPattern,
-        rhs: MetaExpr,
+        lhs_pat: qpu::ExprMacroPattern,
+        rhs: qpu::MetaExpr,
     },
     BasisMacro {
-        lhs_pat: BasisMacroPattern,
-        rhs: MetaExpr,
+        lhs_pat: qpu::BasisMacroPattern,
+        rhs: qpu::MetaExpr,
     },
     BasisGeneratorMacro {
-        lhs_pat: BasisMacroPattern,
-        rhs: MetaBasisGenerator,
+        lhs_pat: qpu::BasisMacroPattern,
+        rhs: qpu::MetaBasisGenerator,
     },
 }
 
@@ -74,7 +68,7 @@ struct MacroEnv {
     aliases: HashMap<String, AliasBinding>,
     macros: HashMap<String, MacroBinding>,
     dim_vars: HashMap<String, DimVarValue>,
-    vec_symbols: HashMap<char, MetaVector>,
+    vec_symbols: HashMap<char, qpu::MetaVector>,
 }
 
 impl MacroEnv {
@@ -498,8 +492,8 @@ impl qpu::MetaVector {
 
     fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::MetaVector {
         match self {
-            MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
-                MetaVector::VectorBroadcastTensor {
+            qpu::MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
+                qpu::MetaVector::VectorBroadcastTensor {
                     val: Box::new(
                         val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                     ),
@@ -509,15 +503,15 @@ impl qpu::MetaVector {
                 }
             }
 
-            MetaVector::VectorTilt { q, angle_deg, dbg } => MetaVector::VectorTilt {
+            qpu::MetaVector::VectorTilt { q, angle_deg, dbg } => qpu::MetaVector::VectorTilt {
                 q: Box::new(q.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone())),
                 angle_deg: angle_deg
                     .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                 dbg: dbg.clone(),
             },
 
-            MetaVector::UniformVectorSuperpos { q1, q2, dbg } => {
-                MetaVector::UniformVectorSuperpos {
+            qpu::MetaVector::UniformVectorSuperpos { q1, q2, dbg } => {
+                qpu::MetaVector::UniformVectorSuperpos {
                     q1: Box::new(
                         q1.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                     ),
@@ -528,32 +522,34 @@ impl qpu::MetaVector {
                 }
             }
 
-            MetaVector::VectorBiTensor { left, right, dbg } => MetaVector::VectorBiTensor {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                dbg: dbg.clone(),
-            },
+            qpu::MetaVector::VectorBiTensor { left, right, dbg } => {
+                qpu::MetaVector::VectorBiTensor {
+                    left: Box::new(
+                        left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    ),
+                    right: Box::new(
+                        right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    ),
+                    dbg: dbg.clone(),
+                }
+            }
 
-            MetaVector::VectorAlias { .. }
-            | MetaVector::VectorSymbol { .. }
-            | MetaVector::ZeroVector { .. }
-            | MetaVector::OneVector { .. }
-            | MetaVector::PadVector { .. }
-            | MetaVector::TargetVector { .. }
-            | MetaVector::VectorUnit { .. } => self.clone(),
+            qpu::MetaVector::VectorAlias { .. }
+            | qpu::MetaVector::VectorSymbol { .. }
+            | qpu::MetaVector::ZeroVector { .. }
+            | qpu::MetaVector::OneVector { .. }
+            | qpu::MetaVector::PadVector { .. }
+            | qpu::MetaVector::TargetVector { .. }
+            | qpu::MetaVector::VectorUnit { .. } => self.clone(),
         }
     }
 
     fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaVector, ExpansionProgress), ExtractError> {
         match self {
             // Only substitution can remove this
-            MetaVector::VectorAlias { .. } => Ok((self.clone(), ExpansionProgress::Partial)),
+            qpu::MetaVector::VectorAlias { .. } => Ok((self.clone(), ExpansionProgress::Partial)),
 
-            MetaVector::VectorSymbol { sym, dbg } => if let Some(vec) = env.vec_symbols.get(sym) {
+            qpu::MetaVector::VectorSymbol { sym, dbg } => if let Some(vec) = env.vec_symbols.get(sym) {
                 vec.expand(env)
             } else {
                 Err(ExtractError {
@@ -562,7 +558,7 @@ impl qpu::MetaVector {
                 })
             },
 
-            MetaVector::VectorBroadcastTensor { val, factor, dbg } => val
+            qpu::MetaVector::VectorBroadcastTensor { val, factor, dbg } => val
                 .expand(env)
                 .and_then(|(expanded_val, val_prog)|
                     factor.expand(env).and_then(|(expanded_factor, factor_prog)|
@@ -570,11 +566,11 @@ impl qpu::MetaVector {
                             (DimExpr::DimConst { .. }, ExpansionProgress::Full) =>
                                 expanded_factor.extract().map(|factor_int|
                                     if factor_int == 0 {
-                                        (MetaVector::VectorUnit { dbg: dbg.clone() }, ExpansionProgress::Full)
+                                        (qpu::MetaVector::VectorUnit { dbg: dbg.clone() }, ExpansionProgress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
-                                            .reduce(|acc, cloned_val| MetaVector::VectorBiTensor {
+                                            .reduce(|acc, cloned_val| qpu::MetaVector::VectorBiTensor {
                                                 left: Box::new(acc),
                                                 right: Box::new(cloned_val),
                                                 dbg: dbg.clone()
@@ -585,7 +581,7 @@ impl qpu::MetaVector {
                                 ),
 
                             _ => Ok((
-                                MetaVector::VectorBroadcastTensor {
+                                qpu::MetaVector::VectorBroadcastTensor {
                                     val: Box::new(expanded_val),
                                     factor: expanded_factor,
                                     dbg: dbg.clone()
@@ -594,48 +590,48 @@ impl qpu::MetaVector {
                             )),
                         })),
 
-            MetaVector::VectorTilt { q, angle_deg, dbg } => q
+            qpu::MetaVector::VectorTilt { q, angle_deg, dbg } => q
                 .expand(env)
                 .and_then(|(expanded_q, q_prog)|
                     angle_deg
                         .expand(env)
                         .map(|(expanded_angle, angle_prog)|
-                            (MetaVector::VectorTilt {
+                            (qpu::MetaVector::VectorTilt {
                                 q: Box::new(expanded_q),
                                 angle_deg: expanded_angle,
                                 dbg: dbg.clone()
                             },
                             q_prog.join(angle_prog)))),
 
-            MetaVector::UniformVectorSuperpos { q1, q2, dbg } => q1
+            qpu::MetaVector::UniformVectorSuperpos { q1, q2, dbg } => q1
                 .expand(env)
                 .and_then(|(expanded_q1, q1_prog)|
                     q2.expand(env)
                         .map(|(expanded_q2, q2_prog)|
-                            (MetaVector::UniformVectorSuperpos {
+                            (qpu::MetaVector::UniformVectorSuperpos {
                                 q1: Box::new(expanded_q1),
                                 q2: Box::new(expanded_q2),
                                 dbg: dbg.clone(),
                             },
                             q1_prog.join(q2_prog)))),
 
-            MetaVector::VectorBiTensor { left, right, dbg } => left
+            qpu::MetaVector::VectorBiTensor { left, right, dbg } => left
                 .expand(env)
                 .and_then(|(expanded_left, left_prog)|
                     right.expand(env)
                         .map(|(expanded_right, right_prog)|
-                            (MetaVector::VectorBiTensor {
+                            (qpu::MetaVector::VectorBiTensor {
                                 left: Box::new(expanded_left),
                                 right: Box::new(expanded_right),
                                 dbg: dbg.clone(),
                             },
                             left_prog.join(right_prog)))),
 
-            MetaVector::ZeroVector { .. }
-            | MetaVector::OneVector { .. }
-            | MetaVector::PadVector { .. }
-            | MetaVector::TargetVector { .. }
-            | MetaVector::VectorUnit { .. } => Ok((self.clone(), ExpansionProgress::Full))
+            qpu::MetaVector::ZeroVector { .. }
+            | qpu::MetaVector::OneVector { .. }
+            | qpu::MetaVector::PadVector { .. }
+            | qpu::MetaVector::TargetVector { .. }
+            | qpu::MetaVector::VectorUnit { .. } => Ok((self.clone(), ExpansionProgress::Full))
         }
     }
 }
@@ -714,14 +710,14 @@ impl qpu::MetaBasisGenerator {
                 {
                     arg.expand(env)
                         .and_then(|(expanded_arg, arg_prog)| match lhs_pat {
-                            BasisMacroPattern::AnyBasis {
+                            qpu::BasisMacroPattern::AnyBasis {
                                 name: pat_name,
                                 dbg: _,
                             } => rhs
                                 .substitute_basis_alias(pat_name.to_string(), expanded_arg.clone())
                                 .expand(env),
 
-                            BasisMacroPattern::BasisLiteral {
+                            qpu::BasisMacroPattern::BasisLiteral {
                                 vec_names: pat_vec_names,
                                 dbg: _,
                             } => match arg_prog {
@@ -736,13 +732,13 @@ impl qpu::MetaBasisGenerator {
                                 )),
 
                                 ExpansionProgress::Full => match expanded_arg {
-                                    MetaBasis::EmptyBasisLiteral { .. }
+                                    qpu::MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
                                         rhs.expand(env)
                                     }
 
-                                    MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
+                                    qpu::MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
                                         if pat_vec_names.len() == arg_vecs.len() =>
                                     {
                                         let mut subst_rhs = rhs.clone();
@@ -758,13 +754,13 @@ impl qpu::MetaBasisGenerator {
                                     }
 
                                     // Operand doesn't match or wasn't actually fully expanded
-                                    MetaBasis::EmptyBasisLiteral { dbg, .. }
-                                    | MetaBasis::BasisLiteral { dbg, .. }
-                                    | MetaBasis::BasisAlias { dbg, .. }
-                                    | MetaBasis::BasisAliasRec { dbg, .. }
-                                    | MetaBasis::BasisBroadcastTensor { dbg, .. }
-                                    | MetaBasis::BasisBiTensor { dbg, .. }
-                                    | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
+                                    qpu::MetaBasis::EmptyBasisLiteral { dbg, .. }
+                                    | qpu::MetaBasis::BasisLiteral { dbg, .. }
+                                    | qpu::MetaBasis::BasisAlias { dbg, .. }
+                                    | qpu::MetaBasis::BasisAliasRec { dbg, .. }
+                                    | qpu::MetaBasis::BasisBroadcastTensor { dbg, .. }
+                                    | qpu::MetaBasis::BasisBiTensor { dbg, .. }
+                                    | qpu::MetaBasis::ApplyBasisGenerator { dbg, .. } => {
                                         Err(ExtractError {
                                             kind: ExtractErrorKind::Malformed,
                                             dbg: dbg.clone(),
@@ -868,7 +864,7 @@ impl qpu::MetaBasis {
                 }
             }
 
-            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+            qpu::MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
                 val.expand(env).and_then(|(expanded_val, val_prog)| {
                     factor.expand(env).and_then(|(expanded_factor, factor_prog)| {
                         match (&expanded_factor, factor_prog) {
@@ -876,12 +872,12 @@ impl qpu::MetaBasis {
                                 .extract()
                                 .map(|factor_int| {
                                     if factor_int == 0 {
-                                        (MetaBasis::EmptyBasisLiteral { dbg: dbg.clone() },
+                                        (qpu::MetaBasis::EmptyBasisLiteral { dbg: dbg.clone() },
                                          ExpansionProgress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
-                                            .reduce(|acc, cloned_val| MetaBasis::BasisBiTensor {
+                                            .reduce(|acc, cloned_val| qpu::MetaBasis::BasisBiTensor {
                                                 left: Box::new(acc),
                                                 right: Box::new(cloned_val),
                                                 dbg: dbg.clone()
@@ -892,7 +888,7 @@ impl qpu::MetaBasis {
                                 }),
 
                             _ => Ok((
-                                MetaBasis::BasisBroadcastTensor {
+                                qpu::MetaBasis::BasisBroadcastTensor {
                                     val: Box::new(expanded_val),
                                     factor: expanded_factor,
                                     dbg: dbg.clone()
@@ -904,7 +900,7 @@ impl qpu::MetaBasis {
                 })
             }
 
-            MetaBasis::BasisLiteral { vecs, dbg } => {
+            qpu::MetaBasis::BasisLiteral { vecs, dbg } => {
                 vecs.iter()
                     .map(|vec| vec.expand(env))
                     .collect::<Result<Vec<_>, _>>().map(|expanded_pairs| {
@@ -915,15 +911,15 @@ impl qpu::MetaBasis {
                             .iter()
                             .fold(ExpansionProgress::identity(),
                                   |acc, vec_prog| acc.join(*vec_prog));
-                        (MetaBasis::BasisLiteral { vecs: expanded_vecs, dbg: dbg.clone() }, prog)
+                        (qpu::MetaBasis::BasisLiteral { vecs: expanded_vecs, dbg: dbg.clone() }, prog)
                     })
             }
 
-            MetaBasis::BasisBiTensor { left, right, dbg } => left
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => left
                 .expand(env)
                 .and_then(|(expanded_left, left_prog)|
                     right.expand(env).map(|(expanded_right, right_prog)|
-                        (MetaBasis::BasisBiTensor {
+                        (qpu::MetaBasis::BasisBiTensor {
                             left: Box::new(expanded_left),
                             right: Box::new(expanded_right),
                             dbg: dbg.clone()
@@ -931,18 +927,18 @@ impl qpu::MetaBasis {
                         left_prog.join(right_prog))
             )),
 
-            MetaBasis::ApplyBasisGenerator { basis, generator, dbg } => basis
+            qpu::MetaBasis::ApplyBasisGenerator { basis, generator, dbg } => basis
                 .expand(env)
                 .and_then(|(expanded_basis, basis_prog)|
                     generator.expand(env).map(|(expanded_generator, generator_prog)|
-                        (MetaBasis::ApplyBasisGenerator {
+                        (qpu::MetaBasis::ApplyBasisGenerator {
                             basis: Box::new(expanded_basis),
                             generator: expanded_generator,
                             dbg: dbg.clone()
                         },
                         basis_prog.join(generator_prog)))),
 
-            MetaBasis::EmptyBasisLiteral { .. } => Ok((self.clone(), ExpansionProgress::Full)),
+            qpu::MetaBasis::EmptyBasisLiteral { .. } => Ok((self.clone(), ExpansionProgress::Full)),
         }
     }
 
@@ -952,7 +948,7 @@ impl qpu::MetaBasis {
         new_basis: qpu::MetaBasis,
     ) -> qpu::MetaBasis {
         match self {
-            MetaBasis::BasisAlias { name, .. } => {
+            qpu::MetaBasis::BasisAlias { name, .. } => {
                 if *name == basis_alias {
                     new_basis
                 } else {
@@ -960,15 +956,15 @@ impl qpu::MetaBasis {
                 }
             }
 
-            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
-                MetaBasis::BasisBroadcastTensor {
+            qpu::MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                qpu::MetaBasis::BasisBroadcastTensor {
                     val: Box::new(val.substitute_basis_alias(basis_alias, new_basis)),
                     factor: factor.clone(),
                     dbg: dbg.clone(),
                 }
             }
 
-            MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => qpu::MetaBasis::BasisBiTensor {
                 left: Box::new(
                     left.substitute_basis_alias(basis_alias.to_string(), new_basis.clone()),
                 ),
@@ -976,11 +972,11 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::ApplyBasisGenerator {
+            qpu::MetaBasis::ApplyBasisGenerator {
                 basis,
                 generator,
                 dbg,
-            } => MetaBasis::ApplyBasisGenerator {
+            } => qpu::MetaBasis::ApplyBasisGenerator {
                 basis: Box::new(
                     basis.substitute_basis_alias(basis_alias.to_string(), new_basis.clone()),
                 ),
@@ -988,9 +984,9 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisAliasRec { .. }
-            | MetaBasis::BasisLiteral { .. }
-            | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+            qpu::MetaBasis::BasisAliasRec { .. }
+            | qpu::MetaBasis::BasisLiteral { .. }
+            | qpu::MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
         }
     }
 
@@ -1000,15 +996,15 @@ impl qpu::MetaBasis {
         new_vector: qpu::MetaVector,
     ) -> qpu::MetaBasis {
         match self {
-            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
-                MetaBasis::BasisBroadcastTensor {
+            qpu::MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                qpu::MetaBasis::BasisBroadcastTensor {
                     val: Box::new(val.substitute_vector_alias(vector_alias, new_vector)),
                     factor: factor.clone(),
                     dbg: dbg.clone(),
                 }
             }
 
-            MetaBasis::BasisLiteral { vecs, dbg } => MetaBasis::BasisLiteral {
+            qpu::MetaBasis::BasisLiteral { vecs, dbg } => qpu::MetaBasis::BasisLiteral {
                 vecs: vecs
                     .iter()
                     .map(|vec| {
@@ -1018,7 +1014,7 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => qpu::MetaBasis::BasisBiTensor {
                 left: Box::new(
                     left.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
                 ),
@@ -1026,11 +1022,11 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::ApplyBasisGenerator {
+            qpu::MetaBasis::ApplyBasisGenerator {
                 basis,
                 generator,
                 dbg,
-            } => MetaBasis::ApplyBasisGenerator {
+            } => qpu::MetaBasis::ApplyBasisGenerator {
                 basis: Box::new(
                     basis.substitute_vector_alias(vector_alias.to_string(), new_vector.clone()),
                 ),
@@ -1038,22 +1034,22 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisAlias { .. }
-            | MetaBasis::BasisAliasRec { .. }
-            | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+            qpu::MetaBasis::BasisAlias { .. }
+            | qpu::MetaBasis::BasisAliasRec { .. }
+            | qpu::MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
         }
     }
 
     fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> qpu::MetaBasis {
         match self {
-            MetaBasis::BasisAliasRec { name, param, dbg } => MetaBasis::BasisAliasRec {
+            qpu::MetaBasis::BasisAliasRec { name, param, dbg } => qpu::MetaBasis::BasisAliasRec {
                 name: name.to_string(),
                 param: param.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
-                MetaBasis::BasisBroadcastTensor {
+            qpu::MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
+                qpu::MetaBasis::BasisBroadcastTensor {
                     val: val.clone(),
                     factor: factor
                         .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
@@ -1061,7 +1057,7 @@ impl qpu::MetaBasis {
                 }
             }
 
-            MetaBasis::BasisLiteral { vecs, dbg } => MetaBasis::BasisLiteral {
+            qpu::MetaBasis::BasisLiteral { vecs, dbg } => qpu::MetaBasis::BasisLiteral {
                 vecs: vecs
                     .iter()
                     .map(|vec| {
@@ -1071,7 +1067,7 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => qpu::MetaBasis::BasisBiTensor {
                 left: Box::new(
                     left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                 ),
@@ -1079,11 +1075,11 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::ApplyBasisGenerator {
+            qpu::MetaBasis::ApplyBasisGenerator {
                 basis,
                 generator,
                 dbg,
-            } => MetaBasis::ApplyBasisGenerator {
+            } => qpu::MetaBasis::ApplyBasisGenerator {
                 basis: Box::new(
                     basis.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
                 ),
@@ -1091,7 +1087,9 @@ impl qpu::MetaBasis {
                 dbg: dbg.clone(),
             },
 
-            MetaBasis::BasisAlias { .. } | MetaBasis::EmptyBasisLiteral { .. } => self.clone(),
+            qpu::MetaBasis::BasisAlias { .. } | qpu::MetaBasis::EmptyBasisLiteral { .. } => {
+                self.clone()
+            }
         }
     }
 }
@@ -1607,11 +1605,11 @@ impl qpu::MetaExpr {
 
     fn expand(&self, env: &MacroEnv) -> Result<(qpu::MetaExpr, ExpansionProgress), ExtractError> {
         match self {
-            MetaExpr::ExprMacro { name, arg, dbg } => {
+            qpu::MetaExpr::ExprMacro { name, arg, dbg } => {
                 match env.macros.get(name) {
                     Some(MacroBinding::ExprMacro {
                         lhs_pat:
-                            ExprMacroPattern::AnyExpr {
+                            qpu::ExprMacroPattern::AnyExpr {
                                 name: pat_name,
                                 dbg: _,
                             },
@@ -1636,16 +1634,16 @@ impl qpu::MetaExpr {
                 }
             }
 
-            MetaExpr::BasisMacro { name, arg, dbg } => {
-                if let MetaBasis::BasisAlias {
+            qpu::MetaExpr::BasisMacro { name, arg, dbg } => {
+                if let qpu::MetaBasis::BasisAlias {
                     name: arg_alias_name,
                     dbg: arg_dbg,
                 } = &**arg
                     && !env.aliases.contains_key(arg_alias_name)
                 {
-                    MetaExpr::ExprMacro {
+                    qpu::MetaExpr::ExprMacro {
                         name: name.to_string(),
-                        arg: Box::new(MetaExpr::Variable {
+                        arg: Box::new(qpu::MetaExpr::Variable {
                             name: arg_alias_name.to_string(),
                             dbg: arg_dbg.clone(),
                         }),
@@ -1656,7 +1654,7 @@ impl qpu::MetaExpr {
                     match env.macros.get(name) {
                         Some(MacroBinding::BasisMacro {
                             lhs_pat:
-                                BasisMacroPattern::AnyBasis {
+                                qpu::BasisMacroPattern::AnyBasis {
                                     name: pat_name,
                                     dbg: _,
                                 },
@@ -1674,7 +1672,7 @@ impl qpu::MetaExpr {
 
                         Some(MacroBinding::BasisMacro {
                             lhs_pat:
-                                BasisMacroPattern::BasisLiteral {
+                                qpu::BasisMacroPattern::BasisLiteral {
                                     vec_names: pat_vec_names,
                                     dbg: _,
                                 },
@@ -1685,7 +1683,7 @@ impl qpu::MetaExpr {
                                 // match yet. Consider fourier[N] where N=1, for
                                 // example.
                                 ExpansionProgress::Partial => Ok((
-                                    MetaExpr::BasisMacro {
+                                    qpu::MetaExpr::BasisMacro {
                                         name: name.to_string(),
                                         arg: Box::new(expanded_arg),
                                         dbg: dbg.clone(),
@@ -1694,13 +1692,13 @@ impl qpu::MetaExpr {
                                 )),
 
                                 ExpansionProgress::Full => match expanded_arg {
-                                    MetaBasis::EmptyBasisLiteral { .. }
+                                    qpu::MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
                                         rhs.expand(env)
                                     }
 
-                                    MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
+                                    qpu::MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
                                         if arg_vecs.len() == pat_vec_names.len() =>
                                     {
                                         let mut subst_rhs = rhs.clone();
@@ -1716,13 +1714,13 @@ impl qpu::MetaExpr {
                                     }
 
                                     // Operand doesn't match or wasn't actually fully expanded
-                                    MetaBasis::EmptyBasisLiteral { dbg, .. }
-                                    | MetaBasis::BasisLiteral { dbg, .. }
-                                    | MetaBasis::BasisAlias { dbg, .. }
-                                    | MetaBasis::BasisAliasRec { dbg, .. }
-                                    | MetaBasis::BasisBroadcastTensor { dbg, .. }
-                                    | MetaBasis::BasisBiTensor { dbg, .. }
-                                    | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
+                                    qpu::MetaBasis::EmptyBasisLiteral { dbg, .. }
+                                    | qpu::MetaBasis::BasisLiteral { dbg, .. }
+                                    | qpu::MetaBasis::BasisAlias { dbg, .. }
+                                    | qpu::MetaBasis::BasisAliasRec { dbg, .. }
+                                    | qpu::MetaBasis::BasisBroadcastTensor { dbg, .. }
+                                    | qpu::MetaBasis::BasisBiTensor { dbg, .. }
+                                    | qpu::MetaBasis::ApplyBasisGenerator { dbg, .. } => {
                                         Err(ExtractError {
                                             kind: ExtractErrorKind::Malformed,
                                             dbg: dbg.clone(),
@@ -1751,11 +1749,11 @@ impl qpu::MetaExpr {
                             (DimExpr::DimConst { .. }, ExpansionProgress::Full) =>
                                 expanded_factor.extract().map(|factor_int|
                                     if factor_int == 0 {
-                                        (MetaExpr::UnitLiteral { dbg: dbg.clone() }, ExpansionProgress::Full)
+                                        (qpu::MetaExpr::UnitLiteral { dbg: dbg.clone() }, ExpansionProgress::Full)
                                     } else {
                                         let n_fold_tensor_product = std::iter::repeat(expanded_val)
                                             .take(factor_int)
-                                            .reduce(|acc, cloned_val| MetaExpr::BiTensor {
+                                            .reduce(|acc, cloned_val| qpu::MetaExpr::BiTensor {
                                                 left: Box::new(acc),
                                                 right: Box::new(cloned_val),
                                                 dbg: dbg.clone()
@@ -1766,7 +1764,7 @@ impl qpu::MetaExpr {
                                 ),
 
                             _ => Ok((
-                                MetaExpr::BroadcastTensor {
+                                qpu::MetaExpr::BroadcastTensor {
                                     val: Box::new(expanded_val),
                                     factor: expanded_factor,
                                     dbg: dbg.clone()
@@ -1816,7 +1814,7 @@ impl qpu::MetaExpr {
                                                     dbg: dbg.clone()
                                                 });
 
-                                        MetaExpr::Pipe {
+                                        qpu::MetaExpr::Pipe {
                                             lhs: Box::new(acc),
                                             rhs: Box::new(rhs),
                                             dbg: dbg.clone(),
