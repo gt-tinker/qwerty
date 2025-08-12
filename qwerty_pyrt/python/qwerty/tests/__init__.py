@@ -3,4 +3,5 @@ from .test_runtime import RuntimeTests
 from .test_convert_ast import ConvertAstQpuTests, ConvertAstClassicalTests
 from .integration_tests import NoMetaIntegrationTests, \
                                MetaNoPreludeNoInferIntegrationTests, \
-                               MetaNoInferIntegrationTests
+                               MetaNoInferIntegrationTests, \
+                               QCE25FigureIntegrationTests

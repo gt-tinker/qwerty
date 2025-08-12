@@ -295,3 +295,34 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         shots = 1024
         expected_histo = {bit[3](0b101): shots}
         self.assertEqual(expected_histo, fourier.test(shots))
+
+@unittest.skipIf(should_skip, skip_msg)
+class QCE25FigureIntegrationTests(unittest.TestCase):
+    """The figures from the QCE '25 paper as integration tests."""
+
+    def setUp(self):
+        _reset_compiler_state()
+
+    def test_fig1_fig2_grover(self):
+        from .integ.qce25_figs import grover
+        for _ in range(32):
+            expected_output = '1010'
+            actual_output = grover.test()
+            self.assertEqual(expected_output, actual_output)
+
+    def test_fig3_superpos_vs_ensemble(self):
+        from .integ.qce25_figs import superpos_vs_ensemble
+        shots = 1024
+        actual_superpos_histo, actual_ensemble_histo = \
+            superpos_vs_ensemble.test(shots)
+
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_ensemble_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_ensemble_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_ensemble_histo.get(zero, 0)
+                                + actual_ensemble_histo.get(one, 0),
+                         "missing shots")
+
+        expected_superpos_histo = {zero: shots}
+        self.assertEqual(expected_superpos_histo, actual_superpos_histo)
+
