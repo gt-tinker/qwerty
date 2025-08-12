@@ -199,6 +199,16 @@ pub struct Basis {
 #[pymethods]
 impl Basis {
     #[classmethod]
+    fn new_basis_alias(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            basis: meta::qpu::MetaBasis::BasisAlias {
+                name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_basis_broadcast_tensor(
         _cls: &Bound<'_, PyType>,
         val: Basis,
@@ -520,6 +530,22 @@ impl QpuStmt {
             stmt: meta::qpu::MetaStmt::VectorSymbolDef {
                 lhs,
                 rhs: rhs.vec,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_alias_def(
+        _cls: &Bound<'_, PyType>,
+        lhs: String,
+        rhs: Basis,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::BasisAliasDef {
+                lhs,
+                rhs: rhs.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

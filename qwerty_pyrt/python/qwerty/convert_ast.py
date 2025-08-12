@@ -472,7 +472,22 @@ class BaseVisitor:
         expr = self.visit(ret.value)
         return self._stmt_class.new_return(expr, dbg)
 
-    def visit_Assign(self, assign: ast.Assign) -> QpuStmt:
+    def visit_plain_assign(self, lhs_name: str, rhs: ast.AST, dbg: DebugLoc) \
+                          -> QpuStmt | ClassicalStmt:
+        """
+        Convert a boring old assignment (``lhs_name = rhs``) to a Qwerty
+        statement. This is a separate method so that it can be overriden.
+        """
+        expr = self.visit(rhs)
+
+        if self.capturer.shadows_python_variable(lhs_name):
+            raise QwertySyntaxError('Cannot define a variable '
+                                    f'({lhs_name}) that shadows a Python '
+                                    'variable.', dbg)
+
+        return self._stmt_class.new_assign(lhs_name, expr, dbg)
+
+    def visit_Assign(self, assign: ast.Assign) -> QpuStmt | ClassicalStmt:
         """
         Convert a Python assignment statement::
 
@@ -497,15 +512,9 @@ class BaseVisitor:
         tgt, = assign.targets
 
         if isinstance(tgt, ast.Name):
-            expr = self.visit(assign.value)
-            var_name = tgt.id
-
-            if self.capturer.shadows_python_variable(var_name):
-                raise QwertySyntaxError('Cannot define a variable '
-                                        f'({var_name}) that shadows a Python '
-                                        'variable.', dbg)
-
-            return self._stmt_class.new_assign(var_name, expr, dbg)
+            lhs_name = tgt.id
+            rhs = assign.value
+            return self.visit_plain_assign(lhs_name, rhs, dbg)
         elif isinstance(tgt, ast.Tuple) \
                 and all(isinstance(elt, ast.Name) for elt in tgt.elts):
             var_names = [name.id for name in tgt.elts]
@@ -670,6 +679,26 @@ class QpuVisitor(BaseVisitor):
         super().__init__(QpuExpr, QpuStmt, QpuFunctionDef, name_generator,
                          capturer, filename, line_offset, col_offset)
 
+    def visit_plain_assign(self, lhs_name: str, rhs: ast.AST, dbg: DebugLoc) \
+                          -> QpuStmt | ClassicalStmt:
+        """
+        Override `BaseVisitor::visit_plain_assign()` so that we can support
+        basis aliases too.
+        """
+        try:
+            # Ban singleton vectors to avoid interpreting ``zero = '0'`` as a
+            # basis alias defintion. Also ban aliases to avoid ``q1 = q2`` from
+            # being parsed as a basis alias definition. These restrictions are
+            # pretty harmless because I expect basis alias definitions to be
+            # sparsely used.
+            rhs_basis = self.extract_basis(rhs, allow_singleton=False,
+                                           allow_alias=False)
+        # TODO: do a more granular catch here
+        except QwertySyntaxError:
+            return super().visit_plain_assign(lhs_name, rhs, dbg)
+        else:
+            return QpuStmt.new_basis_alias_def(lhs_name, rhs_basis, dbg)
+
     def visit_macro(self,
                     macro_pat: ast.AST,
                     macro_name: str,
@@ -763,31 +792,54 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unknown basis generator syntax {}'
                                     .format(node_name), dbg)
 
-    def extract_basis(self, node: ast.AST) -> Basis:
+    def extract_basis(self, node: ast.AST, *, allow_singleton=True,
+                      allow_alias=True) -> Basis:
+        """
+        Extract a Basis AST node from a Python AST node. The caller can apply
+        some restrictions: first, setting ``allow_singleton=False`` means that
+        singleton vectors such as ``'0'`` will not be interpreted as ``{'0'}``.
+        The second available restriction is that passing ``allow_alias=False``
+        will prevent identifiers such as ``pm`` from being interpreted as basis
+        aliases; instead, you'd need to write ``{'p','m'}``. Both avoid
+        syntactic ambiguities in different cases.
+        """
         dbg = self.get_debug_loc(node)
 
-        if isinstance(node, ast.Set) and not node.elts:
+        if allow_alias \
+                and isinstance(identifier := node, ast.Name):
+            alias_name = identifier.id
+            return Basis.new_basis_alias(alias_name, dbg)
+        elif isinstance(node, ast.Set) and not node.elts:
             return Basis.new_empty_basis_literal(dbg)
         elif isinstance(node, ast.Set) and node.elts:
             vecs = [self.extract_basis_vector(elt) for elt in node.elts]
             return Basis.new_basis_literal(vecs, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-            left = self.extract_basis(node.left)
-            right = self.extract_basis(node.right)
+            left = self.extract_basis(node.left,
+                                      allow_singleton=allow_singleton,
+                                      allow_alias=allow_alias)
+            right = self.extract_basis(node.right,
+                                       allow_singleton=allow_singleton,
+                                       allow_alias=allow_alias)
             return Basis.new_basis_bi_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.FloorDiv):
-            basis = self.extract_basis(node.left)
+            basis = self.extract_basis(node.left,
+                                       allow_singleton=allow_singleton,
+                                       allow_alias=allow_alias)
             gen = self.extract_basis_generator(node.right)
             return Basis.new_apply_basis_generator(basis, gen, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
-            basis = self.extract_basis(node.left)
+            basis = self.extract_basis(node.left,
+                                       allow_singleton=allow_singleton,
+                                       allow_alias=allow_alias)
             factor = self.extract_dimvar_expr(node.right)
             return Basis.new_basis_broadcast_tensor(basis, factor, dbg)
-        elif (isinstance(node, ast.UnaryOp)
+        elif allow_singleton and \
+                ((isinstance(node, ast.UnaryOp)
                     and isinstance(node.op, ast.USub)) \
                 or (isinstance(node, ast.Constant) \
                     and isinstance(node.value, str)) \
-                or self.is_vector_atom_intrinsic(node):
+                or self.is_vector_atom_intrinsic(node)):
             return Basis.new_basis_literal([self.extract_basis_vector(node)], dbg)
         else:
             node_name = type(node).__name__
@@ -1348,7 +1400,13 @@ class QpuVisitor(BaseVisitor):
         else_expr = self.visit(if_expr.orelse)
 
         try:
-            pred_basis = self.extract_basis(if_expr.test)
+            # Ban basis aliases because we do not want to interpret
+            # ``flip if my_bit else id`` as a predication. However, still allow
+            # singleton vectors as in ``flip if '1_' else id`` because that
+            # wouldn't type check anyway (a qubit is not a bit!).
+            pred_basis = self.extract_basis(if_expr.test,
+                                            allow_singleton=True,
+                                            allow_alias=False)
         # TODO: do a more granular catch here
         except QwertySyntaxError:
             cond_expr = self.visit(if_expr.test)

@@ -120,3 +120,9 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_nomacro_noclassical.test(shots))
+
+    def test_bv_somemacro_noclassical(self):
+        from .integ.meta_noinfer import bv_somemacro_noclassical
+        shots = 1024
+        expected_histo = {bit[3](0b110): shots}
+        self.assertEqual(expected_histo, bv_somemacro_noclassical.test(shots))
