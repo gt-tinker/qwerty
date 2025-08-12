@@ -204,6 +204,12 @@ pub struct Return<E> {
     pub dbg: Option<DebugLoc>,
 }
 
+/// Allows creating a trivial version of a statement or expression.
+/// (That is, one that does nothing.)
+pub trait Trivializable {
+    fn trivial(dbg: Option<DebugLoc>) -> Self;
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt<E> {
     /// An expression statement. Example syntax:
@@ -229,6 +235,17 @@ pub enum Stmt<E> {
     /// return q
     /// ```
     Return(Return<E>),
+}
+
+impl<E: Trivializable> Trivializable for Stmt<E> {
+    /// Trivial statement is an expression statement containing a trivial
+    /// expression.
+    fn trivial(dbg: Option<DebugLoc>) -> Self {
+        Self::Expr(StmtExpr {
+            expr: E::trivial(dbg.clone()),
+            dbg,
+        })
+    }
 }
 
 impl<E: fmt::Display> fmt::Display for Stmt<E> {

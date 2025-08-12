@@ -1,7 +1,11 @@
 use crate::wrap_ast::wrap_type::DebugLoc;
-use dashu::integer::UBig;
+use dashu::{
+    base::Sign,
+    integer::{IBig, UBig},
+};
 use pyo3::{
     conversion::{FromPyObject, IntoPyObject},
+    exceptions::PyValueError,
     prelude::*,
     sync::GILOnceCell,
     types::{PyBytes, PyInt, PyType},
@@ -21,6 +25,27 @@ pub fn get_bit_reg<'py>(
     bit_type.call1((as_int, n_bits))
 }
 
+/// Converts a Python `int` into a [`UBig`]. Integer must be nonnegative or
+/// this will throw a Python exception.
+fn py_uint_to_ubig<'py>(int: &Bound<'py, PyInt>) -> PyResult<UBig> {
+    let num_bits = int.call_method0("bit_length")?.extract::<usize>()?;
+    let num_bytes = (num_bits + 7) / 8;
+    let bytes = int
+        .call_method1("to_bytes", (num_bytes, "big"))?
+        .extract::<Vec<u8>>()?;
+    Ok(UBig::from_be_bytes(&bytes))
+}
+
+/// Converts a [`UBig`] into a Python `int`.
+fn ubig_to_py_int<'py>(py: Python<'py>, ubig: UBig) -> PyResult<Bound<'py, PyInt>> {
+    let big_endian_bytes = ubig.to_be_bytes();
+    let py_bytes = PyBytes::new(py, &*big_endian_bytes);
+    py.get_type::<PyInt>()
+        .call_method1("from_bytes", (py_bytes, "big"))?
+        .downcast_into()
+        .map_err(|err| err.into())
+}
+
 /// A "newtype" around UBig that allows implementing the IntoPyObject and
 /// FromPyObject traits without violating the orphan rule (since UBig is from
 /// the dashu crate)
@@ -33,24 +58,52 @@ impl<'py> IntoPyObject<'py> for UBigWrap {
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyInt>> {
-        let big_endian_bytes = self.0.to_be_bytes();
-        let py_bytes = PyBytes::new(py, &*big_endian_bytes);
-        Ok(py
-            .get_type::<PyInt>()
-            .call_method1("from_bytes", (py_bytes, "big"))?
-            .downcast_into()?)
+        ubig_to_py_int(py, self.0)
     }
 }
 
 impl<'py> FromPyObject<'py> for UBigWrap {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let as_int = obj.downcast::<PyInt>()?;
-        let num_bits = as_int.call_method0("bit_length")?.extract::<usize>()?;
-        let num_bytes = (num_bits + 7) / 8;
-        let bytes = as_int
-            .call_method1("to_bytes", (num_bytes, "big"))?
-            .extract::<Vec<u8>>()?;
-        Ok(Self(UBig::from_be_bytes(&bytes)))
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<UBigWrap> {
+        let int = obj.downcast::<PyInt>()?;
+        if int.lt(0)? {
+            Err(PyValueError::new_err("value cannot be negative"))
+        } else {
+            py_uint_to_ubig(int).map(|ubig| UBigWrap(ubig))
+        }
+    }
+}
+
+/// Similar to [`UBigWrap`] except for [`IBig`] instead.
+#[derive(Clone, Debug)]
+pub struct IBigWrap(pub IBig);
+
+impl<'py> IntoPyObject<'py> for IBigWrap {
+    type Target = PyInt;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyInt>> {
+        let (sgn, mag) = self.0.into_parts();
+        let py_int = ubig_to_py_int(py, mag)?;
+        match sgn {
+            Sign::Positive => Ok(py_int),
+            Sign::Negative => py_int
+                .neg()
+                .and_then(|neg_any| neg_any.downcast_into().map_err(|err| err.into())),
+        }
+    }
+}
+
+impl<'py> FromPyObject<'py> for IBigWrap {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<IBigWrap> {
+        let int = obj.downcast::<PyInt>()?;
+        let sgn = if int.lt(0)? {
+            Sign::Negative
+        } else {
+            Sign::Positive
+        };
+        let mag = py_uint_to_ubig(int)?;
+        Ok(IBigWrap(IBig::from_parts(sgn, mag)))
     }
 }
 

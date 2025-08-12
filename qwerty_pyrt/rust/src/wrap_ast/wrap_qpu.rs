@@ -1,5 +1,6 @@
 use crate::wrap_ast::{
     py_glue::{ProgErrKind, UBigWrap, get_err},
+    wrap_dim_expr::DimExpr,
     wrap_type::{DebugLoc, Type, TypeEnv},
 };
 use pyo3::{prelude::*, types::PyType};
@@ -198,6 +199,22 @@ pub struct Basis {
 #[pymethods]
 impl Basis {
     #[classmethod]
+    fn new_basis_broadcast_tensor(
+        _cls: &Bound<'_, PyType>,
+        val: Basis,
+        factor: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            basis: meta::qpu::MetaBasis::BasisBroadcastTensor {
+                val: Box::new(val.basis),
+                factor: factor.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_empty_basis_literal(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             basis: meta::qpu::MetaBasis::EmptyBasisLiteral {
@@ -286,6 +303,22 @@ impl fmt::Display for QpuExpr {
 
 #[pymethods]
 impl QpuExpr {
+    #[classmethod]
+    fn new_broadcast_tensor(
+        _cls: &Bound<'_, PyType>,
+        val: QpuExpr,
+        factor: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::BroadcastTensor {
+                val: Box::new(val.expr),
+                factor: factor.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
@@ -476,6 +509,22 @@ impl fmt::Display for QpuStmt {
 
 #[pymethods]
 impl QpuStmt {
+    #[classmethod]
+    fn new_vector_symbol_def(
+        _cls: &Bound<'_, PyType>,
+        lhs: char,
+        rhs: Vector,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::VectorSymbolDef {
+                lhs,
+                rhs: rhs.vec,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_expr(_cls: &Bound<'_, PyType>, expr: QpuExpr) -> Self {
         Self {

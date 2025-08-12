@@ -6,11 +6,11 @@ from qwerty.kernel import _reset_compiler_state
 should_skip = bool(os.environ.get('SKIP_INTEGRATION_TESTS'))
 
 @unittest.skipIf(should_skip, "Skipping integration tests as requested by $SKIP_INTEGRATION_TESTS")
-class IntegrationTests(unittest.TestCase):
+class NoMetaIntegrationTests(unittest.TestCase):
     def setUp(self):
         _reset_compiler_state()
 
-    def test_randbit_nometa(self):
+    def test_randbit(self):
         from .integ.nometa import randbit
         shots = 1024
         actual_histo = randbit.test(shots)
@@ -19,8 +19,8 @@ class IntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
-    def test_interproc_nometa(self):
-        # Like randbit_nometa above except involves a call from one kernel to another
+    def test_interproc(self):
+        # Like randbit above except involves a call from one kernel to another
         from .integ.nometa import interproc
         shots = 1024
         actual_histo = interproc.test(shots)
@@ -29,43 +29,43 @@ class IntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
-    def test_baby_classical_nometa(self):
+    def test_baby_classical(self):
         from .integ.nometa import baby_classical
         shots = 1024
         expected_histo = {bit[3](0b111): shots}
         self.assertEqual(expected_histo, baby_classical.test(shots))
 
-    def test_bv_noclassical_nometa(self):
+    def test_bv_noclassical(self):
         from .integ.nometa import bv_noclassical
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_noclassical.test(shots))
 
-    def test_bv_nometa(self):
+    def test_bv(self):
         from .integ.nometa import bv_nocap
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_nocap.test(shots))
 
-    def test_bv_nometa(self):
+    def test_bv(self):
         from .integ.nometa import bv
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv.test(shots))
 
-    def test_func_tens_nometa(self):
+    def test_func_tens(self):
         from .integ.nometa import func_tens
         shots = 1024
         expected_histo = {bit[1](0b1): shots}
         self.assertEqual(expected_histo, func_tens.test(shots))
 
-    def test_pack_unpack_nometa(self):
+    def test_pack_unpack(self):
         from .integ.nometa import pack_unpack
         shots = 1024
         expected_histo = {bit[3](0b101): shots}
         self.assertEqual(expected_histo, pack_unpack.test(shots))
 
-    def test_pad_nometa(self):
+    def test_pad(self):
         from .integ.nometa import pad
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
@@ -82,7 +82,7 @@ class IntegrationTests(unittest.TestCase):
         )
         self.assertEqual(expected_histos, superdense_nocap.test(shots))
 
-    def test_teleport_nometa(self):
+    def test_teleport(self):
         from .integ.nometa import teleport
         shots = 1024
         expected_histos = (
@@ -93,7 +93,7 @@ class IntegrationTests(unittest.TestCase):
         )
         self.assertEqual(expected_histos, teleport.test(shots))
 
-    def test_tilt_nometa(self):
+    def test_tilt(self):
         from .integ.nometa import tilt
         shots = 1024
         expected_histos = (
@@ -104,8 +104,19 @@ class IntegrationTests(unittest.TestCase):
         )
         self.assertEqual(expected_histos, tilt.test(shots))
 
-    def test_fourier_nometa(self):
+    def test_fourier(self):
         from .integ.nometa import fourier
         shots = 1024
         expected_histo = {bit[3](0b101): shots}
         self.assertEqual(expected_histo, fourier.test(shots))
+
+@unittest.skipIf(should_skip, "Skipping integration tests as requested by $SKIP_INTEGRATION_TESTS")
+class MetaNoInferIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        _reset_compiler_state()
+
+    def test_bv_nomacro_noclassical(self):
+        from .integ.meta_noinfer import bv_nomacro_noclassical
+        shots = 1024
+        expected_histo = {bit[3](0b110): shots}
+        self.assertEqual(expected_histo, bv_nomacro_noclassical.test(shots))

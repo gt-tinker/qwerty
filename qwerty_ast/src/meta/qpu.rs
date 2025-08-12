@@ -1,5 +1,5 @@
 use crate::{
-    ast::{self, qpu::EmbedKind},
+    ast::{self, Trivializable, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{ExtractError, ExtractErrorKind},
     meta::DimExpr,
@@ -1128,17 +1128,14 @@ impl MetaStmt {
                 })
             }),
 
-            // Expansion should've replaced these with trivial statements.
-            // Something is fishy here, so let's be noisy about it.
+            // Definition of macros does not present any problem in conversion;
+            // it is using them that is an issue.
             MetaStmt::ExprMacroDef { dbg, .. }
             | MetaStmt::BasisMacroDef { dbg, .. }
             | MetaStmt::BasisGeneratorMacroDef { dbg, .. }
             | MetaStmt::VectorSymbolDef { dbg, .. }
             | MetaStmt::BasisAliasDef { dbg, .. }
-            | MetaStmt::BasisAliasRecDef { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
-                dbg: dbg.clone(),
-            }),
+            | MetaStmt::BasisAliasRecDef { dbg, .. } => Ok(ast::Stmt::trivial(dbg.clone())),
         }
     }
 }

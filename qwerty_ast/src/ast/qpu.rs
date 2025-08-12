@@ -1,8 +1,8 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    BitLiteral, Variable, angle_approx_total_cmp, angle_is_approx_zero, angles_are_approx_equal,
-    canon_angle, equals_2_to_the_n,
+    BitLiteral, Trivializable, Variable, angle_approx_total_cmp, angle_is_approx_zero,
+    angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
 use std::cmp::Ordering;
@@ -198,6 +198,13 @@ pub enum Expr {
     /// Display string as `q[i]`, although programmers should never see this
     /// node printed.
     QubitRef(QubitRef),
+}
+
+impl Trivializable for Expr {
+    /// Trivial expression is a unit literal.
+    fn trivial(dbg: Option<DebugLoc>) -> Self {
+        Self::UnitLiteral(UnitLiteral { dbg })
+    }
 }
 
 impl fmt::Display for Expr {

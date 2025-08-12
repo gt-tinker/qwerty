@@ -16,7 +16,8 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
-                          BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind
+                          BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
+                          DimExpr
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -157,53 +158,53 @@ class BaseVisitor:
         set_dbg_frame(dbg, self.frame)
         return dbg
 
-    #def extract_dimvar_expr(self, node: ast.AST) -> DimVarExpr:
-    #    """
-    #    Return a dimension variable expression given a subtree of the AST, for
-    #    example::
+    def extract_dimvar_expr(self, node: ast.AST) -> DimExpr:
+        """
+        Return a dimension variable expression given a subtree of the AST, for
+        example::
 
-    #        std[2*N + 1]
-    #            ^^^^^^^
-    #    """
+            std**(2*N + 1)
+                  ^^^^^^^
+        """
 
-    #    # TODO: support more advanced constant expressions
-    #    if isinstance(node, ast.Name):
-    #        dimvar_name = node.id
-    #        if dimvar_name in self.dim_vars:
-    #            return DimVarExpr(dimvar_name, 0)
-    #        else:
-    #            raise QwertySyntaxError('Unknown type variable {} found in '
-    #                                    'constant type expression'
-    #                                    .format(dimvar_name),
-    #                                    self.get_debug_loc(node))
-    #    elif isinstance(node, ast.Constant) \
-    #            and isinstance(node.value, int):
-    #        return DimVarExpr('', node.value)
-    #    elif isinstance(node, ast.BinOp) \
-    #            and isinstance(node.op, ast.Add):
-    #        left = self.extract_dimvar_expr(node.left)
-    #        left += self.extract_dimvar_expr(node.right)
-    #        return left
-    #    elif isinstance(node, ast.BinOp) \
-    #            and isinstance(node.op, ast.Sub):
-    #        left = self.extract_dimvar_expr(node.left)
-    #        left -= self.extract_dimvar_expr(node.right)
-    #        return left
-    #    elif isinstance(node, ast.BinOp) \
-    #            and isinstance(node.op, ast.Mult):
-    #        left = self.extract_dimvar_expr(node.left)
-    #        right = self.extract_dimvar_expr(node.right)
+        dbg = self.get_debug_loc(node)
 
-    #        if not left.is_constant() and not right.is_constant():
-    #            raise QwertySyntaxError('Dimvars, or constant type '
-    #                                    'expressions containing dimvars, '
-    #                                    'cannot be multiplied together',
-    #                                    self.get_debug_loc(node))
-    #        left *= right
-    #        return left
-    #    else:
-    #        raise QwertySyntaxError('Unsupported constant type expression',
-    #                                self.get_debug_loc(node))
+        # TODO: support more advanced constant expressions
+        #if isinstance(node, ast.Name):
+        #    dimvar_name = node.id
+        #    if dimvar_name in self.dim_vars:
+        #        return DimVarExpr(dimvar_name, 0)
+        #    else:
+        #        raise QwertySyntaxError('Unknown type variable {} found in '
+        #                                'constant type expression'
+        #                                .format(dimvar_name),
+        #                                self.get_debug_loc(node))
+        if isinstance(node, ast.Constant) \
+                and isinstance(node.value, int):
+            return DimExpr.new_const(node.value, dbg)
+        elif isinstance(node, ast.BinOp) \
+                and isinstance(node.op, ast.Add):
+            left = self.extract_dimvar_expr(node.left)
+            right = self.extract_dimvar_expr(node.right)
+            return DimExpr.new_sum(left, right, dbg)
+        elif isinstance(node, ast.BinOp) \
+                and isinstance(node.op, ast.Sub):
+            left = self.extract_dimvar_expr(node.left)
+            right = self.extract_dimvar_expr(node.right)
+            right_neg = DimExpr.new_neg(right, dbg)
+            return DimExpr.new_sum(left, right_neg, dbg)
+        elif isinstance(node, ast.BinOp) \
+                and isinstance(node.op, ast.Mult):
+            left = self.extract_dimvar_expr(node.left)
+            right = self.extract_dimvar_expr(node.right)
+            return DimExpr.new_prod(left, right, dbg)
+        elif isinstance(node, ast.UnaryOp) \
+                and isinstance(node.op, ast.USub):
+            val = self.extract_dimvar_expr(node.operand)
+            return DimExpr.new_neg(val, dbg)
+        else:
+            raise QwertySyntaxError('Unsupported constant type expression',
+                                    self.get_debug_loc(node))
 
     #def extract_comma_sep_dimvar_expr(self, node: ast.AST) -> List[DimVarExpr]:
     #    if isinstance(node, ast.Tuple):
@@ -297,6 +298,24 @@ class BaseVisitor:
                                     'between the parentheses.', bits_dbg)
 
         return self._expr_class.new_bit_literal(bits, dim, dbg)
+
+    def visit_macro(self,
+                    macro_pat: ast.AST,
+                    macro_name: str,
+                    macro_rhs: ast.AST,
+                    dbg: DebugLoc) -> QpuStmt | ClassicalStmt:
+        """
+        Visit a macro definition, as in::
+
+            b.measure = __MEASURE__(b)
+
+        Here, ``b`` (on the left) is ``macro_pat``, then ``measure`` is
+        ``macro_name``, and ``macro_rhs`` is ``__MEASURE__(b)``.
+
+        This default implementation throws an error, but subclasses should
+        override this if they support macros.
+        """
+        return QwertySyntaxError('Macros are not supported here.', dbg)
 
     def visit_Module(self, module: ast.Module):
         """
@@ -504,6 +523,11 @@ class BaseVisitor:
 
             expr = self.visit(assign.value)
             return self._stmt_class.new_unpack_assign(var_names, expr, dbg)
+        elif isinstance(attr := tgt, ast.Attribute):
+            macro_pat = attr.value
+            macro_name = attr.attr
+            macro_rhs = assign.value
+            return self.visit_macro(macro_pat, macro_name, macro_rhs, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -646,6 +670,28 @@ class QpuVisitor(BaseVisitor):
         super().__init__(QpuExpr, QpuStmt, QpuFunctionDef, name_generator,
                          capturer, filename, line_offset, col_offset)
 
+    def visit_macro(self,
+                    macro_pat: ast.AST,
+                    macro_name: str,
+                    macro_rhs: ast.AST,
+                    dbg: DebugLoc) -> QpuStmt | ClassicalStmt:
+        """
+        Override of ``BaseVisitor::visit_macro()` that creates the appropriate
+        metaQwerty AST nodes.
+        """
+        if macro_name == 'sym' \
+                and isinstance(string_const := macro_pat, ast.Constant) \
+                and isinstance(sym := string_const.value, str):
+            string_const_dbg = self.get_debug_loc(string_const)
+            if (sym_len := len(sym)) != 1:
+                raise QwertySyntaxError('Vector symbols must have length 1, '
+                                        f'but found {sym_len} instead.', dbg)
+            vec = self.extract_basis_vector(macro_rhs)
+            return QpuStmt.new_vector_symbol_def(sym, vec, dbg)
+        else:
+            node_name = type(node).__name__
+            raise QwertySyntaxError('Unknown macro syntax', dbg)
+
     def extract_qubit_literal(self, node: ast.AST) -> QpuExpr:
         return QpuExpr.new_qlit(self.extract_basis_vector(node))
 
@@ -733,6 +779,10 @@ class QpuVisitor(BaseVisitor):
             basis = self.extract_basis(node.left)
             gen = self.extract_basis_generator(node.right)
             return Basis.new_apply_basis_generator(basis, gen, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            basis = self.extract_basis(node.left)
+            factor = self.extract_dimvar_expr(node.right)
+            return Basis.new_basis_broadcast_tensor(basis, factor, dbg)
         elif (isinstance(node, ast.UnaryOp)
                     and isinstance(node.op, ast.USub)) \
                 or (isinstance(node, ast.Constant) \
@@ -863,6 +913,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp_Mult(binOp)
         elif isinstance(binOp.op, ast.RShift):
             return self.visit_BinOp_RShift(binOp)
+        elif isinstance(binOp.op, ast.Pow):
+            return self.visit_BinOp_Pow(binOp)
         #elif isinstance(binOp.op, ast.BitAnd):
         #    return self.visit_BinOp_BitAnd(binOp)
         #elif isinstance(binOp.op, ast.MatMult):
@@ -975,6 +1027,18 @@ class QpuVisitor(BaseVisitor):
         basis_in = self.extract_basis(binOp.left)
         basis_out = self.extract_basis(binOp.right)
         return QpuExpr.new_basis_translation(basis_in, basis_out, dbg)
+
+    def visit_BinOp_Pow(self, binOp: ast.BinOp):
+        """
+        Convert a Python exponentiation AST node to a Qwerty
+        ``BroadcastTensor`` AST node. For example, ``e**N`` becomes a
+        ``BroadcastTensor`` node with a left expression child and a right
+        ``DimExpr`` child.
+        """
+        dbg = self.get_debug_loc(binOp)
+        val = self.visit(binOp.left)
+        factor = self.extract_dimvar_expr(binOp.right)
+        return QpuExpr.new_broadcast_tensor(val, factor, dbg)
 
     #def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
     #    if isinstance(unaryOp.op, ast.USub):
