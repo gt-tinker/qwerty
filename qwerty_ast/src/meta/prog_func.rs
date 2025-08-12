@@ -5,6 +5,22 @@ use crate::{
     meta::{MetaType, classical, qpu},
 };
 
+/// A list of statements that are prepended to every kernel.
+///
+/// Example syntax:
+/// ```text
+/// @qpu_prelude
+/// def example_prelude():
+///     '0'.sym = __SYM_STD0__()
+///     '1'.sym = __SYM_STD1__()
+///     flip = {'0','1'} >> {'1','0'}
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct Prelude<S> {
+    pub body: Vec<S>,
+    pub dbg: Option<DebugLoc>,
+}
+
 /// A function (kernel) definition.
 ///
 /// Example syntax:
@@ -22,6 +38,14 @@ pub struct MetaFunctionDef<S> {
     pub is_rev: bool,
     pub dim_vars: Vec<String>,
     pub dbg: Option<DebugLoc>,
+}
+
+impl<S: Clone> MetaFunctionDef<S> {
+    /// Register a prelude for this function. For now, this just prepends all
+    /// prelude statements to this function's statements.
+    pub fn add_prelude(&mut self, prelude: &Prelude<S>) {
+        self.body.splice(0..0, prelude.body.iter().cloned());
+    }
 }
 
 // TODO: don't duplicate this with MetaFunctionDef<classical::MetaStmt>

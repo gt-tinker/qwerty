@@ -1,28 +1,28 @@
 """
-This module is orchestrates the parsing of Python source into ASTs and
-invocation of the Qwerty JIT compiler. Contains definitions of ``@qpu``
-and ``@classical`` decorators. When a ``@qpu`` kernel is called, this module
-jumps into the JIT'd code via ``_qwerty_harness.cpp``.
+This module orchestrates the parsing of Python source into ASTs and invocation
+of the Qwerty JIT compiler. Contains definitions of ``@qpu`` and ``@classical``
+decorators. When a ``@qpu`` kernel is called, this module jumps into the JIT'd
+code.
 """
 
 import os
-import ast
 import weakref
-import inspect
-import textwrap
 import functools
-from types import TracebackType
+from types import TracebackType, FunctionType
 from abc import ABC, abstractmethod
 from typing import Any, List, Dict, Iterable, Optional, Callable
 from dataclasses import dataclass
 
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  _cook_programmer_traceback, get_python_vars, \
-                 QwertySyntaxError
+                 QwertyProgrammerError, QwertySyntaxError
 from ._qwerty_pyrt import Program
 from .runtime import dimvar, bit
-from .convert_ast import AstKind, convert_ast, Capturer, CaptureError, \
+from .pyast_utils import get_func_pyast
+from .convert_ast import AstKind, convert_func_ast, Capturer, CaptureError, \
                          CapturedSymbol, CapturedBitReg
+from .prelude import PreludeHandle
+from .default_qpu_prelude import default_qpu_prelude
 
 QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
 QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
@@ -42,22 +42,6 @@ def _reset_compiler_state():
     # TODO: also wipe _FRAME_MAP err.py
     program = Program(program_dbg)
     _global_func_counter = 0
-
-def _calc_col_offset(before_dedent, after_dedent):
-    """
-    Recalculate how many leading characters we removed by ``textwrap.dedent()``
-    below. This way, we can give programmers an accurate column number in
-    exceptions.
-    """
-    def first_non_ws(s: str):
-        offset = len(s)
-        for i, c in enumerate(s):
-            if c not in ' \t':
-                offset = i
-                break
-        return offset
-
-    return first_non_ws(before_dedent) - first_non_ws(after_dedent)
 
 class KernelHandle:
     """
@@ -115,7 +99,7 @@ class PyCapturer(Capturer):
         else:
             return None
 
-def _jit(ast_kind, func, last_dimvars=None):
+def _jit(ast_kind, func, last_dimvars=None, prelude=None):
     """
     Obtain the Python source code for a function object ``func``, then ask the
     Python interpreter for its Python AST, then convert this Python AST to a
@@ -125,25 +109,29 @@ def _jit(ast_kind, func, last_dimvars=None):
     global QWERTY_DEBUG, _global_func_counter
 
     if last_dimvars is None:
+        # TODO: use this?
         last_dimvars = []
+    if prelude is not None:
+        if not isinstance(prelude, PreludeHandle):
+            raise QwertyProgrammerError(
+                'Prelude passed as prelude= is not a function decorated '
+                'with e.g. `@qpu_prelude`.')
+        prelude = prelude._prelude
 
-    filename = inspect.getsourcefile(func) or ''
-    # Minus one because we want the line offset, not the starting line
-    line_offset = inspect.getsourcelines(func)[1] - 1
-    func_src = inspect.getsource(func)
-    # textwrap.dedent() inspired by how Triton does the same thing. compile()
-    # is very unhappy if the source starts with indentation
-    func_src_dedent = textwrap.dedent(func_src)
-    col_offset = _calc_col_offset(func_src, func_src_dedent)
-
-    func_ast = ast.parse(func_src_dedent)
+    filename, line_offset, col_offset, func_ast = get_func_pyast(func)
     name_generator = lambda ast_name: f'{ast_name}_{_global_func_counter}'
     capturer = PyCapturer()
-    ast_func_def = convert_ast(ast_kind, func_ast, name_generator, capturer,
-                               filename, line_offset, col_offset)
+    ast_func_def = convert_func_ast(ast_kind, func_ast, name_generator,
+                                    capturer, filename, line_offset,
+                                    col_offset)
     if ast_kind == AstKind.QPU:
+        if prelude is not None:
+            ast_func_def.add_prelude(prelude)
         program.add_qpu_function_def(ast_func_def)
     elif ast_kind == AstKind.CLASSICAL:
+        if prelude is not None:
+            raise QwertyProgrammerError(
+                'Preludes are not supported for `@classical` functions.')
         program.add_classical_function_def(ast_func_def)
     else:
         assert False, "compiler bug: Missing handling of AstKind"
@@ -163,10 +151,18 @@ class JitProxy(ABC):
         self._last_dimvars = None
 
     @abstractmethod
-    def _proxy_to(self, func, last_dimvars=None):
+    def _proxy_to(self, func, last_dimvars=None, prelude=None):
         """
         Subclasses should invoke ``_jit()`` here on ``func`` with the
         ``captures`` and ``last_dimvars`` provided and return the result.
+        """
+        ...
+
+    @abstractmethod
+    def _get_default_prelude(self):
+        """
+        Subclasses should return the default prelude for their respective AST
+        kind.
         """
         ...
 
@@ -184,25 +180,54 @@ class JitProxy(ABC):
         self._last_dimvars = dimvars
         return self
 
+    def _proxy(self, func, prelude):
+        """
+        Call ``self._proxy_to()``. Used by ``__call__()``.
+        """
+        return self._proxy_to(func, last_dimvars=self._last_dimvars,
+                              prelude=prelude)
+
     @_cook_programmer_traceback
-    def __call__(self, func):
+    def __call__(self, func=None, /, *, prelude=None):
         """
-        Support the syntax for specifying captures, e.g.,
-        ``@qpu(capture1, capture2)``.
+        Support either Python calling the ``@qpu`` decorator on a function
+        definition or someone setting the prelude with
+        ``@qpu(prelude=my_prelude)``.
         """
-        if callable(func) and not isinstance(func, KernelHandle):
-            return self._proxy_to(func, last_dimvars=self._last_dimvars)
+        if func is not None:
+            # The @qpu decorator is being called for a function.
+            if not isinstance(func, FunctionType) \
+                    or not hasattr(func, '__name__'):
+                raise QwertySyntaxError('Only functions can be decorated with '
+                                        '@qpu or @classical')
+            return self._proxy(func, self._get_default_prelude())
         else:
-            raise QwertySyntaxError('Only functions can be decorated with '
-                                    '@qpu or @classical')
+            # Someone is setting @qpu(prelude=something). The next call should
+            # be the decorator being applied to a function definition.
+            # Need to create a closure here @decorated with
+            # @_cook_programmer_traceback since if _proxy_to throws a
+            # QwertyProgrammerError the backtrace will be through this closure
+            # and will not be caught by the decorator on this function
+            # (__call__()). See err.py for more details.
+            @_cook_programmer_traceback
+            def cooked_traceback_closure(func):
+                return self._proxy(func, prelude)
+            return cooked_traceback_closure
 
 class QpuProxy(JitProxy):
-    def _proxy_to(self, func, last_dimvars=None):
-        return _jit(AstKind.QPU, func, last_dimvars)
+    def _get_default_prelude(self):
+        return default_qpu_prelude
+
+    def _proxy_to(self, func, last_dimvars=None, prelude=None):
+        return _jit(AstKind.QPU, func, last_dimvars, prelude)
 
 class ClassicalProxy(JitProxy):
-    def _proxy_to(self, func, captures=None, last_dimvars=None):
-        return _jit(AstKind.CLASSICAL, func, last_dimvars)
+    def _get_default_prelude(self):
+        # There is no `@classical` prelude right now
+        return None
+
+    def _proxy_to(self, func, last_dimvars=None, prelude=None):
+        return _jit(AstKind.CLASSICAL, func, last_dimvars, prelude)
 
 # The infamous @qpu and @classical decorators
 qpu = QpuProxy()

@@ -1,6 +1,6 @@
 from qwerty import *
 
-@qpu
+@qpu(prelude=None)
 def kernel() -> bit[3]:
     q1, q2, q3 = (__SYM_STD0__()-__SYM_STD1__())*__SYM_STD0__()*__SYM_STD1__()
     q1m = __MEASURE__({__SYM_STD0__()+__SYM_STD1__(),__SYM_STD0__()-__SYM_STD1__()})(q1)

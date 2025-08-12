@@ -7,11 +7,11 @@ from qwerty import *
 
 secret_string = bit[3](0b110)
 
-@classical
+@classical(prelude=None)
 def oracle(x: bit[3]) -> bit:
     return (x & secret_string).xor_reduce()
 
-@qpu
+@qpu(prelude=None)
 def kernel() -> bit[3]:
     '0'.sym = __SYM_STD0__()
     '1'.sym = __SYM_STD1__()

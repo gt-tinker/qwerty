@@ -14,7 +14,7 @@ from .runtime import bit
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
-                          ClassicalFunctionDef, Vector, Basis, \
+                          QpuPrelude, ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
                           BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
                           DimExpr, ExprMacroPattern, BasisMacroPattern, \
@@ -93,10 +93,15 @@ class TrivialCapturer(Capturer):
     def capture(self, var_name: str) -> Optional[str]:
         return None
 
-def convert_ast(ast_kind: AstKind, module: ast.Module,
-                name_generator: Callable[[str], str], capturer: Capturer,
-                filename: str = '', line_offset: int = 0,
-                col_offset: int = 0) -> QpuFunctionDef | ClassicalFunctionDef:
+def trivial_name_generator():
+    """Return a ``name_generator`` that leaves names unchanged."""
+    return lambda name: name
+
+def convert_func_ast(ast_kind: AstKind, module: ast.Module,
+                     name_generator: Callable[[str], str], capturer: Capturer,
+                     filename: str = '', line_offset: int = 0,
+                     col_offset: int = 0) \
+                    -> QpuFunctionDef | ClassicalFunctionDef:
     """
     Take in a Python AST for a function parsed with ``ast.parse(mode='exec')``
     and return a ``Kernel`` Qwerty AST node.
@@ -106,11 +111,11 @@ def convert_ast(ast_kind: AstKind, module: ast.Module,
     and the caller may de-indent source code to avoid angering ``ast.parse()``.
     """
     if ast_kind == AstKind.QPU:
-        return convert_qpu_ast(module, name_generator, capturer, filename,
-                               line_offset, col_offset)
+        return convert_qpu_func_ast(module, name_generator, capturer, filename,
+                                    line_offset, col_offset)
     elif ast_kind == AstKind.CLASSICAL:
-        return convert_classical_ast(module, name_generator, capturer,
-                                     filename, line_offset, col_offset)
+        return convert_classical_func_ast(module, name_generator, capturer,
+                                          filename, line_offset, col_offset)
     else:
         raise ValueError('unknown AST type {}'.format(ast_kind))
 
@@ -399,6 +404,16 @@ class BaseVisitor:
                                     .format(decorator_name, func_name),
                                     self.get_debug_loc(func_def))
 
+        # First, unwrap the outer call with @qpu(prelude=my_prelude)
+        #                                       ^^^^^^^^^^^^^^^^^^^^
+        if isinstance(our_decorator, ast.Call) \
+                and not our_decorator.args \
+                and len(our_decorator.keywords) == 1 \
+                and our_decorator.keywords[0].arg == 'prelude':
+            # We already got the value of the prelude kwarg earlier so we can
+            # ignore it here.
+            our_decorator = our_decorator.func
+
         # Then try to determine this function's type variables
         is_ours = lambda node: isinstance(node, ast.Name) \
                                and node.id == decorator_name
@@ -421,10 +436,9 @@ class BaseVisitor:
             dim_vars = [get_tv(name) for name in tvs]
             tvs_has_explicit_value = [is_explicit_tv(dv) for dv in tvs]
         else:
-            raise QwertySyntaxError('Mysterious non-@{}[[N,M]](capture1, '
-                                    'capture2) decorator for {}()'
-                                    .format(decorator_name,
-                                            func_name),
+            raise QwertySyntaxError('Mysterious non-@{}[[N,M]] decorator for '
+                                    '{}()'.format(decorator_name,
+                                                  func_name),
                                     self.get_debug_loc(our_decorator))
 
         # TODO: do soemthing with dim_vars and tvs_has_explicit_value
@@ -699,7 +713,7 @@ VECTOR_ATOM_INTRINSICS = {'__SYM_STD0__': Vector.new_zero_vector,
 
 class QpuVisitor(BaseVisitor):
     """
-    Python AST visitor for syntax specific to ``@qpu`` kernels.
+    Python AST visitor for syntax specific to the ``@qpu`` DSL.
     """
 
     def __init__(self, name_generator: Callable[[str], str],
@@ -778,8 +792,8 @@ class QpuVisitor(BaseVisitor):
 
             try:
                 # ``allow_macro=False`` avoids a syntactic ambiguitity
-                rhs_bgen = self.extract_basis_generator(
-                        macro_rhs, allow_vector_alias=True, allow_macro=False)
+                rhs_bgen = self.extract_basis_generator(macro_rhs,
+                                                        allow_macro=False)
             # TODO: do a more granular catch here
             except QwertySyntaxError:
                 rhs_expr = self.visit(macro_rhs)
@@ -830,38 +844,35 @@ class QpuVisitor(BaseVisitor):
         intrinsic_name = name.id
         return VECTOR_ATOM_INTRINSICS[intrinsic_name](dbg)
 
-    def extract_basis_vector(self, node: ast.AST, *, allow_alias=False) -> Vector:
+    def extract_basis_vector(self, node: ast.AST) -> Vector:
         """
-        Convert a Python AST node to a Qwerty AST ``Vector`` node. Passing
-        ``allow_alias=True`` allows writing vector aliases, e.g., ``bv`` (that
-        is, identifiers). The default is not to allow aliases since they are
-        currently a niche feature only used in the right-hand side of macros.
+        Convert a Python AST node to a Qwerty AST ``Vector`` node.
         """
 
         dbg = self.get_debug_loc(node)
 
-        if allow_alias and isinstance(name := node, ast.Name):
+        if isinstance(name := node, ast.Name):
             alias_name = name.id
             return Vector.new_vector_alias(alias_name, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
-            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
             return Vector.new_uniform_vector_superpos(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
-            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
-            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
             right_neg = Vector.new_vector_tilt(right, 180.0, dbg)
             return Vector.new_uniform_vector_superpos(left, right_neg, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
-            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_basis_vector(node.right)
             return Vector.new_vector_bi_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
-            q = self.extract_basis_vector(node.left, allow_alias=allow_alias)
+            q = self.extract_basis_vector(node.left)
             angle_deg = self.extract_float_const(node.right)
             return Vector.new_vector_tilt(q, angle_deg, dbg)
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-            q = self.extract_basis_vector(node.operand, allow_alias=allow_alias)
+            q = self.extract_basis_vector(node.operand)
             return Vector.new_vector_tilt(q, 180.0, dbg)
         elif self.is_vector_atom_intrinsic(node):
             return self.extract_vector_atom_intrinsic(node)
@@ -877,16 +888,12 @@ class QpuVisitor(BaseVisitor):
                                     .format(node_name), dbg)
 
     def extract_basis_generator(self, node: ast.AST, *,
-                                allow_vector_alias=False,
                                 allow_macro=True) -> BasisGenerator:
         """
-        Convert a Python AST node into a ``BasisGenerator`` Qwerty AST node. By
-        default, use of vector aliases (i.e., writing ``bv1`` or ``bv2`` for
-        basis vectors) are banned unless ``allow_vector_alias=True``. This
-        should be passed when parsing the right-hand side of a basis generator
-        macro definition. Passing ``allow_macro=False`` bans use of basis
-        generator macros, which is useful for avoiding syntactic ambiguities
-        for basis macro definitions versus basis generator macro definitions.
+        Convert a Python AST node into a ``BasisGenerator`` Qwerty AST node.
+        Passing ``allow_macro=False`` bans use of basis generator macros, which
+        is useful for avoiding syntactic ambiguities for basis macro
+        definitions versus basis generator macro definitions.
         """
         dbg = self.get_debug_loc(node)
 
@@ -898,8 +905,8 @@ class QpuVisitor(BaseVisitor):
                 raise QwertySyntaxError(f'Wrong number of arguments {n_args} '
                                         '!= 2 to __REVOLVE__ intrinsic', dbg)
             arg1, arg2 = call.args
-            v1 = self.extract_basis_vector(arg1, allow_alias=allow_vector_alias)
-            v2 = self.extract_basis_vector(arg2, allow_alias=allow_vector_alias)
+            v1 = self.extract_basis_vector(arg1)
+            v2 = self.extract_basis_vector(arg2)
             return BasisGenerator.new_revolve(v1, v2, dbg)
         elif allow_macro and isinstance(attr := node, ast.Attribute):
             name = attr.attr
@@ -1596,13 +1603,54 @@ class QpuVisitor(BaseVisitor):
         else:
             return self.base_visit(node)
 
-def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
-                    capturer: Capturer, filename: str = '',
-                    line_offset: int = 0, col_offset: int = 0) -> QpuFunctionDef:
+class QpuPreludeVisitor(QpuVisitor):
+    """
+    For parsing ``@qpu_prelude``s.
+    """
+
+    def __init__(self, filename: str = '', line_offset: int = 0,
+                 col_offset: int = 0):
+        super().__init__(trivial_name_generator(), TrivialCapturer(), filename,
+                         line_offset, col_offset)
+
+    def visit_FunctionDef(self, func_def: ast.FunctionDef) -> QpuPrelude:
+        """
+        Overload ``QpuVisitor.visit_FunctionDef()`` to parse the simpler
+        prelude function AST structure.
+        """
+        dbg = self.get_debug_loc(func_def)
+
+        # Sanity check for unsupported features
+        for arg_prop in ('args', 'posonlyargs', 'vararg', 'kwonlyargs',
+                         'kw_defaults', 'kwarg', 'defaults'):
+            if getattr(func_def.args, arg_prop):
+                raise QwertySyntaxError('Preludes cannot have arguments', dbg)
+
+        if (n_decorators := len(func_def.decorator_list)) != 1:
+            raise QwertySyntaxError('Wrong number of decorators ({} > 2) '
+                                    'for prelude'.format(n_decorators), dbg)
+        else:
+            decorator, = func_def.decorator_list
+            if not isinstance(decorator, ast.Name) \
+                    or decorator.id != 'qpu_prelude':
+                raise QwertySyntaxError('Unknown decorator for prelude', dbg)
+
+        if func_def.returns:
+            raise QwertySyntaxError('Preludes may not have a return type.',
+                                    dbg)
+
+        body = self.visit(func_def.body)
+        return QpuPrelude(body, dbg)
+
+def convert_qpu_func_ast(module: ast.Module,
+                         name_generator: Callable[[str], str],
+                         capturer: Capturer, filename: str = '',
+                         line_offset: int = 0, col_offset: int = 0) \
+                        -> QpuFunctionDef:
     """
     Run the ``QpuVisitor`` on the provided Python AST to convert to a Qwerty
     ``@qpu`` AST and return the result. The return value is the same as
-    ``convert_ast()`` above.
+    ``convert_func_ast()`` above.
     """
     if not isinstance(module, ast.Module):
         raise QwertySyntaxError('Expected top-level Module node in Python AST',
@@ -1610,6 +1658,20 @@ def convert_qpu_ast(module: ast.Module, name_generator: Callable[[str], str],
 
     visitor = QpuVisitor(name_generator, capturer, filename, line_offset,
                          col_offset)
+    return visitor.visit_Module(module)
+
+def convert_qpu_prelude_ast(module: ast.Module, filename: str = '',
+                            line_offset: int = 0, col_offset: int = 0) \
+                           -> QpuPrelude:
+    """
+    Run the ``QpuPreludeVisitor`` on the provided Python AST to convert to a
+    Qwerty ``@qpu`` prelude.
+    """
+    if not isinstance(module, ast.Module):
+        raise QwertySyntaxError('Expected top-level Module node in Python AST',
+                                None) # This should not happen
+
+    visitor = QpuPreludeVisitor(filename, line_offset, col_offset)
     return visitor.visit_Module(module)
 
 def convert_qpu_repl_input(root: ast.Interactive, *, capturer=None) -> QpuStmt:
@@ -1627,7 +1689,7 @@ def convert_qpu_repl_input(root: ast.Interactive, *, capturer=None) -> QpuStmt:
 
     stmt, = root.body
     capturer = capturer or TrivialCapturer()
-    visitor = QpuVisitor(name_generator=lambda name: name,
+    visitor = QpuVisitor(name_generator=trivial_name_generator(),
                          capturer=capturer,
                          filename='<input>',
                          line_offset=0,
@@ -1895,15 +1957,15 @@ class ClassicalVisitor(BaseVisitor):
         else:
             return self.base_visit(node)
 
-def convert_classical_ast(module: ast.Module,
-                          name_generator: Callable[[str], str],
-                          capturer: Capturer, filename: str = '',
-                          line_offset: int = 0, col_offset: int = 0) \
-                         -> ClassicalFunctionDef:
+def convert_classical_func_ast(module: ast.Module,
+                               name_generator: Callable[[str], str],
+                               capturer: Capturer, filename: str = '',
+                               line_offset: int = 0, col_offset: int = 0) \
+                              -> ClassicalFunctionDef:
     """
     Run the ``ClassicalVisitor`` on the provided Python AST to convert to a
     Qwerty ``@classical`` AST and return the result. The return value is the
-    same as ``convert_ast()`` above.
+    same as ``convert_func_ast()`` above.
     """
     if not isinstance(module, ast.Module):
         raise QwertySyntaxError('Expected top-level Module node in Python AST',

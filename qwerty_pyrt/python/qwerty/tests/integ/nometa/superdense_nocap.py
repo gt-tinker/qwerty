@@ -5,7 +5,7 @@ captures or metaQwerty features.
 
 from qwerty import *
 
-@qpu
+@qpu(prelude=None)
 def kernel00() -> bit[2]:
     payload = bit[2](0b00)
     bit0, bit1 = payload
@@ -24,7 +24,7 @@ def kernel00() -> bit[2]:
                {__SYM_STD0__()*__SYM_STD0__() + __SYM_STD1__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD0__() + -__SYM_STD1__()*__SYM_STD1__(),
                 __SYM_STD1__()*__SYM_STD0__() + __SYM_STD0__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD1__() + -__SYM_STD1__()*__SYM_STD0__()}))
 
-@qpu
+@qpu(prelude=None)
 def kernel01() -> bit[2]:
     payload = bit[2](0b01)
     bit0, bit1 = payload
@@ -43,7 +43,7 @@ def kernel01() -> bit[2]:
                {__SYM_STD0__()*__SYM_STD0__() + __SYM_STD1__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD0__() + -__SYM_STD1__()*__SYM_STD1__(),
                 __SYM_STD1__()*__SYM_STD0__() + __SYM_STD0__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD1__() + -__SYM_STD1__()*__SYM_STD0__()}))
 
-@qpu
+@qpu(prelude=None)
 def kernel10() -> bit[2]:
     payload = bit[2](0b10)
     bit0, bit1 = payload
@@ -61,7 +61,7 @@ def kernel10() -> bit[2]:
             | __MEASURE__(
                {__SYM_STD0__()*__SYM_STD0__() + __SYM_STD1__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD0__() + -__SYM_STD1__()*__SYM_STD1__(),
                 __SYM_STD1__()*__SYM_STD0__() + __SYM_STD0__()*__SYM_STD1__(), __SYM_STD0__()*__SYM_STD1__() + -__SYM_STD1__()*__SYM_STD0__()}))
-@qpu
+@qpu(prelude=None)
 def kernel11() -> bit[2]:
     payload = bit[2](0b11)
     bit0, bit1 = payload

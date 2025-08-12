@@ -5,11 +5,11 @@ metaQwerty features such as 'p').
 
 from qwerty import *
 
-@qpu
+@qpu(prelude=None)
 def get_p() -> qubit:
     return __SYM_STD0__()+__SYM_STD1__()
 
-@qpu
+@qpu(prelude=None)
 def kernel() -> bit:
     return get_p() | __MEASURE__({__SYM_STD0__(),__SYM_STD1__()})
 

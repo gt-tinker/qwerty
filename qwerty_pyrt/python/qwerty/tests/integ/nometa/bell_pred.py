@@ -5,7 +5,7 @@ the lowering of the ``Predicated`` AST node.
 
 from qwerty import *
 
-@qpu
+@qpu(prelude=None)
 def kernel() -> bit:
     id = __SYM_PAD__() >> __SYM_PAD__()
     flip = {__SYM_STD0__()>>__SYM_STD1__(), __SYM_STD1__()>>__SYM_STD0__()}

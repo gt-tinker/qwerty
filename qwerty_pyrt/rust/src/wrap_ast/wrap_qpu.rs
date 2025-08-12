@@ -892,7 +892,7 @@ impl QpuFunctionDef {
                     .map(|(arg_ty, arg_name)| (arg_ty.ty.clone(), arg_name.to_string()))
                     .collect(),
                 ret_type: ret_type.ty.clone(),
-                body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
+                body: body.into_iter().map(|stmt| stmt.stmt).collect(),
                 is_rev,
                 dim_vars: vec![],
                 dbg: dbg.map(|dbg| dbg.dbg),
@@ -902,5 +902,28 @@ impl QpuFunctionDef {
 
     fn get_name(&self) -> String {
         self.function_def.name.to_string()
+    }
+
+    fn add_prelude(&mut self, prelude: QpuPrelude) {
+        self.function_def.add_prelude(&prelude.prelude);
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct QpuPrelude {
+    pub prelude: meta::Prelude<meta::qpu::MetaStmt>,
+}
+
+#[pymethods]
+impl QpuPrelude {
+    #[new]
+    fn new(body: Vec<QpuStmt>, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            prelude: meta::Prelude {
+                body: body.into_iter().map(|stmt| stmt.stmt).collect(),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
     }
 }

@@ -6,11 +6,11 @@ literal.)
 
 from qwerty import *
 
-@classical
+@classical(prelude=None)
 def oracle(x: bit[3]) -> bit:
     return (x & bit[3](0b110)).xor_reduce()
 
-@qpu
+@qpu(prelude=None)
 def kernel() -> bit[3]:
     return ((__SYM_STD0__()+__SYM_STD1__())*(__SYM_STD0__()+__SYM_STD1__())*(__SYM_STD0__()+__SYM_STD1__())
             | __EMBED_SIGN__(oracle)

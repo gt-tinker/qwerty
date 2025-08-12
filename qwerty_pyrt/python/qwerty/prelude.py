@@ -1,44 +1,26 @@
-"""
-The definition of the default Qwerty prelude, which defines common qubit
-symbols, bases, macros, and abbreviated operation names.
-"""
+from collections.abc import Callable
+from ._qwerty_pyrt import QpuPrelude
+from .pyast_utils import get_func_pyast
+from .convert_ast import convert_qpu_prelude_ast
+from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
+                 _cook_programmer_traceback
 
-@qpu_prelude
-def default_prelude():
-    # Symbols in qubit literals
-    '0'.sym = __SYM_STD0__()
-    '1'.sym = __SYM_STD1__()
-    'p'.sym = '0' + '1'
-    'i'.sym = '0' + '1'@90
-    'm'.sym = '0' + '1'@180
-    'j'.sym = '0' + '1'@270
+class PreludeHandle:
+    """
+    An instance of this class is returned by ``@qpu_prelude`` so that
+    programmers can pass preludes to the ``@qpu`` decorator.
+    """
 
-    # Vector symbols
-    '?'.sym = __SYM_PAD__()
-    '_'.sym = __SYM_TARGET__()
+    def __init__(self, prelude: QpuPrelude):
+        self._prelude = prelude
 
-    # Common bases
-    std = {'0', '1'}
-    pm = {'p', 'm'}
-    ij = {'i', 'j'}
-    bell = {'00'+'11', '00'-'11', '10'+'01', '01'-'10'}
-
-    # Basis macros
-    {bv1, bv2}.flip = {bv1, bv2} >> {bv2, bv1}
-    b.measure = __MEASURE__(b)
-    {bv1, bv2}.revolve = __REVOLVE__(bv1, bv2)
-
-    # More complicated bases
-    fourier[1] = pm
-    fourier[N] = fourier[N-1] // std.revolve
-
-    # Classical embeddings
-    f.expr.sign = __EMBED_SIGN__(f)
-    f.expr.xor = __EMBED_XOR__(f)
-    f.expr.inplace = __EMBED_INPLACE__(f)
-
-    # Built-in functions
-    id = '?' >> '?'
-    discard = __DISCARD__()
-    flip = std.flip
-    measure = std.measure
+@_cook_programmer_traceback
+def qpu_prelude(func: Callable[..., ...]) -> PreludeHandle:
+    """
+    The ``@qpu_prelude`` decorator, which allows programmers to define their
+    own ``@qpu`` prelude. Please see ``default_qpu_prelude.py`` for an example.
+    """
+    filename, line_offset, col_offset, func_ast = get_func_pyast(func)
+    prelude = convert_qpu_prelude_ast(func_ast, filename, line_offset,
+                                      col_offset)
+    return PreludeHandle(prelude)

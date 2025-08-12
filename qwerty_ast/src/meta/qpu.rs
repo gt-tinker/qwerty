@@ -1192,18 +1192,3 @@ impl fmt::Display for MetaStmt {
         }
     }
 }
-
-/// A list of statements that are prepended to every `@qpu` kernel.
-///
-/// Example syntax:
-/// ```text
-/// @qpu_prelude
-/// def example_prelude():
-///     '0'.sym = __SYM_STD0__()
-///     '1'.sym = __SYM_STD1__()
-///     flip = {'0','1'} >> {'1','0'}
-/// ```
-#[derive(Debug, Clone, PartialEq)]
-pub struct Prelude {
-    pub body: Vec<MetaStmt>,
-}

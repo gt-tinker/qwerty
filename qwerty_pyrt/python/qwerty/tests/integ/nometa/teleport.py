@@ -4,7 +4,7 @@ A version of quantum teleportation with no metaQwerty features.
 
 from qwerty import *
 
-@qpu
+@qpu(prelude=None)
 def teleport(payload: qubit) -> qubit:
   alice, bob = __SYM_STD0__()*__SYM_STD0__() + __SYM_STD1__()*__SYM_STD1__()
 
@@ -22,19 +22,19 @@ def teleport(payload: qubit) -> qubit:
 
   return teleported_payload
 
-@qpu
+@qpu(prelude=None)
 def kernel_0() -> bit:
     return __SYM_STD0__() | teleport | __MEASURE__({__SYM_STD0__(),__SYM_STD1__()})
 
-@qpu
+@qpu(prelude=None)
 def kernel_1() -> bit:
     return __SYM_STD1__() | teleport | __MEASURE__({__SYM_STD0__(),__SYM_STD1__()})
 
-@qpu
+@qpu(prelude=None)
 def kernel_p() -> bit:
     return __SYM_STD0__()+__SYM_STD1__() | teleport | __MEASURE__({__SYM_STD0__()+__SYM_STD1__(),__SYM_STD0__()-__SYM_STD1__()})
 
-@qpu
+@qpu(prelude=None)
 def kernel_m() -> bit:
     return __SYM_STD0__()-__SYM_STD1__() | teleport | __MEASURE__({__SYM_STD0__()+__SYM_STD1__(),__SYM_STD0__()-__SYM_STD1__()})
 
