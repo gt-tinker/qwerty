@@ -17,7 +17,7 @@ from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
                           BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
-                          DimExpr
+                          DimExpr, BasisMacroPattern
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -718,8 +718,17 @@ class QpuVisitor(BaseVisitor):
             vec = self.extract_basis_vector(macro_rhs)
             return QpuStmt.new_vector_symbol_def(sym, vec, dbg)
         else:
-            node_name = type(node).__name__
-            raise QwertySyntaxError('Unknown macro syntax', dbg)
+            macro_pat_dbg = self.get_debug_loc(macro_pat)
+            if isinstance(macro_pat, ast.Name):
+                macro_pat_name = macro_pat.id
+                lhs_pat = BasisMacroPattern.new_any_basis(macro_pat_name,
+                                                          macro_pat_dbg)
+            else:
+                raise QwertySyntaxError('Unknown basis pattern syntax',
+                                        macro_pat_dbg)
+
+            rhs = self.visit(macro_rhs)
+            return QpuStmt.new_basis_macro_def(lhs_pat, macro_name, rhs, dbg)
 
     def extract_qubit_literal(self, node: ast.AST) -> QpuExpr:
         return QpuExpr.new_qlit(self.extract_basis_vector(node))
@@ -1339,55 +1348,23 @@ class QpuVisitor(BaseVisitor):
     #    elts = self.visit(tuple_.elts)
     #    return TupleLiteral(dbg, elts)
 
-    #def visit_Attribute(self, attr: ast.Attribute):
-    #    """
-    #    Convert a Python attribute access AST node into Qwerty AST nodes for
-    #    primitives such as ``.measure`` or ``.flip``. For example,
-    #    ``std.measure`` becomes a ``Measure`` AST node with a ``BuiltinBasis``
-    #    child node.
-    #    """
-    #    dbg = self.get_debug_loc(attr)
-    #    attr_lhs = attr.value
-    #    attr_rhs = attr.attr
+    def visit_Attribute(self, attr: ast.Attribute):
+        """
+        Convert a Python attribute AST node into a metaQwerty AST
+        ``BasisMacro`` or ``ExprMacro`` node.
+        """
+        dbg = self.get_debug_loc(attr)
+        arg = attr.value
+        name = attr.attr
 
-    #    if attr_rhs == 'measure':
-    #        basis = self.extract_basis(attr_lhs)
-    #        return Expr.new_measure(basis, dbg)
-    #    elif attr_rhs == 'project':
-    #        basis = self.visit(attr_lhs)
-    #        return Project(dbg, basis)
-    #    elif attr_rhs == 'q':
-    #        bits = self.visit(attr_lhs)
-    #        return Lift(dbg, bits)
-    #    elif attr_rhs == 'prep':
-    #        operand = self.visit(attr_lhs)
-    #        return Prepare(dbg, operand)
-    #    elif attr_rhs == 'flip':
-    #        operand = self.visit(attr_lhs)
-    #        return Flip(dbg, operand)
-    #    elif attr_rhs in EMBEDDING_KEYWORDS:
-    #        if isinstance(attr_lhs, ast.Name):
-    #            name = attr_lhs
-    #            classical_func_name = name.id
-    #        else:
-    #            raise QwertySyntaxError('Keyword {} must be applied to an '
-    #                                    'identifier, not a {}'
-    #                                    .format(attr_rhs,
-    #                                            type(attr_lhs).__name__),
-    #                                    self.get_debug_loc(attr))
-
-    #        embedding_kind = EMBEDDING_KEYWORDS[attr_rhs]
-
-    #        if embedding_kind_has_operand(embedding_kind):
-    #            raise QwertySyntaxError('Keyword {} requires an operand, '
-    #                                    'specified with .{}(...)'
-    #                                    .format(attr_rhs, attr_rhs),
-    #                                    self.get_debug_loc(attr))
-
-    #        return EmbedClassical(dbg, classical_func_name, '', embedding_kind)
-    #    else:
-    #        raise QwertySyntaxError('Unsupported keyword {}'.format(attr_rhs),
-    #                                self.get_debug_loc(attr))
+        try:
+            arg_basis = self.extract_basis(arg)
+        # TODO: do a more granular catch here
+        except QwertySyntaxError:
+            arg_expr = self.visit(arg)
+            return QpuExpr.new_expr_macro(name, arg_expr, dbg)
+        else:
+            return QpuExpr.new_basis_macro(name, arg_basis, dbg)
 
     def visit_IfExp(self, if_expr: ast.IfExp):
         """
@@ -1514,8 +1491,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):
         #    return self.visit_Tuple(node)
-        #elif isinstance(node, ast.Attribute):
-        #    return self.visit_Attribute(node)
+        elif isinstance(node, ast.Attribute):
+            return self.visit_Attribute(node)
         elif isinstance(node, ast.IfExp):
             return self.visit_IfExp(node)
         #elif isinstance(node, ast.BoolOp):

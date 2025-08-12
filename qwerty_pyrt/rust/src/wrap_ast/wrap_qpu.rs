@@ -314,6 +314,38 @@ impl fmt::Display for QpuExpr {
 #[pymethods]
 impl QpuExpr {
     #[classmethod]
+    fn new_expr_macro(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        arg: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::ExprMacro {
+                name,
+                arg: Box::new(arg.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_macro(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        arg: Basis,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::BasisMacro {
+                name,
+                arg: Box::new(arg.basis),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_broadcast_tensor(
         _cls: &Bound<'_, PyType>,
         val: QpuExpr,
@@ -507,6 +539,37 @@ impl QpuExpr {
 
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
+pub struct BasisMacroPattern {
+    pub pat: meta::qpu::BasisMacroPattern,
+}
+
+impl fmt::Display for BasisMacroPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.pat)
+    }
+}
+
+#[pymethods]
+impl BasisMacroPattern {
+    #[classmethod]
+    fn new_any_basis(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            pat: meta::qpu::BasisMacroPattern::AnyBasis {
+                name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    /// Return the Debug form of this Expr from __repr__(). By contrast,
+    /// __str__() returns the Display form.
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self.pat)
+    }
+}
+
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
 pub struct QpuStmt {
     pub stmt: meta::qpu::MetaStmt,
 }
@@ -519,6 +582,24 @@ impl fmt::Display for QpuStmt {
 
 #[pymethods]
 impl QpuStmt {
+    #[classmethod]
+    fn new_basis_macro_def(
+        _cls: &Bound<'_, PyType>,
+        lhs_pat: BasisMacroPattern,
+        lhs_name: String,
+        rhs: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::BasisMacroDef {
+                lhs_pat: lhs_pat.pat,
+                lhs_name,
+                rhs: rhs.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_vector_symbol_def(
         _cls: &Bound<'_, PyType>,
