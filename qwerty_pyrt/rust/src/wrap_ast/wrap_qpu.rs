@@ -1,5 +1,5 @@
 use crate::wrap_ast::{
-    py_glue::{ProgErrKind, UBigWrap, get_err},
+    py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
     wrap_dim_expr::DimExpr,
     wrap_type::{DebugLoc, Type, TypeEnv},
 };
@@ -57,6 +57,16 @@ pub struct Vector {
 
 #[pymethods]
 impl Vector {
+    #[classmethod]
+    fn new_vector_alias(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            vec: meta::qpu::MetaVector::VectorAlias {
+                name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_vector_symbol(_cls: &Bound<'_, PyType>, sym: char, dbg: Option<DebugLoc>) -> Self {
         Self {
@@ -174,6 +184,22 @@ pub struct BasisGenerator {
 #[pymethods]
 impl BasisGenerator {
     #[classmethod]
+    fn new_basis_generator_macro(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        arg: Basis,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            generator: meta::qpu::MetaBasisGenerator::BasisGeneratorMacro {
+                name,
+                arg: Box::new(arg.basis),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_revolve(
         _cls: &Bound<'_, PyType>,
         v1: Vector,
@@ -203,6 +229,22 @@ impl Basis {
         Self {
             basis: meta::qpu::MetaBasis::BasisAlias {
                 name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_alias_rec(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        param: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            basis: meta::qpu::MetaBasis::BasisAliasRec {
+                name,
+                param: param.dim_expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -588,10 +630,59 @@ impl BasisMacroPattern {
         }
     }
 
+    #[classmethod]
+    fn new_basis_literal(
+        _cls: &Bound<'_, PyType>,
+        vec_names: Vec<String>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            pat: meta::qpu::BasisMacroPattern::BasisLiteral {
+                vec_names,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     /// Return the Debug form of this node from __repr__(). By contrast,
     /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.pat)
+    }
+}
+
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
+pub struct RecDefParam {
+    pub param: meta::qpu::RecDefParam,
+}
+
+impl fmt::Display for RecDefParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.param)
+    }
+}
+
+#[pymethods]
+impl RecDefParam {
+    #[classmethod]
+    fn new_base(_cls: &Bound<'_, PyType>, param: IBigWrap) -> Self {
+        Self {
+            param: meta::qpu::RecDefParam::Base(param.0),
+        }
+    }
+
+    #[classmethod]
+    fn new_rec(_cls: &Bound<'_, PyType>, param: String) -> Self {
+        Self {
+            param: meta::qpu::RecDefParam::Rec(param),
+        }
+    }
+
+    /// Return the Debug form of this node from __repr__(). By contrast,
+    /// __str__() returns the Display form.
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self.param)
     }
 }
 
@@ -646,6 +737,24 @@ impl QpuStmt {
     }
 
     #[classmethod]
+    fn new_basis_generator_macro_def(
+        _cls: &Bound<'_, PyType>,
+        lhs_pat: BasisMacroPattern,
+        lhs_name: String,
+        rhs: BasisGenerator,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::BasisGeneratorMacroDef {
+                lhs_pat: lhs_pat.pat,
+                lhs_name,
+                rhs: rhs.generator,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_vector_symbol_def(
         _cls: &Bound<'_, PyType>,
         lhs: char,
@@ -671,6 +780,24 @@ impl QpuStmt {
         Self {
             stmt: meta::qpu::MetaStmt::BasisAliasDef {
                 lhs,
+                rhs: rhs.basis,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_basis_alias_rec_def(
+        _cls: &Bound<'_, PyType>,
+        lhs: String,
+        param: RecDefParam,
+        rhs: Basis,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::BasisAliasRecDef {
+                lhs,
+                param: param.param,
                 rhs: rhs.basis,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },

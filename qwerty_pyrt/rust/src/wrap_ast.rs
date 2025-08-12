@@ -12,6 +12,6 @@ pub use wrap_dim_expr::DimExpr;
 pub use wrap_prog::Program;
 pub use wrap_qpu::{
     Basis, BasisGenerator, BasisMacroPattern, EmbedKind, ExprMacroPattern, PlainQpuExpr,
-    PlainQpuStmt, QpuExpr, QpuFunctionDef, QpuStmt, Vector,
+    PlainQpuStmt, QpuExpr, QpuFunctionDef, QpuStmt, RecDefParam, Vector,
 };
 pub use wrap_type::{DebugLoc, RegKind, Type, TypeEnv};

@@ -17,7 +17,8 @@ from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
                           BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
-                          DimExpr, ExprMacroPattern, BasisMacroPattern
+                          DimExpr, ExprMacroPattern, BasisMacroPattern, \
+                          RecDefParam
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -169,17 +170,10 @@ class BaseVisitor:
 
         dbg = self.get_debug_loc(node)
 
-        # TODO: support more advanced constant expressions
-        #if isinstance(node, ast.Name):
-        #    dimvar_name = node.id
-        #    if dimvar_name in self.dim_vars:
-        #        return DimVarExpr(dimvar_name, 0)
-        #    else:
-        #        raise QwertySyntaxError('Unknown type variable {} found in '
-        #                                'constant type expression'
-        #                                .format(dimvar_name),
-        #                                self.get_debug_loc(node))
-        if isinstance(node, ast.Constant) \
+        if isinstance(node, ast.Name):
+            name = node.id
+            return DimExpr.new_var(name, dbg)
+        elif isinstance(node, ast.Constant) \
                 and isinstance(node.value, int):
             return DimExpr.new_const(node.value, dbg)
         elif isinstance(node, ast.BinOp) \
@@ -203,7 +197,8 @@ class BaseVisitor:
             val = self.extract_dimvar_expr(node.operand)
             return DimExpr.new_neg(val, dbg)
         else:
-            raise QwertySyntaxError('Unsupported constant type expression',
+            raise QwertySyntaxError('Unsupported dimension variable '
+                                    'expression',
                                     self.get_debug_loc(node))
 
     #def extract_comma_sep_dimvar_expr(self, node: ast.AST) -> List[DimVarExpr]:
@@ -316,6 +311,25 @@ class BaseVisitor:
         override this if they support macros.
         """
         return QwertySyntaxError('Macros are not supported here.', dbg)
+
+    def visit_parametric_assign(self,
+                                lhs_name: str,
+                                lhs_param: ast.AST,
+                                rhs: ast.AST,
+                                dbg: DebugLoc) -> QpuStmt | ClassicalStmt:
+        """
+        Visit a parametric assignment statement, as in::
+
+            fourier[N] = fourier[N-1] // std.revolve
+
+        Here, ``fourier`` (on the left) is ``lhs_name``, then ``N`` (on the
+        left) is ``lhs_param``, and ``rhs`` is ``fourier[N-1] // std.revolve``.
+
+        This default implementation throws an error, but subclasses should
+        override this if they support this syntax.
+        """
+        return QwertySyntaxError('This assignment syntax is not supported '
+                                 'here.', dbg)
 
     def visit_Module(self, module: ast.Module):
         """
@@ -537,6 +551,12 @@ class BaseVisitor:
             macro_name = attr.attr
             macro_rhs = assign.value
             return self.visit_macro(macro_pat, macro_name, macro_rhs, dbg)
+        elif isinstance(subscript := tgt, ast.Subscript) \
+                and isinstance(lhs_name_node := subscript.value, ast.Name):
+            lhs_name = lhs_name_node.id
+            lhs_param = subscript.slice
+            rhs = assign.value
+            return self.visit_parametric_assign(lhs_name, lhs_param, rhs, dbg)
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
@@ -747,12 +767,52 @@ class QpuVisitor(BaseVisitor):
                 macro_pat_name = macro_pat.id
                 lhs_pat = BasisMacroPattern.new_any_basis(macro_pat_name,
                                                           macro_pat_dbg)
+            elif isinstance(set_ := macro_pat, ast.Set) \
+                    and all(isinstance(elt, ast.Name) for elt in set_.elts):
+                vec_names = [elt.id for elt in set_.elts]
+                lhs_pat = BasisMacroPattern.new_basis_literal(vec_names,
+                                                              macro_pat_dbg)
             else:
                 raise QwertySyntaxError('Unknown basis pattern syntax',
                                         macro_pat_dbg)
 
-            rhs = self.visit(macro_rhs)
-            return QpuStmt.new_basis_macro_def(lhs_pat, macro_name, rhs, dbg)
+            try:
+                # ``allow_macro=False`` avoids a syntactic ambiguitity
+                rhs_bgen = self.extract_basis_generator(
+                        macro_rhs, allow_vector_alias=True, allow_macro=False)
+            # TODO: do a more granular catch here
+            except QwertySyntaxError:
+                rhs_expr = self.visit(macro_rhs)
+                return QpuStmt.new_basis_macro_def(lhs_pat, macro_name,
+                                                   rhs_expr, dbg)
+            else:
+                return QpuStmt.new_basis_generator_macro_def(lhs_pat,
+                                                             macro_name,
+                                                             rhs_bgen, dbg)
+
+    def visit_parametric_assign(self,
+                                lhs_name: str,
+                                lhs_param: ast.AST,
+                                rhs: ast.AST,
+                                dbg: DebugLoc) -> QpuStmt | ClassicalStmt:
+        """
+        Override of ``BaseVisitor::visit_parametric_assign()`` that creates a
+        ``BasisAliasRecDef`` metaQwerty AST node.
+        """
+        lhs_param_dbg = self.get_debug_loc(lhs_param)
+        if isinstance(const := lhs_param, ast.Constant) \
+                and isinstance(base_val := const.value, int):
+            param = RecDefParam.new_base(base_val)
+        elif isinstance(name := lhs_param, ast.Name):
+            rec_name = name.id
+            param = RecDefParam.new_rec(rec_name)
+        else:
+            raise QwertySyntaxError('Unknown syntax for parameter in '
+                                    'recursive basis alias definition',
+                                    lhs_param_dbg)
+
+        rhs_basis = self.extract_basis(rhs)
+        return QpuStmt.new_basis_alias_rec_def(lhs_name, param, rhs_basis, dbg)
 
     def extract_qubit_literal(self, node: ast.AST) -> QpuExpr:
         return QpuExpr.new_qlit(self.extract_basis_vector(node))
@@ -770,28 +830,38 @@ class QpuVisitor(BaseVisitor):
         intrinsic_name = name.id
         return VECTOR_ATOM_INTRINSICS[intrinsic_name](dbg)
 
-    def extract_basis_vector(self, node: ast.AST) -> Vector:
+    def extract_basis_vector(self, node: ast.AST, *, allow_alias=False) -> Vector:
+        """
+        Convert a Python AST node to a Qwerty AST ``Vector`` node. Passing
+        ``allow_alias=True`` allows writing vector aliases, e.g., ``bv`` (that
+        is, identifiers). The default is not to allow aliases since they are
+        currently a niche feature only used in the right-hand side of macros.
+        """
+
         dbg = self.get_debug_loc(node)
 
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            left = self.extract_basis_vector(node.left)
-            right = self.extract_basis_vector(node.right)
+        if allow_alias and isinstance(name := node, ast.Name):
+            alias_name = name.id
+            return Vector.new_vector_alias(alias_name, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
+            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
             return Vector.new_uniform_vector_superpos(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
-            left = self.extract_basis_vector(node.left)
-            right = self.extract_basis_vector(node.right)
+            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
+            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
             right_neg = Vector.new_vector_tilt(right, 180.0, dbg)
             return Vector.new_uniform_vector_superpos(left, right_neg, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-            left = self.extract_basis_vector(node.left)
-            right = self.extract_basis_vector(node.right)
+            left = self.extract_basis_vector(node.left, allow_alias=allow_alias)
+            right = self.extract_basis_vector(node.right, allow_alias=allow_alias)
             return Vector.new_vector_bi_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
-            q = self.extract_basis_vector(node.left)
+            q = self.extract_basis_vector(node.left, allow_alias=allow_alias)
             angle_deg = self.extract_float_const(node.right)
             return Vector.new_vector_tilt(q, angle_deg, dbg)
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-            q = self.extract_basis_vector(node.operand)
+            q = self.extract_basis_vector(node.operand, allow_alias=allow_alias)
             return Vector.new_vector_tilt(q, 180.0, dbg)
         elif self.is_vector_atom_intrinsic(node):
             return self.extract_vector_atom_intrinsic(node)
@@ -806,7 +876,18 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
                                     .format(node_name), dbg)
 
-    def extract_basis_generator(self, node: ast.AST) -> BasisGenerator:
+    def extract_basis_generator(self, node: ast.AST, *,
+                                allow_vector_alias=False,
+                                allow_macro=True) -> BasisGenerator:
+        """
+        Convert a Python AST node into a ``BasisGenerator`` Qwerty AST node. By
+        default, use of vector aliases (i.e., writing ``bv1`` or ``bv2`` for
+        basis vectors) are banned unless ``allow_vector_alias=True``. This
+        should be passed when parsing the right-hand side of a basis generator
+        macro definition. Passing ``allow_macro=False`` bans use of basis
+        generator macros, which is useful for avoiding syntactic ambiguities
+        for basis macro definitions versus basis generator macro definitions.
+        """
         dbg = self.get_debug_loc(node)
 
         if isinstance(call := node, ast.Call) \
@@ -817,9 +898,13 @@ class QpuVisitor(BaseVisitor):
                 raise QwertySyntaxError(f'Wrong number of arguments {n_args} '
                                         '!= 2 to __REVOLVE__ intrinsic', dbg)
             arg1, arg2 = call.args
-            v1 = self.extract_basis_vector(arg1)
-            v2 = self.extract_basis_vector(arg2)
+            v1 = self.extract_basis_vector(arg1, allow_alias=allow_vector_alias)
+            v2 = self.extract_basis_vector(arg2, allow_alias=allow_vector_alias)
             return BasisGenerator.new_revolve(v1, v2, dbg)
+        elif allow_macro and isinstance(attr := node, ast.Attribute):
+            name = attr.attr
+            arg = self.extract_basis(attr.value)
+            return BasisGenerator.new_basis_generator_macro(name, arg, dbg)
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis generator syntax {}'
@@ -842,6 +927,11 @@ class QpuVisitor(BaseVisitor):
                 and isinstance(identifier := node, ast.Name):
             alias_name = identifier.id
             return Basis.new_basis_alias(alias_name, dbg)
+        elif isinstance(subscript := node, ast.Subscript) \
+                and isinstance(name_node := subscript.value, ast.Name):
+            name = name_node.id
+            param = self.extract_dimvar_expr(subscript.slice)
+            return Basis.new_basis_alias_rec(name, param, dbg)
         elif isinstance(node, ast.Set) and not node.elts:
             return Basis.new_empty_basis_literal(dbg)
         elif isinstance(node, ast.Set) and node.elts:

@@ -138,3 +138,9 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         shots = 1024
         expected_histo = {bit[3](0b110): shots}
         self.assertEqual(expected_histo, bv_macro_classical.test(shots))
+
+    def test_fourier(self):
+        from .integ.meta_noinfer import fourier
+        shots = 1024
+        expected_histo = {bit[3](0b101): shots}
+        self.assertEqual(expected_histo, fourier.test(shots))
