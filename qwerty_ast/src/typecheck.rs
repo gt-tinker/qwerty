@@ -1321,21 +1321,24 @@ impl Slice {
         } = val_ty
         {
             // Check bounds
-            if *upper > dim {
+            if *lower >= *upper {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("[{}..{}] on bit[{}]", lower, upper, dim),
-                        ty: "upper bound exceeds register size".to_string(),
+                        op: format!("[{}..{}]", lower, upper),
+                        ty: format!(
+                            "slice lower bound larger than upper bound: {} >= {}",
+                            lower, upper
+                        ),
                     },
                     dbg: dbg.clone(),
                 });
             }
 
-            if *lower >= *upper {
+            if *upper > dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
                         op: format!("[{}..{}]", lower, upper),
-                        ty: "lower bound must be less than upper bound".to_string(),
+                        ty: format!("slice index out of bounds: {} > {}", upper, dim),
                     },
                     dbg: dbg.clone(),
                 });
@@ -1344,20 +1347,22 @@ impl Slice {
             if *lower >= dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("[{}..{}] on bit[{}]", lower, upper, dim),
-                        ty: "lower bound exceeds register size".to_string(),
+                        op: format!("[{}..{}]", lower, upper),
+                        ty: format!("slice lower bound out of bounds: {} >= {}", lower, dim),
                     },
                     dbg: dbg.clone(),
                 });
             }
 
             let slice_width = upper - lower;
+
             Ok((
                 Type::RegType {
                     elem_ty: RegKind::Bit,
                     dim: slice_width,
                 },
-                val_compute_kind,
+                // val_compute_kind,
+                ComputeKind::Irrev,
             ))
         } else {
             Err(TypeError {
@@ -1430,13 +1435,13 @@ impl BinaryOp {
                     dim: right_dim,
                 },
             ) if left_dim == right_dim => {
-                let compute_kind = left_compute_kind.join(right_compute_kind);
+                let _compute_kind = left_compute_kind.join(right_compute_kind);
                 Ok((
                     Type::RegType {
                         elem_ty: RegKind::Bit,
                         dim: *left_dim,
                     },
-                    compute_kind,
+                    ComputeKind::Irrev,
                 ))
             }
             (
@@ -1470,7 +1475,7 @@ impl ReduceOp {
     pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         let ReduceOp { kind: _, val, dbg } = self;
 
-        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+        let (val_ty, _) = val.typecheck(env)?;
 
         if let Type::RegType {
             elem_ty: RegKind::Bit,
@@ -1490,7 +1495,7 @@ impl ReduceOp {
                     elem_ty: RegKind::Bit,
                     dim: 1,
                 },
-                val_compute_kind,
+                ComputeKind::Irrev,
             ))
         } else {
             Err(TypeError {
@@ -1641,8 +1646,8 @@ impl Repeat {
 impl ModMul {
     pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         let ModMul {
-            x: _x,
-            j: _j,
+            x,
+            j,
             y,
             mod_n,
             dbg,
@@ -1650,38 +1655,74 @@ impl ModMul {
 
         let (y_ty, y_compute_kind) = y.typecheck(env)?;
 
-        // y must be a bit register
         if let Type::RegType {
             elem_ty: RegKind::Bit,
             dim,
         } = y_ty
         {
-            // Check that mod_n is valid
-            if *mod_n <= 1 {
+            if dim == 0 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::EmptyLiteral,
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Validate x: must be a positive integer
+            if *x <= 0 {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("mod_mul(..., mod_n={})", mod_n),
-                        ty: "modulus must be > 1".to_string(),
+                        op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
+                        ty: format!("x must be positive integer, got {}", x),
                     },
                     dbg: dbg.clone(),
                 });
             }
 
-            // Additional validation: check that 2^dim > mod_n
-            // This ensures the register can represent values in the modular arithmetic domain
-            let max_representable = 1u64 << dim.min(63); // Prevent overflow
-            if *mod_n as u64 >= max_representable {
+            // Validate j: must be a non-negative integer
+            if *mod_n < 2 {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("mod_mul(..., mod_n={})", mod_n),
-                        ty: format!("modulus {} too large for {}-bit register", mod_n, dim),
+                        op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
+                        ty: format!("modulus must be >= 2, got {}", mod_n),
                     },
                     dbg: dbg.clone(),
                 });
             }
 
-            // Result has same dimension as input y
-            // ModMul is reversible in the quantum computing context
+            if gcd(*x as u32, *mod_n as u32) != 1 {
+                return Err(TypeError {
+                    kind: TypeErrorKind::InvalidOperation {
+                        op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
+                        ty: format!(
+                            "x and mod_n must be coprime, but gcd({}, {}) = {}",
+                            x,
+                            mod_n,
+                            gcd(*x as u32, *mod_n as u32)
+                        ),
+                    },
+                    dbg: dbg.clone(),
+                });
+            }
+
+            // Check that 2^dim > mod_n (so all values mod mod_n can be represented)
+            if dim < 64 {
+                let max_representable = 1u64 << dim;
+                if *mod_n as u64 >= max_representable {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::InvalidOperation {
+                            op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
+                            ty: format!(
+                                "modulus {} too large for {}-bit register (max representable: {})",
+                                mod_n,
+                                dim,
+                                max_representable - 1
+                            ),
+                        },
+                        dbg: dbg.clone(),
+                    });
+                }
+            }
+
             Ok((
                 Type::RegType {
                     elem_ty: RegKind::Bit,
@@ -1692,7 +1733,7 @@ impl ModMul {
         } else {
             Err(TypeError {
                 kind: TypeErrorKind::InvalidType(format!(
-                    "modular multiplication requires bit register, found {}",
+                    "modular multiplication requires bit register for y, found {}",
                     y_ty
                 )),
                 dbg: dbg.clone(),
@@ -2036,6 +2077,15 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
         &qlit1.convert_to_basis_vector(),
         &qlit2.convert_to_basis_vector(),
     )
+}
+
+/// Computes the greatest common divisor of two numbers.
+fn gcd(a: u32, b: u32) -> u32 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 impl QLit {
