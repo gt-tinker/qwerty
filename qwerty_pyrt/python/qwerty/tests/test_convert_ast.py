@@ -335,12 +335,13 @@ class ConvertAstQpuTests(unittest.TestCase):
         actual_qw_ast = self.convert_expr("""
             __EMBED_XOR__(bubba)
         """, capturer=capturer)
-        dbg = self.dbg(1, 1)
+        dbg_call = self.dbg(1, 1)
+        dbg_arg = self.dbg(1, 15)
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_embed_classical(
-                "bubba__mangled",
+                QpuExpr.new_variable("bubba__mangled", dbg_arg),
                 EmbedKind.Xor,
-                dbg))
+                dbg_call))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -349,12 +350,13 @@ class ConvertAstQpuTests(unittest.TestCase):
         actual_qw_ast = self.convert_expr("""
             __EMBED_SIGN__(bubba)
         """, capturer=capturer)
-        dbg = self.dbg(1, 1)
+        dbg_call = self.dbg(1, 1)
+        dbg_arg = self.dbg(1, 16)
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_embed_classical(
-                "bubba__mangled",
+                QpuExpr.new_variable("bubba__mangled", dbg_arg),
                 EmbedKind.Sign,
-                dbg))
+                dbg_call))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
@@ -363,43 +365,20 @@ class ConvertAstQpuTests(unittest.TestCase):
         actual_qw_ast = self.convert_expr("""
             __EMBED_INPLACE__(bubba)
         """, capturer=capturer)
-        dbg = self.dbg(1, 1)
+        dbg_call = self.dbg(1, 1)
+        dbg_arg = self.dbg(1, 19)
         expected_qw_ast = QpuStmt.new_expr(
             QpuExpr.new_embed_classical(
-                "bubba__mangled",
+                QpuExpr.new_variable("bubba__mangled", dbg_arg),
                 EmbedKind.InPlace,
-                dbg))
+                dbg_call))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
-
-    def test_intrinsic_embed_non_var_arg(self):
-        with self.assertRaisesRegex(QwertySyntaxError,
-                                    "Classical embedding intrinsics"):
-            self.convert_expr("""
-                __EMBED_XOR__('0')
-            """)
-
-    def test_intrinsic_embed_nonexistent_func(self):
-        capturer = SingleVarCapturer("bubba", CapturedSymbol('bubba__mangled'))
-        with self.assertRaisesRegex(QwertySyntaxError,
-                                    "no classical function named skippy"):
-            self.convert_expr("""
-                __EMBED_XOR__(skippy)
-            """, capturer=capturer)
-
-    def test_intrinsic_embed_not_a_func(self):
-        capturer = SingleVarCapturer("bubba", CapturedBitReg(bit[4](0b1101)))
-        with self.assertRaisesRegex(QwertySyntaxError,
-                                    "variable bubba is not a classical "
-                                    "function"):
-            self.convert_expr("""
-                __EMBED_XOR__(bubba)
-            """, capturer=capturer)
 
     def test_intrinsic_embed_badly_typed_func(self):
         capturer = BadTypeCapturer("bubba")
         with self.assertRaisesRegex(QwertySyntaxError,
-                                    "not a @classical function"):
+                                    "cannot be used"):
             self.convert_expr("""
                 __EMBED_XOR__(bubba)
             """, capturer=capturer)

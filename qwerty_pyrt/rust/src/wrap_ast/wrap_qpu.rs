@@ -383,19 +383,15 @@ impl QpuExpr {
     #[classmethod]
     fn new_embed_classical(
         _cls: &Bound<'_, PyType>,
-        func_name: String,
+        func: QpuExpr,
         embed_kind: EmbedKind,
         dbg: Option<DebugLoc>,
     ) -> Self {
-        let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
             expr: meta::qpu::MetaExpr::EmbedClassical {
-                func: Box::new(meta::qpu::MetaExpr::Variable {
-                    name: func_name,
-                    dbg: dbg.clone(),
-                }),
+                func: Box::new(func.expr),
                 embed_kind: embed_kind.to_ast_kind(),
-                dbg,
+                dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
     }
@@ -539,6 +535,37 @@ impl QpuExpr {
 
 #[pyclass(str, eq)]
 #[derive(Clone, PartialEq)]
+pub struct ExprMacroPattern {
+    pub pat: meta::qpu::ExprMacroPattern,
+}
+
+impl fmt::Display for ExprMacroPattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.pat)
+    }
+}
+
+#[pymethods]
+impl ExprMacroPattern {
+    #[classmethod]
+    fn new_any_expr(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            pat: meta::qpu::ExprMacroPattern::AnyExpr {
+                name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    /// Return the Debug form of this node from __repr__(). By contrast,
+    /// __str__() returns the Display form.
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self.pat)
+    }
+}
+
+#[pyclass(str, eq)]
+#[derive(Clone, PartialEq)]
 pub struct BasisMacroPattern {
     pub pat: meta::qpu::BasisMacroPattern,
 }
@@ -561,7 +588,7 @@ impl BasisMacroPattern {
         }
     }
 
-    /// Return the Debug form of this Expr from __repr__(). By contrast,
+    /// Return the Debug form of this node from __repr__(). By contrast,
     /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {
         format!("{:?}", self.pat)
@@ -582,6 +609,24 @@ impl fmt::Display for QpuStmt {
 
 #[pymethods]
 impl QpuStmt {
+    #[classmethod]
+    fn new_expr_macro_def(
+        _cls: &Bound<'_, PyType>,
+        lhs_pat: ExprMacroPattern,
+        lhs_name: String,
+        rhs: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::ExprMacroDef {
+                lhs_pat: lhs_pat.pat,
+                lhs_name,
+                rhs: rhs.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     #[classmethod]
     fn new_basis_macro_def(
         _cls: &Bound<'_, PyType>,

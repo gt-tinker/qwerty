@@ -17,7 +17,7 @@ from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
                           BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
-                          DimExpr, BasisMacroPattern
+                          DimExpr, ExprMacroPattern, BasisMacroPattern
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -572,13 +572,8 @@ class BaseVisitor:
     #    """
     #    raise QwertySyntaxError('Qwerty does not support mutating values', dbg)
 
-    def visit_Name(self, name: ast.Name) -> QpuExpr | ClassicalExpr:
-        """
-        Convert a Python AST identitifer node into a Qwerty variable name AST
-        node. For example, ``foobar`` becomes a Qwerty ``Variable`` AST node.
-        """
-        var_name = name.id
-        dbg = self.get_debug_loc(name)
+    def capture(self, var_name: str, dbg: DebugLoc) \
+               -> Optional[QpuExpr | ClassicalExpr]:
         try:
             captured = self.capturer.capture(var_name)
         except CaptureError as err:
@@ -588,10 +583,24 @@ class BaseVisitor:
                                     f'{var_type_name}, which cannot be used '
                                     'in Qwerty kernels.', dbg)
 
-        if captured is None:
-            return self._expr_class.new_variable(var_name, dbg)
-        else:
+        if captured is not None:
             return captured.to_expr(self._expr_class, dbg)
+        else:
+            return None
+
+    def visit_Name(self, name: ast.Name) -> QpuExpr | ClassicalExpr:
+        """
+        Convert a Python AST identitifer node into a Qwerty variable name AST
+        node. For example, ``foobar`` becomes a Qwerty ``Variable`` AST node.
+        """
+        var_name = name.id
+        dbg = self.get_debug_loc(name)
+        captured_expr = self.capture(var_name, dbg)
+
+        if captured_expr is not None:
+            return captured_expr
+        else:
+            return self._expr_class.new_variable(var_name, dbg)
 
     def base_visit(self, node: ast.AST):
         """
@@ -717,6 +726,21 @@ class QpuVisitor(BaseVisitor):
                                         f'but found {sym_len} instead.', dbg)
             vec = self.extract_basis_vector(macro_rhs)
             return QpuStmt.new_vector_symbol_def(sym, vec, dbg)
+        elif isinstance(attr := macro_pat, ast.Attribute) \
+                and attr.attr == 'expr':
+            macro_pat = attr.value
+            macro_pat_dbg = self.get_debug_loc(macro_pat)
+
+            if isinstance(macro_pat, ast.Name):
+                macro_pat_name = macro_pat.id
+                lhs_pat = ExprMacroPattern.new_any_expr(macro_pat_name,
+                                                        macro_pat_dbg)
+            else:
+                raise QwertySyntaxError('Unknown experssion pattern syntax',
+                                        macro_pat_dbg)
+
+            rhs = self.visit(macro_rhs)
+            return QpuStmt.new_expr_macro_def(lhs_pat, macro_name, rhs, dbg)
         else:
             macro_pat_dbg = self.get_debug_loc(macro_pat)
             if isinstance(macro_pat, ast.Name):
@@ -1294,34 +1318,10 @@ class QpuVisitor(BaseVisitor):
             elif intrinsic_name == '__DISCARD__':
                 return QpuExpr.new_discard(dbg)
             elif intrinsic_name in EMBED_KINDS:
-                name_node, = args
-                if not isinstance(name_node, ast.Name):
-                    node_name = type(name_node).__name__
-                    raise QwertySyntaxError('Classical embedding intrinsics '
-                                            'operate on only variable names, '
-                                            'such as `my_func.sign`, but '
-                                            f'found {node_name} syntax '
-                                            'instead.', dbg)
-
-                func_name = name_node.id
-                try:
-                    captured = self.capturer.capture(func_name)
-                except CaptureError:
-                    raise QwertySyntaxError('Cannot create quantum embedding '
-                                            f'of Python object {func_name} '
-                                            'because it is not a @classical '
-                                            'function.', dbg)
-                if captured is None:
-                    raise QwertySyntaxError('There is no classical function '
-                                            f'named {func_name} to embed.',
-                                            dbg)
-                elif not isinstance(captured, CapturedSymbol):
-                    raise QwertySyntaxError(f'The variable {func_name} is not '
-                                            'a classical function.', dbg)
-
-                mangled_name = captured.mangled_name
+                func_arg, = args
+                func = self.visit(func_arg)
                 embed_kind = EMBED_KINDS[intrinsic_name]
-                return QpuExpr.new_embed_classical(mangled_name, embed_kind, dbg)
+                return QpuExpr.new_embed_classical(func, embed_kind, dbg)
             else:
                 assert False, "compiler bug: intrinsic parsing misconfigured"
         else:
@@ -1357,14 +1357,20 @@ class QpuVisitor(BaseVisitor):
         arg = attr.value
         name = attr.attr
 
-        try:
-            arg_basis = self.extract_basis(arg)
-        # TODO: do a more granular catch here
-        except QwertySyntaxError:
-            arg_expr = self.visit(arg)
-            return QpuExpr.new_expr_macro(name, arg_expr, dbg)
+        if isinstance(name_arg := arg, ast.Name) \
+                and (arg_captured := self.capture(name_arg.id,
+                                                  self.get_debug_loc(name_arg))) \
+                    is not None:
+            return QpuExpr.new_expr_macro(name, arg_captured, dbg)
         else:
-            return QpuExpr.new_basis_macro(name, arg_basis, dbg)
+            try:
+                arg_basis = self.extract_basis(arg)
+            # TODO: do a more granular catch here
+            except QwertySyntaxError:
+                arg_expr = self.visit(arg)
+                return QpuExpr.new_expr_macro(name, arg_expr, dbg)
+            else:
+                return QpuExpr.new_basis_macro(name, arg_basis, dbg)
 
     def visit_IfExp(self, if_expr: ast.IfExp):
         """

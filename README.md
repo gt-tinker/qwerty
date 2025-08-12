@@ -117,7 +117,7 @@ repository:
 
 To run a particular integration test in `gdb` (e.g., `bv_nometa`):
 
-    $ gdb --args python3 -c 'import qwerty.tests.integ.bv_nometa; qwerty.tests.integ.bv_nometa.test(1)'
+    $ gdb --args python3 -c 'import qwerty.tests.integ.nometa.bv; qwerty.tests.integ.nometa.bv.test(1)'
 
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
