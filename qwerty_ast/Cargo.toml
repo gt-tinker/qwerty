@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 dashu = "0.4.2"
+num-integer = "0.1.46"
 quantum-sparse-sim = { version = "0.7.5", path = "../qir_runner/sparsesim" }

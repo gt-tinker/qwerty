@@ -5,6 +5,7 @@ use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
+use num_integer::gcd;
 
 use crate::ast::{
     Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
@@ -1786,7 +1787,8 @@ impl ModMul {
                 });
             }
 
-            if gcd(*x as u32, *mod_n as u32) != 1 {
+            let common_divisor = gcd(*x, *mod_n);
+            if common_divisor != 1 {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
                         op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
@@ -1794,7 +1796,7 @@ impl ModMul {
                             "x and mod_n must be coprime, but gcd({}, {}) = {}",
                             x,
                             mod_n,
-                            gcd(*x as u32, *mod_n as u32)
+                            common_divisor
                         ),
                     },
                     dbg: dbg.clone(),
@@ -2186,11 +2188,6 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
         &qlit1.convert_to_basis_vector(),
         &qlit2.convert_to_basis_vector(),
     )
-}
-
-/// Computes the greatest common divisor of two numbers.
-fn gcd(a: u32, b: u32) -> u32 {
-    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 impl QLit {
