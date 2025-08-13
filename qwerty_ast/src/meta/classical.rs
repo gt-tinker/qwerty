@@ -18,6 +18,17 @@ pub enum MetaExpr {
     /// ```
     Variable { name: String, dbg: Option<DebugLoc> },
 
+    /// Extract a subsequence of bits from a register. Example syntax:
+    /// ```text
+    /// my_bit_reg[2:4]
+    /// ```
+    Slice {
+        val: Box<MetaExpr>,
+        lower: DimExpr,
+        upper: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A unary bitwise operation. Example syntax:
     /// ```text
     /// ~x
@@ -65,6 +76,7 @@ impl MetaExpr {
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
             MetaExpr::Variable { dbg, .. }
+            | MetaExpr::Slice { dbg, .. }
             | MetaExpr::UnaryOp { dbg, .. }
             | MetaExpr::BinaryOp { dbg, .. }
             | MetaExpr::ReduceOp { dbg, .. }
@@ -80,6 +92,23 @@ impl MetaExpr {
                 name: name.to_string(),
                 dbg: dbg.clone(),
             })),
+            MetaExpr::Slice {
+                val,
+                lower,
+                upper,
+                dbg,
+            } => val.extract().and_then(|ast_val| {
+                lower.extract().and_then(|lower_int| {
+                    upper.extract().map(|upper_int| {
+                        ast::classical::Expr::Slice(ast::classical::Slice {
+                            val: Box::new(ast_val),
+                            lower: lower_int,
+                            upper: upper_int,
+                            dbg: dbg.clone(),
+                        })
+                    })
+                })
+            }),
             MetaExpr::UnaryOp { kind, val, dbg } => val.extract().map(|ast_val| {
                 ast::classical::Expr::UnaryOp(ast::classical::UnaryOp {
                     kind: *kind,
@@ -125,6 +154,9 @@ impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MetaExpr::Variable { name, .. } => write!(f, "{}", name),
+            MetaExpr::Slice {
+                val, lower, upper, ..
+            } => write!(f, "{}[{}:{}]", val, lower, upper),
             MetaExpr::UnaryOp { kind, val, .. } => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",

@@ -15,7 +15,7 @@ use melior::{
 use qwerty_ast::{
     ast::{
         self, BitLiteral, FunctionDef, Variable,
-        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, UnaryOp, UnaryOpKind},
+        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, Slice, UnaryOp, UnaryOpKind},
     },
     typecheck::{ComputeKind, FuncsAvailable},
 };
@@ -75,7 +75,41 @@ fn ast_classical_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        classical::Expr::Slice(_) => todo!("@classical slice"),
+        classical::Expr::Slice(
+            slice @ Slice {
+                val,
+                lower,
+                upper,
+                dbg,
+            },
+        ) => {
+            let (val_ty, val_compute_kind, val_vals) =
+                ast_classical_expr_to_mlir(&**val, ctx, block);
+            assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
+            let val_val = val_vals[0];
+
+            let (ty, compute_kind) = slice
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("Slice to pass type checking");
+            let loc = dbg_to_loc(dbg.clone());
+
+            assert!(*upper >= *lower);
+            let sliced_vals: Vec<_> = block
+                .append_operation(ccirc::wireunpack(val_val, loc))
+                .results()
+                .map(OperationResult::into)
+                .skip(*lower)
+                .take(*upper - *lower)
+                .collect();
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::wirepack(&sliced_vals, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::UnaryOp(unary @ UnaryOp { kind, val, dbg }) => {
             let (val_ty, val_compute_kind, val_vals) =

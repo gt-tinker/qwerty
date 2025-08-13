@@ -1,5 +1,6 @@
 use crate::wrap_ast::{
     py_glue::UBigWrap,
+    wrap_dim_expr::DimExpr,
     wrap_type::{DebugLoc, Type},
 };
 use pyo3::{prelude::*, types::PyType};
@@ -65,6 +66,24 @@ impl ClassicalExpr {
         Self {
             expr: meta::classical::MetaExpr::Variable {
                 name,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_slice(
+        _cls: &Bound<'_, PyType>,
+        val: ClassicalExpr,
+        lower: DimExpr,
+        upper: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::Slice {
+                val: Box::new(val.expr),
+                lower: lower.dim_expr,
+                upper: upper.dim_expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

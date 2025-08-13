@@ -296,6 +296,15 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         expected_histo = {bit[3](0b101): shots}
         self.assertEqual(expected_histo, fourier.test(shots))
 
+    def test_grover(self):
+        from .integ.meta_noinfer import grover
+        shots = 1024
+        expected_meas = bit[4](0b1010)
+        actual_histo = grover.test(shots)
+        self.assertGreater(actual_histo.get(expected_meas, 0),
+                           shots//4*3, "Too few correct answers")
+
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
@@ -303,7 +312,6 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
     def setUp(self):
         _reset_compiler_state()
 
-    @unittest.skip("slice parsing not implemented")
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover
         for _ in range(32):
@@ -359,7 +367,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histo = prelude.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
-    @unittest.skip("slice parsing not implemented")
+    @unittest.skip("slice parsing, inference not implemented")
     def test_fig9_grovermeta(self):
         from .integ.qce25_figs import grovermeta
         for _ in range(32):

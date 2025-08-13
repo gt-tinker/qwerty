@@ -1917,32 +1917,33 @@ class ClassicalVisitor(BaseVisitor):
 #            dbg = self.get_debug_loc(tup)
 #            cur = BitConcat(dbg, cur, self.visit(elt))
 #        return cur
-#
-#    def visit_Subscript(self, sub: ast.Subscript):
-#        """
-#        Convert a Python getitem expression to Qwerty ``Slice`` AST node.
-#        """
-#        val = self.visit(sub.value)
-#        if isinstance(sub.slice, ast.Slice):
-#            if sub.slice.step is not None:
-#                raise QwertySyntaxError('[:::] syntax not supported',
-#                                        self.get_debug_loc(sub))
-#            if sub.slice.lower is None:
-#                lower = None
-#            else:
-#                lower = self.extract_dimvar_expr(sub.slice.lower)
-#
-#            if sub.slice.upper is None:
-#                upper = None
-#            else:
-#                upper = self.extract_dimvar_expr(sub.slice.upper)
-#        else:
-#            lower = self.extract_dimvar_expr(sub.slice)
-#            upper = lower.copy()
-#            upper += DimVarExpr("", 1)
-#        dbg = self.get_debug_loc(sub)
-#        return Slice(dbg, val, lower, upper)
-#
+
+    def visit_Subscript(self, sub: ast.Subscript):
+        """
+        Convert a Python getitem expression to Qwerty ``Slice`` AST node.
+        """
+        dbg = self.get_debug_loc(sub)
+        val = self.visit(sub.value)
+        if isinstance(sub.slice, ast.Slice):
+            if sub.slice.step is not None:
+                raise QwertySyntaxError('[:::] syntax not supported', dbg)
+
+            if sub.slice.lower is None:
+                raise QwertySyntaxError('Start index of slice required', dbg)
+            else:
+                lower = self.extract_dimvar_expr(sub.slice.lower)
+
+            if sub.slice.upper is None:
+                raise QwertySyntaxError('End index of slice required', dbg)
+            else:
+                upper = self.extract_dimvar_expr(sub.slice.upper)
+        else:
+            # [lower:lower+1]
+            lower = self.extract_dimvar_expr(sub.slice)
+            upper = DimExpr.new_sum(lower, DimExpr.new_const(1, dbg), dbg)
+
+        return ClassicalExpr.new_slice(val, lower, upper, dbg)
+
     def visit(self, node: ast.AST):
         if isinstance(node, ast.UnaryOp):
             return self.visit_UnaryOp(node)
@@ -1952,8 +1953,8 @@ class ClassicalVisitor(BaseVisitor):
             return self.visit_Call(node)
         #elif isinstance(node, ast.Tuple):
         #    return self.visit_Tuple(node)
-        #elif isinstance(node, ast.Subscript):
-        #    return self.visit_Subscript(node)
+        elif isinstance(node, ast.Subscript):
+            return self.visit_Subscript(node)
         else:
             return self.base_visit(node)
 
