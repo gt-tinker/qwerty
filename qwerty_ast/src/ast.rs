@@ -423,9 +423,19 @@ pub fn angle_approx_total_cmp(angle_deg1: f64, angle_deg2: f64) -> Ordering {
     }
 }
 
+/// Returns `None` if `num` is not a power of two or `Some(log2(num))`
+/// otherwise.
+pub fn try_log2(num: usize) -> Option<usize> {
+    if num.count_ones() == 1 {
+        Some(num.trailing_zeros() as usize)
+    } else {
+        None
+    }
+}
+
 /// Returns true iff num == 2**n.
-pub fn equals_2_to_the_n(num: usize, n: u32) -> bool {
-    num.count_ones() == 1 && num.trailing_zeros() == n
+pub fn equals_2_to_the_n(num: usize, n: usize) -> bool {
+    try_log2(num).is_some_and(|pow| pow == n)
 }
 
 /// Try to convert a `usize` into an `f64`. Returns `None` if precision was
@@ -435,6 +445,15 @@ pub fn equals_2_to_the_n(num: usize, n: u32) -> bool {
 pub fn usize_try_into_angle(num: usize) -> Option<f64> {
     let ret = num as f64;
     if ret as usize == num { Some(ret) } else { None }
+}
+
+/// Return a [`UBig`] with value `~(-1 << n)`.
+pub fn ubig_with_n_lower_bits_set(n: usize) -> UBig {
+    let mut ret = UBig::ZERO;
+    for i in (0..n).rev() {
+        ret.set_bit(i)
+    }
+    ret
 }
 
 //

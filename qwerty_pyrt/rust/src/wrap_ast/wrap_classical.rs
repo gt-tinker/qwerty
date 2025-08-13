@@ -62,6 +62,22 @@ impl fmt::Display for ClassicalExpr {
 #[pymethods]
 impl ClassicalExpr {
     #[classmethod]
+    fn new_mod(
+        _cls: &Bound<'_, PyType>,
+        dividend: ClassicalExpr,
+        divisor: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::Mod {
+                dividend: Box::new(dividend.expr),
+                divisor: divisor.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_variable(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
         Self {
             expr: meta::classical::MetaExpr::Variable {

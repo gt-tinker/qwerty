@@ -1,15 +1,72 @@
 use crate::{
-    error::ExtractError,
+    ast::{classical::BinaryOpKind, try_log2, ubig_with_n_lower_bits_set},
+    error::{ExtractError, ExtractErrorKind},
     meta::{
-        Progress,
+        DimExpr, Progress,
         classical::{MetaExpr, MetaStmt},
         expand::{Expandable, MacroEnv},
     },
 };
 
 impl MetaExpr {
-    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaExpr, Progress), ExtractError> {
+    pub fn expand(&self, env: &mut MacroEnv) -> Result<(MetaExpr, Progress), ExtractError> {
         match self {
+            MetaExpr::Mod {
+                dividend,
+                divisor,
+                dbg,
+            } => dividend
+                .expand(env)
+                .and_then(|(expanded_dividend, dividend_prog)| {
+                    divisor
+                        .expand(env)
+                        .and_then(|(expanded_divisor, divisor_prog)| {
+                            if let (DimExpr::DimConst { dbg: dim_dbg, .. }, Progress::Full) =
+                                (&expanded_divisor, divisor_prog)
+                            {
+                                expanded_divisor.extract().and_then(|divisor_int| {
+                                    try_log2(divisor_int)
+                                        .ok_or_else(|| {
+                                            // For now, the divisor needs to be a power of 2
+                                            ExtractError {
+                                                kind: ExtractErrorKind::Malformed,
+                                                dbg: dbg.clone(),
+                                            }
+                                        })
+                                        .and_then(|pow| {
+                                            MetaExpr::BinaryOp {
+                                                kind: BinaryOpKind::And,
+                                                left: Box::new(expanded_dividend),
+                                                right: Box::new(MetaExpr::BitLiteral {
+                                                    val: ubig_with_n_lower_bits_set(pow),
+                                                    // We have no way of knowing at this stage how
+                                                    // big this register should be. Best we can do
+                                                    // is allocate a placeholder dimvar that we pray
+                                                    // inference will sort out.
+                                                    n_bits: DimExpr::DimVar {
+                                                        name: env.allocate_internal_dim_var(),
+                                                        dbg: dbg.clone(),
+                                                    },
+                                                    dbg: dim_dbg.clone(),
+                                                }),
+                                                dbg: dbg.clone(),
+                                            }
+                                            .expand(env)
+                                        })
+                                })
+                            } else {
+                                Ok((
+                                    MetaExpr::Mod {
+                                        dividend: Box::new(expanded_dividend),
+                                        divisor: expanded_divisor,
+                                        dbg: dbg.clone(),
+                                    },
+                                    dividend_prog.join(divisor_prog),
+                                ))
+                            }
+                        })
+                }),
+
             MetaExpr::Slice {
                 val,
                 lower,

@@ -304,6 +304,10 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(expected_meas, 0),
                            shots//4*3, "Too few correct answers")
 
+    def test_period(self):
+        from .integ.meta_noinfer import period
+        shots = 1024
+        self.assertTrue(any(period.test() == 4 for _ in range(32)))
 
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
@@ -376,7 +380,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
             actual_output = grovermeta.test()
             self.assertEqual(expected_output, actual_output)
 
-    @unittest.skip("cannot infer return types")
+    @unittest.skip("cannot instantiate or infer return types")
     def test_fig10_fig11_qpe(self):
         from .integ.qce25_figs import qpeuser
         for _ in range(32):

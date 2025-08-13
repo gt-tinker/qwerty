@@ -1751,8 +1751,8 @@ class ClassicalVisitor(BaseVisitor):
             return self.visit_BinOp_BitXor(binOp)
         elif isinstance(binOp.op, ast.BitOr):
             return self.visit_BinOp_BitOr(binOp)
-        #elif isinstance(binOp.op, ast.Mod):
-        #    return self.visit_BinOp_Mod(binOp)
+        elif isinstance(binOp.op, ast.Mod):
+            return self.visit_BinOp_Mod(binOp)
         else:
             op_name = type(binOp.op).__name__
             raise QwertySyntaxError('Unknown binary operation {}'
@@ -1791,6 +1791,16 @@ class ClassicalVisitor(BaseVisitor):
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
         return ClassicalExpr.new_binary_op(BinaryOpKind.Or, left, right, dbg)
+
+    def visit_BinOp_Mod(self, binOp: ast.BinOp):
+        """
+        Convert a Python expression ``x % N`` to a Qwerty ``Mod`` AST node.
+        This is useful for making a simple period finding oracle.
+        """
+        dbg = self.get_debug_loc(binOp)
+        dividend = self.visit(binOp.left)
+        divisor = self.extract_dimvar_expr(binOp.right)
+        return ClassicalExpr.new_mod(dividend, divisor, dbg)
 #
 #    # Modular multiplication: X**2**J*y % N
 #    def visit_BinOp_Mod(self, mod: ast.BinOp):

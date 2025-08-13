@@ -4,7 +4,7 @@ use crate::{
         classical::{BinaryOpKind, UnaryOpKind},
     },
     dbg::DebugLoc,
-    error::ExtractError,
+    error::{ExtractError, ExtractErrorKind},
     meta::DimExpr,
 };
 use dashu::integer::UBig;
@@ -12,6 +12,18 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetaExpr {
+    /// Take the modulus of a bit register. Example syntax:
+    /// ```text
+    /// x % 4
+    /// ```
+    /// If the divisor is a power of two, this will get expanded to a
+    /// [`MetaExpr::BinaryOp`] of kind `And`.
+    Mod {
+        dividend: Box<MetaExpr>,
+        divisor: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A variable name used in an expression. Example syntax:
     /// ```text
     /// my_var
@@ -75,7 +87,8 @@ impl MetaExpr {
     /// Returns the debug location for this expression.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
-            MetaExpr::Variable { dbg, .. }
+            MetaExpr::Mod { dbg, .. }
+            | MetaExpr::Variable { dbg, .. }
             | MetaExpr::Slice { dbg, .. }
             | MetaExpr::UnaryOp { dbg, .. }
             | MetaExpr::BinaryOp { dbg, .. }
@@ -88,6 +101,11 @@ impl MetaExpr {
     /// `@classical` expression.
     pub fn extract(&self) -> Result<ast::classical::Expr, ExtractError> {
         match self {
+            // For now, this should be folded into a bitwise AND.
+            MetaExpr::Mod { dbg, .. } => Err(ExtractError {
+                kind: ExtractErrorKind::NotFullyFolded,
+                dbg: dbg.clone(),
+            }),
             MetaExpr::Variable { name, dbg } => Ok(ast::classical::Expr::Variable(ast::Variable {
                 name: name.to_string(),
                 dbg: dbg.clone(),
@@ -153,10 +171,13 @@ impl MetaExpr {
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            MetaExpr::Mod {
+                divisor, dividend, ..
+            } => write!(f, "({}) % ({})", divisor, dividend),
             MetaExpr::Variable { name, .. } => write!(f, "{}", name),
             MetaExpr::Slice {
                 val, lower, upper, ..
-            } => write!(f, "{}[{}:{}]", val, lower, upper),
+            } => write!(f, "({})[{}:{}]", val, lower, upper),
             MetaExpr::UnaryOp { kind, val, .. } => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",

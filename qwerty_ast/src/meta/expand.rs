@@ -39,6 +39,7 @@ pub enum DimVarValue {
 }
 
 pub struct MacroEnv {
+    next_internal_dim_var_id: usize,
     pub aliases: HashMap<String, AliasBinding>,
     pub macros: HashMap<String, MacroBinding>,
     pub dim_vars: HashMap<String, DimVarValue>,
@@ -48,10 +49,27 @@ pub struct MacroEnv {
 impl MacroEnv {
     pub fn new() -> MacroEnv {
         MacroEnv {
+            next_internal_dim_var_id: 0,
             aliases: HashMap::new(),
             macros: HashMap::new(),
             dim_vars: HashMap::new(),
             vec_symbols: HashMap::new(),
+        }
+    }
+
+    /// Add a temporary dimension variable that we feel reasonably confident
+    /// that inference can take care of.
+    pub fn allocate_internal_dim_var(&mut self) -> String {
+        loop {
+            let name = format!("__{}", self.next_internal_dim_var_id);
+            self.next_internal_dim_var_id += 1;
+            if self
+                .dim_vars
+                .insert(name.to_string(), DimVarValue::Unknown)
+                .is_none()
+            {
+                break name;
+            }
         }
     }
 }
@@ -237,13 +255,17 @@ impl<S: Expandable> MetaFunctionDef<S> {
             .into_iter()
             .fold(Progress::identity(), |acc, stmt| acc.join(stmt));
 
+        // Why do this? Because we may have inserted some internal dim vars
+        // into the context while expanding statements.
+        let new_dim_vars = env.dim_vars.keys().cloned().collect();
+
         let expanded_func_def = MetaFunctionDef {
             name: name.to_string(),
             args: args.clone(),
             ret_type: ret_type.clone(),
             body: expanded_stmts,
             is_rev: *is_rev,
-            dim_vars: dim_vars.clone(),
+            dim_vars: new_dim_vars,
             dbg: dbg.clone(),
         };
         Ok((expanded_func_def, progress))

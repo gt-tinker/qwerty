@@ -37,18 +37,20 @@ impl Progress {
 
 impl MetaProgram {
     pub fn lower(&self) -> Result<ast::Program, ExtractError> {
+        let mut init_program = self.clone();
         loop {
-            let (program, expansion_progress) = self.expand()?;
+            let (program, expansion_progress) = init_program.expand()?;
             let (program, infer_progress) = program.infer_and_instantiate()?;
 
             if expansion_progress.is_finished() && infer_progress.is_finished() {
                 return program.extract();
-            } else if *self == program {
+            } else if init_program == program {
                 return Err(ExtractError {
                     kind: ExtractErrorKind::Stuck,
                     dbg: self.dbg.clone(),
                 });
             } else {
+                init_program = program;
                 continue;
             }
         }
