@@ -28,7 +28,7 @@ use qwerty_ast::{
             Vector, VectorAtomKind,
         },
     },
-    typecheck::ComputeKind,
+    typecheck::{ComputeKind, FuncsAvailable},
 };
 
 impl Lowerable for qpu::Expr {
@@ -1689,7 +1689,8 @@ fn ast_qpu_expr_to_mlir(
 /// Converts an AST `@qpu` `FunctionDef` node into a `qwerty::func` op.
 pub fn ast_qpu_func_def_to_mlir(
     func_def: &FunctionDef<qpu::Expr>,
-    funcs_available: &[(String, ast::Type, qwerty::FunctionType<'static>)],
+    funcs_available: &FuncsAvailable,
+    mlir_func_tys: &[(String, qwerty::FunctionType<'static>)],
 ) -> (Operation<'static>, qwerty::FunctionType<'static>) {
     let sym_name = StringAttribute::new(&MLIR_CTX, &func_def.name);
     let func_ty = ast_func_mlir_ty(func_def);
@@ -1705,12 +1706,8 @@ pub fn ast_qpu_func_def_to_mlir(
         .collect();
     let func_block = Block::new(&block_args);
 
-    let func_tys_available: Vec<_> = funcs_available
-        .iter()
-        .map(|(name, ast_ty, _mlir_ty)| (name.to_string(), ast_ty.clone()))
-        .collect();
     let type_env = func_def
-        .new_type_env(&func_tys_available)
+        .new_type_env(&funcs_available)
         .expect("valid type env");
     let mut ctx = Ctx::new(&func_block, type_env);
 
@@ -1730,10 +1727,10 @@ pub fn ast_qpu_func_def_to_mlir(
     }
 
     // Bind other function names
-    for (avail_func_name, _avail_func_ast_ty, avail_func_ty) in funcs_available {
+    for (func_name, mlir_func_ty) in mlir_func_tys {
         let old_binding = ctx.bindings.insert(
-            avail_func_name.to_string(),
-            BoundVals::UnmaterializedFunction(*avail_func_ty),
+            func_name.to_string(),
+            BoundVals::UnmaterializedFunction(*mlir_func_ty),
         );
         assert!(old_binding.is_none());
     }

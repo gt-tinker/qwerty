@@ -3,9 +3,9 @@
 use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
+use num_integer::gcd;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
-use num_integer::gcd;
 
 use crate::ast::{
     Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
@@ -16,8 +16,8 @@ use crate::ast::{
     in_phase, qpu,
     qpu::{
         Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
-        Expr, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor, UnitLiteral,
-        Vector, VectorAtomKind,
+        EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor,
+        UnitLiteral, Vector, VectorAtomKind,
     },
 };
 
@@ -55,6 +55,7 @@ impl ComputeKind {
 pub struct TypeEnv {
     vars: HashMap<String, Type>,
     linear_vars_used: HashSet<String>,
+    classical_funcs: HashMap<String, (bool, usize, usize)>,
 }
 
 impl TypeEnv {
@@ -62,6 +63,29 @@ impl TypeEnv {
         Self {
             vars: HashMap::new(),
             linear_vars_used: HashSet::new(),
+            classical_funcs: HashMap::new(),
+        }
+    }
+
+    pub fn insert_classical_func(
+        &mut self,
+        name: &str,
+        is_rev: bool,
+        in_dim: usize,
+        out_dim: usize,
+        dbg: &Option<DebugLoc>,
+    ) -> Result<(), TypeError> {
+        if let None = self
+            .classical_funcs
+            .insert(name.to_string(), (is_rev, in_dim, out_dim))
+        {
+            Ok(())
+        } else {
+            Err(TypeError {
+                // TODO: use a more specific error message?
+                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
+                dbg: dbg.clone(),
+            })
         }
     }
 
@@ -96,25 +120,83 @@ impl TypeEnv {
 // ─── TOP-LEVEL TYPECHECKER ──────────────────────────────────────────────────────
 //
 
+impl FunctionDef<classical::Expr> {
+    fn in_dim(&self) -> usize {
+        let FunctionDef { args, .. } = self;
+        args.iter().fold(0, |acc, (arg_ty, _arg_name)| {
+            if let Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim,
+            } = arg_ty
+            {
+                acc + *dim
+            } else {
+                panic!("Compiler bug: All @classical arguments must be bits")
+            }
+        })
+    }
+
+    fn out_dim(&self) -> usize {
+        let FunctionDef { ret_type, .. } = self;
+        if let Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim,
+        } = ret_type
+        {
+            *dim
+        } else {
+            panic!("Compiler bug: All @classical functions must return bits")
+        }
+    }
+}
+
+/// Tracks the functions available for code to call.
+#[derive(Debug)]
+pub struct FuncsAvailable {
+    pub qpu_kernels: Vec<(String, Type)>,
+    pub classical_funcs: Vec<(String, bool, usize, usize)>,
+}
+
+impl FuncsAvailable {
+    pub fn new() -> Self {
+        Self {
+            qpu_kernels: vec![],
+            classical_funcs: vec![],
+        }
+    }
+
+    pub fn add_qpu_kernel(&mut self, func: &FunctionDef<qpu::Expr>) {
+        self.qpu_kernels
+            .push((func.name.to_string(), func.get_type()));
+    }
+
+    pub fn add_classical_func(&mut self, func: &FunctionDef<classical::Expr>) {
+        self.classical_funcs.push((
+            func.name.to_string(),
+            func.is_rev,
+            func.in_dim(),
+            func.out_dim(),
+        ));
+    }
+}
+
 impl Program {
     // TODO: (Future-work!) Change it to Multi/Batch Error reporting Result<(), Vec<TypeError>>
     /// Entry point: checks the whole program.
     /// Returns `Ok(())` if well-typed, or a `TypeError` at the first mistake (Fail fast!!)
     pub fn typecheck(&self) -> Result<(), TypeError> {
         let Program { funcs, .. } = self;
-        let mut funcs_available = vec![];
+        let mut funcs_available = FuncsAvailable::new();
 
         for func_enum in funcs {
             match func_enum {
                 Func::Qpu(func) => {
-                    // 'func' => '&FunctionDef<qpu::Expr>'
                     func.typecheck(&funcs_available)?;
-                    funcs_available.push((func.name.to_string(), func.get_type()));
+                    funcs_available.add_qpu_kernel(func);
                 }
                 Func::Classical(func) => {
-                    // '&FunctionDef<classical::Expr>'
                     func.typecheck(&funcs_available)?;
-                    funcs_available.push((func.name.to_string(), func.get_type()));
+                    funcs_available.add_classical_func(func);
                 }
             }
         }
@@ -125,16 +207,21 @@ impl Program {
 
 impl<E: TypeCheckable> FunctionDef<E> {
     /// Returns a new `TypeEnv` for type checking the body of this function.
-    pub fn new_type_env(&self, funcs_available: &[(String, Type)]) -> Result<TypeEnv, TypeError> {
+    pub fn new_type_env(&self, funcs_available: &FuncsAvailable) -> Result<TypeEnv, TypeError> {
         let mut env = TypeEnv::new();
+        let dbg = &self.dbg;
 
-        for (name, ty) in funcs_available {
-            env.insert_var(name, ty.clone(), &self.dbg)?;
+        for (name, is_rev, in_dim, out_dim) in &funcs_available.classical_funcs {
+            env.insert_classical_func(name, *is_rev, *in_dim, *out_dim, dbg)?;
+        }
+
+        for (name, ty) in &funcs_available.qpu_kernels {
+            env.insert_var(name, ty.clone(), dbg)?;
         }
 
         // Bind function arguments in environment
         for (ty, name) in &self.args {
-            env.insert_var(name, ty.clone(), &self.dbg)?;
+            env.insert_var(name, ty.clone(), dbg)?;
         }
 
         Ok(env)
@@ -197,7 +284,7 @@ impl<E: TypeCheckable> FunctionDef<E> {
     /// type environment with the names of functions defined earlier.
     /// (Recursion and mutual recursion are banned in Qwerty, so the current
     ///  function is not included in this list.)
-    pub fn typecheck(&self, funcs_available: &[(String, Type)]) -> Result<(), TypeError> {
+    pub fn typecheck(&self, funcs_available: &FuncsAvailable) -> Result<(), TypeError> {
         let mut env = self.new_type_env(funcs_available)?;
 
         // Single Pass: For each statement, check reversibility BEFORE updating environment
@@ -1199,16 +1286,64 @@ impl BitLiteral {
 }
 
 impl EmbedClassical {
-    pub fn calc_type(&self, _env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        Ok((
-            Type::RevFuncType {
-                in_out_ty: Box::new(Type::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim: 3,
-                }),
-            },
-            ComputeKind::Rev,
-        ))
+    pub fn calc_type(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let EmbedClassical {
+            func_name,
+            embed_kind,
+            dbg,
+        } = self;
+        if let Some((is_rev, in_dim, out_dim)) = env.classical_funcs.get(func_name) {
+            match embed_kind {
+                EmbedKind::Sign => Ok((
+                    Type::RevFuncType {
+                        in_out_ty: Box::new(Type::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: *in_dim,
+                        }),
+                    },
+                    ComputeKind::Rev,
+                )),
+                EmbedKind::Xor => Ok((
+                    Type::RevFuncType {
+                        in_out_ty: Box::new(Type::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: *in_dim + *out_dim,
+                        }),
+                    },
+                    ComputeKind::Rev,
+                )),
+                EmbedKind::InPlace => {
+                    if *is_rev {
+                        assert_eq!(*in_dim, *out_dim);
+                        Ok((
+                            Type::RevFuncType {
+                                in_out_ty: Box::new(Type::RegType {
+                                    elem_ty: RegKind::Qubit,
+                                    dim: *in_dim,
+                                }),
+                            },
+                            ComputeKind::Rev,
+                        ))
+                    } else {
+                        Err(TypeError {
+                            kind: TypeErrorKind::InvalidType(format!(
+                                concat!(
+                                    "Cannot embed irreversible classical ",
+                                    "function {}() in-place"
+                                ),
+                                func_name
+                            )),
+                            dbg: dbg.clone(),
+                        })
+                    }
+                }
+            }
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::UndefinedVariable(func_name.to_string()),
+                dbg: dbg.clone(),
+            })
+        }
     }
 
     pub fn typecheck(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
@@ -1231,28 +1366,6 @@ impl QubitRef {
 
 // ────────────────────────────────────────────────────────────────────────────────────
 
-impl Expr {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        match self {
-            Expr::Variable(var) => var.typecheck(env),
-            Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
-            Expr::Adjoint(adj) => adj.typecheck(env),
-            Expr::Pipe(pipe) => pipe.typecheck(env),
-            Expr::Measure(measure) => measure.typecheck(),
-            Expr::Discard(discard) => discard.typecheck(),
-            Expr::Tensor(tensor) => tensor.typecheck(env),
-            Expr::BasisTranslation(btrans) => btrans.typecheck(),
-            Expr::Predicated(pred) => pred.typecheck(env),
-            Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
-            Expr::Conditional(cond) => cond.typecheck(env),
-            Expr::QLit(qlit) => qlit.typecheck(),
-            Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-            Expr::EmbedClassical(embed) => embed.typecheck(env),
-            Expr::QubitRef(qref) => qref.typecheck(),
-        }
-    }
-}
-
 // --- EXPRESSIONS (TRAIT DEFINITION) ---
 pub trait TypeCheckable {
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
@@ -1264,9 +1377,7 @@ impl TypeCheckable for qpu::Expr {
         match self {
             qpu::Expr::Variable(var) => var.typecheck(env),
             qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
-            qpu::Expr::EmbedClassical(_) => {
-                todo!("EmbedClassical typechecking not implemented yet")
-            }
+            qpu::Expr::EmbedClassical(embed) => embed.typecheck(env),
             qpu::Expr::Adjoint(adj) => adj.typecheck(env),
             qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
             qpu::Expr::Measure(measure) => measure.typecheck(),
@@ -1794,9 +1905,7 @@ impl ModMul {
                         op: format!("mod_mul(x={}, j={}, y=_, mod_n={})", x, j, mod_n),
                         ty: format!(
                             "x and mod_n must be coprime, but gcd({}, {}) = {}",
-                            x,
-                            mod_n,
-                            common_divisor
+                            x, mod_n, common_divisor
                         ),
                     },
                     dbg: dbg.clone(),

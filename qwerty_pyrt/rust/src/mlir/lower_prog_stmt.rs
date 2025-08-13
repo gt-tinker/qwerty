@@ -10,7 +10,7 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{self, Assign, Func, Program, RegKind, Return, Stmt, UnpackAssign},
-    typecheck::{ComputeKind, TypeCheckable},
+    typecheck::{ComputeKind, FuncsAvailable, TypeCheckable},
 };
 
 /// This trait is a hack to allow calling either [`ast_qpu_expr_to_mlir`] or
@@ -138,23 +138,27 @@ pub fn ast_program_to_mlir(prog: &Program) -> Module<'static> {
     let loc = dbg_to_loc(prog.dbg.clone());
     let module = Module::new(loc);
     let module_block = module.body();
-    let mut funcs_available = vec![];
+    let mut funcs_available = FuncsAvailable::new();
+    let mut mlir_func_tys = vec![];
 
     for func in &prog.funcs {
         let (func_op, mlir_func_ty_opt) = match func {
             Func::Qpu(func_def) => {
-                let (func_op, mlir_func_ty) = ast_qpu_func_def_to_mlir(func_def, &funcs_available);
+                funcs_available.add_qpu_kernel(func_def);
+                let (func_op, mlir_func_ty) =
+                    ast_qpu_func_def_to_mlir(func_def, &funcs_available, &mlir_func_tys);
                 (func_op, Some(mlir_func_ty))
             }
             Func::Classical(func_def) => {
-                let func_op = ast_classical_func_def_to_mlir(func_def);
+                funcs_available.add_classical_func(func_def);
+                let func_op = ast_classical_func_def_to_mlir(func_def, &funcs_available);
                 (func_op, None)
             }
         };
 
         module_block.append_operation(func_op);
         if let Some(mlir_func_ty) = mlir_func_ty_opt {
-            funcs_available.push((func.get_name(), func.get_type(), mlir_func_ty));
+            mlir_func_tys.push((func.get_name(), mlir_func_ty));
         }
     }
 

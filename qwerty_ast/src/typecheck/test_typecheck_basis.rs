@@ -167,7 +167,7 @@ fn test_typecheck_expr_btrans_empty() {
     };
     let mut type_env = TypeEnv::new();
     // () >> () !: qubit[0] rev-> qubit[0] because empty bases are not allowed
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::EmptyBasisLiteral {
             dbg: Some(dbg.clone()),
         },
@@ -196,7 +196,7 @@ fn test_typecheck_expr_btrans_dim_mismatch() {
     let mut type_env = TypeEnv::new();
     // {'0'} >> {'0'+'0'} !: qubit[1] rev-> qubit[1]
     // because basis dimensions do not align
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::ZeroVector { dbg: None }],
             dbg: None,
@@ -235,7 +235,7 @@ fn test_typecheck_expr_btrans_left_err_propagate() {
     let mut type_env = TypeEnv::new();
     // {} >> {'0'} !: qubit[0] rev-> qubit[0]
     // because {} is not a valid basis
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![],
             dbg: Some(dbg.clone()),
@@ -268,7 +268,7 @@ fn test_typecheck_expr_btrans_right_err_propagate() {
     let mut type_env = TypeEnv::new();
     // {'0'} >> {} !: qubit[1] rev-> qubit[1]
     // because {} is not a valid basis
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::ZeroVector { dbg: None }],
             dbg: None,
@@ -295,7 +295,7 @@ fn test_typecheck_expr_btrans_right_err_propagate() {
 fn test_typecheck_expr_btrans_zero_identity() {
     let mut type_env = TypeEnv::new();
     // {'0'} >> {'0'} : qubit[1] rev-> qubit[1]
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::ZeroVector { dbg: None }],
             dbg: None,
@@ -333,7 +333,7 @@ fn test_typecheck_expr_btrans_zero_pad_mismatch() {
     let mut type_env = TypeEnv::new();
     // {'0'} >> {'?'} !: qubit[1] rev-> qubit[1]
     // because the indices of pad qubits do not match
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::ZeroVector { dbg: None }],
             dbg: None,
@@ -368,7 +368,7 @@ fn test_typecheck_expr_btrans_zero_pad_vec_mismatch() {
     let mut type_env = TypeEnv::new();
     // {'0'+'1'} >> {'0'+'?'} !: qubit[1] rev-> qubit[1]
     // because the indices of pad qubits do not match
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::UniformVectorSuperpos {
                 q1: Box::new(Vector::ZeroVector { dbg: None }),
@@ -411,7 +411,7 @@ fn test_typecheck_expr_btrans_tgt_right() {
     let mut type_env = TypeEnv::new();
     // {'0'} >> {'_'} !: qubit[1] rev-> qubit[1]
     // because target atoms are not allowed in basis translations
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::ZeroVector { dbg: None }],
             dbg: None,
@@ -446,7 +446,7 @@ fn test_typecheck_expr_btrans_tgt_left() {
     let mut type_env = TypeEnv::new();
     // {'_'} >> {'0'} !: qubit[1] rev-> qubit[1]
     // because target atoms are not allowed in basis translations
-    let ast = Expr::BasisTranslation(BasisTranslation {
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
         bin: Basis::BasisLiteral {
             vecs: vec![Vector::TargetVector { dbg: None }],
             dbg: Some(dbg.clone()),

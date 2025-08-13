@@ -17,7 +17,7 @@ use qwerty_ast::{
         self, BitLiteral, FunctionDef, Variable,
         classical::{self, BinaryOp, BinaryOpKind, ReduceOp, UnaryOp, UnaryOpKind},
     },
-    typecheck::ComputeKind,
+    typecheck::{ComputeKind, FuncsAvailable},
 };
 
 impl Lowerable for classical::Expr {
@@ -188,6 +188,7 @@ fn ast_classical_expr_to_mlir(
 /// Converts an AST `@classical` `FunctionDef` node into a `ccirc::circuit` op.
 pub fn ast_classical_func_def_to_mlir(
     func_def: &FunctionDef<classical::Expr>,
+    funcs_available: &FuncsAvailable,
 ) -> Operation<'static> {
     let func_loc = dbg_to_loc(func_def.dbg.clone());
 
@@ -204,7 +205,7 @@ pub fn ast_classical_func_def_to_mlir(
     let func_block = Block::new(&block_args);
 
     let type_env = func_def
-        .new_type_env(/*funcs_available=*/ &[])
+        .new_type_env(funcs_available)
         .expect("valid type env");
     let mut ctx = Ctx::new(&func_block, type_env);
 
