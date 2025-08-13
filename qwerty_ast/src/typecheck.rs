@@ -7,11 +7,11 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 use crate::ast::{
+    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
+    UnpackAssign, Variable, angles_are_approx_equal, anti_phase,
     classical::{
         self, BinaryOp, Concat, ModMul, ReduceOp, Repeat, RotateOp, Slice, UnaryOp, UnaryOpKind,
     },
-    Assign, BitLiteral, Func, FunctionDef, Program, RegKind, Return, Stmt, StmtExpr, Type,
-    UnpackAssign, Variable, angles_are_approx_equal, anti_phase,
     in_phase, qpu,
     qpu::{
         Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
@@ -1303,16 +1303,17 @@ impl TypeCheckable for classical::Expr {
 // --- CLASSICAL EXPRESSION IMPLEMENTATIONS ---
 
 impl Slice {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn calc_type(
+        &self,
+        val_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Slice {
-            val,
+            val: _,
             lower,
             upper,
             dbg,
         } = self;
-
-        // Typecheck the value being sliced
-        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+        let (val_ty, _val_compute_kind) = val_result;
 
         // Must be a bit register
         if let Type::RegType {
@@ -1334,7 +1335,7 @@ impl Slice {
                 });
             }
 
-            if *upper > dim {
+            if *upper > *dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
                         op: format!("[{}..{}]", lower, upper),
@@ -1344,7 +1345,7 @@ impl Slice {
                 });
             }
 
-            if *lower >= dim {
+            if *lower >= *dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
                         op: format!("[{}..{}]", lower, upper),
@@ -1374,13 +1375,21 @@ impl Slice {
             })
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        // Typecheck the value being sliced
+        let val_result = self.val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
 }
 
 impl UnaryOp {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let UnaryOp { kind, val, dbg } = self;
-
-        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+    pub fn calc_type(
+        &self,
+        val_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let UnaryOp { kind, val: _, dbg } = self;
+        let (val_ty, val_compute_kind) = val_result;
 
         match kind {
             UnaryOpKind::Not => {
@@ -1393,9 +1402,9 @@ impl UnaryOp {
                     Ok((
                         Type::RegType {
                             elem_ty: RegKind::Bit,
-                            dim,
+                            dim: *dim,
                         },
-                        val_compute_kind,
+                        *val_compute_kind,
                     ))
                 } else {
                     Err(TypeError {
@@ -1409,22 +1418,32 @@ impl UnaryOp {
             }
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let UnaryOp { val, .. } = self;
+
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
 }
 
 impl BinaryOp {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn calc_type(
+        &self,
+        left_result: &(Type, ComputeKind),
+        right_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let BinaryOp {
             kind: _,
-            left,
-            right,
+            left: _,
+            right: _,
             dbg,
         } = self;
-
-        let (left_ty, left_compute_kind) = left.typecheck(env)?;
-        let (right_ty, right_compute_kind) = right.typecheck(env)?;
+        let (left_ty, left_compute_kind) = left_result;
+        let (right_ty, right_compute_kind) = right_result;
 
         // Both operands must be bit registers of same dimension
-        match (&left_ty, &right_ty) {
+        match (left_ty, right_ty) {
             (
                 Type::RegType {
                     elem_ty: RegKind::Bit,
@@ -1435,7 +1454,7 @@ impl BinaryOp {
                     dim: right_dim,
                 },
             ) if left_dim == right_dim => {
-                let _compute_kind = left_compute_kind.join(right_compute_kind);
+                let _compute_kind = left_compute_kind.join(*right_compute_kind);
                 Ok((
                     Type::RegType {
                         elem_ty: RegKind::Bit,
@@ -1469,20 +1488,39 @@ impl BinaryOp {
             }),
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let BinaryOp {
+            kind: _,
+            left,
+            right,
+            dbg: _,
+        } = self;
+
+        let left_result = left.typecheck(env)?;
+        let right_result = right.typecheck(env)?;
+        self.calc_type(&left_result, &right_result)
+    }
 }
 
 impl ReduceOp {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let ReduceOp { kind: _, val, dbg } = self;
-
-        let (val_ty, _) = val.typecheck(env)?;
+    pub fn calc_type(
+        &self,
+        val_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let ReduceOp {
+            kind: _,
+            val: _,
+            dbg,
+        } = self;
+        let (val_ty, _val_compute_kind) = val_result;
 
         if let Type::RegType {
             elem_ty: RegKind::Bit,
             dim,
         } = val_ty
         {
-            if dim == 0 {
+            if *dim == 0 {
                 return Err(TypeError {
                     kind: TypeErrorKind::EmptyLiteral,
                     dbg: dbg.clone(),
@@ -1507,22 +1545,35 @@ impl ReduceOp {
             })
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let ReduceOp {
+            kind: _,
+            val,
+            dbg: _,
+        } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
 }
 
 impl RotateOp {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn calc_type(
+        &self,
+        val_result: &(Type, ComputeKind),
+        amt_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let RotateOp {
             kind: _,
-            val,
-            amt,
+            val: _,
+            amt: _,
             dbg,
         } = self;
-
-        let (val_ty, val_compute_kind) = val.typecheck(env)?;
-        let (amt_ty, amt_compute_kind) = amt.typecheck(env)?;
+        let (val_ty, val_compute_kind) = val_result;
+        let (amt_ty, amt_compute_kind) = amt_result;
 
         // Value must be bit register, amount must be bit register
-        match (&val_ty, &amt_ty) {
+        match (val_ty, amt_ty) {
             (
                 Type::RegType {
                     elem_ty: RegKind::Bit,
@@ -1533,7 +1584,7 @@ impl RotateOp {
                     dim: _amt_dim,
                 },
             ) => {
-                let compute_kind = val_compute_kind.join(amt_compute_kind);
+                let compute_kind = val_compute_kind.join(*amt_compute_kind);
                 Ok((
                     Type::RegType {
                         elem_ty: RegKind::Bit,
@@ -1551,16 +1602,35 @@ impl RotateOp {
             }),
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let RotateOp {
+            kind: _,
+            val,
+            amt,
+            dbg: _,
+        } = self;
+        let val_result = val.typecheck(env)?;
+        let amt_result = amt.typecheck(env)?;
+        self.calc_type(&val_result, &amt_result)
+    }
 }
 
 impl Concat {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let Concat { left, right, dbg } = self;
+    pub fn calc_type(
+        &self,
+        left_result: &(Type, ComputeKind),
+        right_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Concat {
+            left: _,
+            right: _,
+            dbg,
+        } = self;
+        let (left_ty, left_compute_kind) = left_result;
+        let (right_ty, right_compute_kind) = right_result;
 
-        let (left_ty, left_compute_kind) = left.typecheck(env)?;
-        let (right_ty, right_compute_kind) = right.typecheck(env)?;
-
-        match (&left_ty, &right_ty) {
+        match (left_ty, right_ty) {
             (
                 Type::RegType {
                     elem_ty: RegKind::Bit,
@@ -1572,7 +1642,7 @@ impl Concat {
                 },
             ) => {
                 let total_dim = left_dim + right_dim;
-                let compute_kind = left_compute_kind.join(right_compute_kind);
+                let compute_kind = left_compute_kind.join(*right_compute_kind);
                 Ok((
                     Type::RegType {
                         elem_ty: RegKind::Bit,
@@ -1590,13 +1660,27 @@ impl Concat {
             }),
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Concat {
+            left,
+            right,
+            dbg: _,
+        } = self;
+        let left_result = left.typecheck(env)?;
+        let right_result = right.typecheck(env)?;
+
+        self.calc_type(&left_result, &right_result)
+    }
 }
 
 impl Repeat {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let Repeat { val, amt, dbg } = self;
-
-        let (val_ty, val_compute_kind) = val.typecheck(env)?;
+    pub fn calc_type(
+        &self,
+        val_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Repeat { val: _, amt, dbg } = self;
+        let (val_ty, val_compute_kind) = val_result;
 
         if let Type::RegType {
             elem_ty: RegKind::Bit,
@@ -1620,7 +1704,7 @@ impl Repeat {
                         elem_ty: RegKind::Bit,
                         dim: total_dim,
                     },
-                    val_compute_kind,
+                    *val_compute_kind,
                 ))
             } else {
                 Err(TypeError {
@@ -1641,26 +1725,39 @@ impl Repeat {
             })
         }
     }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Repeat {
+            val,
+            amt: _,
+            dbg: _,
+        } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
 }
 
 impl ModMul {
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn calc_type(
+        &self,
+        y_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let ModMul {
             x,
             j,
-            y,
+            y: _,
             mod_n,
             dbg,
         } = self;
 
-        let (y_ty, y_compute_kind) = y.typecheck(env)?;
+        let (y_ty, y_compute_kind) = y_result;
 
         if let Type::RegType {
             elem_ty: RegKind::Bit,
             dim,
         } = y_ty
         {
-            if dim == 0 {
+            if *dim == 0 {
                 return Err(TypeError {
                     kind: TypeErrorKind::EmptyLiteral,
                     dbg: dbg.clone(),
@@ -1705,7 +1802,7 @@ impl ModMul {
             }
 
             // Check that 2^dim > mod_n (so all values mod mod_n can be represented)
-            if dim < 64 {
+            if *dim < 64 {
                 let max_representable = 1u64 << dim;
                 if *mod_n as u64 >= max_representable {
                     return Err(TypeError {
@@ -1726,9 +1823,9 @@ impl ModMul {
             Ok((
                 Type::RegType {
                     elem_ty: RegKind::Bit,
-                    dim,
+                    dim: *dim,
                 },
-                y_compute_kind,
+                *y_compute_kind,
             ))
         } else {
             Err(TypeError {
@@ -1739,6 +1836,18 @@ impl ModMul {
                 dbg: dbg.clone(),
             })
         }
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let ModMul {
+            x: _,
+            j: _,
+            y,
+            mod_n: _,
+            dbg: _,
+        } = self;
+        let y_result = y.typecheck(env)?;
+        self.calc_type(&y_result)
     }
 }
 
@@ -2081,11 +2190,7 @@ fn qlits_are_ortho(qlit1: &QLit, qlit2: &QLit) -> bool {
 
 /// Computes the greatest common divisor of two numbers.
 fn gcd(a: u32, b: u32) -> u32 {
-    if b == 0 {
-        a
-    } else {
-        gcd(b, a % b)
-    }
+    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 impl QLit {
