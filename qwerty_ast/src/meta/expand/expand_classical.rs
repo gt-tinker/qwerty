@@ -1,15 +1,16 @@
 use crate::{
     error::ExtractError,
     meta::{
-        Progress, classical,
+        Progress,
+        classical::{MetaExpr, MetaStmt},
         expand::{Expandable, MacroEnv},
     },
 };
 
-impl classical::MetaExpr {
-    pub fn expand(&self, env: &MacroEnv) -> Result<(classical::MetaExpr, Progress), ExtractError> {
+impl MetaExpr {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaExpr, Progress), ExtractError> {
         match self {
-            classical::MetaExpr::Slice {
+            MetaExpr::Slice {
                 val,
                 lower,
                 upper,
@@ -18,7 +19,7 @@ impl classical::MetaExpr {
                 lower.expand(env).and_then(|(expanded_lower, lower_prog)| {
                     upper.expand(env).map(|(expanded_upper, upper_prog)| {
                         (
-                            classical::MetaExpr::Slice {
+                            MetaExpr::Slice {
                                 val: Box::new(expanded_val),
                                 lower: expanded_lower,
                                 upper: expanded_upper,
@@ -30,10 +31,10 @@ impl classical::MetaExpr {
                 })
             }),
 
-            classical::MetaExpr::UnaryOp { kind, val, dbg } => {
+            MetaExpr::UnaryOp { kind, val, dbg } => {
                 val.expand(env).map(|(expanded_val, val_prog)| {
                     (
-                        classical::MetaExpr::UnaryOp {
+                        MetaExpr::UnaryOp {
                             kind: *kind,
                             val: Box::new(expanded_val),
                             dbg: dbg.clone(),
@@ -43,7 +44,7 @@ impl classical::MetaExpr {
                 })
             }
 
-            classical::MetaExpr::BinaryOp {
+            MetaExpr::BinaryOp {
                 kind,
                 left,
                 right,
@@ -51,7 +52,7 @@ impl classical::MetaExpr {
             } => left.expand(env).and_then(|(expanded_left, left_prog)| {
                 right.expand(env).map(|(expanded_right, right_prog)| {
                     (
-                        classical::MetaExpr::BinaryOp {
+                        MetaExpr::BinaryOp {
                             kind: *kind,
                             left: Box::new(expanded_left),
                             right: Box::new(expanded_right),
@@ -62,10 +63,10 @@ impl classical::MetaExpr {
                 })
             }),
 
-            classical::MetaExpr::ReduceOp { kind, val, dbg } => {
+            MetaExpr::ReduceOp { kind, val, dbg } => {
                 val.expand(env).map(|(expanded_val, val_prog)| {
                     (
-                        classical::MetaExpr::ReduceOp {
+                        MetaExpr::ReduceOp {
                             kind: *kind,
                             val: Box::new(expanded_val),
                             dbg: dbg.clone(),
@@ -75,10 +76,10 @@ impl classical::MetaExpr {
                 })
             }
 
-            classical::MetaExpr::BitLiteral { val, n_bits, dbg } => {
+            MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 n_bits.expand(env).map(|(expanded_n_bits, n_bits_prog)| {
                     (
-                        classical::MetaExpr::BitLiteral {
+                        MetaExpr::BitLiteral {
                             val: val.clone(),
                             n_bits: expanded_n_bits,
                             dbg: dbg.clone(),
@@ -88,29 +89,27 @@ impl classical::MetaExpr {
                 })
             }
 
-            classical::MetaExpr::Variable { .. } => Ok((self.clone(), Progress::Full)),
+            MetaExpr::Variable { .. } => Ok((self.clone(), Progress::Full)),
         }
     }
 }
 
-impl Expandable for classical::MetaStmt {
-    fn expand(&self, env: &mut MacroEnv) -> Result<(classical::MetaStmt, Progress), ExtractError> {
+impl Expandable for MetaStmt {
+    fn expand(&self, env: &mut MacroEnv) -> Result<(MetaStmt, Progress), ExtractError> {
         match self {
-            classical::MetaStmt::Expr { expr } => {
-                expr.expand(env).map(|(expanded_expr, progress)| {
-                    (
-                        classical::MetaStmt::Expr {
-                            expr: expanded_expr,
-                        },
-                        progress,
-                    )
-                })
-            }
+            MetaStmt::Expr { expr } => expr.expand(env).map(|(expanded_expr, progress)| {
+                (
+                    MetaStmt::Expr {
+                        expr: expanded_expr,
+                    },
+                    progress,
+                )
+            }),
 
-            classical::MetaStmt::Assign { lhs, rhs, dbg } => {
+            MetaStmt::Assign { lhs, rhs, dbg } => {
                 rhs.expand(env).map(|(expanded_expr, progress)| {
                     (
-                        classical::MetaStmt::Assign {
+                        MetaStmt::Assign {
                             lhs: lhs.to_string(),
                             rhs: expanded_expr,
                             dbg: dbg.clone(),
@@ -120,10 +119,10 @@ impl Expandable for classical::MetaStmt {
                 })
             }
 
-            classical::MetaStmt::UnpackAssign { lhs, rhs, dbg } => {
+            MetaStmt::UnpackAssign { lhs, rhs, dbg } => {
                 rhs.expand(env).map(|(expanded_expr, progress)| {
                     (
-                        classical::MetaStmt::UnpackAssign {
+                        MetaStmt::UnpackAssign {
                             lhs: lhs.clone(),
                             rhs: expanded_expr,
                             dbg: dbg.clone(),
@@ -133,17 +132,15 @@ impl Expandable for classical::MetaStmt {
                 })
             }
 
-            classical::MetaStmt::Return { val, dbg } => {
-                val.expand(env).map(|(expanded_expr, progress)| {
-                    (
-                        classical::MetaStmt::Return {
-                            val: expanded_expr,
-                            dbg: dbg.clone(),
-                        },
-                        progress,
-                    )
-                })
-            }
+            MetaStmt::Return { val, dbg } => val.expand(env).map(|(expanded_expr, progress)| {
+                (
+                    MetaStmt::Return {
+                        val: expanded_expr,
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                )
+            }),
         }
     }
 }
