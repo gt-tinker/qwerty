@@ -1,6 +1,6 @@
 use crate::{
     ast::{classical::BinaryOpKind, try_log2, ubig_with_n_lower_bits_set},
-    error::{ExtractError, ExtractErrorKind},
+    error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, Progress,
         classical::{MetaExpr, MetaStmt},
@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl MetaExpr {
-    pub fn expand(&self, env: &mut MacroEnv) -> Result<(MetaExpr, Progress), ExtractError> {
+    pub fn expand(&self, env: &mut MacroEnv) -> Result<(MetaExpr, Progress), LowerError> {
         match self {
             MetaExpr::Mod {
                 dividend,
@@ -28,8 +28,8 @@ impl MetaExpr {
                                     try_log2(divisor_int)
                                         .ok_or_else(|| {
                                             // For now, the divisor needs to be a power of 2
-                                            ExtractError {
-                                                kind: ExtractErrorKind::Malformed,
+                                            LowerError {
+                                                kind: LowerErrorKind::Malformed,
                                                 dbg: dbg.clone(),
                                             }
                                         })
@@ -152,7 +152,7 @@ impl MetaExpr {
 }
 
 impl Expandable for MetaStmt {
-    fn expand(&self, env: &mut MacroEnv) -> Result<(MetaStmt, Progress), ExtractError> {
+    fn expand(&self, env: &mut MacroEnv) -> Result<(MetaStmt, Progress), LowerError> {
         match self {
             MetaStmt::Expr { expr } => expr.expand(env).map(|(expanded_expr, progress)| {
                 (

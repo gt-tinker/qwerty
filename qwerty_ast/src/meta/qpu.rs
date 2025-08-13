@@ -1,7 +1,7 @@
 use crate::{
     ast::{self, Trivializable, qpu::EmbedKind},
     dbg::DebugLoc,
-    error::{ExtractError, ExtractErrorKind},
+    error::{LowerError, LowerErrorKind},
     meta::DimExpr,
 };
 use dashu::integer::{IBig, UBig};
@@ -68,15 +68,15 @@ pub enum FloatExpr {
 impl FloatExpr {
     /// Extract a constant double-precision float from this float expression or
     /// return an error if it is not fully folded yet.
-    pub fn extract(&self) -> Result<f64, ExtractError> {
+    pub fn extract(&self) -> Result<f64, LowerError> {
         match self {
             FloatExpr::FloatConst { val, .. } => Ok(*val),
             FloatExpr::FloatDimExpr { dbg, .. }
             | FloatExpr::FloatSum { dbg, .. }
             | FloatExpr::FloatProd { dbg, .. }
             | FloatExpr::FloatDiv { dbg, .. }
-            | FloatExpr::FloatNeg { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | FloatExpr::FloatNeg { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -206,7 +206,7 @@ impl MetaVector {
 
     /// Extracts a plain-AST `@qpu` Vector from this metaQwerty vector. Returns
     /// an error instead if metaQwerty constructs are still present.
-    pub fn extract(&self) -> Result<ast::qpu::Vector, ExtractError> {
+    pub fn extract(&self) -> Result<ast::qpu::Vector, LowerError> {
         match self {
             MetaVector::ZeroVector { dbg } => Ok(ast::qpu::Vector::ZeroVector { dbg: dbg.clone() }),
             MetaVector::OneVector { dbg } => Ok(ast::qpu::Vector::OneVector { dbg: dbg.clone() }),
@@ -245,8 +245,8 @@ impl MetaVector {
 
             MetaVector::VectorAlias { dbg, .. }
             | MetaVector::VectorSymbol { dbg, .. }
-            | MetaVector::VectorBroadcastTensor { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | MetaVector::VectorBroadcastTensor { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -310,7 +310,7 @@ impl MetaBasisGenerator {
     /// Extracts a plain-AST `@qpu` BasisGenerator from this metaQwerty basis
     /// generator. Returns an error instead if metaQwerty constructs are still
     /// present.
-    pub fn extract(&self) -> Result<ast::qpu::BasisGenerator, ExtractError> {
+    pub fn extract(&self) -> Result<ast::qpu::BasisGenerator, LowerError> {
         match self {
             MetaBasisGenerator::Revolve { v1, v2, dbg } => v1.extract().and_then(|ast_v1| {
                 v2.extract()
@@ -321,8 +321,8 @@ impl MetaBasisGenerator {
                     })
             }),
 
-            MetaBasisGenerator::BasisGeneratorMacro { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            MetaBasisGenerator::BasisGeneratorMacro { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -409,12 +409,12 @@ pub enum MetaBasis {
 
 impl MetaBasis {
     /// Extracts a plain-AST `@qpu` Basis from this metaQwerty basis.
-    pub fn extract(&self) -> Result<ast::qpu::Basis, ExtractError> {
+    pub fn extract(&self) -> Result<ast::qpu::Basis, LowerError> {
         match self {
             MetaBasis::BasisLiteral { vecs, dbg } => vecs
                 .iter()
                 .map(MetaVector::extract)
-                .collect::<Result<Vec<ast::qpu::Vector>, ExtractError>>()
+                .collect::<Result<Vec<ast::qpu::Vector>, LowerError>>()
                 .map(|ast_vecs| ast::qpu::Basis::BasisLiteral {
                     vecs: ast_vecs,
                     dbg: dbg.clone(),
@@ -446,8 +446,8 @@ impl MetaBasis {
 
             MetaBasis::BasisAlias { dbg, .. }
             | MetaBasis::BasisAliasRec { dbg, .. }
-            | MetaBasis::BasisBroadcastTensor { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | MetaBasis::BasisBroadcastTensor { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -694,7 +694,7 @@ impl MetaExpr {
     }
 
     /// Extracts a plain-AST `@qpu` expression from this metaQwerty expression.
-    pub fn extract(&self) -> Result<ast::qpu::Expr, ExtractError> {
+    pub fn extract(&self) -> Result<ast::qpu::Expr, LowerError> {
         match self {
             MetaExpr::Variable { name, dbg } => Ok(ast::qpu::Expr::Variable(ast::Variable {
                 name: name.to_string(),
@@ -717,8 +717,8 @@ impl MetaExpr {
                         dbg: dbg.clone(),
                     }))
                 } else {
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 }
@@ -788,15 +788,15 @@ impl MetaExpr {
                         vec.extract().and_then(|ast_vec| {
                             ast_vec
                                 .convert_to_qubit_literal()
-                                .ok_or_else(|| ExtractError {
-                                    kind: ExtractErrorKind::Malformed,
+                                .ok_or_else(|| LowerError {
+                                    kind: LowerErrorKind::Malformed,
                                     dbg: ast_vec.get_dbg(),
                                 })
                                 .map(|ast_qlit| (prob_double, ast_qlit))
                         })
                     })
                 })
-                .collect::<Result<Vec<(f64, ast::qpu::QLit)>, ExtractError>>()
+                .collect::<Result<Vec<(f64, ast::qpu::QLit)>, LowerError>>()
                 .map(|ast_pairs| {
                     ast::qpu::Expr::NonUniformSuperpos(ast::qpu::NonUniformSuperpos {
                         pairs: ast_pairs,
@@ -823,8 +823,8 @@ impl MetaExpr {
             MetaExpr::QLit { vec } => vec.extract().and_then(|ast_vec| {
                 ast_vec
                     .convert_to_qubit_literal()
-                    .ok_or_else(|| ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    .ok_or_else(|| LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: ast_vec.get_dbg(),
                     })
                     .map(|ast_qlit| ast::qpu::Expr::QLit(ast_qlit))
@@ -841,8 +841,8 @@ impl MetaExpr {
             | MetaExpr::BasisMacro { dbg, .. }
             | MetaExpr::BroadcastTensor { dbg, .. }
             | MetaExpr::Instantiate { dbg, .. }
-            | MetaExpr::Repeat { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | MetaExpr::Repeat { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -1099,7 +1099,7 @@ pub enum MetaStmt {
 impl MetaStmt {
     // TODO: don't duplicate with classical.rs
     /// Extracts a plain-AST `@qpu` statement from this metaQwerty statement.
-    pub fn extract(&self) -> Result<ast::Stmt<ast::qpu::Expr>, ExtractError> {
+    pub fn extract(&self) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
         match self {
             MetaStmt::Expr { expr } => expr.extract().map(|ast_expr| {
                 ast::Stmt::Expr(ast::StmtExpr {

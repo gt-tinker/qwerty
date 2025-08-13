@@ -1,6 +1,10 @@
 use crate::{
-    error::{ExtractError, ExtractErrorKind},
-    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, Progress, qpu},
+    error::{LowerError, LowerErrorKind},
+    meta::{
+        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, Progress,
+        infer::{DimVarAssignments, FuncDimVarAssignments},
+        qpu,
+    },
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
@@ -116,7 +120,7 @@ impl DimExpr {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), ExtractError> {
+    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), LowerError> {
         match self {
             DimExpr::DimVar { name, dbg } => {
                 if let Some(DimVarValue::Known(val)) = env.dim_vars.get(name) {
@@ -214,13 +218,16 @@ impl DimExpr {
 }
 
 pub trait Expandable {
-    fn expand(&self, env: &mut MacroEnv) -> Result<(Self, Progress), ExtractError>
+    fn expand(&self, env: &mut MacroEnv) -> Result<(Self, Progress), LowerError>
     where
         Self: Sized;
 }
 
 impl<S: Expandable> MetaFunctionDef<S> {
-    fn expand(&self) -> Result<(MetaFunctionDef<S>, Progress), ExtractError> {
+    fn expand(
+        &self,
+        dvs: &FuncDimVarAssignments,
+    ) -> Result<(MetaFunctionDef<S>, Progress), LowerError> {
         let MetaFunctionDef {
             name,
             args,
@@ -233,14 +240,16 @@ impl<S: Expandable> MetaFunctionDef<S> {
 
         let mut env = MacroEnv::new();
         for dim_var in dim_vars {
-            if env
-                .dim_vars
-                .insert(dim_var.to_string(), DimVarValue::Unknown)
-                .is_some()
-            {
+            let dv_val = if let Some(val) = dvs.get(dim_var) {
+                DimVarValue::Known(val)
+            } else {
+                DimVarValue::Unknown
+            };
+
+            if env.dim_vars.insert(dim_var.to_string(), dv_val).is_some() {
                 // Duplicate dimvar
-                return Err(ExtractError {
-                    kind: ExtractErrorKind::Malformed,
+                return Err(LowerError {
+                    kind: LowerErrorKind::Malformed,
                     dbg: dbg.clone(),
                 });
             }
@@ -249,7 +258,7 @@ impl<S: Expandable> MetaFunctionDef<S> {
         let expanded_pairs = body
             .iter()
             .map(|stmt| stmt.expand(&mut env))
-            .collect::<Result<Vec<_>, ExtractError>>()?;
+            .collect::<Result<Vec<_>, LowerError>>()?;
         let (expanded_stmts, progresses): (Vec<_>, Vec<_>) = expanded_pairs.into_iter().unzip();
         let progress = progresses
             .into_iter()
@@ -273,14 +282,14 @@ impl<S: Expandable> MetaFunctionDef<S> {
 }
 
 impl MetaFunc {
-    fn expand(&self) -> Result<(MetaFunc, Progress), ExtractError> {
+    fn expand(&self, dvs: &FuncDimVarAssignments) -> Result<(MetaFunc, Progress), LowerError> {
         match self {
             MetaFunc::Qpu(qpu_func_def) => qpu_func_def
-                .expand()
+                .expand(dvs)
                 .map(|(expanded_func_def, prog)| (MetaFunc::Qpu(expanded_func_def), prog)),
 
             MetaFunc::Classical(classical_func_def) => classical_func_def
-                .expand()
+                .expand(dvs)
                 .map(|(expanded_func_def, prog)| (MetaFunc::Classical(expanded_func_def), prog)),
         }
     }
@@ -289,12 +298,17 @@ impl MetaFunc {
 impl MetaProgram {
     /// Try to expand as many metaQwerty constructs in this program, returning
     /// a new one.
-    pub fn expand(&self) -> Result<(MetaProgram, Progress), ExtractError> {
+    pub fn expand(
+        &self,
+        dv_assign: &DimVarAssignments,
+    ) -> Result<(MetaProgram, Progress), LowerError> {
         let MetaProgram { funcs, dbg } = self;
+        assert_eq!(funcs.len(), dv_assign.len());
         let funcs_pairs = funcs
             .iter()
-            .map(MetaFunc::expand)
-            .collect::<Result<Vec<(MetaFunc, Progress)>, ExtractError>>()?;
+            .zip(dv_assign.iter())
+            .map(|(func, dvs)| func.expand(dvs))
+            .collect::<Result<Vec<(MetaFunc, Progress)>, LowerError>>()?;
         let (expanded_funcs, progresses): (Vec<_>, Vec<_>) = funcs_pairs.into_iter().unzip();
         let progress = progresses
             .into_iter()

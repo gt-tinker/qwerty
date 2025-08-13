@@ -146,7 +146,7 @@ pub struct TypeError {
 // For extracting a plain AST from a meta-AST
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ExtractErrorKind {
+pub enum LowerErrorKind {
     // TODO: add more details
     NotFullyFolded,
     Malformed,
@@ -156,21 +156,21 @@ pub enum ExtractErrorKind {
     Stuck,
 }
 
-impl fmt::Display for ExtractErrorKind {
+impl fmt::Display for LowerErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExtractErrorKind::NotFullyFolded => write!(
+            LowerErrorKind::NotFullyFolded => write!(
                 f,
                 "Cannot extract since metaQwerty constructs are not fully expanded."
             ),
-            ExtractErrorKind::Malformed => write!(
+            LowerErrorKind::Malformed => write!(
                 f,
                 concat!(
                     "metaQwerty is malformed in a way that should be caught by its ",
                     "type checker. This is a compiler bug."
                 )
             ),
-            ExtractErrorKind::IntegerTooBig { offender } => {
+            LowerErrorKind::IntegerTooBig { offender } => {
                 write!(
                     f,
                     concat!(
@@ -180,15 +180,15 @@ impl fmt::Display for ExtractErrorKind {
                     offender
                 )
             }
-            ExtractErrorKind::NegativeInteger { offender } => {
+            LowerErrorKind::NegativeInteger { offender } => {
                 write!(
                     f,
                     "Computed dimension variable expression is {}, a negative value",
                     offender
                 )
             }
-            ExtractErrorKind::DivisionByZero => write!(f, "Division by zero"),
-            ExtractErrorKind::Stuck => write!(
+            LowerErrorKind::DivisionByZero => write!(f, "Division by zero"),
+            LowerErrorKind::Stuck => write!(
                 f,
                 concat!(
                     "metaQwerty lowering is stuck. ",
@@ -200,7 +200,28 @@ impl fmt::Display for ExtractErrorKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExtractError {
-    pub kind: ExtractErrorKind,
+pub struct LowerError {
+    pub kind: LowerErrorKind,
+    pub dbg: Option<DebugLoc>,
+}
+
+// For type inference on a meta-AST
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InferErrorKind {
+    Mismatch,
+}
+
+impl fmt::Display for InferErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InferErrorKind::Mismatch => write!(f, "Type mismatch"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InferError {
+    pub kind: InferErrorKind,
     pub dbg: Option<DebugLoc>,
 }

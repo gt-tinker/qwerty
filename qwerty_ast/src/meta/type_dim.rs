@@ -1,7 +1,7 @@
 use crate::{
     ast::{self, RegKind},
     dbg::DebugLoc,
-    error::{ExtractError, ExtractErrorKind},
+    error::{LowerError, LowerErrorKind},
 };
 use dashu::{base::Signed, integer::IBig};
 use std::fmt;
@@ -53,19 +53,19 @@ pub enum DimExpr {
 impl DimExpr {
     /// Extract a constant integer from this dimension variable expression or
     /// return an error if it is not fully folded yet.
-    pub fn extract(&self) -> Result<usize, ExtractError> {
+    pub fn extract(&self) -> Result<usize, LowerError> {
         match self {
             DimExpr::DimConst { val, dbg } => {
                 if val.is_negative() {
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::NegativeInteger {
+                    Err(LowerError {
+                        kind: LowerErrorKind::NegativeInteger {
                             offender: val.clone(),
                         },
                         dbg: dbg.clone(),
                     })
                 } else {
-                    val.try_into().map_err(|_err| ExtractError {
-                        kind: ExtractErrorKind::IntegerTooBig {
+                    val.try_into().map_err(|_err| LowerError {
+                        kind: LowerErrorKind::IntegerTooBig {
                             offender: val.clone(),
                         },
                         dbg: dbg.clone(),
@@ -75,8 +75,8 @@ impl DimExpr {
             DimExpr::DimVar { dbg, .. }
             | DimExpr::DimSum { dbg, .. }
             | DimExpr::DimProd { dbg, .. }
-            | DimExpr::DimNeg { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            | DimExpr::DimNeg { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
         }
@@ -97,7 +97,7 @@ impl fmt::Display for DimExpr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MetaType {
     FuncType {
         in_ty: Box<MetaType>,
@@ -119,7 +119,7 @@ pub enum MetaType {
 impl MetaType {
     /// Extract an [`ast::Type`] from this MetaQwerty type or return an error
     /// if contained dimension variable expressions are not fully folded yet.
-    pub fn extract(&self) -> Result<ast::Type, ExtractError> {
+    pub fn extract(&self) -> Result<ast::Type, LowerError> {
         match self {
             MetaType::FuncType { in_ty, out_ty } => in_ty.extract().and_then(|in_ast_ty| {
                 out_ty.extract().map(|out_ast_ty| ast::Type::FuncType {
@@ -139,7 +139,7 @@ impl MetaType {
                 dim: dim_val,
             }),
             MetaType::TupleType { tys } => {
-                let extracted_tys: Result<Vec<_>, ExtractError> =
+                let extracted_tys: Result<Vec<_>, LowerError> =
                     tys.iter().map(MetaType::extract).collect();
                 extracted_tys.map(|ex_tys| ast::Type::TupleType { tys: ex_tys })
             }

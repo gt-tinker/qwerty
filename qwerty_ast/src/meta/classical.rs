@@ -4,7 +4,7 @@ use crate::{
         classical::{BinaryOpKind, UnaryOpKind},
     },
     dbg::DebugLoc,
-    error::{ExtractError, ExtractErrorKind},
+    error::{LowerError, LowerErrorKind},
     meta::DimExpr,
 };
 use dashu::integer::UBig;
@@ -99,11 +99,11 @@ impl MetaExpr {
 
     /// Extracts a plain-AST `@classical` expression from a metaQwerty
     /// `@classical` expression.
-    pub fn extract(&self) -> Result<ast::classical::Expr, ExtractError> {
+    pub fn extract(&self) -> Result<ast::classical::Expr, LowerError> {
         match self {
             // For now, this should be folded into a bitwise AND.
-            MetaExpr::Mod { dbg, .. } => Err(ExtractError {
-                kind: ExtractErrorKind::NotFullyFolded,
+            MetaExpr::Mod { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
             }),
             MetaExpr::Variable { name, dbg } => Ok(ast::classical::Expr::Variable(ast::Variable {
@@ -250,7 +250,7 @@ pub enum MetaStmt {
 impl MetaStmt {
     /// Extracts a plain-AST `@classical` statement from a metaQwerty
     /// `@classical` statement.
-    pub fn extract(&self) -> Result<ast::Stmt<ast::classical::Expr>, ExtractError> {
+    pub fn extract(&self) -> Result<ast::Stmt<ast::classical::Expr>, LowerError> {
         match self {
             MetaStmt::Expr { expr } => expr.extract().map(|ast_expr| {
                 ast::Stmt::Expr(ast::StmtExpr {

@@ -1,6 +1,6 @@
 use crate::{
     ast::{angle_is_approx_zero, usize_try_into_angle},
-    error::{ExtractError, ExtractErrorKind},
+    error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, Progress,
         expand::{AliasBinding, Expandable, MacroBinding, MacroEnv},
@@ -61,7 +61,7 @@ impl FloatExpr {
         }
     }
 
-    pub fn expand(&self, env: &MacroEnv) -> Result<(FloatExpr, Progress), ExtractError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(FloatExpr, Progress), LowerError> {
         match self {
             FloatExpr::FloatDimExpr { expr, dbg } => {
                 expr.expand(env).and_then(|(expanded_expr, expr_prog)| {
@@ -74,8 +74,8 @@ impl FloatExpr {
                             Progress::Full,
                         ) => expanded_expr.extract().and_then(|expr_int| {
                             usize_try_into_angle(expr_int)
-                                .ok_or_else(|| ExtractError {
-                                    kind: ExtractErrorKind::IntegerTooBig {
+                                .ok_or_else(|| LowerError {
+                                    kind: LowerErrorKind::IntegerTooBig {
                                         offender: expr_val.clone(),
                                     },
                                     dbg: expr_dbg.clone(),
@@ -168,8 +168,8 @@ impl FloatExpr {
                                 prog @ Progress::Full,
                             ) => {
                                 if angle_is_approx_zero(*right_val) {
-                                    Err(ExtractError {
-                                        kind: ExtractErrorKind::DivisionByZero,
+                                    Err(LowerError {
+                                        kind: LowerErrorKind::DivisionByZero,
                                         dbg: dbg.clone(),
                                     })
                                 } else {
@@ -328,7 +328,7 @@ impl MetaVector {
         }
     }
 
-    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaVector, Progress), ExtractError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaVector, Progress), LowerError> {
         match self {
             // Only substitution can remove this
             MetaVector::VectorAlias { .. } => Ok((self.clone(), Progress::Partial)),
@@ -336,8 +336,8 @@ impl MetaVector {
             MetaVector::VectorSymbol { sym, dbg } => if let Some(vec) = env.vec_symbols.get(sym) {
                 vec.expand(env)
             } else {
-                Err(ExtractError {
-                    kind: ExtractErrorKind::Malformed,
+                Err(LowerError {
+                    kind: LowerErrorKind::Malformed,
                     dbg: dbg.clone(),
                 })
             },
@@ -483,7 +483,7 @@ impl MetaBasisGenerator {
         }
     }
 
-    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaBasisGenerator, Progress), ExtractError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaBasisGenerator, Progress), LowerError> {
         match self {
             MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
                 if let Some(MacroBinding::BasisGeneratorMacro { lhs_pat, rhs }) =
@@ -542,8 +542,8 @@ impl MetaBasisGenerator {
                                     | MetaBasis::BasisBroadcastTensor { dbg, .. }
                                     | MetaBasis::BasisBiTensor { dbg, .. }
                                     | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
-                                        Err(ExtractError {
-                                            kind: ExtractErrorKind::Malformed,
+                                        Err(LowerError {
+                                            kind: LowerErrorKind::Malformed,
                                             dbg: dbg.clone(),
                                         })
                                     }
@@ -552,8 +552,8 @@ impl MetaBasisGenerator {
                         })
                 } else {
                     // Wrong type of macro or macro def missing
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 }
@@ -578,15 +578,15 @@ impl MetaBasisGenerator {
 }
 
 impl MetaBasis {
-    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaBasis, Progress), ExtractError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaBasis, Progress), LowerError> {
         match self {
             MetaBasis::BasisAlias { name, dbg } => {
                 match env.aliases.get(name) {
                     Some(AliasBinding::BasisAlias { rhs }) => rhs.expand(env),
 
                     // Wrong type of alias or alias missing
-                    Some(AliasBinding::BasisAliasRec { .. }) | None => Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Some(AliasBinding::BasisAliasRec { .. }) | None => Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     }),
                 }
@@ -620,8 +620,8 @@ impl MetaBasis {
                                         .expand(env)
                                 } else {
                                     // Missing recursive step
-                                    Err(ExtractError {
-                                        kind: ExtractErrorKind::Malformed,
+                                    Err(LowerError {
+                                        kind: LowerErrorKind::Malformed,
                                         dbg: dbg.clone(),
                                     })
                                 }
@@ -638,8 +638,8 @@ impl MetaBasis {
                     }),
 
                     // Wrong type of alias or alias missing
-                    Some(AliasBinding::BasisAlias { .. }) | None => Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Some(AliasBinding::BasisAlias { .. }) | None => Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     }),
                 }
@@ -1374,7 +1374,7 @@ impl MetaExpr {
         }
     }
 
-    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaExpr, Progress), ExtractError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaExpr, Progress), LowerError> {
         match self {
             MetaExpr::ExprMacro { name, arg, dbg } => {
                 match env.macros.get(name) {
@@ -1398,8 +1398,8 @@ impl MetaExpr {
                     // Not defined or param doesn't match
                     None
                     | Some(MacroBinding::BasisMacro { .. })
-                    | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     }),
                 }
@@ -1492,8 +1492,8 @@ impl MetaExpr {
                                     | MetaBasis::BasisBroadcastTensor { dbg, .. }
                                     | MetaBasis::BasisBiTensor { dbg, .. }
                                     | MetaBasis::ApplyBasisGenerator { dbg, .. } => {
-                                        Err(ExtractError {
-                                            kind: ExtractErrorKind::Malformed,
+                                        Err(LowerError {
+                                            kind: LowerErrorKind::Malformed,
                                             dbg: dbg.clone(),
                                         })
                                     }
@@ -1504,8 +1504,8 @@ impl MetaExpr {
                         // Not defined or param doesn't match
                         None
                         | Some(MacroBinding::ExprMacro { .. })
-                        | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(ExtractError {
-                            kind: ExtractErrorKind::Malformed,
+                        | Some(MacroBinding::BasisGeneratorMacro { .. }) => Err(LowerError {
+                            kind: LowerErrorKind::Malformed,
                             dbg: dbg.clone(),
                         }),
                     }
@@ -1560,8 +1560,8 @@ impl MetaExpr {
                             if ub_int == 0 {
                                 // TODO: if we ever have an identity node,
                                 //       insert it here instead of erroring
-                                Err(ExtractError {
-                                    kind: ExtractErrorKind::Malformed,
+                                Err(LowerError {
+                                    kind: LowerErrorKind::Malformed,
                                     dbg: dbg.clone(),
                                 })
                             } else {
@@ -1762,7 +1762,7 @@ impl MetaExpr {
 }
 
 impl Expandable for MetaStmt {
-    fn expand(&self, env: &mut MacroEnv) -> Result<(MetaStmt, Progress), ExtractError> {
+    fn expand(&self, env: &mut MacroEnv) -> Result<(MetaStmt, Progress), LowerError> {
         match self {
             MetaStmt::ExprMacroDef {
                 lhs_pat,
@@ -1782,8 +1782,8 @@ impl Expandable for MetaStmt {
                     .is_some()
                 {
                     // Duplicate macro
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 } else {
@@ -1809,8 +1809,8 @@ impl Expandable for MetaStmt {
                     .is_some()
                 {
                     // Duplicate macro
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 } else {
@@ -1836,8 +1836,8 @@ impl Expandable for MetaStmt {
                     .is_some()
                 {
                     // Duplicate macro
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 } else {
@@ -1848,8 +1848,8 @@ impl Expandable for MetaStmt {
             MetaStmt::VectorSymbolDef { lhs, rhs, dbg } => {
                 if env.vec_symbols.insert(*lhs, rhs.clone()).is_some() {
                     // Duplicate vector symbol def
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 } else {
@@ -1867,8 +1867,8 @@ impl Expandable for MetaStmt {
                     .is_some()
                 {
                     // Duplicate basis alias
-                    Err(ExtractError {
-                        kind: ExtractErrorKind::Malformed,
+                    Err(LowerError {
+                        kind: LowerErrorKind::Malformed,
                         dbg: dbg.clone(),
                     })
                 } else {
@@ -1886,8 +1886,8 @@ impl Expandable for MetaStmt {
                     match existing_alias {
                         AliasBinding::BasisAlias { .. } => {
                             // Duplicate basis alias
-                            Err(ExtractError {
-                                kind: ExtractErrorKind::Malformed,
+                            Err(LowerError {
+                                kind: LowerErrorKind::Malformed,
                                 dbg: dbg.clone(),
                             })
                         }
@@ -1902,8 +1902,8 @@ impl Expandable for MetaStmt {
                                         Ok((self.clone(), Progress::Full))
                                     } else {
                                         // Duplicate basis alias
-                                        Err(ExtractError {
-                                            kind: ExtractErrorKind::Malformed,
+                                        Err(LowerError {
+                                            kind: LowerErrorKind::Malformed,
                                             dbg: dbg.clone(),
                                         })
                                     }
@@ -1915,8 +1915,8 @@ impl Expandable for MetaStmt {
                                         Ok((self.clone(), Progress::Full))
                                     } else {
                                         // Only 1 recursive def is allowed
-                                        Err(ExtractError {
-                                            kind: ExtractErrorKind::Malformed,
+                                        Err(LowerError {
+                                            kind: LowerErrorKind::Malformed,
                                             dbg: dbg.clone(),
                                         })
                                     }

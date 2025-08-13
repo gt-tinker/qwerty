@@ -1,7 +1,7 @@
 use crate::{
     ast,
-    error::{ExtractError, ExtractErrorKind},
-    meta::MetaProgram,
+    error::{LowerError, LowerErrorKind},
+    meta::{MetaProgram, infer::DimVarAssignments},
 };
 
 /// Allows expansion/inference to report on whether it is completed yet.
@@ -36,17 +36,19 @@ impl Progress {
 }
 
 impl MetaProgram {
-    pub fn lower(&self) -> Result<ast::Program, ExtractError> {
+    pub fn lower(&self) -> Result<ast::Program, LowerError> {
         let mut init_program = self.clone();
+        let mut dv_assign = DimVarAssignments::empty(&init_program);
         loop {
-            let (program, expansion_progress) = init_program.expand()?;
-            let (program, infer_progress) = program.infer_and_instantiate()?;
+            let (program, expansion_progress) = init_program.expand(&dv_assign)?;
+            let (program, next_dv_assign, infer_progress) = program.infer()?;
+            dv_assign = next_dv_assign;
 
             if expansion_progress.is_finished() && infer_progress.is_finished() {
                 return program.extract();
             } else if init_program == program {
-                return Err(ExtractError {
-                    kind: ExtractErrorKind::Stuck,
+                return Err(LowerError {
+                    kind: LowerErrorKind::Stuck,
                     dbg: self.dbg.clone(),
                 });
             } else {
