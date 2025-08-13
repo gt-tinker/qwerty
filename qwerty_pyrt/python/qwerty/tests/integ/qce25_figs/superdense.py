@@ -2,6 +2,8 @@
 Fig. 5 of the Qwerty QCE '25 paper.
 """
 
+from qwerty import *
+
 def superdense_coding(payload: bit[2]):
   bit0, bit1 = payload
 
@@ -23,5 +25,5 @@ def superdense_coding(payload: bit[2]):
   recovered_payload = kernel()
   return recovered_payload
 
-def test():
+def test(payload):
   return superdense_coding(payload)

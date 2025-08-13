@@ -207,6 +207,9 @@ class bit:
             raise ValueError('Slice out of range')
         return lower, upper
 
+    def __iter__(self):
+        return (bit[1](b) for b in self.get_bits())
+
     def __getitem__(self, idx):
         lower, upper = self._get_lower_upper(idx)
         n_bits_wanted = upper-lower

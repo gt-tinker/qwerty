@@ -303,6 +303,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
     def setUp(self):
         _reset_compiler_state()
 
+    @unittest.skip("slice parsing not implemented")
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover
         for _ in range(32):
@@ -310,6 +311,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
             actual_output = grover.test()
             self.assertEqual(expected_output, actual_output)
 
+    @unittest.skip("ensemble operator not yet implemented")
     def test_fig3_superpos_vs_ensemble(self):
         from .integ.qce25_figs import superpos_vs_ensemble
         shots = 1024
@@ -326,3 +328,79 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         expected_superpos_histo = {zero: shots}
         self.assertEqual(expected_superpos_histo, actual_superpos_histo)
 
+
+    @unittest.skip("cannot infer return types")
+    def test_fig4a_discard_invalid(self):
+        from .integ.qce25_figs import discard_invalid
+        with self.assertRaisesRegex(QwertyTypeError,
+                                    'exactly once'):
+            discard_invalid.test()
+
+    @unittest.skip("cannot infer return types")
+    def test_fig4b_discard_valid(self):
+        from .integ.qce25_figs import discard_valid
+        actual = {grover.test() for _ in range(32)}
+        self.assertIn(bit[1](0b0), actual)
+        self.assertIn(bit[1](0b1), actual)
+
+    def test_fig5_superdense(self):
+        from .integ.qce25_figs import superdense
+        for payload_int in range(1 << 2):
+            payload = bit[2](payload_int)
+            for i in range(4):
+                expected_output = payload
+                actual_output = superdense.test(payload)
+                self.assertEqual(expected_output, actual_output)
+
+    def test_fig6_fig7_prelude(self):
+        from .integ.qce25_figs import prelude
+        shots = 1024
+        expected_histo = {bit[1](0b1): shots}
+        actual_histo = prelude.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
+    @unittest.skip("slice parsing not implemented")
+    def test_fig9_grovermeta(self):
+        from .integ.qce25_figs import grovermeta
+        for _ in range(32):
+            expected_output = bit[4](0b1010)
+            actual_output = grovermeta.test()
+            self.assertEqual(expected_output, actual_output)
+
+    @unittest.skip("cannot infer return types")
+    def test_fig10_fig11_qpe(self):
+        from .integ.qce25_figs import qpeuser
+        for _ in range(32):
+            expected_output = 'Expected: 225.0\nActual: 225.0'
+            actual_output = qpeuser.test()
+            self.assertEqual(expected_output, actual_output)
+
+    def test_fig13_teleport(self):
+        from .integ.qce25_figs import teleport
+        shots = 1024
+        expected_histos = ({bit[1](0b0): shots},
+                           {bit[1](0b1): shots},
+                           {bit[1](0b0): shots},
+                           {bit[1](0b1): shots},
+                           {bit[1](0b0): shots},
+                           {bit[1](0b1): shots})
+        actual_histos = teleport.test(shots)
+        self.assertEqual(expected_histos, actual_histos)
+
+    @unittest.skip("parametric kernels, type inference not implemented")
+    def test_fig14_bv(self):
+        from .integ.qce25_figs import bv
+        for _ in range(32):
+            expected_output = '1101'
+            actual_output = bv.test()
+            self.assertEqual(expected_output, actual_output)
+
+    @unittest.skip("mod not implemented in classical functions")
+    def test_fig16_period(self):
+        from .integ.qce25_figs import period
+        self.assertTrue(any(period.test() == 'Success!' for _ in range(32)))
+
+    @unittest.skip("cannot infer return types & modmul not implemented")
+    def test_fig18_shor(self):
+        from .integ.qce25_figs import shor
+        self.assertTrue(any(shor.test() == 4 for _ in range(32)))

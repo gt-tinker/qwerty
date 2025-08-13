@@ -3,6 +3,8 @@ Figs. 6 and 7 of the Qwerty QCE '25 paper as a ``@qpu_prelude`` block and used
 in a simple Qwerty program.
 """
 
+from qwerty import *
+
 @qpu_prelude
 def qce25_prelude():
     # Symbols in qubit literals
