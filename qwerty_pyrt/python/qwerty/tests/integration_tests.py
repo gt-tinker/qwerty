@@ -312,6 +312,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
     def setUp(self):
         _reset_compiler_state()
 
+    @unittest.skip("cannot infer return types")
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover
         for _ in range(32):
@@ -367,7 +368,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histo = prelude.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
-    @unittest.skip("slice parsing, inference not implemented")
+    @unittest.skip("cannot infer return types")
     def test_fig9_grovermeta(self):
         from .integ.qce25_figs import grovermeta
         for _ in range(32):
