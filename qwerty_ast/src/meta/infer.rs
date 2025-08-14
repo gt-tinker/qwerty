@@ -187,6 +187,58 @@ impl qpu::MetaVector {
     }
 }
 
+impl qpu::MetaBasisGenerator {
+    /// Returns None if the dimension cannot be determined.
+    fn get_dim(&self) -> Option<DimExpr> {
+        match self {
+            qpu::MetaBasisGenerator::BasisGeneratorMacro { .. } => None,
+            qpu::MetaBasisGenerator::Revolve { v1, .. } => v1.get_dim(),
+        }
+    }
+}
+
+impl qpu::MetaBasis {
+    /// Returns None if the dimension cannot be determined.
+    fn get_dim(&self) -> Option<DimExpr> {
+        match self {
+            qpu::MetaBasis::BasisLiteral { vecs, .. } => {
+                assert!(!vecs.is_empty(), "basis literals cannot be empty");
+                vecs[0].get_dim()
+            }
+
+            qpu::MetaBasis::EmptyBasisLiteral { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ZERO,
+                dbg: dbg.clone(),
+            }),
+
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => {
+                let left_dim = left.get_dim();
+                let right_dim = right.get_dim();
+                left_dim.zip(right_dim).map(|(ldim, rdim)| DimExpr::DimSum {
+                    left: Box::new(ldim),
+                    right: Box::new(rdim),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            qpu::MetaBasis::ApplyBasisGenerator { basis, generator, dbg } => {
+                let basis_dim = basis.get_dim();
+                let generator_dim = generator.get_dim();
+                basis_dim.zip(generator_dim).map(|(bdim, gdim)| DimExpr::DimSum {
+                    left: Box::new(bdim),
+                    right: Box::new(gdim),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            // Fingers crossed expansion will get rid of these
+            qpu::MetaBasis::BasisAlias {.. }
+            | qpu::MetaBasis::BasisAliasRec {..}
+            | qpu::MetaBasis::BasisBroadcastTensor{..} => None,
+        }
+    }
+}
+
 impl qpu::MetaExpr {
     fn build_type_constraints(
         &self,
@@ -218,7 +270,23 @@ impl qpu::MetaExpr {
 
             qpu::MetaExpr::Pipe { .. } => todo!("pipe"),
 
-            qpu::MetaExpr::Measure { .. } => todo!("measure"),
+            qpu::MetaExpr::Measure { basis, .. } => {
+                if let Some(basis_dim) = basis.get_dim() {
+                    let func_ty = MetaType::FuncType {
+                        in_ty: Box::new(MetaType::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: basis_dim.clone(),
+                        }),
+                        out_ty: Box::new(MetaType::RegType {
+                            elem_ty: RegKind::Bit,
+                            dim: basis_dim,
+                        }),
+                    };
+                    Ok(TypeOrTypeVar::Type(func_ty))
+                } else {
+                    Ok(env.alloc_type_var())
+                }
+            }
 
             // TODO: implement these
             qpu::MetaExpr::Discard { .. }
