@@ -1,7 +1,7 @@
 use crate::{
     error::{LowerError, LowerErrorKind},
     meta::{
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, Progress,
+        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress,
         infer::{DimVarAssignments, FuncDimVarAssignments},
         qpu,
     },
@@ -217,6 +217,59 @@ impl DimExpr {
     }
 }
 
+impl MetaType {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(MetaType, Progress), LowerError> {
+        match self {
+            MetaType::FuncType { in_ty, out_ty } => {
+                in_ty.expand(env).and_then(|(expanded_in_ty, in_ty_prog)| {
+                    out_ty.expand(env).map(|(expanded_out_ty, out_ty_prog)| {
+                        let expanded_func_ty = MetaType::FuncType {
+                            in_ty: Box::new(expanded_in_ty),
+                            out_ty: Box::new(expanded_out_ty),
+                        };
+                        let prog = in_ty_prog.join(out_ty_prog);
+                        (expanded_func_ty, prog)
+                    })
+                })
+            }
+
+            MetaType::RevFuncType { in_out_ty } => {
+                in_out_ty
+                    .expand(env)
+                    .map(|(expanded_in_out_ty, in_out_ty_prog)| {
+                        let expanded_rev_func_ty = MetaType::RevFuncType {
+                            in_out_ty: Box::new(expanded_in_out_ty),
+                        };
+                        (expanded_rev_func_ty, in_out_ty_prog)
+                    })
+            }
+
+            MetaType::RegType { elem_ty, dim } => {
+                dim.expand(env).map(|(expanded_dim, dim_prog)| {
+                    let expanded_reg_ty = MetaType::RegType {
+                        elem_ty: *elem_ty,
+                        dim: expanded_dim,
+                    };
+                    (expanded_reg_ty, dim_prog)
+                })
+            }
+
+            MetaType::TupleType { tys } => tys
+                .iter()
+                .map(|ty| ty.expand(env))
+                .collect::<Result<Vec<_>, LowerError>>()
+                .map(|ty_pairs| {
+                    let (expanded_tys, progs): (Vec<_>, Vec<_>) = ty_pairs.into_iter().unzip();
+                    let expanded_tuple_ty = MetaType::TupleType { tys: expanded_tys };
+                    let prog = progs.into_iter().fold(Progress::identity(), Progress::join);
+                    (expanded_tuple_ty, prog)
+                }),
+
+            MetaType::UnitType => Ok((MetaType::UnitType, Progress::Full)),
+        }
+    }
+}
+
 pub trait Expandable {
     fn expand(&self, env: &mut MacroEnv) -> Result<(Self, Progress), LowerError>
     where
@@ -259,24 +312,50 @@ impl<S: Expandable> MetaFunctionDef<S> {
             .iter()
             .map(|stmt| stmt.expand(&mut env))
             .collect::<Result<Vec<_>, LowerError>>()?;
-        let (expanded_stmts, progresses): (Vec<_>, Vec<_>) = expanded_pairs.into_iter().unzip();
-        let progress = progresses
+        let (expanded_stmts, stmt_progs): (Vec<_>, Vec<_>) = expanded_pairs.into_iter().unzip();
+        let stmt_prog = stmt_progs
             .into_iter()
             .fold(Progress::identity(), |acc, stmt| acc.join(stmt));
 
         // Why do this? Because we may have inserted some internal dim vars
         // into the context while expanding statements.
         let new_dim_vars = env.dim_vars.keys().cloned().collect();
+        let (expanded_ret_ty, ret_ty_prog) = if let Some(ret_ty) = ret_type {
+            let (ty, prog) = ret_ty.expand(&env)?;
+            (Some(ty), prog)
+        } else {
+            // Trivially fully expanded (but inference will flag it as not
+            // fully inferred)
+            (None, Progress::Full)
+        };
+        let arg_pairs = args
+            .iter()
+            .map(|(arg_type, arg_name)| {
+                if let Some(arg_ty) = arg_type {
+                    arg_ty.expand(&env).map(|(expanded_arg_ty, arg_ty_prog)| {
+                        ((Some(expanded_arg_ty), arg_name.to_string()), arg_ty_prog)
+                    })
+                } else {
+                    // Inference will flag this
+                    Ok(((None, arg_name.to_string()), Progress::Full))
+                }
+            })
+            .collect::<Result<Vec<_>, LowerError>>()?;
+        let (expanded_args, arg_progs): (Vec<_>, Vec<_>) = arg_pairs.into_iter().unzip();
+        let args_prog = arg_progs
+            .into_iter()
+            .fold(Progress::identity(), Progress::join);
 
         let expanded_func_def = MetaFunctionDef {
             name: name.to_string(),
-            args: args.clone(),
-            ret_type: ret_type.clone(),
+            args: expanded_args,
+            ret_type: expanded_ret_ty,
             body: expanded_stmts,
             is_rev: *is_rev,
             dim_vars: new_dim_vars,
             dbg: dbg.clone(),
         };
+        let progress = stmt_prog.join(ret_ty_prog).join(args_prog);
         Ok((expanded_func_def, progress))
     }
 }

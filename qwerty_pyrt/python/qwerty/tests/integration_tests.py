@@ -311,6 +311,22 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         self.assertTrue(any(period.test() == 4 for _ in range(32)))
 
 @unittest.skipIf(should_skip, skip_msg)
+class MetaInferIntegrationTests(unittest.TestCase):
+    """
+    Integration tests that use full metaQwerty features, including type
+    inference.
+    """
+
+    def setUp(self):
+        _reset_compiler_state()
+
+    def test_infer_ret_type(self):
+        from .integ.meta import infer_ret_type
+        shots = 1024
+        expected_histo = {bit[3](0b111): shots}
+        self.assertEqual(expected_histo, infer_ret_type.test(shots))
+
+@unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
 

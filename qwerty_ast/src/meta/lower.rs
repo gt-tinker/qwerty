@@ -37,22 +37,24 @@ impl Progress {
 
 impl MetaProgram {
     pub fn lower(&self) -> Result<ast::Program, LowerError> {
-        let mut init_program = self.clone();
-        let mut dv_assign = DimVarAssignments::empty(&init_program);
-        loop {
-            let (program, expansion_progress) = init_program.expand(&dv_assign)?;
-            let (program, next_dv_assign, infer_progress) = program.infer()?;
-            dv_assign = next_dv_assign;
+        let mut dv_assign = DimVarAssignments::empty(self);
+        let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
-            if expansion_progress.is_finished() && infer_progress.is_finished() {
-                return program.extract();
-            } else if init_program == program {
+        loop {
+            let (new_program, new_dv_assign, infer_progress) = program.infer()?;
+            program = new_program;
+            dv_assign = new_dv_assign;
+            let (new_program, expand_progress) = program.expand(&dv_assign)?;
+
+            if infer_progress.is_finished() && expand_progress.is_finished() {
+                return new_program.extract();
+            } else if program == new_program {
                 return Err(LowerError {
                     kind: LowerErrorKind::Stuck,
                     dbg: self.dbg.clone(),
                 });
             } else {
-                init_program = program;
+                program = new_program;
                 continue;
             }
         }
