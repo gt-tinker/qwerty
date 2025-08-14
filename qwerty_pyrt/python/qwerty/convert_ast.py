@@ -457,23 +457,18 @@ class BaseVisitor:
                                         'argument of {}()'
                                         .format(arg_name, func_name),
                                         self.get_debug_loc(arg))
-            if not arg_type:
-                raise QwertySyntaxError('Currently, type annotations are '
-                                        'required for arguments such as {} '
-                                        'argument of {}()'
-                                        .format(arg_name, func_name),
-                                        self.get_debug_loc(arg))
+            if arg_type:
+                actual_arg_type = self.extract_type_literal(arg_type)
+            else:
+                actual_arg_type = None
 
-            actual_arg_type = self.extract_type_literal(arg_type)
             args.append((actual_arg_type, arg_name))
 
         # Now, figure out return type
-        if not func_def.returns:
-            raise QwertySyntaxError('Currently, type annotations are '
-                                    'required for functions such as {}() '
-                                    .format(func_name),
-                                    self.get_debug_loc(func_def))
-        ret_type = self.extract_type_literal(func_def.returns)
+        if func_def.returns:
+            ret_type = self.extract_type_literal(func_def.returns)
+        else:
+            ret_type = None
 
         # Great, now we have everything we need to build the AST node...
         dbg = self.get_debug_loc(func_def)
