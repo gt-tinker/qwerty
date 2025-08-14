@@ -1,6 +1,8 @@
 use crate::{
-    error::LowerError,
-    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress},
+    ast::RegKind,
+    dbg::DebugLoc,
+    error::{LowerError, LowerErrorKind, TypeErrorKind},
+    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu},
 };
 use dashu::integer::IBig;
 use std::collections::{HashMap, HashSet};
@@ -41,11 +43,24 @@ impl DimVarAssignments {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeConstraint(TypeOrTypeVar, TypeOrTypeVar);
 
+impl TypeConstraint {
+    fn new(left: TypeOrTypeVar, right: TypeOrTypeVar) -> Self {
+        // TODO: sort left and right
+        Self(left, right)
+    }
+}
+
 pub struct TypeConstraints(HashSet<TypeConstraint>);
 
 impl TypeConstraints {
     fn new() -> Self {
         Self(HashSet::new())
+    }
+
+    /// Returns `true` if this constraint was not previously in the set of
+    /// constraints.
+    fn insert(&mut self, constraint: TypeConstraint) -> bool {
+        self.0.insert(constraint)
     }
 }
 
@@ -85,17 +100,275 @@ impl TypeAssignments {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum TypeOrTypeVar {
+pub enum TypeOrTypeVar {
     Type(MetaType),
-    TypeVar(String),
+    TypeVar(usize),
 }
 
 impl TypeOrTypeVar {
+    fn from_stripped(env: &mut TypeEnv, opt_ty: Option<MetaType>) -> Self {
+        if let Some(ty) = opt_ty {
+            TypeOrTypeVar::Type(ty)
+        } else {
+            env.alloc_type_var()
+        }
+    }
+
     fn strip(&self) -> Option<MetaType> {
         match self {
             TypeOrTypeVar::Type(ty) => Some(ty.clone()),
             TypeOrTypeVar::TypeVar(_) => None,
         }
+    }
+}
+
+pub struct TypeEnv {
+    next_type_var_id: usize,
+    bindings: HashMap<String, TypeOrTypeVar>,
+}
+
+impl TypeEnv {
+    fn new() -> Self {
+        Self {
+            next_type_var_id: 0,
+            bindings: HashMap::new(),
+        }
+    }
+
+    fn alloc_type_var(&mut self) -> TypeOrTypeVar {
+        let ret = TypeOrTypeVar::TypeVar(self.next_type_var_id);
+        self.next_type_var_id += 1;
+        ret
+    }
+
+    fn get_type(&self, name: &str) -> Option<TypeOrTypeVar> {
+        self.bindings.get(name).cloned()
+    }
+}
+
+impl qpu::MetaVector {
+    /// Returns None if the dimension cannot be determined.
+    fn get_dim(&self) -> Option<DimExpr> {
+        match self {
+            qpu::MetaVector::ZeroVector { dbg }
+            | qpu::MetaVector::OneVector { dbg }
+            | qpu::MetaVector::PadVector { dbg }
+            | qpu::MetaVector::TargetVector { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ONE,
+                dbg: dbg.clone(),
+            }),
+
+            qpu::MetaVector::VectorTilt { q, .. } => q.get_dim(),
+
+            // TODO: should we add a dimvar constraint that these dimensions
+            //       match? would this even be useful?
+            qpu::MetaVector::UniformVectorSuperpos { q1, .. } => q1.get_dim(),
+
+            qpu::MetaVector::VectorBiTensor { left, right, dbg } => {
+                let left_dim = left.get_dim();
+                let right_dim = right.get_dim();
+                left_dim.zip(right_dim).map(|(ldim, rdim)| DimExpr::DimSum {
+                    left: Box::new(ldim),
+                    right: Box::new(rdim),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            qpu::MetaVector::VectorUnit { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ZERO,
+                dbg: dbg.clone(),
+            }),
+
+            // These are handled by expansion
+            qpu::MetaVector::VectorAlias { .. }
+            | qpu::MetaVector::VectorSymbol { .. }
+            | qpu::MetaVector::VectorBroadcastTensor { .. } => None,
+        }
+    }
+}
+
+impl qpu::MetaExpr {
+    fn build_type_constraints(
+        &self,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<TypeOrTypeVar, LowerError> {
+        match self {
+            qpu::MetaExpr::Instantiate { .. } => todo!("build_type_constraints() for Instantiate"),
+
+            qpu::MetaExpr::Variable { name, dbg } => {
+                if let Some(ty) = env.get_type(name) {
+                    Ok(ty.clone())
+                } else {
+                    Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::UndefinedVariable(name.to_string()),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+
+            qpu::MetaExpr::UnitLiteral { .. } => Ok(TypeOrTypeVar::Type(MetaType::UnitType)),
+
+            // TODO: implement these
+            qpu::MetaExpr::EmbedClassical { .. } | qpu::MetaExpr::Adjoint { .. } => {
+                Ok(env.alloc_type_var())
+            }
+
+            qpu::MetaExpr::Pipe { .. } => todo!("pipe"),
+
+            qpu::MetaExpr::Measure { .. } => todo!("measure"),
+
+            // TODO: implement these
+            qpu::MetaExpr::Discard { .. }
+            | qpu::MetaExpr::BiTensor { .. }
+            | qpu::MetaExpr::BasisTranslation { .. }
+            | qpu::MetaExpr::Predicated { .. }
+            | qpu::MetaExpr::NonUniformSuperpos { .. }
+            | qpu::MetaExpr::Conditional { .. } => Ok(env.alloc_type_var()),
+
+            qpu::MetaExpr::QLit { vec } => {
+                Ok(if let Some(dim) = vec.get_dim() {
+                    TypeOrTypeVar::Type(MetaType::RegType {
+                        elem_ty: RegKind::Qubit,
+                        dim,
+                    })
+                } else {
+                    // If we can't easily find the number of qubits, just
+                    // assign a typevar
+                    env.alloc_type_var()
+                })
+            }
+
+            // TODO: implement these
+            qpu::MetaExpr::BitLiteral { .. } => Ok(env.alloc_type_var()),
+
+            // It's expansion's job to deal with these. Let's just allocate a
+            // type var and move on.
+            qpu::MetaExpr::ExprMacro { .. }
+            | qpu::MetaExpr::BasisMacro { .. }
+            | qpu::MetaExpr::BroadcastTensor { .. }
+            | qpu::MetaExpr::Repeat { .. } => Ok(env.alloc_type_var()),
+        }
+    }
+}
+
+pub trait Constrainable {
+    // TODO: move this elsewhere
+    fn get_dbg(&self) -> Option<DebugLoc>;
+
+    fn build_type_constraints(
+        &self,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<Option<TypeOrTypeVar>, LowerError>;
+}
+
+impl Constrainable for qpu::MetaStmt {
+    fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            qpu::MetaStmt::ExprMacroDef { dbg, .. }
+            | qpu::MetaStmt::BasisMacroDef { dbg, .. }
+            | qpu::MetaStmt::BasisGeneratorMacroDef { dbg, .. }
+            | qpu::MetaStmt::VectorSymbolDef { dbg, .. }
+            | qpu::MetaStmt::BasisAliasDef { dbg, .. }
+            | qpu::MetaStmt::BasisAliasRecDef { dbg, .. }
+            | qpu::MetaStmt::Assign { dbg, .. }
+            | qpu::MetaStmt::UnpackAssign { dbg, .. }
+            | qpu::MetaStmt::Return { dbg, .. } => dbg.clone(),
+
+            qpu::MetaStmt::Expr { expr } => expr.get_dbg(),
+        }
+    }
+
+    fn build_type_constraints(
+        &self,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<Option<TypeOrTypeVar>, LowerError> {
+        match self {
+            qpu::MetaStmt::Return { val, .. } => {
+                let val_ty = val.build_type_constraints(env, ty_constraints)?;
+                Ok(Some(val_ty))
+            }
+
+            // TODO: add constraints for these
+            qpu::MetaStmt::Expr { .. }
+            | qpu::MetaStmt::Assign { .. }
+            | qpu::MetaStmt::UnpackAssign { .. } => Ok(None),
+
+            // It's expansion's job to deal with these. Let's not bother
+            qpu::MetaStmt::ExprMacroDef { .. }
+            | qpu::MetaStmt::BasisMacroDef { .. }
+            | qpu::MetaStmt::BasisGeneratorMacroDef { .. }
+            | qpu::MetaStmt::VectorSymbolDef { .. }
+            | qpu::MetaStmt::BasisAliasDef { .. }
+            | qpu::MetaStmt::BasisAliasRecDef { .. } => Ok(None),
+        }
+    }
+}
+
+impl Constrainable for classical::MetaStmt {
+    fn get_dbg(&self) -> Option<DebugLoc> {
+        match self {
+            classical::MetaStmt::Assign { dbg, .. }
+            | classical::MetaStmt::UnpackAssign { dbg, .. }
+            | classical::MetaStmt::Return { dbg, .. } => dbg.clone(),
+
+            classical::MetaStmt::Expr { expr } => expr.get_dbg(),
+        }
+    }
+
+    fn build_type_constraints(
+        &self,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<Option<TypeOrTypeVar>, LowerError> {
+        // TODO: actually add constraints
+        Ok(None)
+    }
+}
+
+impl<S: Constrainable> MetaFunctionDef<S> {
+    fn build_type_constraints(
+        &self,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<(), LowerError> {
+        let MetaFunctionDef { body, ret_type, .. } = self;
+        let mut env = TypeEnv::new();
+
+        let provided_ret_ty = TypeOrTypeVar::from_stripped(&mut env, ret_type.clone());
+        let mut ret_ty_constraint = None;
+
+        for stmt in body {
+            if let Some(_) = &ret_ty_constraint {
+                return Err(LowerError {
+                    kind: LowerErrorKind::TypeError {
+                        kind: TypeErrorKind::ReturnNotLastStatement,
+                    },
+                    dbg: stmt.get_dbg(),
+                });
+            }
+
+            let opt_ret_ty = stmt.build_type_constraints(&mut env, ty_constraints)?;
+            if let Some(ret_ty) = opt_ret_ty {
+                ret_ty_constraint = Some(TypeConstraint::new(provided_ret_ty.clone(), ret_ty));
+            }
+        }
+
+        if let Some(ret_ty) = ret_ty_constraint {
+            ty_constraints.insert(ret_ty);
+        } else {
+            return Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    kind: TypeErrorKind::ReturnNotLastStatement,
+                },
+                dbg: self.dbg.clone(),
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -149,12 +422,30 @@ impl MetaFunc {
             }
         }
     }
+
+    fn build_type_constraints(
+        &self,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<(), LowerError> {
+        match self {
+            MetaFunc::Qpu(qpu_kernel) => qpu_kernel.build_type_constraints(ty_constraints),
+            MetaFunc::Classical(classical_func) => {
+                classical_func.build_type_constraints(ty_constraints)
+            }
+        }
+    }
 }
 
 impl MetaProgram {
     fn build_type_constraints(&self) -> Result<TypeConstraints, LowerError> {
-        // TODO: do something
-        Ok(TypeConstraints::new())
+        let MetaProgram { funcs, .. } = self;
+        let mut ty_constraints = TypeConstraints::new();
+
+        for func in funcs {
+            func.build_type_constraints(&mut ty_constraints)?;
+        }
+
+        Ok(ty_constraints)
     }
 
     fn unify_ty(
@@ -175,7 +466,6 @@ impl MetaProgram {
         Ok((DimVarAssignments::empty(self), Progress::Full))
     }
 
-    //pub fn infer(&self) -> Result<(MetaProgram, Progress), LowerError> {
     pub fn find_assignments(
         &self,
     ) -> Result<(TypeAssignments, DimVarAssignments, Progress), LowerError> {
@@ -204,15 +494,4 @@ impl MetaProgram {
             progress,
         ))
     }
-
-    //pub fn instantiate(&self) -> Result<(MetaProgram, Progress), LowerError> {
-    //    // TODO: implement me
-    //    Ok((self.clone(), Progress::Full))
-    //}
-
-    //pub fn infer_and_instantiate(&self) -> Result<(MetaProgram, Progress), LowerError> {
-    //    let (inferred_program, infer_progress) = self.infer()?;
-    //    let (instantiated_program, instantiate_progress) = self.instantiate()?;
-    //    (instantiaged_program, infer_progress.join(instantiate_progress))
-    //}
 }

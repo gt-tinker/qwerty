@@ -19,6 +19,7 @@ pub enum TypeErrorKind {
     EmptyLiteral,
     DimMismatch,
     InvalidFloat { float: f64 },
+    ReturnNotLastStatement,
     ReturnOutsideFunction,
     InvalidIntermediateComputation,
     // Quantum-specific errors:
@@ -82,6 +83,9 @@ impl fmt::Display for TypeErrorKind {
                 f,
                 "The float {float} is invalid. Floats used in Qwerty must be finite and not NaN."
             ),
+            TypeErrorKind::ReturnNotLastStatement => {
+                write!(f, "Functions must end with a return statement.")
+            }
             TypeErrorKind::ReturnOutsideFunction => write!(
                 f,
                 "The return statement can only be written inside a function."
@@ -155,6 +159,7 @@ pub enum LowerErrorKind {
     DivisionByZero,
     Stuck,
     MissingFuncTypeAnnotation,
+    TypeError { kind: TypeErrorKind },
 }
 
 impl fmt::Display for LowerErrorKind {
@@ -199,6 +204,7 @@ impl fmt::Display for LowerErrorKind {
             LowerErrorKind::MissingFuncTypeAnnotation => {
                 write!(f, "Function type annotation missing")
             }
+            LowerErrorKind::TypeError { kind } => write!(f, "{}", kind),
         }
     }
 }
