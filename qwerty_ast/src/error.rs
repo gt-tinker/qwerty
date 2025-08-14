@@ -154,6 +154,7 @@ pub enum LowerErrorKind {
     NegativeInteger { offender: IBig },
     DivisionByZero,
     Stuck,
+    MissingFuncTypeAnnotation,
 }
 
 impl fmt::Display for LowerErrorKind {
@@ -195,6 +196,9 @@ impl fmt::Display for LowerErrorKind {
                     "Some dimension variables may need to be provided explicitly."
                 )
             ),
+            LowerErrorKind::MissingFuncTypeAnnotation => {
+                write!(f, "Function type annotation missing")
+            }
         }
     }
 }
@@ -202,26 +206,5 @@ impl fmt::Display for LowerErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LowerError {
     pub kind: LowerErrorKind,
-    pub dbg: Option<DebugLoc>,
-}
-
-// For type inference on a meta-AST
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum InferErrorKind {
-    Mismatch,
-}
-
-impl fmt::Display for InferErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            InferErrorKind::Mismatch => write!(f, "Type mismatch"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct InferError {
-    pub kind: InferErrorKind,
     pub dbg: Option<DebugLoc>,
 }

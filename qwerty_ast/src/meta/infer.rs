@@ -1,6 +1,6 @@
 use crate::{
     error::LowerError,
-    meta::{DimExpr, MetaFunc, MetaProgram, MetaType, Progress},
+    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress},
 };
 use dashu::integer::IBig;
 use std::collections::{HashMap, HashSet};
@@ -99,16 +99,55 @@ impl TypeOrTypeVar {
     }
 }
 
-//match func {
-//    MetaFunc::Qpu(qpu_kernel) => MetaFunc::Qpu(),
-//    MetaFunc::Classical(classical_func) => MetaFunc::Classical(),
-//};
+impl<S: Clone> MetaFunctionDef<S> {
+    pub fn with_tys(
+        &self,
+        arg_tys: &[Option<MetaType>],
+        ret_ty: &Option<MetaType>,
+    ) -> MetaFunctionDef<S> {
+        let MetaFunctionDef {
+            name,
+            args,
+            ret_type,
+            body,
+            is_rev,
+            dim_vars,
+            dbg,
+        } = self;
+        assert_eq!(arg_tys.len(), args.len());
+
+        let new_args = args
+            .iter()
+            .zip(arg_tys.iter())
+            .map(|((old_arg_ty, arg_name), new_arg_ty)| {
+                (
+                    old_arg_ty.clone().or_else(|| new_arg_ty.clone()),
+                    arg_name.to_string(),
+                )
+            })
+            .collect();
+        let new_ret_type = ret_type.clone().or_else(|| ret_ty.clone());
+
+        Self {
+            name: name.to_string(),
+            args: new_args,
+            ret_type: new_ret_type,
+            body: body.clone(),
+            is_rev: *is_rev,
+            dim_vars: dim_vars.clone(),
+            dbg: dbg.clone(),
+        }
+    }
+}
 
 impl MetaFunc {
     pub fn with_tys(&self, arg_tys: &[Option<MetaType>], ret_ty: &Option<MetaType>) -> MetaFunc {
-        // TODO: create version of myself with appropriate new types provided
-        //       they are actually present
-        self.clone()
+        match self {
+            MetaFunc::Qpu(qpu_kernel) => MetaFunc::Qpu(qpu_kernel.with_tys(arg_tys, ret_ty)),
+            MetaFunc::Classical(classical_func) => {
+                MetaFunc::Classical(classical_func.with_tys(arg_tys, ret_ty))
+            }
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::{
     ast,
     dbg::DebugLoc,
-    error::LowerError,
+    error::{LowerError, LowerErrorKind},
     meta::{MetaType, classical, qpu},
 };
 
@@ -32,8 +32,8 @@ pub struct Prelude<S> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MetaFunctionDef<S> {
     pub name: String,
-    pub args: Vec<(MetaType, String)>,
-    pub ret_type: MetaType,
+    pub args: Vec<(Option<MetaType>, String)>,
+    pub ret_type: Option<MetaType>,
     pub body: Vec<S>,
     pub is_rev: bool,
     pub dim_vars: Vec<String>,
@@ -68,10 +68,27 @@ impl MetaFunctionDef<qpu::MetaStmt> {
             .iter()
             .map(|(arg_ty, arg_name)| {
                 arg_ty
-                    .extract()
-                    .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                    .clone()
+                    .ok_or_else(|| LowerError {
+                        kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                        dbg: dbg.clone(),
+                    })
+                    .and_then(|arg_ty| {
+                        arg_ty
+                            .extract()
+                            .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                    })
             })
             .collect::<Result<Vec<(ast::Type, String)>, LowerError>>()?;
+
+        let ast_ret_type = ret_type
+            .clone()
+            .ok_or_else(|| LowerError {
+                kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                dbg: dbg.clone(),
+            })
+            .and_then(|ret_type| ret_type.extract())?;
+
         let ast_body = body
             .iter()
             .map(|stmt| stmt.extract())
@@ -80,7 +97,7 @@ impl MetaFunctionDef<qpu::MetaStmt> {
         Ok(ast::FunctionDef {
             name: name.to_string(),
             args: ast_args,
-            ret_type: ret_type.extract()?,
+            ret_type: ast_ret_type,
             body: ast_body,
             is_rev: *is_rev,
             dbg: dbg.clone(),
@@ -108,10 +125,27 @@ impl MetaFunctionDef<classical::MetaStmt> {
             .iter()
             .map(|(arg_ty, arg_name)| {
                 arg_ty
-                    .extract()
-                    .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                    .clone()
+                    .ok_or_else(|| LowerError {
+                        kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                        dbg: dbg.clone(),
+                    })
+                    .and_then(|arg_ty| {
+                        arg_ty
+                            .extract()
+                            .map(|ast_arg_ty| (ast_arg_ty, arg_name.to_string()))
+                    })
             })
             .collect::<Result<Vec<(ast::Type, String)>, LowerError>>()?;
+
+        let ast_ret_type = ret_type
+            .clone()
+            .ok_or_else(|| LowerError {
+                kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                dbg: dbg.clone(),
+            })
+            .and_then(|ret_type| ret_type.extract())?;
+
         let ast_body = body
             .iter()
             .map(|stmt| stmt.extract())
@@ -120,7 +154,7 @@ impl MetaFunctionDef<classical::MetaStmt> {
         Ok(ast::FunctionDef {
             name: name.to_string(),
             args: ast_args,
-            ret_type: ret_type.extract()?,
+            ret_type: ast_ret_type,
             body: ast_body,
             is_rev: *is_rev,
             dbg: dbg.clone(),

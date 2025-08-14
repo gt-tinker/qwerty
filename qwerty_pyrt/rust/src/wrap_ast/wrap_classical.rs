@@ -263,8 +263,8 @@ impl ClassicalFunctionDef {
     #[new]
     fn new(
         name: String,
-        args: Vec<(Type, String)>,
-        ret_type: Type,
+        args: Vec<(Option<Type>, String)>,
+        ret_type: Option<Type>,
         body: Vec<ClassicalStmt>,
         is_rev: bool,
         dbg: Option<DebugLoc>,
@@ -273,10 +273,10 @@ impl ClassicalFunctionDef {
             function_def: meta::MetaFunctionDef {
                 name,
                 args: args
-                    .iter()
-                    .map(|(arg_ty, arg_name)| (arg_ty.ty.clone(), arg_name.to_string()))
+                    .into_iter()
+                    .map(|(arg_ty, arg_name)| (arg_ty.map(|arg_ty| arg_ty.ty), arg_name))
                     .collect(),
-                ret_type: ret_type.ty.clone(),
+                ret_type: ret_type.map(|ret_type| ret_type.ty.clone()),
                 body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
                 is_rev,
                 dim_vars: vec![],
