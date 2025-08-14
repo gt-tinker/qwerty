@@ -18,6 +18,18 @@ pub enum RegKind {
     Basis,
 }
 
+impl fmt::Display for RegKind {
+    /// Returns a representation of a type that matches the syntax for the
+    /// Python DSL.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegKind::Bit => write!(f, "bit"),
+            RegKind::Qubit => write!(f, "qubit"),
+            RegKind::Basis => write!(f, "basis"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     FuncType { in_ty: Box<Type>, out_ty: Box<Type> },

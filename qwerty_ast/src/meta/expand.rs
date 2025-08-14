@@ -120,7 +120,7 @@ impl DimExpr {
         }
     }
 
-    fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), LowerError> {
+    pub fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), LowerError> {
         match self {
             DimExpr::DimVar { name, dbg } => {
                 if let Some(DimVarValue::Known(val)) = env.dim_vars.get(name) {

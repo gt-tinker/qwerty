@@ -2,7 +2,10 @@ use crate::{
     ast::RegKind,
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind, TypeErrorKind},
-    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu},
+    meta::{
+        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical,
+        expand::MacroEnv, qpu,
+    },
 };
 use dashu::integer::IBig;
 use std::collections::{HashMap, HashSet};
@@ -41,37 +44,65 @@ impl DimVarAssignments {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TypeConstraint(TypeOrTypeVar, TypeOrTypeVar);
+pub struct TypeConstraint(InferType, InferType);
 
 impl TypeConstraint {
-    fn new(left: TypeOrTypeVar, right: TypeOrTypeVar) -> Self {
+    fn new(left: InferType, right: InferType) -> Self {
         // TODO: sort left and right
         Self(left, right)
     }
+
+    fn as_pair(self) -> (InferType, InferType) {
+        (self.0, self.1)
+    }
+
+    fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
+        self.0.substitute_type_var(type_var_id, new_type);
+        self.1.substitute_type_var(type_var_id, new_type);
+    }
 }
 
-pub struct TypeConstraints(HashSet<TypeConstraint>);
+#[derive(Debug)]
+pub struct TypeConstraints(Vec<TypeConstraint>);
 
 impl TypeConstraints {
     fn new() -> Self {
-        Self(HashSet::new())
+        Self(vec![])
     }
 
-    /// Returns `true` if this constraint was not previously in the set of
-    /// constraints.
-    fn insert(&mut self, constraint: TypeConstraint) -> bool {
-        self.0.insert(constraint)
+    fn insert(&mut self, constraint: TypeConstraint) {
+        self.0.push(constraint)
+    }
+
+    fn pop(&mut self) -> Option<TypeConstraint> {
+        self.0.pop()
+    }
+
+    fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
+        for ty_constraint in self.0.iter_mut() {
+            ty_constraint.substitute_type_var(type_var_id, new_type);
+        }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DimVarConstraint(DimExpr, DimExpr);
 
-pub struct DimVarConstraints(HashSet<DimVarConstraint>);
+impl DimVarConstraint {
+    pub fn new(left: DimExpr, right: DimExpr) -> Self {
+        Self(left, right)
+    }
+}
+
+pub struct DimVarConstraints(Vec<DimVarConstraint>);
 
 impl DimVarConstraints {
     pub fn new() -> Self {
-        Self(HashSet::new())
+        Self(vec![])
+    }
+
+    fn insert(&mut self, constraint: DimVarConstraint) {
+        self.0.push(constraint)
     }
 }
 
@@ -100,48 +131,167 @@ impl TypeAssignments {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TypeOrTypeVar {
-    Type(MetaType),
-    TypeVar(usize),
+pub enum InferType {
+    TypeVar {
+        id: usize,
+    },
+    FuncType {
+        in_ty: Box<InferType>,
+        out_ty: Box<InferType>,
+    },
+    RegType {
+        elem_ty: RegKind,
+        dim: DimExpr,
+    },
+    TupleType {
+        tys: Vec<InferType>,
+    },
+    UnitType,
 }
 
-impl TypeOrTypeVar {
-    fn from_stripped(env: &mut TypeEnv, opt_ty: Option<MetaType>) -> Self {
+impl InferType {
+    fn from_stripped(tv_allocator: &mut TypeVarAllocator, opt_ty: Option<MetaType>) -> Self {
         if let Some(ty) = opt_ty {
-            TypeOrTypeVar::Type(ty)
+            match ty {
+                MetaType::FuncType { in_ty, out_ty } => InferType::FuncType {
+                    in_ty: Box::new(Self::from_stripped(tv_allocator, Some(*in_ty))),
+                    out_ty: Box::new(Self::from_stripped(tv_allocator, Some(*out_ty))),
+                },
+                MetaType::RevFuncType { in_out_ty } => InferType::FuncType {
+                    in_ty: Box::new(Self::from_stripped(
+                        tv_allocator,
+                        Some((*in_out_ty).clone()),
+                    )),
+                    out_ty: Box::new(Self::from_stripped(tv_allocator, Some(*in_out_ty))),
+                },
+                MetaType::RegType { elem_ty, dim } => InferType::RegType { elem_ty, dim },
+                MetaType::TupleType { tys } => InferType::TupleType {
+                    tys: tys
+                        .into_iter()
+                        .map(|ty| InferType::from_stripped(tv_allocator, Some(ty)))
+                        .collect(),
+                },
+                MetaType::UnitType => InferType::UnitType,
+            }
         } else {
-            env.alloc_type_var()
+            tv_allocator.alloc_type_var()
         }
     }
 
-    fn strip(&self) -> Option<MetaType> {
+    fn strip(self) -> Option<MetaType> {
         match self {
-            TypeOrTypeVar::Type(ty) => Some(ty.clone()),
-            TypeOrTypeVar::TypeVar(_) => None,
+            InferType::TypeVar { .. } => None,
+            InferType::FuncType { in_ty, out_ty } => {
+                let meta_in_ty = in_ty.strip()?;
+                let meta_out_ty = out_ty.strip()?;
+                Some(MetaType::FuncType {
+                    in_ty: Box::new(meta_in_ty),
+                    out_ty: Box::new(meta_out_ty),
+                })
+            }
+            InferType::RegType { elem_ty, dim } => Some(MetaType::RegType { elem_ty, dim }),
+            InferType::TupleType { tys } => {
+                let meta_tys = tys
+                    .into_iter()
+                    .map(|ty| ty.strip())
+                    .collect::<Option<Vec<_>>>()?;
+                Some(MetaType::TupleType { tys: meta_tys })
+            }
+            InferType::UnitType => Some(MetaType::UnitType),
         }
+    }
+
+    fn expand(self) -> Result<Self, LowerError> {
+        match self {
+            InferType::FuncType { in_ty, out_ty } => Ok(InferType::FuncType {
+                in_ty: Box::new(in_ty.expand()?),
+                out_ty: Box::new(out_ty.expand()?),
+            }),
+            InferType::RegType { elem_ty, dim } => {
+                let empty_env = MacroEnv::new();
+                let (expanded_dim, _dim_progress) = dim.expand(&empty_env)?;
+                Ok(InferType::RegType {
+                    elem_ty,
+                    dim: expanded_dim,
+                })
+            }
+            InferType::TupleType { tys } => {
+                let expanded_tys = tys
+                    .into_iter()
+                    .map(InferType::expand)
+                    .collect::<Result<Vec<_>, LowerError>>()?;
+                Ok(InferType::TupleType { tys: expanded_tys })
+            }
+            InferType::TypeVar { .. } | InferType::UnitType => Ok(self),
+        }
+    }
+
+    fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
+        match self {
+            InferType::TypeVar { id } if *id == type_var_id => {
+                *self = new_type.clone();
+            }
+            InferType::FuncType { in_ty, out_ty } => {
+                in_ty.substitute_type_var(type_var_id, new_type);
+                out_ty.substitute_type_var(type_var_id, new_type);
+            }
+            InferType::TupleType { tys } => {
+                for ty in tys.iter_mut() {
+                    ty.substitute_type_var(type_var_id, new_type);
+                }
+            }
+
+            // Nothing to do
+            InferType::TypeVar { .. } | InferType::RegType { .. } | InferType::UnitType => (),
+        }
+    }
+
+    fn contains_type_var(&self, type_var_id: usize) -> bool {
+        match self {
+            InferType::TypeVar { id } => *id == type_var_id,
+            InferType::FuncType { in_ty, out_ty } => {
+                in_ty.contains_type_var(type_var_id) && out_ty.contains_type_var(type_var_id)
+            }
+            InferType::TupleType { tys } => tys.iter().any(|ty| ty.contains_type_var(type_var_id)),
+
+            // Can't contain a type var
+            InferType::RegType { .. } | InferType::UnitType => false,
+        }
+    }
+}
+
+pub struct TypeVarAllocator {
+    next_type_var_id: usize,
+}
+
+impl TypeVarAllocator {
+    fn new() -> Self {
+        Self {
+            next_type_var_id: 0,
+        }
+    }
+
+    fn alloc_type_var(&mut self) -> InferType {
+        let ret = InferType::TypeVar {
+            id: self.next_type_var_id,
+        };
+        self.next_type_var_id += 1;
+        ret
     }
 }
 
 pub struct TypeEnv {
-    next_type_var_id: usize,
-    bindings: HashMap<String, TypeOrTypeVar>,
+    bindings: HashMap<String, InferType>,
 }
 
 impl TypeEnv {
     fn new() -> Self {
         Self {
-            next_type_var_id: 0,
             bindings: HashMap::new(),
         }
     }
 
-    fn alloc_type_var(&mut self) -> TypeOrTypeVar {
-        let ret = TypeOrTypeVar::TypeVar(self.next_type_var_id);
-        self.next_type_var_id += 1;
-        ret
-    }
-
-    fn get_type(&self, name: &str) -> Option<TypeOrTypeVar> {
+    fn get_type(&self, name: &str) -> Option<InferType> {
         self.bindings.get(name).cloned()
     }
 }
@@ -221,20 +371,26 @@ impl qpu::MetaBasis {
                 })
             }
 
-            qpu::MetaBasis::ApplyBasisGenerator { basis, generator, dbg } => {
+            qpu::MetaBasis::ApplyBasisGenerator {
+                basis,
+                generator,
+                dbg,
+            } => {
                 let basis_dim = basis.get_dim();
                 let generator_dim = generator.get_dim();
-                basis_dim.zip(generator_dim).map(|(bdim, gdim)| DimExpr::DimSum {
-                    left: Box::new(bdim),
-                    right: Box::new(gdim),
-                    dbg: dbg.clone(),
-                })
+                basis_dim
+                    .zip(generator_dim)
+                    .map(|(bdim, gdim)| DimExpr::DimSum {
+                        left: Box::new(bdim),
+                        right: Box::new(gdim),
+                        dbg: dbg.clone(),
+                    })
             }
 
             // Fingers crossed expansion will get rid of these
-            qpu::MetaBasis::BasisAlias {.. }
-            | qpu::MetaBasis::BasisAliasRec {..}
-            | qpu::MetaBasis::BasisBroadcastTensor{..} => None,
+            qpu::MetaBasis::BasisAlias { .. }
+            | qpu::MetaBasis::BasisAliasRec { .. }
+            | qpu::MetaBasis::BasisBroadcastTensor { .. } => None,
         }
     }
 }
@@ -242,9 +398,10 @@ impl qpu::MetaBasis {
 impl qpu::MetaExpr {
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
-    ) -> Result<TypeOrTypeVar, LowerError> {
+    ) -> Result<InferType, LowerError> {
         match self {
             qpu::MetaExpr::Instantiate { .. } => todo!("build_type_constraints() for Instantiate"),
 
@@ -261,30 +418,51 @@ impl qpu::MetaExpr {
                 }
             }
 
-            qpu::MetaExpr::UnitLiteral { .. } => Ok(TypeOrTypeVar::Type(MetaType::UnitType)),
+            qpu::MetaExpr::UnitLiteral { .. } => Ok(InferType::UnitType),
 
             // TODO: implement these
             qpu::MetaExpr::EmbedClassical { .. } | qpu::MetaExpr::Adjoint { .. } => {
-                Ok(env.alloc_type_var())
+                Ok(tv_allocator.alloc_type_var())
             }
 
-            qpu::MetaExpr::Pipe { .. } => todo!("pipe"),
+            qpu::MetaExpr::Pipe { lhs, rhs, .. } => {
+                // lhs_ty   rhs_ty
+                //    vvv   vvv
+                //    lhs | rhs
+                //   \__________/
+                //    result_tv
+                //
+                // Add this constraint:
+                // lhs -> result_tv = rhs
+                // And return result_tv as the type.
+                let lhs_ty = lhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+
+                let result_tv = tv_allocator.alloc_type_var();
+                let func_ty = InferType::FuncType {
+                    in_ty: Box::new(lhs_ty),
+                    out_ty: Box::new(result_tv.clone()),
+                };
+                ty_constraints.insert(TypeConstraint::new(func_ty, rhs_ty));
+
+                Ok(result_tv)
+            }
 
             qpu::MetaExpr::Measure { basis, .. } => {
                 if let Some(basis_dim) = basis.get_dim() {
-                    let func_ty = MetaType::FuncType {
-                        in_ty: Box::new(MetaType::RegType {
+                    let func_ty = InferType::FuncType {
+                        in_ty: Box::new(InferType::RegType {
                             elem_ty: RegKind::Qubit,
                             dim: basis_dim.clone(),
                         }),
-                        out_ty: Box::new(MetaType::RegType {
+                        out_ty: Box::new(InferType::RegType {
                             elem_ty: RegKind::Bit,
                             dim: basis_dim,
                         }),
                     };
-                    Ok(TypeOrTypeVar::Type(func_ty))
+                    Ok(func_ty)
                 } else {
-                    Ok(env.alloc_type_var())
+                    Ok(tv_allocator.alloc_type_var())
                 }
             }
 
@@ -294,30 +472,30 @@ impl qpu::MetaExpr {
             | qpu::MetaExpr::BasisTranslation { .. }
             | qpu::MetaExpr::Predicated { .. }
             | qpu::MetaExpr::NonUniformSuperpos { .. }
-            | qpu::MetaExpr::Conditional { .. } => Ok(env.alloc_type_var()),
+            | qpu::MetaExpr::Conditional { .. } => Ok(tv_allocator.alloc_type_var()),
 
             qpu::MetaExpr::QLit { vec } => {
                 Ok(if let Some(dim) = vec.get_dim() {
-                    TypeOrTypeVar::Type(MetaType::RegType {
+                    InferType::RegType {
                         elem_ty: RegKind::Qubit,
                         dim,
-                    })
+                    }
                 } else {
                     // If we can't easily find the number of qubits, just
                     // assign a typevar
-                    env.alloc_type_var()
+                    tv_allocator.alloc_type_var()
                 })
             }
 
             // TODO: implement these
-            qpu::MetaExpr::BitLiteral { .. } => Ok(env.alloc_type_var()),
+            qpu::MetaExpr::BitLiteral { .. } => Ok(tv_allocator.alloc_type_var()),
 
             // It's expansion's job to deal with these. Let's just allocate a
             // type var and move on.
             qpu::MetaExpr::ExprMacro { .. }
             | qpu::MetaExpr::BasisMacro { .. }
             | qpu::MetaExpr::BroadcastTensor { .. }
-            | qpu::MetaExpr::Repeat { .. } => Ok(env.alloc_type_var()),
+            | qpu::MetaExpr::Repeat { .. } => Ok(tv_allocator.alloc_type_var()),
         }
     }
 }
@@ -328,9 +506,10 @@ pub trait Constrainable {
 
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
-    ) -> Result<Option<TypeOrTypeVar>, LowerError>;
+    ) -> Result<Option<InferType>, LowerError>;
 }
 
 impl Constrainable for qpu::MetaStmt {
@@ -352,12 +531,13 @@ impl Constrainable for qpu::MetaStmt {
 
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
-    ) -> Result<Option<TypeOrTypeVar>, LowerError> {
+    ) -> Result<Option<InferType>, LowerError> {
         match self {
             qpu::MetaStmt::Return { val, .. } => {
-                let val_ty = val.build_type_constraints(env, ty_constraints)?;
+                let val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
                 Ok(Some(val_ty))
             }
 
@@ -390,9 +570,10 @@ impl Constrainable for classical::MetaStmt {
 
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
-    ) -> Result<Option<TypeOrTypeVar>, LowerError> {
+    ) -> Result<Option<InferType>, LowerError> {
         // TODO: actually add constraints
         Ok(None)
     }
@@ -401,12 +582,13 @@ impl Constrainable for classical::MetaStmt {
 impl<S: Constrainable> MetaFunctionDef<S> {
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
     ) -> Result<(), LowerError> {
         let MetaFunctionDef { body, ret_type, .. } = self;
         let mut env = TypeEnv::new();
 
-        let provided_ret_ty = TypeOrTypeVar::from_stripped(&mut env, ret_type.clone());
+        let provided_ret_ty = InferType::from_stripped(tv_allocator, ret_type.clone());
         let mut ret_ty_constraint = None;
 
         for stmt in body {
@@ -419,7 +601,7 @@ impl<S: Constrainable> MetaFunctionDef<S> {
                 });
             }
 
-            let opt_ret_ty = stmt.build_type_constraints(&mut env, ty_constraints)?;
+            let opt_ret_ty = stmt.build_type_constraints(tv_allocator, &mut env, ty_constraints)?;
             if let Some(ret_ty) = opt_ret_ty {
                 ret_ty_constraint = Some(TypeConstraint::new(provided_ret_ty.clone(), ret_ty));
             }
@@ -493,12 +675,15 @@ impl MetaFunc {
 
     fn build_type_constraints(
         &self,
+        tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
     ) -> Result<(), LowerError> {
         match self {
-            MetaFunc::Qpu(qpu_kernel) => qpu_kernel.build_type_constraints(ty_constraints),
+            MetaFunc::Qpu(qpu_kernel) => {
+                qpu_kernel.build_type_constraints(tv_allocator, ty_constraints)
+            }
             MetaFunc::Classical(classical_func) => {
-                classical_func.build_type_constraints(ty_constraints)
+                classical_func.build_type_constraints(tv_allocator, ty_constraints)
             }
         }
     }
@@ -507,10 +692,11 @@ impl MetaFunc {
 impl MetaProgram {
     fn build_type_constraints(&self) -> Result<TypeConstraints, LowerError> {
         let MetaProgram { funcs, .. } = self;
+        let mut tv_allocator = TypeVarAllocator::new();
         let mut ty_constraints = TypeConstraints::new();
 
         for func in funcs {
-            func.build_type_constraints(&mut ty_constraints)?;
+            func.build_type_constraints(&mut tv_allocator, &mut ty_constraints)?;
         }
 
         Ok(ty_constraints)
@@ -518,13 +704,65 @@ impl MetaProgram {
 
     fn unify_ty(
         &self,
-        ty_constraints: &TypeConstraints,
+        ty_constraints: &mut TypeConstraints,
     ) -> Result<(TypeAssignments, DimVarConstraints, Progress), LowerError> {
-        Ok((
-            TypeAssignments::empty(self),
-            DimVarConstraints::new(),
-            Progress::Full,
-        ))
+        let mut type_assign = TypeAssignments::empty(self);
+        let mut dv_constraints = DimVarConstraints::new();
+
+        while let Some(ty_constraint) = ty_constraints.pop() {
+            match ty_constraint.as_pair() {
+                // Already matches
+                (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id })
+                    if left_id == right_id =>
+                {
+                    Ok(())
+                }
+
+                (InferType::TypeVar { id: left_id }, right)
+                    if !right.contains_type_var(left_id) =>
+                {
+                    ty_constraints.substitute_type_var(left_id, &right);
+                    Ok(())
+                }
+
+                (left, InferType::TypeVar { id: right_id })
+                    if !left.contains_type_var(right_id) =>
+                {
+                    ty_constraints.substitute_type_var(right_id, &left);
+                    Ok(())
+                }
+
+                (
+                    InferType::RegType {
+                        elem_ty: left_elem_ty,
+                        dim: left_dim,
+                    },
+                    InferType::RegType {
+                        elem_ty: right_elem_ty,
+                        dim: right_dim,
+                    },
+                ) => {
+                    if left_elem_ty == right_elem_ty {
+                        dv_constraints.insert(DimVarConstraint::new(left_dim, right_dim));
+                        Ok(())
+                    } else {
+                        Err(LowerError {
+                            kind: LowerErrorKind::TypeError {
+                                kind: TypeErrorKind::MismatchedTypes {
+                                    expected: format!("{}", left_elem_ty),
+                                    found: format!("{}", right_elem_ty),
+                                },
+                            },
+                            // TODO: pass a helpful location
+                            dbg: None,
+                        })
+                    }
+                }
+
+                _ => todo!("unify_ty()"),
+            }?;
+        }
+        Ok((type_assign, dv_constraints, Progress::Full))
     }
 
     fn unify_dv(
@@ -537,8 +775,8 @@ impl MetaProgram {
     pub fn find_assignments(
         &self,
     ) -> Result<(TypeAssignments, DimVarAssignments, Progress), LowerError> {
-        let ty_constraints = self.build_type_constraints()?;
-        let (ty_assign, dv_constraints, ty_progress) = self.unify_ty(&ty_constraints)?;
+        let mut ty_constraints = self.build_type_constraints()?;
+        let (ty_assign, dv_constraints, ty_progress) = self.unify_ty(&mut ty_constraints)?;
         let (dv_assign, dv_progress) = self.unify_dv(&dv_constraints)?;
         let progress = ty_progress.join(dv_progress);
         Ok((ty_assign, dv_assign, progress))
