@@ -1,5 +1,5 @@
 use crate::{
-    ast::RegKind,
+    ast::{RegKind, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind, TypeErrorKind},
     meta::{
@@ -145,6 +145,44 @@ impl FuncTypeAssignment {
             in_ty: Box::new(in_ty),
             out_ty: Box::new(self.1.clone()),
         }
+    }
+
+    /// Returns `None` if any arg is not `bit[N]` (or the return value isn't)
+    fn get_in_out_dims(&self) -> (Option<DimExpr>, Option<DimExpr>) {
+        let get_dim = |ty: &InferType| {
+            if let InferType::RegType {
+                elem_ty: RegKind::Bit,
+                dim,
+            } = ty
+            {
+                Some(dim.clone())
+            } else {
+                None
+            }
+        };
+
+        let in_dim = if self.0.is_empty() {
+            // TODO: use a useful debug location
+            Some(DimExpr::DimConst {
+                val: IBig::ZERO,
+                dbg: None,
+            })
+        } else {
+            get_dim(&self.0[0]).and_then(|first_dim| {
+                self.0.iter().skip(1).try_fold(first_dim, |acc, ty| {
+                    let this_dim = get_dim(ty)?;
+                    // TODO: use a useful debug location
+                    Some(DimExpr::DimSum {
+                        left: Box::new(acc),
+                        right: Box::new(this_dim),
+                        dbg: None,
+                    })
+                })
+            })
+        };
+
+        let out_dim = get_dim(&self.1);
+        (in_dim, out_dim)
     }
 }
 
@@ -376,19 +414,28 @@ impl TypeVarAllocator {
 
 pub struct TypeEnv {
     bindings: HashMap<String, InferType>,
+    cfuncs: HashMap<String, (Option<DimExpr>, Option<DimExpr>)>,
 }
 
 impl TypeEnv {
     fn new(
-        funcs_avail: &[(&str, FuncTypeAssignment)],
+        funcs_avail: &[(&str, AvailableFuncType)],
         args: &[(InferType, String)],
     ) -> Result<Self, LowerError> {
         let mut ret = Self {
             bindings: HashMap::new(),
+            cfuncs: HashMap::new(),
         };
 
-        for (func_name, func_ty_assign) in funcs_avail {
-            ret.insert(func_name.to_string(), func_ty_assign.get_func_type())?;
+        for (func_name, avail_func_ty) in funcs_avail {
+            match avail_func_ty {
+                AvailableFuncType::Qpu(func_ty) => {
+                    ret.insert(func_name.to_string(), func_ty.clone())?;
+                }
+                AvailableFuncType::Classical(in_dim, out_dim) => {
+                    ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone())?;
+                }
+            }
         }
 
         for (arg_ty, arg_name) in args {
@@ -413,8 +460,33 @@ impl TypeEnv {
         }
     }
 
+    fn insert_cfunc(
+        &mut self,
+        name: String,
+        in_dim: Option<DimExpr>,
+        out_dim: Option<DimExpr>,
+    ) -> Result<(), LowerError> {
+        let existing_cfunc = self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
+        if existing_cfunc.is_some() {
+            Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    // TODO: use more precise error? since this is just functions?
+                    kind: TypeErrorKind::RedefinedVariable(name),
+                },
+                // TODO: set a debug location
+                dbg: None,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     fn get_type(&self, name: &str) -> Option<InferType> {
         self.bindings.get(name).cloned()
+    }
+
+    fn get_cfunc_dims(&self, name: &str) -> Option<(Option<DimExpr>, Option<DimExpr>)> {
+        self.cfuncs.get(name).cloned()
     }
 }
 
@@ -523,6 +595,7 @@ pub trait ExprConstrainable {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError>;
 }
 
@@ -532,6 +605,7 @@ impl ExprConstrainable for qpu::MetaExpr {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
         match self {
             qpu::MetaExpr::Instantiate { .. } => todo!("build_type_constraints() for Instantiate"),
@@ -551,9 +625,61 @@ impl ExprConstrainable for qpu::MetaExpr {
 
             qpu::MetaExpr::UnitLiteral { .. } => Ok(InferType::UnitType),
 
-            // TODO: implement these
-            qpu::MetaExpr::EmbedClassical { .. } | qpu::MetaExpr::Adjoint { .. } => {
-                Ok(tv_allocator.alloc_type_var())
+            qpu::MetaExpr::EmbedClassical {
+                func, embed_kind, ..
+            } => {
+                if let qpu::MetaExpr::Variable { name, dbg } = &**func {
+                    if let Some((in_dim, out_dim)) = env.get_cfunc_dims(name) {
+                        let qdim = match embed_kind {
+                            EmbedKind::Sign => in_dim,
+                            EmbedKind::Xor => in_dim.zip(out_dim).map(|(in_dim, out_dim)| {
+                                // TODO: use a useful debug location
+                                DimExpr::DimSum {
+                                    left: Box::new(in_dim),
+                                    right: Box::new(out_dim),
+                                    dbg: None,
+                                }
+                            }),
+                            EmbedKind::InPlace => {
+                                if let Some((in_dim, out_dim)) = in_dim.clone().zip(out_dim.clone())
+                                {
+                                    dv_constraints.insert(DimVarConstraint::new(in_dim, out_dim));
+                                }
+                                in_dim.or(out_dim)
+                            }
+                        };
+                        if let Some(dim) = qdim {
+                            Ok(InferType::FuncType {
+                                in_ty: Box::new(InferType::RegType {
+                                    elem_ty: RegKind::Qubit,
+                                    dim: dim.clone(),
+                                }),
+                                out_ty: Box::new(InferType::RegType {
+                                    elem_ty: RegKind::Qubit,
+                                    dim,
+                                }),
+                            })
+                        } else {
+                            Ok(tv_allocator.alloc_type_var())
+                        }
+                    } else {
+                        Err(LowerError {
+                            kind: LowerErrorKind::TypeError {
+                                // TODO: use more specific error for cfuncs?
+                                kind: TypeErrorKind::UndefinedVariable(name.to_string()),
+                            },
+                            dbg: dbg.clone(),
+                        })
+                    }
+                } else {
+                    Ok(tv_allocator.alloc_type_var())
+                }
+            }
+
+            qpu::MetaExpr::Adjoint { func, .. } => {
+                let func_ty =
+                    func.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                Ok(func_ty)
             }
 
             qpu::MetaExpr::Pipe { lhs, rhs, .. } => {
@@ -566,8 +692,10 @@ impl ExprConstrainable for qpu::MetaExpr {
                 // Add this constraint:
                 // lhs -> result_tv = rhs
                 // And return result_tv as the type.
-                let lhs_ty = lhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
-                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let lhs_ty =
+                    lhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let rhs_ty =
+                    rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
 
                 let result_tv = tv_allocator.alloc_type_var();
                 let func_ty = InferType::FuncType {
@@ -637,6 +765,7 @@ impl ExprConstrainable for classical::MetaExpr {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
         match self {
             // TODO: implement this
@@ -661,7 +790,8 @@ impl ExprConstrainable for classical::MetaExpr {
                 upper,
                 dbg,
             } => {
-                let _val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let _val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
 
                 // TODO: add a type constraint that this is bit[N] for a new dv N
 
@@ -685,18 +815,25 @@ impl ExprConstrainable for classical::MetaExpr {
             }
 
             classical::MetaExpr::UnaryOp { val, .. } => {
-                val.build_type_constraints(tv_allocator, env, ty_constraints)
+                val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
             }
 
             classical::MetaExpr::BinaryOp { left, right, .. } => {
-                let left_ty = left.build_type_constraints(tv_allocator, env, ty_constraints)?;
-                let right_ty = right.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let left_ty =
+                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let right_ty = right.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
                 ty_constraints.insert(TypeConstraint::new(left_ty.clone(), right_ty));
                 Ok(left_ty)
             }
 
             classical::MetaExpr::ReduceOp { val, .. } => {
-                let _val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let _val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
 
                 // TODO: add a type constraint that this is bit[N] for a new dv N
 
@@ -745,7 +882,7 @@ fn build_type_constraints_for_unpack_assign<E: ExprConstrainable>(
 ) -> Result<Option<InferType>, LowerError> {
     assert!(!lhs.is_empty(), "unpack must have at least left-hand name");
 
-    let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+    let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
 
     let lhs_tys: Vec<_> = match &rhs_ty {
         InferType::TypeVar { .. } => {
@@ -822,17 +959,20 @@ impl StmtConstrainable for qpu::MetaStmt {
     ) -> Result<Option<InferType>, LowerError> {
         match self {
             qpu::MetaStmt::Return { val, .. } => {
-                let val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 Ok(Some(val_ty))
             }
 
             qpu::MetaStmt::Expr { expr } => {
-                let _expr_ty = expr.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let _expr_ty =
+                    expr.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 Ok(None)
             }
 
             qpu::MetaStmt::Assign { lhs, rhs, .. } => {
-                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let rhs_ty =
+                    rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 env.insert(lhs.to_string(), rhs_ty)?;
                 Ok(None)
             }
@@ -879,17 +1019,20 @@ impl StmtConstrainable for classical::MetaStmt {
     ) -> Result<Option<InferType>, LowerError> {
         match self {
             classical::MetaStmt::Return { val, .. } => {
-                let val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 Ok(Some(val_ty))
             }
 
             classical::MetaStmt::Expr { expr } => {
-                let _expr_ty = expr.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let _expr_ty =
+                    expr.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 Ok(None)
             }
 
             classical::MetaStmt::Assign { lhs, rhs, .. } => {
-                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let rhs_ty =
+                    rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 env.insert(lhs.to_string(), rhs_ty)?;
                 Ok(None)
             }
@@ -911,7 +1054,7 @@ impl StmtConstrainable for classical::MetaStmt {
 impl<S: StmtConstrainable> MetaFunctionDef<S> {
     fn build_type_constraints(
         &self,
-        funcs_available: &[(&str, FuncTypeAssignment)],
+        funcs_available: &[(&str, AvailableFuncType)],
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
@@ -1035,6 +1178,12 @@ impl<S> MetaFunctionDef<S> {
     }
 }
 
+#[derive(Debug, Clone)]
+enum AvailableFuncType {
+    Qpu(InferType),
+    Classical(Option<DimExpr>, Option<DimExpr>),
+}
+
 impl MetaFunc {
     pub fn with_tys(&self, arg_tys: &[Option<MetaType>], ret_ty: &Option<MetaType>) -> MetaFunc {
         match self {
@@ -1047,7 +1196,7 @@ impl MetaFunc {
 
     fn build_type_constraints(
         &self,
-        funcs_available: &[(&str, FuncTypeAssignment)],
+        funcs_available: &[(&str, AvailableFuncType)],
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
@@ -1074,6 +1223,17 @@ impl MetaFunc {
             MetaFunc::Classical(classical_func) => classical_func.inference_progress(),
         }
     }
+
+    // TODO: this is a dumb hack
+    fn get_avail_func_type(&self, func_ty_assign: &FuncTypeAssignment) -> AvailableFuncType {
+        match self {
+            MetaFunc::Qpu(_) => AvailableFuncType::Qpu(func_ty_assign.get_func_type()),
+            MetaFunc::Classical(_) => {
+                let (in_dim, out_dim) = func_ty_assign.get_in_out_dims();
+                AvailableFuncType::Classical(in_dim, out_dim)
+            }
+        }
+    }
 }
 
 impl MetaProgram {
@@ -1089,8 +1249,10 @@ impl MetaProgram {
         for func in funcs {
             let funcs_available: Vec<_> = funcs
                 .iter()
-                .map(|func| func.get_name())
-                .zip(func_ty_assigns.clone())
+                .zip(&func_ty_assigns)
+                .map(|(func, func_ty_assign)| {
+                    (func.get_name(), func.get_avail_func_type(func_ty_assign))
+                })
                 .collect();
             let func_ty = func.build_type_constraints(
                 &funcs_available,
