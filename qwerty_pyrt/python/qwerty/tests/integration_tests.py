@@ -2,6 +2,7 @@ import os
 import unittest
 from qwerty.runtime import bit
 from qwerty.kernel import _reset_compiler_state
+from qwerty.err import QwertyTypeError
 
 should_skip = bool(os.environ.get('SKIP_INTEGRATION_TESTS'))
 skip_msg = "Skipping integration tests as requested by $SKIP_INTEGRATION_TESTS"
@@ -341,7 +342,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
 
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover
-        self.assertTrue(any(grover.test() == '1010' for _ in range(32)))
+        self.assertGreater(sum(grover.test() == '1010' for _ in range(32)), 20)
 
     @unittest.skip("ensemble operator not yet implemented")
     def test_fig3_superpos_vs_ensemble(self):
@@ -361,17 +362,15 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_superpos_histo, actual_superpos_histo)
 
 
-    @unittest.skip("cannot infer return types")
     def test_fig4a_discard_invalid(self):
         from .integ.qce25_figs import discard_invalid
         with self.assertRaisesRegex(QwertyTypeError,
                                     'exactly once'):
             discard_invalid.test()
 
-    @unittest.skip("cannot infer return types")
     def test_fig4b_discard_valid(self):
         from .integ.qce25_figs import discard_valid
-        actual = {grover.test() for _ in range(32)}
+        actual = {discard_valid.test() for _ in range(32)}
         self.assertIn(bit[1](0b0), actual)
         self.assertIn(bit[1](0b1), actual)
 
