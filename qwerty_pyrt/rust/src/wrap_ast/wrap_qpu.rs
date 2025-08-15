@@ -78,6 +78,22 @@ impl Vector {
     }
 
     #[classmethod]
+    fn new_vector_broadcast_tensor(
+        _cls: &Bound<'_, PyType>,
+        val: Vector,
+        factor: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            vec: meta::qpu::MetaVector::VectorBroadcastTensor {
+                val: Box::new(val.vec),
+                factor: factor.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_zero_vector(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             vec: meta::qpu::MetaVector::ZeroVector {
@@ -398,6 +414,24 @@ impl QpuExpr {
             expr: meta::qpu::MetaExpr::BroadcastTensor {
                 val: Box::new(val.expr),
                 factor: factor.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_repeat(
+        _cls: &Bound<'_, PyType>,
+        for_each: QpuExpr,
+        iter_var: String,
+        upper_bound: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::Repeat {
+                for_each: Box::new(for_each.expr),
+                iter_var,
+                upper_bound: upper_bound.dim_expr,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

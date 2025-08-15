@@ -2,6 +2,8 @@
 Fig. 9 of the Qwerty QCE '25 paper.
 """
 
+from qwerty import *
+
 def grover2(oracle, num_iter):
   @qpu[[N]]
   def grover_iter(q):

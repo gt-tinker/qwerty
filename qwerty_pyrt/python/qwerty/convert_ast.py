@@ -862,6 +862,10 @@ class QpuVisitor(BaseVisitor):
             left = self.extract_basis_vector(node.left)
             right = self.extract_basis_vector(node.right)
             return Vector.new_vector_bi_tensor(left, right, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            left = self.extract_basis_vector(node.left)
+            right = self.extract_dimvar_expr(node.right)
+            return Vector.new_vector_broadcast_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
             q = self.extract_basis_vector(node.left)
             angle_deg = self.extract_float_const(node.right)
@@ -1284,64 +1288,53 @@ class QpuVisitor(BaseVisitor):
         basis_out = Basis.new_basis_literal(bvs_out, dbg)
         return QpuExpr.new_basis_translation(basis_in, basis_out, dbg)
 
-    #def list_comp_helper(self, gen: Union[ast.GeneratorExp, ast.ListComp]):
-    #    """
-    #    Helper used by both ``visit_GeneratorExp()`` and ``visit_ListComp()``,
-    #    since both Python AST nodes have near-identical fields.
-    #    """
-    #    dbg = self.get_debug_loc(gen)
+    def list_comp_helper(self, gen: Union[ast.GeneratorExp, ast.ListComp]):
+        """
+        Helper used by both ``visit_GeneratorExp()`` and ``visit_ListComp()``,
+        since both Python AST nodes have near-identical fields.
+        """
+        dbg = self.get_debug_loc(gen)
 
-    #    if len(gen.generators) != 1:
-    #        raise QwertySyntaxError('Multiple generators are unsupported in '
-    #                                'Qwerty', self.get_debug_loc(gen))
-    #    comp = gen.generators[0]
+        if len(gen.generators) != 1:
+            raise QwertySyntaxError('Multiple generators are unsupported in '
+                                    'Qwerty', dbg)
+        comp, = gen.generators
 
-    #    if comp.ifs:
-    #        raise QwertySyntaxError('"if" not supported inside repeat '
-    #                                'construct',
-    #                                self.get_debug_loc(gen))
-    #    if comp.is_async:
-    #        raise QwertySyntaxError('async generators not supported',
-    #                                self.get_debug_loc(gen))
+        if comp.ifs:
+            raise QwertySyntaxError('"if" not supported inside repeat '
+                                    'construct', dbg)
+        if comp.is_async:
+            raise QwertySyntaxError('async generators not supported', dbg)
 
-    #    if not isinstance(comp.target, ast.Name) \
-    #            or not isinstance(comp.iter, ast.Call) \
-    #            or not isinstance(comp.iter.func, ast.Name) \
-    #            or comp.iter.func.id != 'range' \
-    #            or len(comp.iter.args) != 1 \
-    #            or comp.iter.keywords:
-    #        raise QwertySyntaxError('Unsupported generator syntax (only '
-    #                                'basic "x for i in range(N) is '
-    #                                'supported")',
-    #                                self.get_debug_loc(gen))
+        if not isinstance(comp.target, ast.Name) \
+                or not isinstance(comp.iter, ast.Call) \
+                or not isinstance(comp.iter.func, ast.Name) \
+                or comp.iter.func.id != 'range' \
+                or len(comp.iter.args) != 1 \
+                or comp.iter.keywords:
+            raise QwertySyntaxError('Unsupported generator syntax (only '
+                                    'basic "x for i in range(N)" is '
+                                    'supported")', dbg)
+        ub_node, = comp.iter.args
 
-    #    loopvar = comp.target.id
+        iter_var = comp.target.id
+        for_each = self.visit(gen.elt)
+        upper_bound = self.extract_dimvar_expr(ub_node)
 
-    #    if loopvar in self.dim_vars:
-    #        raise QwertySyntaxError('Index variable {} collides with the '
-    #                                'name of another type variable'
-    #                                .format(loopvar),
-    #                                self.get_debug_loc(gen))
-    #    self.dim_vars.add(loopvar)
-    #    body = self.visit(gen.elt)
-    #    self.dim_vars.remove(loopvar)
+        return (for_each, iter_var, upper_bound, dbg)
 
-    #    ub = self.extract_dimvar_expr(comp.iter.args[0])
+    def visit_GeneratorExp(self, gen: ast.GeneratorExp):
+        """
+        Convert a Python generator expression AST node into a Qwerty ``Repeat``
+        AST node. For example the highlighted part of the code::
 
-    #    return (dbg, body, loopvar, ub)
+            ... | (func for i in range(20)) | ...
+                   ^^^^^^^^^^^^^^^^^^^^^^^
 
-    #def visit_GeneratorExp(self, gen: ast.GeneratorExp):
-    #    """
-    #    Convert a Python generator expression AST node into a Qwerty ``Repeat``
-    #    AST node. For example the highlighted part of the code::
-
-    #        ... | (func for i in range(20)) | ...
-    #               ^^^^^^^^^^^^^^^^^^^^^^^
-
-    #    is converted to a Repeat AST node. Here, ``range`` is a keyword whose
-    #    operand is a dimension variable expression.
-    #    """
-    #    return Repeat(*self.list_comp_helper(gen))
+        is converted to a Repeat AST node. Here, ``range`` is a keyword whose
+        operand is a dimension variable expression.
+        """
+        return QpuExpr.new_repeat(*self.list_comp_helper(gen))
 
     #def visit_ListComp(self, comp: ast.ListComp):
     #    """
@@ -1579,8 +1572,8 @@ class QpuVisitor(BaseVisitor):
         #    return self.visit_UnaryOp(node)
         elif isinstance(node, ast.Set):
             return self.visit_Set(node)
-        #elif isinstance(node, ast.GeneratorExp):
-        #    return self.visit_GeneratorExp(node)
+        elif isinstance(node, ast.GeneratorExp):
+            return self.visit_GeneratorExp(node)
         #elif isinstance(node, ast.ListComp):
         #    return self.visit_ListComp(node)
         elif isinstance(node, ast.List):
