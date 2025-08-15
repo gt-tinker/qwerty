@@ -516,7 +516,16 @@ impl qpu::MetaBasis {
     }
 }
 
-impl qpu::MetaExpr {
+pub trait ExprConstrainable {
+    fn build_type_constraints(
+        &self,
+        tv_allocator: &mut TypeVarAllocator,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<InferType, LowerError>;
+}
+
+impl ExprConstrainable for qpu::MetaExpr {
     fn build_type_constraints(
         &self,
         tv_allocator: &mut TypeVarAllocator,
@@ -621,7 +630,19 @@ impl qpu::MetaExpr {
     }
 }
 
-pub trait Constrainable {
+impl ExprConstrainable for classical::MetaExpr {
+    fn build_type_constraints(
+        &self,
+        tv_allocator: &mut TypeVarAllocator,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+    ) -> Result<InferType, LowerError> {
+        // TODO: fill this in
+        Ok(tv_allocator.alloc_type_var())
+    }
+}
+
+pub trait StmtConstrainable {
     // TODO: move this elsewhere
     fn get_dbg(&self) -> Option<DebugLoc>;
 
@@ -634,7 +655,68 @@ pub trait Constrainable {
     ) -> Result<Option<InferType>, LowerError>;
 }
 
-impl Constrainable for qpu::MetaStmt {
+fn build_type_constraints_for_unpack_assign<E: ExprConstrainable>(
+    lhs: &[String],
+    rhs: &E,
+    tv_allocator: &mut TypeVarAllocator,
+    env: &mut TypeEnv,
+    ty_constraints: &mut TypeConstraints,
+    dv_constraints: &mut DimVarConstraints,
+) -> Result<Option<InferType>, LowerError> {
+    assert!(!lhs.is_empty(), "unpack must have at least left-hand name");
+
+    let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+
+    let lhs_tys: Vec<_> = match &rhs_ty {
+        InferType::TypeVar { .. } => {
+            // TODO: add more helpful constraints in this case
+            Ok(std::iter::repeat_with(|| tv_allocator.alloc_type_var())
+                .take(lhs.len())
+                .collect())
+        }
+
+        InferType::RegType { elem_ty, dim } => {
+            dv_constraints.insert(DimVarConstraint::new(
+                dim.clone(),
+                DimExpr::DimConst {
+                    val: lhs.len().into(),
+                    dbg: None,
+                },
+            ));
+            // TODO: add helpful debug symbol
+            Ok(std::iter::repeat(InferType::RegType {
+                elem_ty: *elem_ty,
+                dim: DimExpr::DimConst {
+                    val: IBig::ONE,
+                    dbg: None,
+                },
+            })
+            .take(lhs.len())
+            .collect())
+        }
+
+        InferType::FuncType { .. } | InferType::TupleType { .. } | InferType::UnitType => {
+            Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    kind: TypeErrorKind::InvalidType(format!(
+                        "Can only unpack from register type, found: {}",
+                        &rhs_ty
+                    )),
+                },
+                // TODO: pass a helpful debug symbol
+                dbg: None,
+            })
+        }
+    }?;
+
+    for (lhs_name, lhs_ty) in lhs.iter().zip(lhs_tys.into_iter()) {
+        env.insert(lhs_name.to_string(), lhs_ty)?;
+    }
+
+    Ok(None)
+}
+
+impl StmtConstrainable for qpu::MetaStmt {
     fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
             qpu::MetaStmt::ExprMacroDef { dbg, .. }
@@ -676,57 +758,14 @@ impl Constrainable for qpu::MetaStmt {
             }
 
             qpu::MetaStmt::UnpackAssign { lhs, rhs, .. } => {
-                assert!(!lhs.is_empty(), "unpack must have at least left-hand name");
-
-                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
-
-                let lhs_tys: Vec<_> = match &rhs_ty {
-                    InferType::TypeVar { .. } => {
-                        // TODO: add more helpful constraints in this case
-                        Ok(std::iter::repeat_with(|| tv_allocator.alloc_type_var())
-                            .take(lhs.len())
-                            .collect())
-                    }
-
-                    InferType::RegType { elem_ty, dim } => {
-                        dv_constraints.insert(DimVarConstraint::new(
-                            dim.clone(),
-                            DimExpr::DimConst {
-                                val: lhs.len().into(),
-                                dbg: None,
-                            },
-                        ));
-                        // TODO: add helpful debug symbol
-                        Ok(std::iter::repeat(InferType::RegType {
-                            elem_ty: *elem_ty,
-                            dim: DimExpr::DimConst {
-                                val: IBig::ONE,
-                                dbg: None,
-                            },
-                        })
-                        .take(lhs.len())
-                        .collect())
-                    }
-
-                    InferType::FuncType { .. }
-                    | InferType::TupleType { .. }
-                    | InferType::UnitType => Err(LowerError {
-                        kind: LowerErrorKind::TypeError {
-                            kind: TypeErrorKind::InvalidType(format!(
-                                "Can only unpack from register type, found: {}",
-                                &rhs_ty
-                            )),
-                        },
-                        // TODO: pass a helpful debug symbol
-                        dbg: None,
-                    }),
-                }?;
-
-                for (lhs_name, lhs_ty) in lhs.iter().zip(lhs_tys.into_iter()) {
-                    env.insert(lhs_name.to_string(), lhs_ty)?;
-                }
-
-                Ok(None)
+                build_type_constraints_for_unpack_assign(
+                    lhs,
+                    rhs,
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )
             }
 
             // It's expansion's job to deal with these. Let's not bother
@@ -740,7 +779,7 @@ impl Constrainable for qpu::MetaStmt {
     }
 }
 
-impl Constrainable for classical::MetaStmt {
+impl StmtConstrainable for classical::MetaStmt {
     fn get_dbg(&self) -> Option<DebugLoc> {
         match self {
             classical::MetaStmt::Assign { dbg, .. }
@@ -758,12 +797,38 @@ impl Constrainable for classical::MetaStmt {
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError> {
-        // TODO: actually add constraints
-        Ok(None)
+        match self {
+            classical::MetaStmt::Return { val, .. } => {
+                let val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                Ok(Some(val_ty))
+            }
+
+            classical::MetaStmt::Expr { expr } => {
+                let _expr_ty = expr.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                Ok(None)
+            }
+
+            classical::MetaStmt::Assign { lhs, rhs, .. } => {
+                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                env.insert(lhs.to_string(), rhs_ty)?;
+                Ok(None)
+            }
+
+            classical::MetaStmt::UnpackAssign { lhs, rhs, .. } => {
+                build_type_constraints_for_unpack_assign(
+                    lhs,
+                    rhs,
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )
+            }
+        }
     }
 }
 
-impl<S: Constrainable> MetaFunctionDef<S> {
+impl<S: StmtConstrainable> MetaFunctionDef<S> {
     fn build_type_constraints(
         &self,
         funcs_available: &[(&str, FuncTypeAssignment)],
