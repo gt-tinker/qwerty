@@ -390,7 +390,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histo = prelude.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
-    @unittest.skip("cannot infer return types")
+    @unittest.skip("cannot infer dimvars")
     def test_fig9_grovermeta(self):
         from .integ.qce25_figs import grovermeta
         for _ in range(32):
