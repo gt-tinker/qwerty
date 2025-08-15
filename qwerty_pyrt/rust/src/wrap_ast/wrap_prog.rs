@@ -66,4 +66,10 @@ impl Program {
             })
             .collect()
     }
+
+    /// Return the Debug form of this Expr from __repr__(). By contrast,
+    /// __str__() would return the Display form (...if we implement it).
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.program)
+    }
 }
