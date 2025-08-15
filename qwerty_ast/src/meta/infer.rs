@@ -107,6 +107,7 @@ impl DimVarConstraints {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FuncTypeAssignment(Vec<InferType>, InferType);
 
 impl FuncTypeAssignment {
@@ -126,6 +127,24 @@ impl FuncTypeAssignment {
             self.0.into_iter().map(InferType::strip).collect(),
             self.1.strip(),
         )
+    }
+
+    // TODO: don't duplicate with FunctionDef::get_type() in ast.rs
+    fn get_func_type(&self) -> InferType {
+        let in_ty = if self.0.is_empty() {
+            InferType::UnitType
+        } else if self.0.len() == 1 {
+            self.0[0].clone()
+        } else {
+            InferType::TupleType {
+                tys: self.0.clone(),
+            }
+        };
+
+        InferType::FuncType {
+            in_ty: Box::new(in_ty),
+            out_ty: Box::new(self.1.clone()),
+        }
     }
 }
 
@@ -360,14 +379,22 @@ pub struct TypeEnv {
 }
 
 impl TypeEnv {
-    fn new(args: &[(InferType, String)]) -> Self {
+    fn new(
+        funcs_avail: &[(&str, FuncTypeAssignment)],
+        args: &[(InferType, String)],
+    ) -> Result<Self, LowerError> {
         let mut bindings = HashMap::new();
-        for (arg_ty, arg_name) in args {
-            let existing_binding = bindings.insert(arg_name.to_string(), arg_ty.clone());
-            assert!(existing_binding.is_none(), "duplicate arg name");
+        let mut ret = Self { bindings };
+
+        for (func_name, func_ty_assign) in funcs_avail {
+            ret.insert(func_name.to_string(), func_ty_assign.get_func_type())?;
         }
 
-        Self { bindings }
+        for (arg_ty, arg_name) in args {
+            ret.insert(arg_name.to_string(), arg_ty.clone())?;
+        }
+
+        Ok(ret)
     }
 
     fn insert(&mut self, name: String, ty: InferType) -> Result<(), LowerError> {
@@ -739,6 +766,7 @@ impl Constrainable for classical::MetaStmt {
 impl<S: Constrainable> MetaFunctionDef<S> {
     fn build_type_constraints(
         &self,
+        funcs_available: &[(&str, FuncTypeAssignment)],
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
@@ -758,7 +786,7 @@ impl<S: Constrainable> MetaFunctionDef<S> {
                 )
             })
             .collect();
-        let mut env = TypeEnv::new(&provided_args);
+        let mut env = TypeEnv::new(&funcs_available, &provided_args)?;
 
         let provided_ret_ty = InferType::from_stripped(tv_allocator, ret_type.clone());
         let mut ret_ty_constraint = None;
@@ -874,17 +902,24 @@ impl MetaFunc {
 
     fn build_type_constraints(
         &self,
+        funcs_available: &[(&str, FuncTypeAssignment)],
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<FuncTypeAssignment, LowerError> {
         match self {
-            MetaFunc::Qpu(qpu_kernel) => {
-                qpu_kernel.build_type_constraints(tv_allocator, ty_constraints, dv_constraints)
-            }
-            MetaFunc::Classical(classical_func) => {
-                classical_func.build_type_constraints(tv_allocator, ty_constraints, dv_constraints)
-            }
+            MetaFunc::Qpu(qpu_kernel) => qpu_kernel.build_type_constraints(
+                funcs_available,
+                tv_allocator,
+                ty_constraints,
+                dv_constraints,
+            ),
+            MetaFunc::Classical(classical_func) => classical_func.build_type_constraints(
+                funcs_available,
+                tv_allocator,
+                ty_constraints,
+                dv_constraints,
+            ),
         }
     }
 
@@ -905,16 +940,21 @@ impl MetaProgram {
         let mut ty_constraints = TypeConstraints::new();
         let mut dv_constraints = DimVarConstraints::new();
 
-        let func_ty_assigns = funcs
-            .iter()
-            .map(|func| {
-                func.build_type_constraints(
-                    &mut tv_allocator,
-                    &mut ty_constraints,
-                    &mut dv_constraints,
-                )
-            })
-            .collect::<Result<Vec<_>, LowerError>>()?;
+        let mut func_ty_assigns = vec![];
+        for func in funcs {
+            let funcs_available: Vec<_> = funcs
+                .iter()
+                .map(|func| func.get_name())
+                .zip(func_ty_assigns.clone())
+                .collect();
+            let func_ty = func.build_type_constraints(
+                &funcs_available,
+                &mut tv_allocator,
+                &mut ty_constraints,
+                &mut dv_constraints,
+            )?;
+            func_ty_assigns.push(func_ty);
+        }
 
         let ty_assign = TypeAssignments::new(func_ty_assigns);
         Ok((ty_constraints, dv_constraints, ty_assign))

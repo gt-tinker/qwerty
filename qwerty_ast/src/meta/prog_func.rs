@@ -171,6 +171,13 @@ pub enum MetaFunc {
 }
 
 impl MetaFunc {
+    pub fn get_name(&self) -> &str {
+        match self {
+            MetaFunc::Qpu(func_def) => &func_def.name,
+            MetaFunc::Classical(func_def) => &func_def.name,
+        }
+    }
+
     /// Return the number of arguments this function has
     pub fn arg_count(&self) -> usize {
         match self {
