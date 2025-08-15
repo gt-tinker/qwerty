@@ -370,6 +370,21 @@ impl TypeEnv {
         Self { bindings }
     }
 
+    fn insert(&mut self, name: String, ty: InferType) -> Result<(), LowerError> {
+        let existing_binding = self.bindings.insert(name.to_string(), ty);
+        if existing_binding.is_some() {
+            Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    kind: TypeErrorKind::RedefinedVariable(name),
+                },
+                // TODO: set a debug location
+                dbg: None,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     fn get_type(&self, name: &str) -> Option<InferType> {
         self.bindings.get(name).cloned()
     }
@@ -588,6 +603,7 @@ pub trait Constrainable {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError>;
 }
 
@@ -613,6 +629,7 @@ impl Constrainable for qpu::MetaStmt {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError> {
         match self {
             qpu::MetaStmt::Return { val, .. } => {
@@ -620,10 +637,70 @@ impl Constrainable for qpu::MetaStmt {
                 Ok(Some(val_ty))
             }
 
-            // TODO: add constraints for these
-            qpu::MetaStmt::Expr { .. }
-            | qpu::MetaStmt::Assign { .. }
-            | qpu::MetaStmt::UnpackAssign { .. } => Ok(None),
+            qpu::MetaStmt::Expr { expr } => {
+                let _expr_ty = expr.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                Ok(None)
+            }
+
+            qpu::MetaStmt::Assign { lhs, rhs, .. } => {
+                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                env.insert(lhs.to_string(), rhs_ty)?;
+                Ok(None)
+            }
+
+            qpu::MetaStmt::UnpackAssign { lhs, rhs, .. } => {
+                assert!(!lhs.is_empty(), "unpack must have at least left-hand name");
+
+                let rhs_ty = rhs.build_type_constraints(tv_allocator, env, ty_constraints)?;
+
+                let lhs_tys: Vec<_> = match &rhs_ty {
+                    InferType::TypeVar { .. } => {
+                        // TODO: add more helpful constraints in this case
+                        Ok(std::iter::repeat_with(|| tv_allocator.alloc_type_var())
+                            .take(lhs.len())
+                            .collect())
+                    }
+
+                    InferType::RegType { elem_ty, dim } => {
+                        dv_constraints.insert(DimVarConstraint::new(
+                            dim.clone(),
+                            DimExpr::DimConst {
+                                val: lhs.len().into(),
+                                dbg: None,
+                            },
+                        ));
+                        // TODO: add helpful debug symbol
+                        Ok(std::iter::repeat(InferType::RegType {
+                            elem_ty: *elem_ty,
+                            dim: DimExpr::DimConst {
+                                val: IBig::ONE,
+                                dbg: None,
+                            },
+                        })
+                        .take(lhs.len())
+                        .collect())
+                    }
+
+                    InferType::FuncType { .. }
+                    | InferType::TupleType { .. }
+                    | InferType::UnitType => Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::InvalidType(format!(
+                                "Can only unpack from register type, found: {}",
+                                &rhs_ty
+                            )),
+                        },
+                        // TODO: pass a helpful debug symbol
+                        dbg: None,
+                    }),
+                }?;
+
+                for (lhs_name, lhs_ty) in lhs.iter().zip(lhs_tys.into_iter()) {
+                    env.insert(lhs_name.to_string(), lhs_ty)?;
+                }
+
+                Ok(None)
+            }
 
             // It's expansion's job to deal with these. Let's not bother
             qpu::MetaStmt::ExprMacroDef { .. }
@@ -652,6 +729,7 @@ impl Constrainable for classical::MetaStmt {
         tv_allocator: &mut TypeVarAllocator,
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError> {
         // TODO: actually add constraints
         Ok(None)
@@ -663,6 +741,7 @@ impl<S: Constrainable> MetaFunctionDef<S> {
         &self,
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<FuncTypeAssignment, LowerError> {
         let MetaFunctionDef {
             body,
@@ -694,7 +773,12 @@ impl<S: Constrainable> MetaFunctionDef<S> {
                 });
             }
 
-            let opt_ret_ty = stmt.build_type_constraints(tv_allocator, &mut env, ty_constraints)?;
+            let opt_ret_ty = stmt.build_type_constraints(
+                tv_allocator,
+                &mut env,
+                ty_constraints,
+                dv_constraints,
+            )?;
             if let Some(ret_ty) = opt_ret_ty {
                 ret_ty_constraint = Some(TypeConstraint::new(provided_ret_ty.clone(), ret_ty));
             }
@@ -792,13 +876,14 @@ impl MetaFunc {
         &self,
         tv_allocator: &mut TypeVarAllocator,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
     ) -> Result<FuncTypeAssignment, LowerError> {
         match self {
             MetaFunc::Qpu(qpu_kernel) => {
-                qpu_kernel.build_type_constraints(tv_allocator, ty_constraints)
+                qpu_kernel.build_type_constraints(tv_allocator, ty_constraints, dv_constraints)
             }
             MetaFunc::Classical(classical_func) => {
-                classical_func.build_type_constraints(tv_allocator, ty_constraints)
+                classical_func.build_type_constraints(tv_allocator, ty_constraints, dv_constraints)
             }
         }
     }
@@ -812,27 +897,35 @@ impl MetaFunc {
 }
 
 impl MetaProgram {
-    fn build_type_constraints(&self) -> Result<(TypeConstraints, TypeAssignments), LowerError> {
+    fn build_type_constraints(
+        &self,
+    ) -> Result<(TypeConstraints, DimVarConstraints, TypeAssignments), LowerError> {
         let MetaProgram { funcs, .. } = self;
         let mut tv_allocator = TypeVarAllocator::new();
         let mut ty_constraints = TypeConstraints::new();
+        let mut dv_constraints = DimVarConstraints::new();
 
         let func_ty_assigns = funcs
             .iter()
-            .map(|func| func.build_type_constraints(&mut tv_allocator, &mut ty_constraints))
+            .map(|func| {
+                func.build_type_constraints(
+                    &mut tv_allocator,
+                    &mut ty_constraints,
+                    &mut dv_constraints,
+                )
+            })
             .collect::<Result<Vec<_>, LowerError>>()?;
 
         let ty_assign = TypeAssignments::new(func_ty_assigns);
-        Ok((ty_constraints, ty_assign))
+        Ok((ty_constraints, dv_constraints, ty_assign))
     }
 
     fn unify_ty(
         &self,
         ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
         ty_assign: &mut TypeAssignments,
-    ) -> Result<DimVarConstraints, LowerError> {
-        let mut dv_constraints = DimVarConstraints::new();
-
+    ) -> Result<(), LowerError> {
         while let Some(ty_constraint) = ty_constraints.pop() {
             match ty_constraint.as_pair() {
                 (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id })
@@ -927,7 +1020,7 @@ impl MetaProgram {
             }?;
         }
 
-        Ok(dv_constraints)
+        Ok(())
     }
 
     fn unify_dv(
@@ -945,8 +1038,9 @@ impl MetaProgram {
     }
 
     fn find_assignments(&self) -> Result<(TypeAssignments, DimVarAssignments), LowerError> {
-        let (mut ty_constraints, mut ty_assign) = self.build_type_constraints()?;
-        let dv_constraints = self.unify_ty(&mut ty_constraints, &mut ty_assign)?;
+        let (mut ty_constraints, mut dv_constraints, mut ty_assign) =
+            self.build_type_constraints()?;
+        self.unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
         let dv_assign = self.unify_dv(&dv_constraints)?;
         Ok((ty_assign, dv_assign))
     }
