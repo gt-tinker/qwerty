@@ -44,7 +44,7 @@ impl MetaExpr {
                                                     // is allocate a placeholder dimvar that we pray
                                                     // inference will sort out.
                                                     n_bits: DimExpr::DimVar {
-                                                        name: env.allocate_internal_dim_var(),
+                                                        var: env.allocate_internal_dim_var(),
                                                         dbg: dbg.clone(),
                                                     },
                                                     dbg: dim_dbg.clone(),

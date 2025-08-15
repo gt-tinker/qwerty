@@ -6,13 +6,51 @@ use crate::{
 use dashu::{base::Signed, integer::IBig};
 use std::fmt;
 
+/// A dimension variable. The distinction between the two variants exists
+/// because macro parameters are distinct from function dimension variables
+/// (even if they have the same name), and even dimension variables with the
+/// same name across different functions must be distinct.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DimVar {
+    /// Example:
+    /// ```text
+    /// fourier[N] = fourier[N-1] // std.revolve
+    ///                      ^
+    /// ```
+    /// Another example:
+    /// ```text
+    /// (op[[i]] for i in range(M))
+    ///      ^
+    /// ```
+    MacroParam {
+        var_name: String,
+    },
+    FuncVar {
+        var_name: String,
+        func_name: String,
+    },
+}
+
+impl fmt::Display for DimVar {
+    /// Returns a representation of a dimension variable expression that
+    /// matches the syntax in the Python DSL.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            // TODO: disambiguate these two variants?
+            DimVar::MacroParam { var_name } | DimVar::FuncVar { var_name, .. } => {
+                write!(f, "{}", var_name)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DimExpr {
     /// Dimension variable. Example syntax:
     /// ```text
     /// N
     /// ```
-    DimVar { name: String, dbg: Option<DebugLoc> },
+    DimVar { var: DimVar, dbg: Option<DebugLoc> },
 
     /// A constant dimension variable value. Example syntax:
     /// ```text
@@ -88,7 +126,7 @@ impl fmt::Display for DimExpr {
     /// matches the syntax in the Python DSL.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DimExpr::DimVar { name, .. } => write!(f, "{}", name),
+            DimExpr::DimVar { var, .. } => write!(f, "{}", var),
             DimExpr::DimConst { val, .. } => write!(f, "{}", val),
             DimExpr::DimSum { left, right, .. } => write!(f, "({})+({})", left, right),
             DimExpr::DimProd { left, right, .. } => write!(f, "({})*({})", left, right),

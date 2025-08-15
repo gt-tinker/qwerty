@@ -1,7 +1,7 @@
 use crate::{
     error::{LowerError, LowerErrorKind},
     meta::{
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress,
+        DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress,
         infer::{DimVarAssignments, FuncDimVarAssignments},
         qpu,
     },
@@ -43,16 +43,19 @@ pub enum DimVarValue {
 }
 
 pub struct MacroEnv {
+    /// Used for allocating new dimension variables
+    func_name: String,
     next_internal_dim_var_id: usize,
     pub aliases: HashMap<String, AliasBinding>,
     pub macros: HashMap<String, MacroBinding>,
-    pub dim_vars: HashMap<String, DimVarValue>,
+    pub dim_vars: HashMap<DimVar, DimVarValue>,
     pub vec_symbols: HashMap<char, qpu::MetaVector>,
 }
 
 impl MacroEnv {
-    pub fn new() -> MacroEnv {
+    pub fn new(func_name: String) -> MacroEnv {
         MacroEnv {
+            func_name,
             next_internal_dim_var_id: 0,
             aliases: HashMap::new(),
             macros: HashMap::new(),
@@ -63,26 +66,30 @@ impl MacroEnv {
 
     /// Add a temporary dimension variable that we feel reasonably confident
     /// that inference can take care of.
-    pub fn allocate_internal_dim_var(&mut self) -> String {
+    pub fn allocate_internal_dim_var(&mut self) -> DimVar {
         loop {
-            let name = format!("__{}", self.next_internal_dim_var_id);
+            let var_name = format!("__{}", self.next_internal_dim_var_id);
             self.next_internal_dim_var_id += 1;
+            let var = DimVar::FuncVar {
+                var_name,
+                func_name: self.func_name.clone(),
+            };
             if self
                 .dim_vars
-                .insert(name.to_string(), DimVarValue::Unknown)
+                .insert(var.clone(), DimVarValue::Unknown)
                 .is_none()
             {
-                break name;
+                break var;
             }
         }
     }
 }
 
 impl DimExpr {
-    fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> DimExpr {
+    fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> DimExpr {
         match self {
-            DimExpr::DimVar { name, .. } => {
-                if *name == dim_var_name {
+            DimExpr::DimVar { var, .. } => {
+                if *var == dim_var {
                     new_dim_expr
                 } else {
                     self.clone()
@@ -90,29 +97,19 @@ impl DimExpr {
             }
 
             DimExpr::DimSum { left, right, dbg } => DimExpr::DimSum {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             DimExpr::DimProd { left, right, dbg } => DimExpr::DimProd {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             DimExpr::DimNeg { val, dbg } => DimExpr::DimNeg {
-                val: Box::new(
-                    val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                val: Box::new(val.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
@@ -122,8 +119,8 @@ impl DimExpr {
 
     pub fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), LowerError> {
         match self {
-            DimExpr::DimVar { name, dbg } => {
-                if let Some(DimVarValue::Known(val)) = env.dim_vars.get(name) {
+            DimExpr::DimVar { var, dbg } => {
+                if let Some(DimVarValue::Known(val)) = env.dim_vars.get(var) {
                     Ok((
                         DimExpr::DimConst {
                             val: val.clone(),
@@ -291,7 +288,7 @@ impl<S: Expandable> MetaFunctionDef<S> {
             dbg,
         } = self;
 
-        let mut env = MacroEnv::new();
+        let mut env = MacroEnv::new(name.to_string());
         for dim_var in dim_vars {
             let dv_val = if let Some(val) = dvs.get(dim_var) {
                 DimVarValue::Known(val)
@@ -299,7 +296,11 @@ impl<S: Expandable> MetaFunctionDef<S> {
                 DimVarValue::Unknown
             };
 
-            if env.dim_vars.insert(dim_var.to_string(), dv_val).is_some() {
+            let var = DimVar::FuncVar {
+                var_name: dim_var.to_string(),
+                func_name: name.to_string(),
+            };
+            if env.dim_vars.insert(var, dv_val).is_some() {
                 // Duplicate dimvar
                 return Err(LowerError {
                     kind: LowerErrorKind::Malformed,
@@ -319,7 +320,27 @@ impl<S: Expandable> MetaFunctionDef<S> {
 
         // Why do this? Because we may have inserted some internal dim vars
         // into the context while expanding statements.
-        let new_dim_vars = env.dim_vars.keys().cloned().collect();
+        let new_dim_vars = env
+            .dim_vars
+            .keys()
+            .map(|var| {
+                if let DimVar::FuncVar {
+                    var_name,
+                    func_name,
+                } = var
+                    && func_name == name
+                {
+                    var_name.clone()
+                } else {
+                    // In principle, we could ignore this, but it is better to be
+                    // noisy to catch bugs
+                    panic!(concat!(
+                        "Dimvar in final macro environment is either not a ",
+                        "function variable or from a different function"
+                    ))
+                }
+            })
+            .collect();
         let (expanded_ret_ty, ret_ty_prog) = if let Some(ret_ty) = ret_type {
             let (ty, prog) = ret_ty.expand(&env)?;
             (Some(ty), prog)

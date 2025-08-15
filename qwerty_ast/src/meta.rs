@@ -8,4 +8,4 @@ mod type_dim;
 
 pub use lower::Progress;
 pub use prog_func::{MetaFunc, MetaFunctionDef, MetaProgram, Prelude};
-pub use type_dim::{DimExpr, MetaType};
+pub use type_dim::{DimExpr, DimVar, MetaType};

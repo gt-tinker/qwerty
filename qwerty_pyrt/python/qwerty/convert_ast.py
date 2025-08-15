@@ -16,9 +16,9 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
                           QpuPrelude, ClassicalFunctionDef, Vector, Basis, \
                           QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
-                          BasisGenerator, UnaryOpKind, BinaryOpKind, EmbedKind, \
-                          DimExpr, ExprMacroPattern, BasisMacroPattern, \
-                          RecDefParam
+                          BasisGenerator, UnaryOpKind, BinaryOpKind, \
+                          EmbedKind, DimVar, DimExpr, ExprMacroPattern, \
+                          BasisMacroPattern, RecDefParam
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -139,6 +139,11 @@ class BaseVisitor:
         self._expr_class = expr_class
         self._stmt_class = stmt_class
         self._func_class = func_class
+        # Used when constructing DimVars, since each contains the function name
+        self._func_name = None
+        # We push to this when we parsing the body of a Repeat or a
+        # BasisAliasRecDef and pop when we're done
+        self._macro_dimvar_stack = []
         self.name_generator = name_generator
         self.capturer = capturer
         self.filename = filename
@@ -177,7 +182,16 @@ class BaseVisitor:
 
         if isinstance(node, ast.Name):
             name = node.id
-            return DimExpr.new_var(name, dbg)
+            if name in self._macro_dimvar_stack:
+                var = DimVar.new_macro_param(name)
+            elif self._func_name is not None:
+                var = DimVar.new_func_var(name, self._func_name)
+            else:
+                raise QwertySyntaxError('Cannot use dimension variables '
+                                        'outside functions or macro '
+                                        f'definitions, but found {name}', dbg)
+
+            return DimExpr.new_var(var, dbg)
         elif isinstance(node, ast.Constant) \
                 and isinstance(node.value, int):
             return DimExpr.new_const(node.value, dbg)
@@ -203,8 +217,7 @@ class BaseVisitor:
             return DimExpr.new_neg(val, dbg)
         else:
             raise QwertySyntaxError('Unsupported dimension variable '
-                                    'expression',
-                                    self.get_debug_loc(node))
+                                    'expression', dbg)
 
     #def extract_comma_sep_dimvar_expr(self, node: ast.AST) -> List[DimVarExpr]:
     #    if isinstance(node, ast.Tuple):
@@ -369,6 +382,9 @@ class BaseVisitor:
         ``@classical`` and ``@qpu`` kernels.
         """
         func_name = func_def.name
+        generated_func_name = self.name_generator(func_name)
+        # Used when constructing DimVars, since each contains the function name
+        self._func_name = generated_func_name
 
         # Sanity check for unsupported features
         for arg_prop in ('posonlyargs', 'vararg', 'kwonlyargs', 'kw_defaults',
@@ -476,7 +492,6 @@ class BaseVisitor:
         # ...except traversing the function body
         body = self.visit(func_def.body)
 
-        generated_func_name = self.name_generator(func_name)
         return self._func_class(generated_func_name, args, ret_type, body, is_rev, dbg)
 
     def visit_list(self, nodes: List[ast.AST]):
@@ -811,6 +826,7 @@ class QpuVisitor(BaseVisitor):
         lhs_param_dbg = self.get_debug_loc(lhs_param)
         if isinstance(const := lhs_param, ast.Constant) \
                 and isinstance(base_val := const.value, int):
+            rec_name = None
             param = RecDefParam.new_base(base_val)
         elif isinstance(name := lhs_param, ast.Name):
             rec_name = name.id
@@ -820,7 +836,12 @@ class QpuVisitor(BaseVisitor):
                                     'recursive basis alias definition',
                                     lhs_param_dbg)
 
+        if rec_name is not None:
+            self._macro_dimvar_stack.append(rec_name)
         rhs_basis = self.extract_basis(rhs)
+        if rec_name is not None:
+            self._macro_dimvar_stack.pop()
+
         return QpuStmt.new_basis_alias_rec_def(lhs_name, param, rhs_basis, dbg)
 
     def extract_qubit_literal(self, node: ast.AST) -> QpuExpr:
@@ -1318,8 +1339,11 @@ class QpuVisitor(BaseVisitor):
         ub_node, = comp.iter.args
 
         iter_var = comp.target.id
-        for_each = self.visit(gen.elt)
         upper_bound = self.extract_dimvar_expr(ub_node)
+
+        self._macro_dimvar_stack.append(iter_var)
+        for_each = self.visit(gen.elt)
+        self._macro_dimvar_stack.pop()
 
         return (for_each, iter_var, upper_bound, dbg)
 

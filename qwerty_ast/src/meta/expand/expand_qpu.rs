@@ -2,7 +2,7 @@ use crate::{
     ast::{angle_is_approx_zero, usize_try_into_angle},
     error::{LowerError, LowerErrorKind},
     meta::{
-        DimExpr, Progress,
+        DimExpr, DimVar, Progress,
         expand::{AliasBinding, Expandable, MacroBinding, MacroEnv},
         qpu::{
             BasisMacroPattern, ExprMacroPattern, FloatExpr, MetaBasis, MetaBasisGenerator,
@@ -13,47 +13,33 @@ use crate::{
 use std::collections::HashMap;
 
 impl FloatExpr {
-    pub fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> FloatExpr {
+    pub fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> FloatExpr {
         match self {
             FloatExpr::FloatDimExpr { expr, dbg } => FloatExpr::FloatDimExpr {
-                expr: expr.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                expr: expr.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 dbg: dbg.clone(),
             },
 
             FloatExpr::FloatSum { left, right, dbg } => FloatExpr::FloatSum {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 
             FloatExpr::FloatProd { left, right, dbg } => FloatExpr::FloatProd {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 
             FloatExpr::FloatDiv { left, right, dbg } => FloatExpr::FloatDiv {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 
             FloatExpr::FloatNeg { val, dbg } => FloatExpr::FloatNeg {
-                val: Box::new(
-                    val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                val: Box::new(val.substitute_dim_var(dim_var, new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 
@@ -276,45 +262,33 @@ impl MetaVector {
         }
     }
 
-    pub fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> MetaVector {
+    pub fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> MetaVector {
         match self {
             MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
                 MetaVector::VectorBroadcastTensor {
-                    val: Box::new(
-                        val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                    ),
-                    factor: factor
-                        .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    val: Box::new(val.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                    factor: factor.substitute_dim_var(dim_var, new_dim_expr.clone()),
                     dbg: dbg.clone(),
                 }
             }
 
             MetaVector::VectorTilt { q, angle_deg, dbg } => MetaVector::VectorTilt {
-                q: Box::new(q.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone())),
-                angle_deg: angle_deg
-                    .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                q: Box::new(q.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                angle_deg: angle_deg.substitute_dim_var(dim_var, new_dim_expr.clone()),
                 dbg: dbg.clone(),
             },
 
             MetaVector::UniformVectorSuperpos { q1, q2, dbg } => {
                 MetaVector::UniformVectorSuperpos {
-                    q1: Box::new(
-                        q1.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                    ),
-                    q2: Box::new(
-                        q2.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                    ),
+                    q1: Box::new(q1.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                    q2: Box::new(q2.substitute_dim_var(dim_var, new_dim_expr.clone())),
                     dbg: dbg.clone(),
                 }
             }
 
             MetaVector::VectorBiTensor { left, right, dbg } => MetaVector::VectorBiTensor {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(
-                    right.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 
@@ -461,23 +435,19 @@ impl MetaBasisGenerator {
         }
     }
 
-    pub fn substitute_dim_var(
-        &self,
-        dim_var_name: String,
-        new_dim_expr: DimExpr,
-    ) -> MetaBasisGenerator {
+    pub fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> MetaBasisGenerator {
         match self {
             MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
                 MetaBasisGenerator::BasisGeneratorMacro {
                     name: name.to_string(),
-                    arg: Box::new(arg.substitute_dim_var(dim_var_name, new_dim_expr)),
+                    arg: Box::new(arg.substitute_dim_var(dim_var, new_dim_expr)),
                     dbg: dbg.clone(),
                 }
             }
 
             MetaBasisGenerator::Revolve { v1, v2, dbg } => MetaBasisGenerator::Revolve {
-                v1: v1.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                v2: v2.substitute_dim_var(dim_var_name, new_dim_expr),
+                v1: v1.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                v2: v2.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
         }
@@ -609,14 +579,13 @@ impl MetaBasis {
                                 if let Some(base_case_basis) = base_cases.get(&val) {
                                     base_case_basis.expand(env)
                                 } else if let Some((dim_var_name, rec_basis)) = recursive_step {
+                                    let param = DimVar::MacroParam { var_name: dim_var_name.to_string() };
+                                    let const_val = DimExpr::DimConst {
+                                        val: val.clone(),
+                                        dbg: dim_const_dbg.clone(),
+                                    };
                                     rec_basis
-                                        .substitute_dim_var(
-                                            dim_var_name.to_string(),
-                                            DimExpr::DimConst {
-                                                val: val.clone(),
-                                                dbg: dim_const_dbg.clone(),
-                                            },
-                                        )
+                                        .substitute_dim_var(param, const_val)
                                         .expand(env)
                                 } else {
                                     // Missing recursive step
@@ -817,19 +786,18 @@ impl MetaBasis {
         }
     }
 
-    pub fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> MetaBasis {
+    pub fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> MetaBasis {
         match self {
             MetaBasis::BasisAliasRec { name, param, dbg } => MetaBasis::BasisAliasRec {
                 name: name.to_string(),
-                param: param.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                param: param.substitute_dim_var(dim_var, new_dim_expr.clone()),
                 dbg: dbg.clone(),
             },
 
             MetaBasis::BasisBroadcastTensor { val, factor, dbg } => {
                 MetaBasis::BasisBroadcastTensor {
                     val: val.clone(),
-                    factor: factor
-                        .substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    factor: factor.substitute_dim_var(dim_var, new_dim_expr.clone()),
                     dbg: dbg.clone(),
                 }
             }
@@ -837,18 +805,14 @@ impl MetaBasis {
             MetaBasis::BasisLiteral { vecs, dbg } => MetaBasis::BasisLiteral {
                 vecs: vecs
                     .iter()
-                    .map(|vec| {
-                        vec.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone())
-                    })
+                    .map(|vec| vec.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()))
                     .collect(),
                 dbg: dbg.clone(),
             },
 
             MetaBasis::BasisBiTensor { left, right, dbg } => MetaBasis::BasisBiTensor {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(right.substitute_dim_var(dim_var_name, new_dim_expr)),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
@@ -857,10 +821,8 @@ impl MetaBasis {
                 generator,
                 dbg,
             } => MetaBasis::ApplyBasisGenerator {
-                basis: Box::new(
-                    basis.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                generator: generator.substitute_dim_var(dim_var_name, new_dim_expr),
+                basis: Box::new(basis.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                generator: generator.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -870,31 +832,29 @@ impl MetaBasis {
 }
 
 impl MetaExpr {
-    pub fn substitute_dim_var(&self, dim_var_name: String, new_dim_expr: DimExpr) -> MetaExpr {
+    pub fn substitute_dim_var(&self, dim_var: DimVar, new_dim_expr: DimExpr) -> MetaExpr {
         match self {
             MetaExpr::ExprMacro { name, arg, dbg } => MetaExpr::ExprMacro {
                 name: name.to_string(),
-                arg: Box::new(arg.substitute_dim_var(dim_var_name, new_dim_expr)),
+                arg: Box::new(arg.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::BasisMacro { name, arg, dbg } => MetaExpr::BasisMacro {
                 name: name.to_string(),
-                arg: Box::new(arg.substitute_dim_var(dim_var_name, new_dim_expr)),
+                arg: Box::new(arg.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::BroadcastTensor { val, factor, dbg } => MetaExpr::BroadcastTensor {
-                val: Box::new(
-                    val.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                factor: factor.substitute_dim_var(dim_var_name, new_dim_expr),
+                val: Box::new(val.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                factor: factor.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::Instantiate { name, param, dbg } => MetaExpr::Instantiate {
                 name: name.to_string(),
-                param: param.substitute_dim_var(dim_var_name, new_dim_expr),
+                param: param.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -905,10 +865,10 @@ impl MetaExpr {
                 dbg,
             } => MetaExpr::Repeat {
                 for_each: Box::new(
-                    for_each.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    for_each.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 ),
                 iter_var: iter_var.to_string(),
-                upper_bound: upper_bound.substitute_dim_var(dim_var_name, new_dim_expr),
+                upper_bound: upper_bound.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -917,40 +877,36 @@ impl MetaExpr {
                 embed_kind,
                 dbg,
             } => MetaExpr::EmbedClassical {
-                func: Box::new(func.substitute_dim_var(dim_var_name, new_dim_expr)),
+                func: Box::new(func.substitute_dim_var(dim_var, new_dim_expr)),
                 embed_kind: *embed_kind,
                 dbg: dbg.clone(),
             },
 
             MetaExpr::Adjoint { func, dbg } => MetaExpr::Adjoint {
-                func: Box::new(func.substitute_dim_var(dim_var_name, new_dim_expr)),
+                func: Box::new(func.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::Pipe { lhs, rhs, dbg } => MetaExpr::Pipe {
-                lhs: Box::new(
-                    lhs.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                rhs: Box::new(rhs.substitute_dim_var(dim_var_name, new_dim_expr)),
+                lhs: Box::new(lhs.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                rhs: Box::new(rhs.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::Measure { basis, dbg } => MetaExpr::Measure {
-                basis: basis.substitute_dim_var(dim_var_name, new_dim_expr),
+                basis: basis.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::BiTensor { left, right, dbg } => MetaExpr::BiTensor {
-                left: Box::new(
-                    left.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                ),
-                right: Box::new(right.substitute_dim_var(dim_var_name, new_dim_expr)),
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::BasisTranslation { bin, bout, dbg } => MetaExpr::BasisTranslation {
-                bin: bin.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                bout: bout.substitute_dim_var(dim_var_name, new_dim_expr),
+                bin: bin.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                bout: bout.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -961,12 +917,12 @@ impl MetaExpr {
                 dbg,
             } => MetaExpr::Predicated {
                 then_func: Box::new(
-                    then_func.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    then_func.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 ),
                 else_func: Box::new(
-                    else_func.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    else_func.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 ),
-                pred: pred.substitute_dim_var(dim_var_name, new_dim_expr),
+                pred: pred.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -975,8 +931,8 @@ impl MetaExpr {
                     .iter()
                     .map(|(prob, vec)| {
                         (
-                            prob.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
-                            vec.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                            prob.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                            vec.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                         )
                     })
                     .collect(),
@@ -990,22 +946,22 @@ impl MetaExpr {
                 dbg,
             } => MetaExpr::Conditional {
                 then_expr: Box::new(
-                    then_expr.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    then_expr.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 ),
                 else_expr: Box::new(
-                    else_expr.substitute_dim_var(dim_var_name.to_string(), new_dim_expr.clone()),
+                    else_expr.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 ),
-                cond: Box::new(cond.substitute_dim_var(dim_var_name, new_dim_expr)),
+                cond: Box::new(cond.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
             MetaExpr::QLit { vec } => MetaExpr::QLit {
-                vec: vec.substitute_dim_var(dim_var_name, new_dim_expr),
+                vec: vec.substitute_dim_var(dim_var, new_dim_expr),
             },
 
             MetaExpr::BitLiteral { val, n_bits, dbg } => MetaExpr::BitLiteral {
                 val: val.clone(),
-                n_bits: n_bits.substitute_dim_var(dim_var_name, new_dim_expr),
+                n_bits: n_bits.substitute_dim_var(dim_var, new_dim_expr),
                 dbg: dbg.clone(),
             },
 
@@ -1565,9 +1521,10 @@ impl MetaExpr {
                                     dbg: dbg.clone(),
                                 })
                             } else {
+                                let var = DimVar::MacroParam { var_name: iter_var.to_string() };
                                 let first = for_each
                                     .substitute_dim_var(
-                                        iter_var.to_string(),
+                                        var.clone(),
                                         DimExpr::DimConst {
                                             val: 0.into(),
                                             dbg: dbg.clone()
@@ -1579,7 +1536,7 @@ impl MetaExpr {
                                     .fold(first, |acc, (i, cloned_for_each)| {
                                         let rhs = cloned_for_each
                                             .substitute_dim_var(
-                                                iter_var.to_string(),
+                                                var.clone(),
                                                 DimExpr::DimConst {
                                                     val: (i+1).into(),
                                                     dbg: dbg.clone()

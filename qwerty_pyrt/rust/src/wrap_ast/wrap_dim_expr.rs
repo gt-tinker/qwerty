@@ -4,6 +4,32 @@ use qwerty_ast::meta;
 
 #[pyclass]
 #[derive(Clone)]
+pub struct DimVar {
+    pub var: meta::DimVar,
+}
+
+#[pymethods]
+impl DimVar {
+    #[classmethod]
+    fn new_macro_param(_cls: &Bound<'_, PyType>, var_name: String) -> Self {
+        Self {
+            var: meta::DimVar::MacroParam { var_name },
+        }
+    }
+
+    #[classmethod]
+    fn new_func_var(_cls: &Bound<'_, PyType>, var_name: String, func_name: String) -> Self {
+        Self {
+            var: meta::DimVar::FuncVar {
+                var_name,
+                func_name,
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
 pub struct DimExpr {
     pub dim_expr: meta::DimExpr,
 }
@@ -11,10 +37,10 @@ pub struct DimExpr {
 #[pymethods]
 impl DimExpr {
     #[classmethod]
-    fn new_var(_cls: &Bound<'_, PyType>, name: String, dbg: Option<DebugLoc>) -> Self {
+    fn new_var(_cls: &Bound<'_, PyType>, var: DimVar, dbg: Option<DebugLoc>) -> Self {
         Self {
             dim_expr: meta::DimExpr::DimVar {
-                name,
+                var: var.var,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

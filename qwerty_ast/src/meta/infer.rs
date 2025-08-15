@@ -2,10 +2,7 @@ use crate::{
     ast::{RegKind, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind, TypeErrorKind},
-    meta::{
-        DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical,
-        expand::MacroEnv, qpu,
-    },
+    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu},
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
@@ -330,31 +327,6 @@ impl InferType {
                 Some(MetaType::TupleType { tys: meta_tys })
             }
             InferType::UnitType => Some(MetaType::UnitType),
-        }
-    }
-
-    fn expand(self) -> Result<Self, LowerError> {
-        match self {
-            InferType::FuncType { in_ty, out_ty } => Ok(InferType::FuncType {
-                in_ty: Box::new(in_ty.expand()?),
-                out_ty: Box::new(out_ty.expand()?),
-            }),
-            InferType::RegType { elem_ty, dim } => {
-                let empty_env = MacroEnv::new();
-                let (expanded_dim, _dim_progress) = dim.expand(&empty_env)?;
-                Ok(InferType::RegType {
-                    elem_ty,
-                    dim: expanded_dim,
-                })
-            }
-            InferType::TupleType { tys } => {
-                let expanded_tys = tys
-                    .into_iter()
-                    .map(InferType::expand)
-                    .collect::<Result<Vec<_>, LowerError>>()?;
-                Ok(InferType::TupleType { tys: expanded_tys })
-            }
-            InferType::TypeVar { .. } | InferType::UnitType => Ok(self),
         }
     }
 
