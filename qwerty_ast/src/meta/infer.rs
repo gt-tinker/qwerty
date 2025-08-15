@@ -390,6 +390,88 @@ impl InferType {
             InferType::RegType { .. } | InferType::UnitType => false,
         }
     }
+
+    fn bi_tensor(
+        tv_allocator: &mut TypeVarAllocator,
+        allow_func: bool,
+        dbg: &Option<DebugLoc>,
+        left_ty: InferType,
+        right_ty: InferType,
+    ) -> Result<InferType, LowerError> {
+        match (left_ty, right_ty) {
+            // Not much we can do here
+            // TODO: instead, if we are e.g. tensoring with a register, create a new dimvar
+            //       N and then add a type constraint qubit[N] = T
+            (InferType::TypeVar { .. }, _) | (_, InferType::TypeVar { .. }) => {
+                Ok(tv_allocator.alloc_type_var())
+            }
+
+            // This is the way typecheck.rs works: [] + e has the same type as e
+            (InferType::UnitType, other) | (other, InferType::UnitType) => Ok(other),
+
+            (
+                InferType::RegType {
+                    elem_ty: left_elem_ty,
+                    dim: left_dim,
+                },
+                InferType::RegType {
+                    elem_ty: right_elem_ty,
+                    dim: right_dim,
+                },
+            ) if left_elem_ty == right_elem_ty => {
+                let sum = DimExpr::DimSum {
+                    left: Box::new(left_dim),
+                    right: Box::new(right_dim),
+                    dbg: dbg.clone(),
+                };
+                Ok(InferType::RegType {
+                    elem_ty: left_elem_ty,
+                    dim: sum,
+                })
+            }
+
+            (
+                InferType::FuncType {
+                    in_ty: left_in_ty,
+                    out_ty: left_out_ty,
+                },
+                InferType::FuncType {
+                    in_ty: right_in_ty,
+                    out_ty: right_out_ty,
+                },
+            ) if allow_func => {
+                let in_ty = Self::bi_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ false,
+                    dbg,
+                    *left_in_ty,
+                    *right_in_ty,
+                )?;
+                let out_ty = Self::bi_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ false,
+                    dbg,
+                    *left_out_ty,
+                    *right_out_ty,
+                )?;
+                Ok(InferType::FuncType {
+                    in_ty: Box::new(in_ty),
+                    out_ty: Box::new(out_ty),
+                })
+            }
+
+            (left, right) => Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    // TODO: more specific error message?
+                    kind: TypeErrorKind::MismatchedTypes {
+                        expected: left.to_string(),
+                        found: right.to_string(),
+                    },
+                },
+                dbg: dbg.clone(),
+            }),
+        }
+    }
 }
 
 pub struct TypeVarAllocator {
@@ -725,11 +807,62 @@ impl ExprConstrainable for qpu::MetaExpr {
                 }
             }
 
+            qpu::MetaExpr::Discard { dbg } => Ok(InferType::FuncType {
+                in_ty: Box::new(InferType::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: DimExpr::DimConst {
+                        val: IBig::ONE,
+                        dbg: dbg.clone(),
+                    },
+                }),
+                out_ty: Box::new(InferType::UnitType),
+            }),
+
+            qpu::MetaExpr::BiTensor { left, right, dbg } => {
+                let left_ty =
+                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let right_ty = right.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+
+                InferType::bi_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ true,
+                    dbg,
+                    left_ty,
+                    right_ty,
+                )
+            }
+
+            qpu::MetaExpr::BasisTranslation { bin, bout, .. } => {
+                let bin_dim = bin.get_dim();
+                let bout_dim = bout.get_dim();
+
+                if let (Some(in_dim), Some(out_dim)) = (&bin_dim, &bout_dim) {
+                    dv_constraints.insert(DimVarConstraint::new(in_dim.clone(), out_dim.clone()));
+                }
+
+                if let Some(dim) = bin_dim.or(bout_dim) {
+                    Ok(InferType::FuncType {
+                        in_ty: Box::new(InferType::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: dim.clone(),
+                        }),
+                        out_ty: Box::new(InferType::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim,
+                        }),
+                    })
+                } else {
+                    Ok(tv_allocator.alloc_type_var())
+                }
+            }
+
             // TODO: implement these
-            qpu::MetaExpr::Discard { .. }
-            | qpu::MetaExpr::BiTensor { .. }
-            | qpu::MetaExpr::BasisTranslation { .. }
-            | qpu::MetaExpr::Predicated { .. }
+            qpu::MetaExpr::Predicated { .. }
             | qpu::MetaExpr::NonUniformSuperpos { .. }
             | qpu::MetaExpr::Conditional { .. } => Ok(tv_allocator.alloc_type_var()),
 
