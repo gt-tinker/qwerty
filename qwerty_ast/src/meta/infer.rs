@@ -383,8 +383,9 @@ impl TypeEnv {
         funcs_avail: &[(&str, FuncTypeAssignment)],
         args: &[(InferType, String)],
     ) -> Result<Self, LowerError> {
-        let mut bindings = HashMap::new();
-        let mut ret = Self { bindings };
+        let mut ret = Self {
+            bindings: HashMap::new(),
+        };
 
         for (func_name, func_ty_assign) in funcs_avail {
             ret.insert(func_name.to_string(), func_ty_assign.get_func_type())?;
@@ -637,8 +638,87 @@ impl ExprConstrainable for classical::MetaExpr {
         env: &mut TypeEnv,
         ty_constraints: &mut TypeConstraints,
     ) -> Result<InferType, LowerError> {
-        // TODO: fill this in
-        Ok(tv_allocator.alloc_type_var())
+        match self {
+            // TODO: implement this
+            classical::MetaExpr::Mod { .. } => Ok(tv_allocator.alloc_type_var()),
+
+            classical::MetaExpr::Variable { name, dbg } => {
+                if let Some(ty) = env.get_type(name) {
+                    Ok(ty.clone())
+                } else {
+                    Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::UndefinedVariable(name.to_string()),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+
+            classical::MetaExpr::Slice {
+                val,
+                lower,
+                upper,
+                dbg,
+            } => {
+                let _val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+
+                // TODO: add a type constraint that this is bit[N] for a new dv N
+
+                let ty = if let (
+                    DimExpr::DimConst { val: lower_val, .. },
+                    DimExpr::DimConst { val: upper_val, .. },
+                ) = (lower, upper)
+                    && upper_val >= lower_val
+                {
+                    InferType::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: DimExpr::DimConst {
+                            val: upper_val - lower_val,
+                            dbg: dbg.clone(),
+                        },
+                    }
+                } else {
+                    tv_allocator.alloc_type_var()
+                };
+                Ok(ty)
+            }
+
+            classical::MetaExpr::UnaryOp { val, .. } => {
+                val.build_type_constraints(tv_allocator, env, ty_constraints)
+            }
+
+            classical::MetaExpr::BinaryOp { left, right, .. } => {
+                let left_ty = left.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                let right_ty = right.build_type_constraints(tv_allocator, env, ty_constraints)?;
+                ty_constraints.insert(TypeConstraint::new(left_ty.clone(), right_ty));
+                Ok(left_ty)
+            }
+
+            classical::MetaExpr::ReduceOp { val, .. } => {
+                let _val_ty = val.build_type_constraints(tv_allocator, env, ty_constraints)?;
+
+                // TODO: add a type constraint that this is bit[N] for a new dv N
+
+                // TODO: use a helpful debug location
+                let ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: DimExpr::DimConst {
+                        val: IBig::ONE,
+                        dbg: None,
+                    },
+                };
+                Ok(ty)
+            }
+
+            classical::MetaExpr::BitLiteral { n_bits, .. } => {
+                let ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: n_bits.clone(),
+                };
+                Ok(ty)
+            }
+        }
     }
 }
 
