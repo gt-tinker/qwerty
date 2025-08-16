@@ -305,11 +305,10 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(expected_meas, 0),
                            shots//4*3, "Too few correct answers")
 
-    @unittest.skip("gets stuck because we cannot infer an internal dim var")
     def test_period(self):
         from .integ.meta_noinfer import period
-        shots = 1024
-        self.assertTrue(any(period.test() == 4 for _ in range(32)))
+        expected_period = 4
+        self.assertTrue(any(period.test() == expected_period for _ in range(8)))
 
 @unittest.skipIf(should_skip, skip_msg)
 class MetaInferIntegrationTests(unittest.TestCase):

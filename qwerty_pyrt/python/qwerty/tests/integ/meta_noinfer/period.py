@@ -26,7 +26,7 @@ def period_finding(f):
 
 @classical
 def mod4(x: bit[3]) -> bit[3]:
-    return x % 4
+    return x & bit[3](0b011)
 
 def test():
     return period_finding(mod4)
