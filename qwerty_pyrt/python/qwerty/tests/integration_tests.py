@@ -462,10 +462,9 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histo = bv_shots.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
-    @unittest.skip("mod not implemented in classical functions")
     def test_fig16_period(self):
         from .integ.qce25_figs import period
-        self.assertTrue(any(period.test() == 'Success!' for _ in range(32)))
+        self.assertTrue(any(period.test() == 'Success!' for _ in range(8)))
 
     @unittest.skip("free dimvars not supported & modmul not implemented")
     def test_fig18_shor(self):

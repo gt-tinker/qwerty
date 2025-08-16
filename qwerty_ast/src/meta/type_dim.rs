@@ -202,8 +202,8 @@ impl DimExpr {
                 left, right, dbg, ..
             } => {
                 let mut vals = vec![];
-                left.flatten_sum(&mut vals);
-                right.flatten_sum(&mut vals);
+                left.canonicalize().flatten_sum(&mut vals);
+                right.canonicalize().flatten_sum(&mut vals);
                 vals = vals.into_iter().filter(|v| !v.is_constant_zero()).collect();
                 vals.sort();
                 vals.into_iter()
@@ -219,8 +219,8 @@ impl DimExpr {
                 left, right, dbg, ..
             } => {
                 let mut vals = vec![];
-                left.flatten_prod(&mut vals);
-                right.flatten_prod(&mut vals);
+                left.canonicalize().flatten_prod(&mut vals);
+                right.canonicalize().flatten_prod(&mut vals);
                 vals = vals.into_iter().filter(|v| !v.is_constant_one()).collect();
                 vals.sort();
                 vals.into_iter()

@@ -1687,7 +1687,7 @@ impl MetaProgram {
     }
 
     fn unify_dv(&self, dv_constraints: &DimVarConstraints) -> HashMap<DimVar, IBig> {
-        let constraints: Vec<_> = dv_constraints
+        let mut constraints: Vec<_> = dv_constraints
             .iter()
             .filter_map(|constraint| {
                 let canon_constraint = constraint.strip_dbg().canonicalize();
@@ -1701,11 +1701,18 @@ impl MetaProgram {
 
         let mut var_val_map = HashMap::new();
 
-        for constraint in constraints {
+        while let Some(constraint ) = constraints.pop() {
             match (constraint.0, constraint.1) {
                 (DimExpr::DimVar { var, .. }, DimExpr::DimConst { val, .. })
                 | (DimExpr::DimConst { val, .. }, DimExpr::DimVar { var, .. }) => {
                     var_val_map.insert(var, val);
+                }
+
+                // TODO: this case should not be hard-coded
+                (DimExpr::DimSum { left: left_left, right: left_right, .. }, DimExpr::DimSum { left: right_left, right: right_right, .. }) if left_left == left_right && right_left == right_right => {
+                    let left = *left_left;
+                    let right = *right_right;
+                    constraints.push(DimVarConstraint::new(left, right));
                 }
 
                 // TODO: support more cases
