@@ -1,5 +1,5 @@
 use crate::{
-    error::{LowerError, LowerErrorKind},
+    error::{LowerError, LowerErrorKind, TypeErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress,
         infer::{DimVarAssignments, FuncDimVarAssignments},
@@ -12,6 +12,7 @@ use std::collections::HashMap;
 mod expand_classical;
 mod expand_qpu;
 
+#[derive(Debug)]
 pub enum AliasBinding {
     BasisAlias {
         rhs: qpu::MetaBasis,
@@ -22,6 +23,7 @@ pub enum AliasBinding {
     },
 }
 
+#[derive(Debug)]
 pub enum MacroBinding {
     ExprMacro {
         lhs_pat: qpu::ExprMacroPattern,
@@ -37,11 +39,13 @@ pub enum MacroBinding {
     },
 }
 
+#[derive(Debug)]
 pub enum DimVarValue {
     Unknown,
     Known(IBig),
 }
 
+#[derive(Debug)]
 pub struct MacroEnv {
     /// Used for allocating new dimension variables
     func_name: String,
@@ -120,16 +124,25 @@ impl DimExpr {
     pub fn expand(&self, env: &MacroEnv) -> Result<(DimExpr, Progress), LowerError> {
         match self {
             DimExpr::DimVar { var, dbg } => {
-                if let Some(DimVarValue::Known(val)) = env.dim_vars.get(var) {
-                    Ok((
-                        DimExpr::DimConst {
-                            val: val.clone(),
-                            dbg: dbg.clone(),
-                        },
-                        Progress::Full,
-                    ))
+                if let Some(dim_var_value) = env.dim_vars.get(var) {
+                    if let DimVarValue::Known(val) = dim_var_value {
+                        Ok((
+                            DimExpr::DimConst {
+                                val: val.clone(),
+                                dbg: dbg.clone(),
+                            },
+                            Progress::Full,
+                        ))
+                    } else {
+                        Ok((self.clone(), Progress::Partial))
+                    }
                 } else {
-                    Ok((self.clone(), Progress::Partial))
+                    Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::UndefinedVariable(var.to_string()),
+                        },
+                        dbg: dbg.clone(),
+                    })
                 }
             }
 
@@ -289,15 +302,16 @@ impl<S: Expandable> MetaFunctionDef<S> {
         } = self;
 
         let mut env = MacroEnv::new(name.to_string());
-        for dim_var in dim_vars {
-            let dv_val = if let Some(val) = dvs.get(dim_var) {
-                DimVarValue::Known(val)
+
+        for (dim_var_name, dim_var_value) in dim_vars.iter().zip(dvs.iter()) {
+            let dv_val = if let Some(val) = dim_var_value {
+                DimVarValue::Known(val.clone())
             } else {
                 DimVarValue::Unknown
             };
 
             let var = DimVar::FuncVar {
-                var_name: dim_var.to_string(),
+                var_name: dim_var_name.to_string(),
                 func_name: name.to_string(),
             };
             if env.dim_vars.insert(var, dv_val).is_some() {
@@ -308,7 +322,6 @@ impl<S: Expandable> MetaFunctionDef<S> {
                 });
             }
         }
-
         let expanded_pairs = body
             .iter()
             .map(|stmt| stmt.expand(&mut env))

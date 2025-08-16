@@ -4,6 +4,10 @@ Fig. 9 of the Qwerty QCE '25 paper.
 
 from qwerty import *
 
+@classical
+def oracle(x: bit[4]) -> bit:
+  return x[0] & ~x[1] & x[2] & ~x[3]
+
 def grover2(oracle, num_iter):
   @qpu[[N]]
   def grover_iter(q):
@@ -20,5 +24,4 @@ def grover2(oracle, num_iter):
   return kernel()
 
 def test():
-  from .grover import oracle
   return grover2(oracle, 3)

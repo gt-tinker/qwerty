@@ -932,6 +932,30 @@ impl Vector {
             _ => self.clone(),
         }
     }
+
+    /// Tries to factor `prefix` from this vector and returns the remainder.
+    /// Expects a canonicalized and normalized vector first, but does not
+    /// return a canonicalized vector.
+    pub fn factor(&self, prefix: &Vector) -> Option<Vector> {
+        if self == prefix {
+            Some(Vector::VectorUnit {
+                dbg: self.get_dbg(),
+            })
+        } else if let Vector::VectorTensor { qs, dbg } = self {
+            assert!(qs.len() >= 2, "empty tensor products are not allowed");
+            let remainder = qs[0].factor(prefix)?;
+            let new_qs = std::iter::once(remainder)
+                .chain(qs.iter().skip(1).cloned())
+                .collect();
+            Some(Vector::VectorTensor {
+                qs: new_qs,
+                dbg: dbg.clone(),
+            })
+        } else {
+            // TODO: support more cases
+            None
+        }
+    }
 }
 
 impl Ord for Vector {

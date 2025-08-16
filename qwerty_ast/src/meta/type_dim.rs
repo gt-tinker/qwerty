@@ -89,6 +89,25 @@ pub enum DimExpr {
 }
 
 impl DimExpr {
+    /// Returns true if this is a constant with the provided value.
+    fn is_constant(&self, value: &IBig) -> bool {
+        if let DimExpr::DimConst { val, .. } = self {
+            val == value
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if this is a constant 0.
+    pub fn is_constant_zero(&self) -> bool {
+        self.is_constant(&IBig::ZERO)
+    }
+
+    /// Returns true if this is a constant 1.
+    pub fn is_constant_one(&self) -> bool {
+        self.is_constant(&IBig::ONE)
+    }
+
     /// Return the same dimension variable expression but without any debug
     /// symbols. Useful for comparing expressions.
     pub fn strip_dbg(&self) -> DimExpr {
@@ -97,10 +116,12 @@ impl DimExpr {
                 var: var.clone(),
                 dbg: None,
             },
+
             DimExpr::DimConst { val, dbg: _ } => DimExpr::DimConst {
                 val: val.clone(),
                 dbg: None,
             },
+
             DimExpr::DimSum {
                 left,
                 right,
@@ -110,6 +131,7 @@ impl DimExpr {
                 right: Box::new(right.strip_dbg()),
                 dbg: None,
             },
+
             DimExpr::DimProd {
                 left,
                 right,
@@ -119,6 +141,7 @@ impl DimExpr {
                 right: Box::new(right.strip_dbg()),
                 dbg: None,
             },
+
             DimExpr::DimNeg { val, dbg: _ } => DimExpr::DimNeg {
                 val: Box::new(val.strip_dbg()),
                 dbg: None,
@@ -160,6 +183,8 @@ impl DimExpr {
     ///
     /// 1. Trees of `DimSum` and `DimProd` are rebuilt in a left-recursive
     ///    form where operands are sorted.
+    /// 2. `DimProd` operands that are `DimConst` 1s are removed
+    /// 3. `DimSum` operands that are `DimConst` 0s are removed
     ///
     /// Debug symbols are not removed. You should call [`DimExpr::strip_dbg`]
     /// for that first if you want it.
@@ -179,6 +204,7 @@ impl DimExpr {
                 let mut vals = vec![];
                 left.flatten_sum(&mut vals);
                 right.flatten_sum(&mut vals);
+                vals = vals.into_iter().filter(|v| !v.is_constant_zero()).collect();
                 vals.sort();
                 vals.into_iter()
                     .reduce(|left, right| DimExpr::DimSum {
@@ -195,6 +221,7 @@ impl DimExpr {
                 let mut vals = vec![];
                 left.flatten_prod(&mut vals);
                 right.flatten_prod(&mut vals);
+                vals = vals.into_iter().filter(|v| !v.is_constant_one()).collect();
                 vals.sort();
                 vals.into_iter()
                     .reduce(|left, right| DimExpr::DimProd {

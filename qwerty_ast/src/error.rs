@@ -157,6 +157,7 @@ pub enum LowerErrorKind {
     IntegerTooBig { offender: IBig },
     NegativeInteger { offender: IBig },
     DivisionByZero,
+    RepeatMustBeOnRightOfPipe,
     Stuck,
     MissingFuncTypeAnnotation,
     TypeError { kind: TypeErrorKind },
@@ -194,6 +195,15 @@ impl fmt::Display for LowerErrorKind {
                 )
             }
             LowerErrorKind::DivisionByZero => write!(f, "Division by zero"),
+            LowerErrorKind::RepeatMustBeOnRightOfPipe => {
+                write!(
+                    f,
+                    concat!(
+                        "The repeat construct `(... for i in ...)` must be on the right-hand side ",
+                        "of a pipe `|`."
+                    ),
+                )
+            }
             LowerErrorKind::Stuck => write!(
                 f,
                 concat!(

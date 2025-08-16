@@ -1,5 +1,6 @@
 use crate::{
     ast::{angle_is_approx_zero, usize_try_into_angle},
+    dbg::DebugLoc,
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, DimVar, Progress,
@@ -1330,6 +1331,73 @@ impl MetaExpr {
         }
     }
 
+    pub fn expand_as_pipe_rhs(
+        &self,
+        lhs: &MetaExpr,
+        dbg: &Option<DebugLoc>,
+        env: &MacroEnv,
+    ) -> Result<(MetaExpr, Progress), LowerError> {
+        let (expanded_lhs, lhs_prog) = lhs.expand(env)?;
+
+        match self {
+            MetaExpr::Repeat {
+                for_each,
+                iter_var,
+                upper_bound,
+                dbg,
+            } => upper_bound.expand(env).and_then(|(expanded_ub, ub_prog)| {
+                if let (DimExpr::DimConst { .. }, Progress::Full) = (&expanded_ub, ub_prog) {
+                    expanded_ub.extract().and_then(|ub_int| {
+                        let var = DimVar::MacroParam {
+                            var_name: iter_var.to_string(),
+                        };
+
+                        std::iter::repeat(for_each)
+                            .take(ub_int)
+                            .enumerate()
+                            .fold(lhs.clone(), |acc, (i, cloned_for_each)| {
+                                let rhs = cloned_for_each.substitute_dim_var(
+                                    var.clone(),
+                                    DimExpr::DimConst {
+                                        val: i.into(),
+                                        dbg: dbg.clone(),
+                                    },
+                                );
+
+                                MetaExpr::Pipe {
+                                    lhs: Box::new(acc),
+                                    rhs: Box::new(rhs),
+                                    dbg: dbg.clone(),
+                                }
+                            })
+                            .expand(env)
+                    })
+                } else {
+                    Ok((
+                        MetaExpr::Repeat {
+                            for_each: for_each.clone(),
+                            iter_var: iter_var.to_string(),
+                            upper_bound: expanded_ub,
+                            dbg: dbg.clone(),
+                        },
+                        ub_prog,
+                    ))
+                }
+            }),
+
+            rhs => rhs.expand(env).map(|(expanded_rhs, rhs_prog)| {
+                (
+                    MetaExpr::Pipe {
+                        lhs: Box::new(expanded_lhs),
+                        rhs: Box::new(expanded_rhs),
+                        dbg: dbg.clone(),
+                    },
+                    lhs_prog.join(rhs_prog),
+                )
+            }),
+        }
+    }
+
     pub fn expand(&self, env: &MacroEnv) -> Result<(MetaExpr, Progress), LowerError> {
         match self {
             MetaExpr::ExprMacro { name, arg, dbg } => {
@@ -1509,55 +1577,10 @@ impl MetaExpr {
                         dbg: dbg.clone()
                     }, param_prog)),
 
-            MetaExpr::Repeat { for_each, iter_var, upper_bound, dbg } => upper_bound
-                .expand(env).and_then(|(expanded_ub, ub_prog)|
-                    if let (DimExpr::DimConst { .. }, Progress::Full) = (&expanded_ub, ub_prog) {
-                        expanded_ub.extract().and_then(|ub_int|
-                            if ub_int == 0 {
-                                // TODO: if we ever have an identity node,
-                                //       insert it here instead of erroring
-                                Err(LowerError {
-                                    kind: LowerErrorKind::Malformed,
-                                    dbg: dbg.clone(),
-                                })
-                            } else {
-                                let var = DimVar::MacroParam { var_name: iter_var.to_string() };
-                                let first = for_each
-                                    .substitute_dim_var(
-                                        var.clone(),
-                                        DimExpr::DimConst {
-                                            val: 0.into(),
-                                            dbg: dbg.clone()
-                                        });
-
-                                std::iter::repeat(for_each)
-                                    .take(ub_int-1)
-                                    .enumerate()
-                                    .fold(first, |acc, (i, cloned_for_each)| {
-                                        let rhs = cloned_for_each
-                                            .substitute_dim_var(
-                                                var.clone(),
-                                                DimExpr::DimConst {
-                                                    val: (i+1).into(),
-                                                    dbg: dbg.clone()
-                                                });
-
-                                        MetaExpr::Pipe {
-                                            lhs: Box::new(acc),
-                                            rhs: Box::new(rhs),
-                                            dbg: dbg.clone(),
-                                        }
-                                    })
-                                    .expand(env)
-                            })
-                    } else {
-                        Ok((MetaExpr::Repeat {
-                            for_each: for_each.clone(),
-                            iter_var: iter_var.to_string(),
-                            upper_bound: expanded_ub,
-                            dbg: dbg.clone(),
-                        }, ub_prog))
-                    }),
+            MetaExpr::Repeat { dbg, .. } => Err(LowerError {
+                kind: LowerErrorKind::RepeatMustBeOnRightOfPipe,
+                dbg: dbg.clone(),
+            }),
 
             MetaExpr::EmbedClassical { func, embed_kind, dbg } => func
                 .expand(env)
@@ -1580,17 +1603,7 @@ impl MetaExpr {
                     func_prog)
                 ),
 
-            MetaExpr::Pipe { lhs, rhs, dbg } => lhs
-                .expand(env)
-                .and_then(|(expanded_lhs, lhs_prog)|
-                    rhs.expand(env)
-                        .map(|(expanded_rhs, rhs_prog)|
-                            (MetaExpr::Pipe {
-                                lhs: Box::new(expanded_lhs),
-                                rhs: Box::new(expanded_rhs),
-                                dbg: dbg.clone(),
-                            }, lhs_prog.join(rhs_prog))
-                        )),
+            MetaExpr::Pipe { lhs, rhs, dbg } => rhs.expand_as_pipe_rhs(lhs, dbg, env),
 
             MetaExpr::Measure { basis, dbg } => basis
                 .expand(env)

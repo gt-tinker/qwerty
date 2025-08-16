@@ -20,7 +20,7 @@ from ._qwerty_pyrt import Program
 from .runtime import dimvar, bit
 from .pyast_utils import get_func_pyast
 from .convert_ast import AstKind, convert_func_ast, Capturer, CaptureError, \
-                         CapturedSymbol, CapturedBitReg
+                         CapturedSymbol, CapturedBitReg, CapturedInt
 from .prelude import PreludeHandle
 from .default_qpu_prelude import default_qpu_prelude
 
@@ -90,10 +90,18 @@ class PyCapturer(Capturer):
     def capture(self, var_name: str) -> Optional[str]:
         if var_name in self.python_vars:
             python_obj = self.python_vars[var_name]
-            if isinstance(kernel := python_obj, KernelHandle):
+            if isinstance(python_obj, dimvar):
+                # Don't try to capture dimvars. There is no useful data here in
+                # Python to use in Qwerty. The binding e.g. N = dimvar('N')
+                # only exists to let us say bit[N] in type annotations without
+                # Python freaking out.
+                return None
+            elif isinstance(kernel := python_obj, KernelHandle):
                 return CapturedSymbol(kernel.func_name)
             elif isinstance(bit_reg := python_obj, bit):
                 return CapturedBitReg(bit_reg)
+            elif isinstance(int_val := python_obj, int):
+                return CapturedInt(int_val)
             else:
                 raise CaptureError(type(python_obj).__name__)
         else:

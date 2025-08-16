@@ -2,34 +2,75 @@ use crate::{
     ast::{RegKind, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind, TypeErrorKind},
-    meta::{DimExpr, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu},
+    meta::{
+        DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu,
+    },
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub struct FuncDimVarAssignments(HashMap<String, IBig>);
+pub struct FuncDimVarAssignments(Vec<Option<IBig>>);
 
 impl FuncDimVarAssignments {
-    pub fn new() -> Self {
-        Self(HashMap::new())
+    pub fn new(vals: Vec<Option<IBig>>) -> Self {
+        Self(vals)
     }
 
-    pub fn get(&self, dim_var: &str) -> Option<IBig> {
-        self.0.get(dim_var).cloned()
+    pub fn empty(func: &MetaFunc) -> Self {
+        Self(
+            std::iter::repeat(None)
+                .take(func.get_dim_vars().len())
+                .collect(),
+        )
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Option<IBig>> {
+        self.0.iter()
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DimVarAssignments(Vec<FuncDimVarAssignments>);
 
 impl DimVarAssignments {
     pub fn empty(program: &MetaProgram) -> Self {
         Self(
-            std::iter::repeat(FuncDimVarAssignments::new())
-                .take(program.funcs.len())
+            program
+                .funcs
+                .iter()
+                .map(FuncDimVarAssignments::empty)
                 .collect(),
         )
+    }
+
+    pub fn from_val_var_map(program: &MetaProgram, val_var_map: &HashMap<DimVar, IBig>) -> Self {
+        let func_dim_var_assign = program
+            .funcs
+            .iter()
+            .map(|func| {
+                let dim_var_vals = func
+                    .get_dim_vars()
+                    .into_iter()
+                    .map(|dim_var| {
+                        let var = DimVar::FuncVar {
+                            var_name: dim_var.to_string(),
+                            func_name: func.get_name().to_string(),
+                        };
+                        val_var_map.get(&var).cloned()
+                    })
+                    .collect();
+
+                FuncDimVarAssignments::new(dim_var_vals)
+            })
+            .collect();
+
+        Self(func_dim_var_assign)
     }
 
     pub fn len(&self) -> usize {
@@ -42,21 +83,26 @@ impl DimVarAssignments {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TypeConstraint(InferType, InferType);
+pub struct TypeConstraint {
+    lhs: InferType,
+    rhs: InferType,
+    dbg: Option<DebugLoc>,
+}
 
 impl TypeConstraint {
-    fn new(left: InferType, right: InferType) -> Self {
+    fn new(lhs: InferType, rhs: InferType, dbg: Option<DebugLoc>) -> Self {
         // TODO: sort left and right
-        Self(left, right)
+        Self { lhs, rhs, dbg }
     }
 
-    fn as_pair(self) -> (InferType, InferType) {
-        (self.0, self.1)
+    fn as_pair(self) -> (InferType, InferType, Option<DebugLoc>) {
+        let TypeConstraint { lhs, rhs, dbg } = self;
+        (lhs, rhs, dbg)
     }
 
     fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
-        self.0.substitute_type_var(type_var_id, new_type);
-        self.1.substitute_type_var(type_var_id, new_type);
+        self.lhs.substitute_type_var(type_var_id, new_type);
+        self.rhs.substitute_type_var(type_var_id, new_type);
     }
 }
 
@@ -91,29 +137,27 @@ impl DimVarConstraint {
         Self(left, right)
     }
 
-    /// Returns `true` if we can easily detect that this constraint is trivial.
-    /// That is, there are many possible trivial constraints for which this
-    /// would return `false`.
-    pub fn is_obviously_trivial(&self) -> bool {
-        let left = self.0.strip_dbg().canonicalize();
-        let right = self.1.strip_dbg().canonicalize();
-        left == right
-    }
-
     /// Returns `true` if there is at least one dimension variable in this
     /// constraint.
     pub fn contains_dim_var(&self) -> bool {
         self.0.contains_dim_var() || self.1.contains_dim_var()
     }
 
-    /// Returns `true` if this constraint is a waste of time to include in
-    /// unification.
-    pub fn should_skip(&self) -> bool {
-        self.is_obviously_trivial() || !self.contains_dim_var()
-    }
-
+    /// Returns a version of this constraint with debug symbol stripped (via
+    /// [`DimExpr::strip_dbg`]) from both sides.
     pub fn strip_dbg(&self) -> DimVarConstraint {
         DimVarConstraint::new(self.0.strip_dbg(), self.1.strip_dbg())
+    }
+
+    /// Returns a version of this constraint with both sides in canon form (per
+    /// [`DimExpr::canonicalize`]).
+    pub fn canonicalize(&self) -> Self {
+        DimVarConstraint::new(self.0.canonicalize(), self.1.canonicalize())
+    }
+
+    /// Returns `true` if this is obviously trivial.
+    pub fn is_obviously_trivial(&self) -> bool {
+        self.0 == self.1
     }
 }
 
@@ -130,9 +174,7 @@ impl DimVarConstraints {
     }
 
     fn insert(&mut self, constraint: DimVarConstraint) {
-        if !constraint.should_skip() {
-            self.0.push(constraint)
-        }
+        self.0.push(constraint)
     }
 }
 
@@ -151,10 +193,13 @@ impl FuncTypeAssignment {
         self.1.substitute_type_var(type_var_id, new_type);
     }
 
-    fn strip(self) -> (Vec<Option<MetaType>>, Option<MetaType>) {
+    fn strip(
+        self,
+        var_val_map: &HashMap<DimVar, IBig>,
+    ) -> (Vec<Option<MetaType>>, Option<MetaType>) {
         (
-            self.0.into_iter().map(InferType::strip).collect(),
-            self.1.strip(),
+            self.0.into_iter().map(|ty| ty.strip(var_val_map)).collect(),
+            self.1.strip(var_val_map),
         )
     }
 
@@ -224,8 +269,11 @@ impl TypeAssignments {
 
     pub fn into_iter_stripped(
         self,
+        var_val_map: &HashMap<DimVar, IBig>,
     ) -> impl Iterator<Item = (Vec<Option<MetaType>>, Option<MetaType>)> {
-        self.0.into_iter().map(FuncTypeAssignment::strip)
+        self.0
+            .into_iter()
+            .map(|fn_ty_assign| fn_ty_assign.strip(var_val_map))
     }
 
     fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
@@ -310,6 +358,50 @@ impl fmt::Display for InferType {
     }
 }
 
+impl DimExpr {
+    pub fn strip(self, var_val_map: &HashMap<DimVar, IBig>) -> Option<DimExpr> {
+        Some(match self {
+            DimExpr::DimVar { var, dbg } => {
+                let val = var_val_map.get(&var)?;
+                DimExpr::DimConst {
+                    val: val.clone(),
+                    dbg,
+                }
+            }
+
+            dim_const @ DimExpr::DimConst { .. } => dim_const,
+
+            DimExpr::DimSum { left, right, dbg } => {
+                let stripped_left = left.strip(var_val_map)?;
+                let stripped_right = right.strip(var_val_map)?;
+                DimExpr::DimSum {
+                    left: Box::new(stripped_left),
+                    right: Box::new(stripped_right),
+                    dbg,
+                }
+            }
+
+            DimExpr::DimProd { left, right, dbg } => {
+                let stripped_left = left.strip(var_val_map)?;
+                let stripped_right = right.strip(var_val_map)?;
+                DimExpr::DimProd {
+                    left: Box::new(stripped_left),
+                    right: Box::new(stripped_right),
+                    dbg,
+                }
+            }
+
+            DimExpr::DimNeg { val, dbg } => {
+                let stripped_val = val.strip(var_val_map)?;
+                DimExpr::DimNeg {
+                    val: Box::new(stripped_val),
+                    dbg,
+                }
+            }
+        })
+    }
+}
+
 impl InferType {
     fn from_stripped(tv_allocator: &mut TypeVarAllocator, opt_ty: Option<MetaType>) -> Self {
         if let Some(ty) = opt_ty {
@@ -339,22 +431,25 @@ impl InferType {
         }
     }
 
-    fn strip(self) -> Option<MetaType> {
+    fn strip(self, var_val_map: &HashMap<DimVar, IBig>) -> Option<MetaType> {
         match self {
             InferType::TypeVar { .. } => None,
             InferType::FuncType { in_ty, out_ty } => {
-                let meta_in_ty = in_ty.strip()?;
-                let meta_out_ty = out_ty.strip()?;
+                let meta_in_ty = in_ty.strip(var_val_map)?;
+                let meta_out_ty = out_ty.strip(var_val_map)?;
                 Some(MetaType::FuncType {
                     in_ty: Box::new(meta_in_ty),
                     out_ty: Box::new(meta_out_ty),
                 })
             }
-            InferType::RegType { elem_ty, dim } => Some(MetaType::RegType { elem_ty, dim }),
+            InferType::RegType { elem_ty, dim } => {
+                let dim = dim.strip(var_val_map)?;
+                Some(MetaType::RegType { elem_ty, dim })
+            }
             InferType::TupleType { tys } => {
                 let meta_tys = tys
                     .into_iter()
-                    .map(|ty| ty.strip())
+                    .map(|ty| ty.strip(var_val_map))
                     .collect::<Option<Vec<_>>>()?;
                 Some(MetaType::TupleType { tys: meta_tys })
             }
@@ -492,7 +587,7 @@ impl InferType {
             InferType::UnitType => Ok(InferType::UnitType),
 
             InferType::RegType { elem_ty, dim } => {
-                let prod = DimExpr::DimSum {
+                let prod = DimExpr::DimProd {
                     left: Box::new(dim),
                     right: Box::new(factor),
                     dbg: dbg.clone(),
@@ -840,7 +935,7 @@ impl ExprConstrainable for qpu::MetaExpr {
                 Ok(func_ty)
             }
 
-            qpu::MetaExpr::Pipe { lhs, rhs, .. } => {
+            qpu::MetaExpr::Pipe { lhs, rhs, dbg } => {
                 // lhs_ty   rhs_ty
                 //    vvv   vvv
                 //    lhs | rhs
@@ -860,7 +955,7 @@ impl ExprConstrainable for qpu::MetaExpr {
                     in_ty: Box::new(lhs_ty),
                     out_ty: Box::new(result_tv.clone()),
                 };
-                ty_constraints.insert(TypeConstraint::new(func_ty, rhs_ty));
+                ty_constraints.insert(TypeConstraint::new(func_ty, rhs_ty, dbg.clone()));
 
                 Ok(result_tv)
             }
@@ -1026,7 +1121,9 @@ impl ExprConstrainable for classical::MetaExpr {
                 val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
             }
 
-            classical::MetaExpr::BinaryOp { left, right, .. } => {
+            classical::MetaExpr::BinaryOp {
+                left, right, dbg, ..
+            } => {
                 let left_ty =
                     left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 let right_ty = right.build_type_constraints(
@@ -1035,7 +1132,7 @@ impl ExprConstrainable for classical::MetaExpr {
                     ty_constraints,
                     dv_constraints,
                 )?;
-                ty_constraints.insert(TypeConstraint::new(left_ty.clone(), right_ty));
+                ty_constraints.insert(TypeConstraint::new(left_ty.clone(), right_ty, dbg.clone()));
                 Ok(left_ty)
             }
 
@@ -1271,6 +1368,7 @@ impl<S: StmtConstrainable> MetaFunctionDef<S> {
             body,
             args,
             ret_type,
+            dbg,
             ..
         } = self;
         let provided_args: Vec<_> = args
@@ -1304,7 +1402,11 @@ impl<S: StmtConstrainable> MetaFunctionDef<S> {
                 dv_constraints,
             )?;
             if let Some(ret_ty) = opt_ret_ty {
-                ret_ty_constraint = Some(TypeConstraint::new(provided_ret_ty.clone(), ret_ty));
+                ret_ty_constraint = Some(TypeConstraint::new(
+                    provided_ret_ty.clone(),
+                    ret_ty,
+                    dbg.clone(),
+                ));
             }
         }
 
@@ -1315,7 +1417,7 @@ impl<S: StmtConstrainable> MetaFunctionDef<S> {
                 kind: LowerErrorKind::TypeError {
                     kind: TypeErrorKind::ReturnNotLastStatement,
                 },
-                dbg: self.dbg.clone(),
+                dbg: dbg.clone(),
             });
         }
 
@@ -1483,14 +1585,14 @@ impl MetaProgram {
     ) -> Result<(), LowerError> {
         while let Some(ty_constraint) = ty_constraints.pop() {
             match ty_constraint.as_pair() {
-                (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id })
+                (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id }, _)
                     if left_id == right_id =>
                 {
                     // Already matches
                     Ok(())
                 }
 
-                (InferType::TypeVar { id: left_id }, right)
+                (InferType::TypeVar { id: left_id }, right, _)
                     if !right.contains_type_var(left_id) =>
                 {
                     ty_assign.substitute_type_var(left_id, &right);
@@ -1498,7 +1600,7 @@ impl MetaProgram {
                     Ok(())
                 }
 
-                (left, InferType::TypeVar { id: right_id })
+                (left, InferType::TypeVar { id: right_id }, _)
                     if !left.contains_type_var(right_id) =>
                 {
                     ty_assign.substitute_type_var(right_id, &left);
@@ -1515,9 +1617,14 @@ impl MetaProgram {
                         in_ty: right_in_ty,
                         out_ty: right_out_ty,
                     },
+                    dbg,
                 ) => {
-                    ty_constraints.insert(TypeConstraint::new(*left_in_ty, *right_in_ty));
-                    ty_constraints.insert(TypeConstraint::new(*left_out_ty, *right_out_ty));
+                    ty_constraints.insert(TypeConstraint::new(
+                        *left_in_ty,
+                        *right_in_ty,
+                        dbg.clone(),
+                    ));
+                    ty_constraints.insert(TypeConstraint::new(*left_out_ty, *right_out_ty, dbg));
                     Ok(())
                 }
 
@@ -1530,6 +1637,7 @@ impl MetaProgram {
                         elem_ty: right_elem_ty,
                         dim: right_dim,
                     },
+                    _,
                 ) if left_elem_ty == right_elem_ty => {
                     dv_constraints.insert(DimVarConstraint::new(left_dim, right_dim));
                     Ok(())
@@ -1538,17 +1646,18 @@ impl MetaProgram {
                 (
                     InferType::TupleType { tys: left_tys },
                     InferType::TupleType { tys: right_tys },
+                    dbg,
                 ) if left_tys.len() == right_tys.len() => {
                     for (left_ty, right_ty) in left_tys.into_iter().zip(right_tys.into_iter()) {
-                        ty_constraints.insert(TypeConstraint::new(left_ty, right_ty));
+                        ty_constraints.insert(TypeConstraint::new(left_ty, right_ty, dbg.clone()));
                     }
                     Ok(())
                 }
 
-                (InferType::UnitType, InferType::UnitType) => Ok(()),
+                (InferType::UnitType, InferType::UnitType, _) => Ok(()),
 
-                (InferType::UnitType, InferType::RegType { elem_ty: _, dim })
-                | (InferType::RegType { elem_ty: _, dim }, InferType::UnitType) => {
+                (InferType::UnitType, InferType::RegType { elem_ty: _, dim }, _)
+                | (InferType::RegType { elem_ty: _, dim }, InferType::UnitType, _) => {
                     // Interesting special case: unify Unit and qubit[N] by
                     // adding a dimvar constraint that N=0.
                     // TODO: set a debug location
@@ -1562,15 +1671,14 @@ impl MetaProgram {
 
                 // TODO: use a more specific pattern here so that when we add
                 //       types in the future, we get a Rust compiler error here
-                (left, right) => Err(LowerError {
+                (left, right, dbg) => Err(LowerError {
                     kind: LowerErrorKind::TypeError {
                         kind: TypeErrorKind::MismatchedTypes {
-                            expected: format!("{}", left),
-                            found: format!("{}", right),
+                            expected: left.to_string(),
+                            found: right.to_string(),
                         },
                     },
-                    // TODO: pass some location at all, come on man!
-                    dbg: None,
+                    dbg,
                 }),
             }?;
         }
@@ -1578,11 +1686,34 @@ impl MetaProgram {
         Ok(())
     }
 
-    fn unify_dv(
-        &self,
-        dv_constraints: &DimVarConstraints,
-    ) -> Result<DimVarAssignments, LowerError> {
-        Ok(DimVarAssignments::empty(self))
+    fn unify_dv(&self, dv_constraints: &DimVarConstraints) -> HashMap<DimVar, IBig> {
+        let constraints: Vec<_> = dv_constraints
+            .iter()
+            .filter_map(|constraint| {
+                let canon_constraint = constraint.strip_dbg().canonicalize();
+                if canon_constraint.is_obviously_trivial() || !canon_constraint.contains_dim_var() {
+                    None
+                } else {
+                    Some(canon_constraint)
+                }
+            })
+            .collect();
+
+        let mut var_val_map = HashMap::new();
+
+        for constraint in constraints {
+            match (constraint.0, constraint.1) {
+                (DimExpr::DimVar { var, .. }, DimExpr::DimConst { val, .. })
+                | (DimExpr::DimConst { val, .. }, DimExpr::DimVar { var, .. }) => {
+                    var_val_map.insert(var, val);
+                }
+
+                // TODO: support more cases
+                _ => {}
+            }
+        }
+
+        var_val_map
     }
 
     fn inference_progress(&self) -> Progress {
@@ -1592,19 +1723,19 @@ impl MetaProgram {
             .fold(Progress::identity(), Progress::join)
     }
 
-    fn find_assignments(&self) -> Result<(TypeAssignments, DimVarAssignments), LowerError> {
+    fn find_assignments(&self) -> Result<(TypeAssignments, HashMap<DimVar, IBig>), LowerError> {
         let (mut ty_constraints, mut dv_constraints, mut ty_assign) =
             self.build_type_constraints()?;
         self.unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
-        let dv_assign = self.unify_dv(&dv_constraints)?;
-        Ok((ty_assign, dv_assign))
+        let var_val_map = self.unify_dv(&dv_constraints);
+        Ok((ty_assign, var_val_map))
     }
 
     pub fn infer(&self) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        let (ty_assign, dv_assign) = self.find_assignments()?;
+        let (ty_assign, var_val_map) = self.find_assignments()?;
 
         let new_funcs = ty_assign
-            .into_iter_stripped()
+            .into_iter_stripped(&var_val_map)
             .zip(self.funcs.iter())
             .map(|((arg_tys, ret_ty), func)| func.with_tys(&arg_tys, &ret_ty))
             .collect();
@@ -1612,6 +1743,8 @@ impl MetaProgram {
             funcs: new_funcs,
             dbg: self.dbg.clone(),
         };
+
+        let dv_assign = DimVarAssignments::from_val_var_map(self, &var_val_map);
         let progress = new_prog.inference_progress();
 
         Ok((new_prog, dv_assign, progress))

@@ -267,6 +267,7 @@ impl ClassicalFunctionDef {
         ret_type: Option<Type>,
         body: Vec<ClassicalStmt>,
         is_rev: bool,
+        dim_vars: Vec<String>,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
@@ -279,7 +280,7 @@ impl ClassicalFunctionDef {
                 ret_type: ret_type.map(|ret_type| ret_type.ty.clone()),
                 body: body.iter().map(|stmt| stmt.stmt.clone()).collect(),
                 is_rev,
-                dim_vars: vec![],
+                dim_vars,
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

@@ -2225,10 +2225,36 @@ fn factor_basis(small: &Basis, small_dim: usize, big: &Basis, big_dim: usize) ->
         // TODO: implement me
         None
     } else {
-        // Neither small nor big fully spans. Both are basis literals. Cross
-        // your fingers.
-        // TODO: implement me
-        None
+        // We can handle an easy case at least: if trying to factor {'0'} from
+        // {'01', '00'}, we can at least check the prefixes of each vector in
+        // the big basis.
+        if let (
+            Basis::BasisLiteral {
+                vecs: small_vecs, ..
+            },
+            Basis::BasisLiteral {
+                vecs: big_vecs,
+                dbg,
+            },
+        ) = (small, big)
+            && small_vecs.len() == 1
+        {
+            assert!(!big_vecs.is_empty(), "empty basis literals are not allowed");
+            let small_vec = &small_vecs[0];
+            let remainder_vecs = big_vecs
+                .iter()
+                .map(|big_vec| big_vec.factor(small_vec))
+                .collect::<Option<Vec<_>>>()?;
+            let remainder = Basis::BasisLiteral {
+                vecs: remainder_vecs,
+                dbg: dbg.clone(),
+            };
+            let canon_remainder = remainder.canonicalize();
+            Some(canon_remainder)
+        } else {
+            // TODO: support many more cases
+            None
+        }
     }
 }
 

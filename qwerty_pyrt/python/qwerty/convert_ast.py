@@ -28,9 +28,22 @@ class AstKind(Enum):
 
 class CapturedValue(ABC):
     """A captured value."""
+
     @abstractmethod
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        """
+        Return this value as an expression AST node or throw a
+        ``QwertySyntaxError`` if that is not possible.
+        """
+        ...
+
+    @abstractmethod
+    def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        """
+        Return this value a dimension variable expression node or throw a
+        ``QwertySyntaxError`` if that is not possible.
+        """
         ...
 
 class CapturedSymbol(CapturedValue):
@@ -43,8 +56,12 @@ class CapturedSymbol(CapturedValue):
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
         return expr_class.new_variable(self.mangled_name, dbg)
 
+    def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        raise QwertySyntaxError("Functions cannot be used in dimension "
+                                "variable expressions", dbg)
+
 class CapturedBitReg(CapturedValue):
-    """A captured bit[N]."""
+    """A captured ``bit[N]``."""
 
     def __init__(self, bit_reg: bit):
         self.bit_reg = bit_reg
@@ -54,6 +71,24 @@ class CapturedBitReg(CapturedValue):
         return expr_class.new_bit_literal(int(self.bit_reg),
                                           self.bit_reg.n_bits,
                                           dbg)
+
+    def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        raise QwertySyntaxError("Bit registers cannot be used in dimension "
+                                "variable expressions", dbg)
+
+class CapturedInt(CapturedValue):
+    """A captured ``int``."""
+
+    def __init__(self, int_val: int):
+        self.int_val = int_val
+
+    def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
+                dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        raise QwertySyntaxError("ints cannot be captured in Qwerty "
+                                "kernels", dbg)
+
+    def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        return DimExpr.new_const(self.int_val, dbg)
 
 class CaptureError(Exception):
     """
@@ -182,7 +217,11 @@ class BaseVisitor:
 
         if isinstance(node, ast.Name):
             name = node.id
-            if name in self._macro_dimvar_stack:
+            captured_dim_expr = self.capture_dim_expr(name, dbg)
+
+            if captured_dim_expr is not None:
+                return captured_dim_expr
+            elif name in self._macro_dimvar_stack:
                 var = DimVar.new_macro_param(name)
             elif self._func_name is not None:
                 var = DimVar.new_func_var(name, self._func_name)
@@ -492,7 +531,7 @@ class BaseVisitor:
         # ...except traversing the function body
         body = self.visit(func_def.body)
 
-        return self._func_class(generated_func_name, args, ret_type, body, is_rev, dbg)
+        return self._func_class(generated_func_name, args, ret_type, body, is_rev, dim_vars, dbg)
 
     def visit_list(self, nodes: List[ast.AST]):
         """
@@ -617,7 +656,7 @@ class BaseVisitor:
     #    raise QwertySyntaxError('Qwerty does not support mutating values', dbg)
 
     def capture(self, var_name: str, dbg: DebugLoc) \
-               -> Optional[QpuExpr | ClassicalExpr]:
+               -> Optional[CapturedValue]:
         try:
             captured = self.capturer.capture(var_name)
         except CaptureError as err:
@@ -627,8 +666,23 @@ class BaseVisitor:
                                     f'{var_type_name}, which cannot be used '
                                     'in Qwerty kernels.', dbg)
 
+        return captured
+
+    def capture_expr(self, var_name: str, dbg: DebugLoc) \
+                    -> Optional[QpuExpr | ClassicalExpr]:
+        captured = self.capture(var_name, dbg)
+
         if captured is not None:
             return captured.to_expr(self._expr_class, dbg)
+        else:
+            return None
+
+    def capture_dim_expr(self, var_name: str, dbg: DebugLoc) \
+                        -> Optional[DimExpr]:
+        captured = self.capture(var_name, dbg)
+
+        if captured is not None:
+            return captured.to_dim_expr(dbg)
         else:
             return None
 
@@ -639,7 +693,7 @@ class BaseVisitor:
         """
         var_name = name.id
         dbg = self.get_debug_loc(name)
-        captured_expr = self.capture(var_name, dbg)
+        captured_expr = self.capture_expr(var_name, dbg)
 
         if captured_expr is not None:
             return captured_expr
@@ -1467,8 +1521,8 @@ class QpuVisitor(BaseVisitor):
         name = attr.attr
 
         if isinstance(name_arg := arg, ast.Name) \
-                and (arg_captured := self.capture(name_arg.id,
-                                                  self.get_debug_loc(name_arg))) \
+                and (arg_captured := self.capture_expr(
+                        name_arg.id, self.get_debug_loc(name_arg))) \
                     is not None:
             return QpuExpr.new_expr_macro(name, arg_captured, dbg)
         else:

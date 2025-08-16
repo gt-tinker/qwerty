@@ -470,3 +470,85 @@ fn test_typecheck_expr_btrans_tgt_left() {
     );
     assert!(type_env.is_empty());
 }
+
+#[test]
+fn test_typecheck_expr_btrans_diffuser() {
+    let dbg = DebugLoc {
+        file: "skippy.py".to_string(),
+        line: 42,
+        col: 420,
+    };
+    let mut type_env = TypeEnv::new();
+    // {'0'+'1'}*{'0'+'1'}*{'0'+'1'} >> {-(('0'+'1')*('0'+'1')*('0'+'1'))} : qubit[3] rev-> qubit[3]
+    // even though the basis are built different
+    let ast = qpu::Expr::BasisTranslation(BasisTranslation {
+        bin: Basis::BasisTensor {
+            bases: vec![
+                Basis::BasisLiteral {
+                    vecs: vec![Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    }],
+                    dbg: Some(dbg.clone()),
+                },
+                Basis::BasisLiteral {
+                    vecs: vec![Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    }],
+                    dbg: Some(dbg.clone()),
+                },
+                Basis::BasisLiteral {
+                    vecs: vec![Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    }],
+                    dbg: Some(dbg.clone()),
+                },
+            ],
+            dbg: None,
+        },
+        bout: Basis::BasisLiteral {
+            vecs: vec![Vector::VectorTensor {
+                qs: vec![
+                    Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    },
+                    Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    },
+                    Vector::UniformVectorSuperpos {
+                        q1: Box::new(Vector::ZeroVector { dbg: None }),
+                        q2: Box::new(Vector::OneVector { dbg: None }),
+                        dbg: None,
+                    },
+                ],
+                dbg: None,
+            }],
+            dbg: None,
+        },
+        dbg: Some(dbg),
+    });
+
+    let result = ast.typecheck(&mut type_env);
+    assert_eq!(
+        result,
+        Ok((
+            Type::RevFuncType {
+                in_out_ty: Box::new(Type::RegType {
+                    elem_ty: RegKind::Qubit,
+                    dim: 3
+                })
+            },
+            ComputeKind::Rev,
+        ))
+    );
+    assert!(type_env.is_empty());
+}

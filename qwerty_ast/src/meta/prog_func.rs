@@ -178,6 +178,13 @@ impl MetaFunc {
         }
     }
 
+    pub fn get_dim_vars(&self) -> &[String] {
+        match self {
+            MetaFunc::Qpu(func_def) => &func_def.dim_vars,
+            MetaFunc::Classical(func_def) => &func_def.dim_vars,
+        }
+    }
+
     /// Return the number of arguments this function has
     pub fn arg_count(&self) -> usize {
         match self {
