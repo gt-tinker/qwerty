@@ -24,5 +24,8 @@ def grover():
 
 #print(grover())
 
-def test():
+def test_runs():
   return str(grover())
+
+def test_correct(shots):
+  return grover(shots=shots)

@@ -9,5 +9,5 @@ def valid():
     a, b = '01' + '10'
     return a * b | measure * discard
 
-def test():
-    return valid()
+def test(shots):
+    return valid(shots=shots)

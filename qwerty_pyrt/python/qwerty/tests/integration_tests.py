@@ -342,7 +342,17 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
 
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover
-        self.assertGreater(sum(grover.test() == '1010' for _ in range(32)), 20)
+        # Test that it runs
+        result = grover.test_runs()
+        self.assertEqual(len(result), 4)
+        self.assertTrue(set(result) == {'0','1'})
+
+        # Test that it's correct
+        shots = 1024
+        expected_meas = bit[4](0b1010)
+        actual_histo = grover.test_correct(shots)
+        self.assertGreater(actual_histo.get(expected_meas, 0),
+                           shots//4*3, "Too few correct answers")
 
     @unittest.skip("ensemble operator not yet implemented")
     def test_fig3_superpos_vs_ensemble(self):
@@ -370,18 +380,30 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
 
     def test_fig4b_discard_valid(self):
         from .integ.qce25_figs import discard_valid
-        actual = {discard_valid.test() for _ in range(32)}
-        self.assertIn(bit[1](0b0), actual)
-        self.assertIn(bit[1](0b1), actual)
+        shots = 1024
+        actual_histo = discard_valid.test(1024)
 
-    def test_fig5_superdense(self):
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_histo.get(zero, 0), shots//4, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//4, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0)
+                                + actual_histo.get(one, 0),
+                         "missing shots")
+
+    def test_fig5_superdense_runs(self):
         from .integ.qce25_figs import superdense
+        actual_meas = superdense.test(bit[2](0b10))
+        self.assertTrue(isinstance(actual_meas, bit))
+
+    def test_fig5_superdense_correct(self):
+        from .integ.qce25_figs import superdense_shots
+        shots = 1024
+
         for payload_int in range(1 << 2):
             payload = bit[2](payload_int)
-            for i in range(4):
-                expected_output = payload
-                actual_output = superdense.test(payload)
-                self.assertEqual(expected_output, actual_output)
+            actual_histo = superdense_shots.test(payload, shots)
+            expected_histo = {payload: shots}
+            self.assertEqual(expected_histo, actual_histo)
 
     def test_fig6_fig7_prelude(self):
         from .integ.qce25_figs import prelude
@@ -390,10 +412,18 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histo = prelude.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
-    def test_fig9_grovermeta(self):
+    def test_fig9_grovermeta_runs(self):
         from .integ.qce25_figs import grovermeta
-        expected_output = bit[4](0b1010)
-        self.assertGreater(sum(grovermeta.test() == expected_output for _ in range(32)), 20)
+        actual_output = grovermeta.test()
+        self.assertTrue(isinstance(actual_output, bit))
+
+    def test_fig9_grovermeta_correct(self):
+        from .integ.qce25_figs import grovermeta_shots
+        shots = 1024
+        expected_meas = bit[4](0b1010)
+        actual_histo = grovermeta_shots.test(shots)
+        self.assertGreater(actual_histo.get(expected_meas, 0),
+                           shots//4*3, "Too few correct answers")
 
     @unittest.skip("cannot instantiate or infer return types")
     def test_fig10_fig11_qpe(self):
@@ -415,13 +445,20 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histos = teleport.test(shots)
         self.assertEqual(expected_histos, actual_histos)
 
-    @unittest.skip("parametric kernels, type inference not implemented")
-    def test_fig14_bv(self):
+    @unittest.skip("unknown problems")
+    def test_fig14_bv_runs(self):
         from .integ.qce25_figs import bv
-        for _ in range(32):
-            expected_output = '1101'
-            actual_output = bv.test()
-            self.assertEqual(expected_output, actual_output)
+        expected_output = '1101'
+        actual_output = bv.test()
+        self.assertEqual(expected_output, actual_output)
+
+    @unittest.skip("unknown problems")
+    def test_fig14_bv_correct(self):
+        from .integ.qce25_figs import bv_shots
+        shots = 1024
+        expected_histo = {bit[4](0b1101): shots}
+        actual_histo = bv_shots.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
 
     @unittest.skip("mod not implemented in classical functions")
     def test_fig16_period(self):
