@@ -1171,6 +1171,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp_Sub(binOp)
         elif isinstance(binOp.op, ast.BitOr):
             return self.visit_BinOp_BitOr(binOp)
+        elif isinstance(binOp.op, ast.BitXor):
+            return self.visit_BinOp_BitXor(binOp)
         elif isinstance(binOp.op, ast.Mult):
             return self.visit_BinOp_Mult(binOp)
         elif isinstance(binOp.op, ast.RShift):
@@ -1187,9 +1189,38 @@ class QpuVisitor(BaseVisitor):
                                     .format(op_name),
                                     self.get_debug_loc(binOp))
 
+    def try_extract_weighted_superpos(self, left: ast.AST, right: ast.AST) \
+                                     -> Optional[list[tuple[float, Vector]]]:
+        if isinstance(left_binop := left, ast.BinOp) \
+                and isinstance(left_binop.op, ast.Mult) \
+                and isinstance(right_binop := right, ast.BinOp) \
+                and isinstance(right_binop.op, ast.Mult) \
+                and isinstance(left_left := left_binop.left, ast.Constant) \
+                and isinstance(left_prob := left_left.value, float) \
+                and isinstance(right_left := right_binop.left, ast.Constant) \
+                and isinstance(right_prob := right_left.value, float):
+            left_vec_node = left.right
+            right_vec_node = right.right
+            left_vec = self.extract_basis_vector(left_vec_node)
+            right_vec = self.extract_basis_vector(right_vec_node)
+            elems = [(left_prob, left_vec), (right_prob, right_vec)]
+            return elems
+        else:
+            return None
+
     def visit_BinOp_Add(self, binOp: ast.BinOp):
-        # A top-level `+` expression must be a qubit literal (a superpos)
-        return self.extract_qubit_literal(binOp)
+        # A top-level `+` expression must be a superpos. But we can do a check
+        # here to see if it is a uniform superpos or a non-uniform one. For
+        # now, we lower uniform superpositions to a qubit literal and
+        # nonuniform ones to the dedicated ``NonUniformSuperpos`` node.
+        dbg = self.get_debug_loc(binOp)
+        left = binOp.left
+        right = binOp.right
+        if (elems := self.try_extract_weighted_superpos(left, right)) \
+                is not None:
+            return QpuExpr.new_non_uniform_superpos(elems, dbg)
+        else:
+            return self.extract_qubit_literal(binOp)
 
     def visit_BinOp_Sub(self, binOp: ast.BinOp):
         # A top-level `-` expression must be a qubit literal (a superpos with a
@@ -1206,6 +1237,25 @@ class QpuVisitor(BaseVisitor):
         right = self.visit(binOp.right)
         dbg = self.get_debug_loc(binOp)
         return QpuExpr.new_pipe(left, right, dbg)
+
+    def visit_BinOp_BitXor(self, binOp: ast.BinOp):
+        """
+        Convert a Python bitwise XOR expression into a Qwerty ``Ensemble`` AST
+        node. For example, ``'0' ^ '1'`` becomes an ``Ensemble`` node with two
+        elements, each with probability ``0.5``.
+        """
+
+        dbg = self.get_debug_loc(binOp)
+        left = binOp.left
+        right = binOp.right
+
+        elems = self.try_extract_weighted_superpos(left, right)
+        if elems is None:
+            left_vec = self.extract_basis_vector(left)
+            right_vec = self.extract_basis_vector(right)
+            elems = [(0.5, left_vec), (0.5, right_vec)]
+
+        return QpuExpr.new_ensemble(elems, dbg)
 
     def visit_BinOp_Mult(self, binOp: ast.BinOp):
         left = self.visit(binOp.left)

@@ -16,7 +16,7 @@ use crate::ast::{
     in_phase, qpu,
     qpu::{
         Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard, EmbedClassical,
-        EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor,
+        EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, QubitRef, Tensor,
         UnitLiteral, Vector, VectorAtomKind,
     },
 };
@@ -1062,75 +1062,102 @@ impl Predicated {
     }
 }
 
+fn calc_superpos_or_ensemble_type(
+    term_tys: &[(Type, ComputeKind)],
+    pairs: &[(f64, QLit)],
+    dbg: &Option<DebugLoc>,
+) -> Result<(Type, ComputeKind), TypeError> {
+    if pairs.is_empty() {
+        return Err(TypeError {
+            kind: TypeErrorKind::EmptyLiteral,
+            dbg: dbg.clone(),
+        });
+    }
+
+    let (first_ty, _first_compute_kind) = &term_tys[0];
+
+    if let Type::RegType {
+        elem_ty: RegKind::Qubit,
+        dim,
+    } = first_ty
+    {
+        if *dim == 0 {
+            return Err(TypeError {
+                kind: TypeErrorKind::EmptyLiteral,
+                dbg: dbg.clone(),
+            });
+        }
+    } else {
+        // Should be unreachable
+        return Err(TypeError {
+            kind: TypeErrorKind::InvalidType("Superposition must contain qubits".to_string()),
+            dbg: dbg.clone(),
+        });
+    }
+
+    if let Some((offending_ty, _offending_compute_kind)) = term_tys
+        .iter()
+        .find(|(term_ty, _term_compute_kind)| term_ty != first_ty)
+    {
+        return Err(TypeError {
+            kind: TypeErrorKind::MismatchedTypes {
+                expected: first_ty.to_string(),
+                found: offending_ty.to_string(),
+            },
+            dbg: dbg.clone(),
+        });
+    }
+
+    let total_prob = pairs
+        .iter()
+        .map(|(prob, _qlit)| prob)
+        .fold(0.0, |prob_acc, prob| prob_acc + prob);
+    if !angles_are_approx_equal(total_prob, 1.0) {
+        return Err(TypeError {
+            kind: TypeErrorKind::ProbabilitiesDoNotSumToOne,
+            dbg: dbg.clone(),
+        });
+    }
+
+    // We consider ensembles irreversible since constructing them involves a
+    // measurement or discard. Superpositions should be reversible in
+    // principle, but they are not implemented that way yet in the MLIR layer,
+    // so treat them as irreversible to avoid confusing programmers with MLIR
+    // errors downstream.
+    let compute_kind = ComputeKind::Irrev;
+    Ok((first_ty.clone(), compute_kind))
+}
+
 impl NonUniformSuperpos {
     pub fn calc_type(
         &self,
         term_tys: &[(Type, ComputeKind)],
     ) -> Result<(Type, ComputeKind), TypeError> {
         let NonUniformSuperpos { pairs, dbg } = self;
-
-        if pairs.is_empty() {
-            return Err(TypeError {
-                kind: TypeErrorKind::EmptyLiteral,
-                dbg: dbg.clone(),
-            });
-        }
-
-        let (first_ty, _first_compute_kind) = &term_tys[0];
-
-        if let Type::RegType {
-            elem_ty: RegKind::Qubit,
-            dim,
-        } = first_ty
-        {
-            if *dim == 0 {
-                return Err(TypeError {
-                    kind: TypeErrorKind::EmptyLiteral,
-                    dbg: dbg.clone(),
-                });
-            }
-        } else {
-            // Should be unreachable
-            return Err(TypeError {
-                kind: TypeErrorKind::InvalidType("Superposition must contain qubits".to_string()),
-                dbg: dbg.clone(),
-            });
-        }
-
-        if let Some((offending_ty, _offending_compute_kind)) = term_tys
-            .iter()
-            .find(|(term_ty, _term_compute_kind)| term_ty != first_ty)
-        {
-            return Err(TypeError {
-                kind: TypeErrorKind::MismatchedTypes {
-                    expected: first_ty.to_string(),
-                    found: offending_ty.to_string(),
-                },
-                dbg: dbg.clone(),
-            });
-        }
-
-        let total_prob = pairs
-            .iter()
-            .map(|(prob, _qlit)| prob)
-            .fold(0.0, |prob_acc, prob| prob_acc + prob);
-        if !angles_are_approx_equal(total_prob, 1.0) {
-            return Err(TypeError {
-                kind: TypeErrorKind::ProbabilitiesDoNotSumToOne,
-                dbg: dbg.clone(),
-            });
-        }
-
-        let compute_kind = term_tys.iter().fold(
-            ComputeKind::identity(),
-            |acc, (_term_ty, term_compute_kind)| acc.join(*term_compute_kind),
-        );
-
-        Ok((first_ty.clone(), compute_kind))
+        calc_superpos_or_ensemble_type(term_tys, pairs, dbg)
     }
 
     pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
         let NonUniformSuperpos { pairs, .. } = self;
+        let term_tys = pairs
+            .iter()
+            .map(|(_prob, qlit)| qlit.typecheck())
+            .collect::<Result<Vec<(Type, ComputeKind)>, TypeError>>()?;
+        self.calc_type(&term_tys)
+    }
+}
+
+impl Ensemble {
+    pub fn calc_type(
+        &self,
+        term_tys: &[(Type, ComputeKind)],
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Ensemble { pairs, dbg } = self;
+        calc_superpos_or_ensemble_type(term_tys, pairs, dbg)
+    }
+
+    pub fn typecheck(&self) -> Result<(Type, ComputeKind), TypeError> {
+        let Ensemble { pairs, .. } = self;
         let term_tys = pairs
             .iter()
             .map(|(_prob, qlit)| qlit.typecheck())
@@ -1386,6 +1413,7 @@ impl TypeCheckable for qpu::Expr {
             qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
             qpu::Expr::Predicated(pred) => pred.typecheck(env),
             qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
+            qpu::Expr::Ensemble(ensemble) => ensemble.typecheck(),
             qpu::Expr::Conditional(cond) => cond.typecheck(env),
             qpu::Expr::QLit(qlit) => qlit.typecheck(),
             qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),

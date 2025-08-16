@@ -17,4 +17,13 @@
 // Rz(theta))
 #define ATOL 1e-12
 
+// Calculate ⌈log2(x)⌉ using compiler intrinsics that should hopefully produce
+// native instructions.
+#ifdef _MSC_VER
+    #include <intrin.h>
+    #define BITS_NEEDED(x) ((sizeof (unsigned __int64))*CHAR_BIT-__lzcnt64(x))
+#else
+    #define BITS_NEEDED(x) ((sizeof (unsigned long long))*CHAR_BIT-__builtin_clzll(x))
+#endif
+
 #endif

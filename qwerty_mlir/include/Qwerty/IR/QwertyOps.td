@@ -248,6 +248,13 @@ def Qwerty_SuperposOp: Qwerty_Op<"superpos", [InferTypeOpAdaptor]> {
     let assemblyFormat = "$superpos attr-dict `:` qualified(type($qbundle))";
 }
 
+def Qwerty_EnsembleOp: Qwerty_Op<"ensemble", [InferTypeOpAdaptor]> {
+    let summary = "Prepare an ensemble of pure states";
+    let arguments = (ins Qwerty_SuperposAttr:$superpos);
+    let results = (outs Res<Qwerty_QBundle, "", [MemAlloc]>:$qbundle);
+    let assemblyFormat = "$superpos attr-dict `:` qualified(type($qbundle))";
+}
+
 //////// QBUNDLE MANAGEMENT ////////
 
 def Qwerty_QBundlePrepOp : Qwerty_Op<"qbprep", [

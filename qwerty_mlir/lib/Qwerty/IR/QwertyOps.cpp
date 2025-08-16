@@ -2708,6 +2708,16 @@ void SuperposOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
     results.add<NormalizeSuperposTilt>(context);
 }
 
+mlir::LogicalResult EnsembleOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        EnsembleOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    QBundleType retType = QBundleType::get(ctx, adaptor.getSuperpos().getDim());
+    inferredReturnTypes.insert(inferredReturnTypes.end(), retType);
+    return mlir::success();
+}
+
 void QBundleRotateOp::buildAdjoint(
         mlir::RewriterBase &rewriter,
         mlir::ValueRange newInputs,

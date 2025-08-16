@@ -639,6 +639,20 @@ pub enum MetaExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// An ensemble of qubit literals that may not have uniform
+    /// probabilities. Example syntax:
+    /// ```text
+    /// (1/4)*'p' ^ (3/4)*'m'
+    /// ```
+    /// Another example:
+    /// ```text
+    /// 'p' ^ 'm'
+    /// ```
+    Ensemble {
+        pairs: Vec<(FloatExpr, MetaVector)>,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A classical conditional (ternary) expression. Example syntax:
     /// ```text
     /// flip if meas_result else id
@@ -687,6 +701,7 @@ impl MetaExpr {
             | MetaExpr::BasisTranslation { dbg, .. }
             | MetaExpr::Predicated { dbg, .. }
             | MetaExpr::NonUniformSuperpos { dbg, .. }
+            | MetaExpr::Ensemble { dbg, .. }
             | MetaExpr::Conditional { dbg, .. }
             | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
             MetaExpr::QLit { vec } => vec.get_dbg(),
@@ -803,6 +818,28 @@ impl MetaExpr {
                         dbg: dbg.clone(),
                     })
                 }),
+            MetaExpr::Ensemble { pairs, dbg } => pairs
+                .iter()
+                .map(|(prob, vec)| {
+                    prob.extract().and_then(|prob_double| {
+                        vec.extract().and_then(|ast_vec| {
+                            ast_vec
+                                .convert_to_qubit_literal()
+                                .ok_or_else(|| LowerError {
+                                    kind: LowerErrorKind::Malformed,
+                                    dbg: ast_vec.get_dbg(),
+                                })
+                                .map(|ast_qlit| (prob_double, ast_qlit))
+                        })
+                    })
+                })
+                .collect::<Result<Vec<(f64, ast::qpu::QLit)>, LowerError>>()
+                .map(|ast_pairs| {
+                    ast::qpu::Expr::Ensemble(ast::qpu::Ensemble {
+                        pairs: ast_pairs,
+                        dbg: dbg.clone(),
+                    })
+                }),
             MetaExpr::Conditional {
                 then_expr,
                 else_expr,
@@ -899,6 +936,15 @@ impl fmt::Display for MetaExpr {
                 for (i, (prob, qlit)) in pairs.iter().enumerate() {
                     if i > 0 {
                         write!(f, " + ")?;
+                    }
+                    write!(f, "({})*({})", prob, qlit)?;
+                }
+                Ok(())
+            }
+            MetaExpr::Ensemble { pairs, .. } => {
+                for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ^ ")?;
                     }
                     write!(f, "({})*({})", prob, qlit)?;
                 }

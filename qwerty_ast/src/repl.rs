@@ -57,6 +57,7 @@ impl Expr {
                 ..
             }) => then_func.as_ref().is_value() && else_func.as_ref().is_value(),
             Expr::NonUniformSuperpos(_) => false,
+            Expr::Ensemble(_) => false,
             Expr::Conditional(Conditional {
                 then_expr,
                 else_expr,

@@ -24,8 +24,8 @@ use qwerty_ast::{
         angles_are_approx_equal,
         qpu::{
             self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
-            EmbedClassical, EmbedKind, Measure, NonUniformSuperpos, Pipe, Predicated, QLit, Tensor,
-            Vector, VectorAtomKind,
+            EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated,
+            QLit, Tensor, Vector, VectorAtomKind,
         },
     },
     typecheck::{ComputeKind, FuncsAvailable},
@@ -882,6 +882,35 @@ fn synth_function_tensor_product(
     )
 }
 
+/// Converts the list of pairs in [`qpu::Expr::NonUniformSuperpos`] and
+/// [`qpu::Expr::Ensemble`] nodes into a list of types for
+/// [`qpu::NonUniformSuperpos::calc_type`] or [`qpu::Ensemble::calc_type`] and
+/// a [`qwerty::SuperposAttribute`].
+fn ast_qpu_qlit_pairs_to_mlir(
+    pairs: &[(f64, QLit)],
+) -> (
+    Vec<(ast::Type, ComputeKind)>,
+    qwerty::SuperposAttribute<'static>,
+) {
+    let (term_tys, elems): (Vec<_>, Vec<_>) = pairs
+        .iter()
+        .map(|(prob, qlit)| {
+            let bv = qlit.convert_to_basis_vector();
+            let (vec_attrs, phase) = ast_vec_to_mlir(&bv);
+
+            let prob_attr = FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), *prob);
+            let phase_attr = FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), phase);
+            let elem_attr =
+                qwerty::SuperposElemAttribute::new(&MLIR_CTX, prob_attr, phase_attr, &vec_attrs);
+            let (qlit_ty, qlit_compute_kind) =
+                qlit.typecheck().expect("QLit to pass type checking");
+            ((qlit_ty, qlit_compute_kind), elem_attr)
+        })
+        .unzip();
+    let superpos_attr = qwerty::SuperposAttribute::new(&MLIR_CTX, &elems);
+    (term_tys, superpos_attr)
+}
+
 /// Converts a `@qpu` AST Expr node to mlir::Values by appending ops to the
 /// provided block.
 fn ast_qpu_expr_to_mlir(
@@ -1615,33 +1644,32 @@ fn ast_qpu_expr_to_mlir(
         qpu::Expr::NonUniformSuperpos(superpos @ NonUniformSuperpos { pairs, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (term_tys, elems): (Vec<_>, Vec<_>) = pairs
-                .iter()
-                .map(|(prob, qlit)| {
-                    let bv = qlit.convert_to_basis_vector();
-                    let (vec_attrs, phase) = ast_vec_to_mlir(&bv);
-
-                    let prob_attr =
-                        FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), *prob);
-                    let phase_attr =
-                        FloatAttribute::new(&MLIR_CTX, ir::Type::float64(&MLIR_CTX), phase);
-                    let elem_attr = qwerty::SuperposElemAttribute::new(
-                        &MLIR_CTX, prob_attr, phase_attr, &vec_attrs,
-                    );
-                    let (qlit_ty, qlit_compute_kind) =
-                        qlit.typecheck().expect("QLit to pass type checking");
-                    ((qlit_ty, qlit_compute_kind), elem_attr)
-                })
-                .unzip();
-
+            let (term_tys, superpos_attr) = ast_qpu_qlit_pairs_to_mlir(pairs);
             let (ty, compute_kind) = superpos
                 .calc_type(&term_tys)
                 .expect("NonUniformSuperpos to pass type checking");
 
-            let superpos_attr = qwerty::SuperposAttribute::new(&MLIR_CTX, &elems);
             let superpos_vals = vec![
                 block
                     .append_operation(qwerty::superpos(&MLIR_CTX, superpos_attr, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, superpos_vals)
+        }
+
+        qpu::Expr::Ensemble(ensemble @ Ensemble { pairs, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (term_tys, superpos_attr) = ast_qpu_qlit_pairs_to_mlir(pairs);
+            let (ty, compute_kind) = ensemble
+                .calc_type(&term_tys)
+                .expect("NonUniformSuperpos to pass type checking");
+
+            let superpos_vals = vec![
+                block
+                    .append_operation(qwerty::ensemble(&MLIR_CTX, superpos_attr, loc))
                     .result(0)
                     .unwrap()
                     .into(),

@@ -940,6 +940,19 @@ impl MetaExpr {
                 dbg: dbg.clone(),
             },
 
+            MetaExpr::Ensemble { pairs, dbg } => MetaExpr::Ensemble {
+                pairs: pairs
+                    .iter()
+                    .map(|(prob, vec)| {
+                        (
+                            prob.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                            vec.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                        )
+                    })
+                    .collect(),
+                dbg: dbg.clone(),
+            },
+
             MetaExpr::Conditional {
                 then_expr,
                 else_expr,
@@ -1072,6 +1085,7 @@ impl MetaExpr {
             | MetaExpr::Discard { .. }
             | MetaExpr::BasisTranslation { .. }
             | MetaExpr::NonUniformSuperpos { .. }
+            | MetaExpr::Ensemble { .. }
             | MetaExpr::QLit { .. }
             | MetaExpr::BitLiteral { .. } => self.clone(),
         }
@@ -1188,6 +1202,7 @@ impl MetaExpr {
             | MetaExpr::UnitLiteral { .. }
             | MetaExpr::Discard { .. }
             | MetaExpr::NonUniformSuperpos { .. }
+            | MetaExpr::Ensemble { .. }
             | MetaExpr::QLit { .. }
             | MetaExpr::BitLiteral { .. } => self.clone(),
         }
@@ -1288,6 +1303,22 @@ impl MetaExpr {
             },
 
             MetaExpr::NonUniformSuperpos { pairs, dbg } => MetaExpr::NonUniformSuperpos {
+                pairs: pairs
+                    .iter()
+                    .map(|(prob, vec)| {
+                        (
+                            prob.clone(),
+                            vec.substitute_vector_alias(
+                                vector_alias.to_string(),
+                                new_vector.clone(),
+                            ),
+                        )
+                    })
+                    .collect(),
+                dbg: dbg.clone(),
+            },
+
+            MetaExpr::Ensemble { pairs, dbg } => MetaExpr::Ensemble {
                 pairs: pairs
                     .iter()
                     .map(|(prob, vec)| {
@@ -1675,6 +1706,27 @@ impl MetaExpr {
                         .into_iter()
                         .fold(Progress::identity(), |acc, prog| acc.join(prog));
                     let expanded_superpos = MetaExpr::NonUniformSuperpos {
+                        pairs: expanded_pairs,
+                        dbg: dbg.clone(),
+                    };
+                    (expanded_superpos, prog)
+                }),
+
+            MetaExpr::Ensemble { pairs, dbg } => pairs
+                .iter()
+                .map(|(prob, vec)|
+                    prob.expand(env)
+                        .and_then(|(expanded_prob, prob_prog)|
+                            vec.expand(env)
+                                .map(|(expanded_vec, vec_prog)|
+                                    ((expanded_prob, expanded_vec), prob_prog.join(vec_prog)))))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|pair_pairs| {
+                    let (expanded_pairs, progs): (Vec<_>, Vec<_>) = pair_pairs.into_iter().unzip();
+                    let prog = progs
+                        .into_iter()
+                        .fold(Progress::identity(), |acc, prog| acc.join(prog));
+                    let expanded_superpos = MetaExpr::Ensemble {
                         pairs: expanded_pairs,
                         dbg: dbg.clone(),
                     };

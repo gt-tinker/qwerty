@@ -558,6 +558,54 @@ impl QpuExpr {
     }
 
     #[classmethod]
+    fn new_non_uniform_superpos(
+        _cls: &Bound<'_, PyType>,
+        pairs: Vec<(f64, Vector)>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
+        Self {
+            expr: meta::qpu::MetaExpr::NonUniformSuperpos {
+                pairs: pairs
+                    .into_iter()
+                    .map(|(prob, vector)| {
+                        let prob_expr = meta::qpu::FloatExpr::FloatConst {
+                            val: prob,
+                            dbg: dbg.clone(),
+                        };
+                        (prob_expr, vector.vec)
+                    })
+                    .collect(),
+                dbg: dbg,
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_ensemble(
+        _cls: &Bound<'_, PyType>,
+        pairs: Vec<(f64, Vector)>,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
+        Self {
+            expr: meta::qpu::MetaExpr::Ensemble {
+                pairs: pairs
+                    .into_iter()
+                    .map(|(prob, vector)| {
+                        let prob_expr = meta::qpu::FloatExpr::FloatConst {
+                            val: prob,
+                            dbg: dbg.clone(),
+                        };
+                        (prob_expr, vector.vec)
+                    })
+                    .collect(),
+                dbg: dbg,
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_conditional(
         _cls: &Bound<'_, PyType>,
         then_expr: QpuExpr,

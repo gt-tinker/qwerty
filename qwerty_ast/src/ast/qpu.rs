@@ -88,6 +88,13 @@ pub struct NonUniformSuperpos {
     pub dbg: Option<DebugLoc>,
 }
 
+/// See [`Expr::Ensemble`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ensemble {
+    pub pairs: Vec<(f64, QLit)>,
+    pub dbg: Option<DebugLoc>,
+}
+
 /// See [`Expr::Conditional`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conditional {
@@ -174,6 +181,17 @@ pub enum Expr {
     /// ```
     NonUniformSuperpos(NonUniformSuperpos),
 
+    /// An ensemble of qubit literals that may not have uniform
+    /// probabilities. Example syntax:
+    /// ```text
+    /// 0.25*'0' ^ 0.75*'1'
+    /// ```
+    /// Another example:
+    /// ```text
+    /// '0' ^ '1'
+    /// ```
+    Ensemble(Ensemble),
+
     /// A classical conditional (ternary) expression. Example syntax:
     /// ```text
     /// flip if meas_result else id
@@ -250,6 +268,15 @@ impl fmt::Display for Expr {
                 for (i, (prob, qlit)) in pairs.iter().enumerate() {
                     if i > 0 {
                         write!(f, " + ")?;
+                    }
+                    write!(f, "{}*({})", prob, qlit)?;
+                }
+                Ok(())
+            }
+            Expr::Ensemble(Ensemble { pairs, .. }) => {
+                for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ^ ")?;
                     }
                     write!(f, "{}*({})", prob, qlit)?;
                 }

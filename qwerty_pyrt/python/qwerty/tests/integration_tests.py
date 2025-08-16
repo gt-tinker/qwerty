@@ -358,7 +358,6 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(expected_meas, 0),
                            shots//4*3, "Too few correct answers")
 
-    @unittest.skip("ensemble operator not yet implemented")
     def test_fig3_superpos_vs_ensemble(self):
         from .integ.qce25_figs import superpos_vs_ensemble
         shots = 1024
@@ -375,6 +374,21 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         expected_superpos_histo = {zero: shots}
         self.assertEqual(expected_superpos_histo, actual_superpos_histo)
 
+    def test_fig3_superpos_vs_ensemble_prob(self):
+        from .integ.qce25_figs import superpos_vs_ensemble_prob
+        shots = 1024
+        actual_superpos_histo, actual_ensemble_histo = \
+            superpos_vs_ensemble_prob.test(shots)
+
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_ensemble_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_ensemble_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_ensemble_histo.get(zero, 0)
+                                + actual_ensemble_histo.get(one, 0),
+                         "missing shots")
+
+        expected_superpos_histo = {zero: shots}
+        self.assertEqual(expected_superpos_histo, actual_superpos_histo)
 
     def test_fig4a_discard_invalid(self):
         from .integ.qce25_figs import discard_invalid

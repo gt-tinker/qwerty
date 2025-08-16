@@ -1032,10 +1032,31 @@ impl ExprConstrainable for qpu::MetaExpr {
                 }
             }
 
+            qpu::MetaExpr::NonUniformSuperpos { pairs, .. }
+            | qpu::MetaExpr::Ensemble { pairs, .. } => {
+                assert!(
+                    !pairs.is_empty(),
+                    concat!(
+                        "superpos or ensemble must have at least one pair of probability and ",
+                        "vector"
+                    )
+                );
+
+                let (_prob, vec) = &pairs[0];
+                Ok(if let Some(dim) = vec.get_dim() {
+                    InferType::RegType {
+                        elem_ty: RegKind::Qubit,
+                        dim,
+                    }
+                } else {
+                    tv_allocator.alloc_type_var()
+                })
+            }
+
             // TODO: implement these
-            qpu::MetaExpr::Predicated { .. }
-            | qpu::MetaExpr::NonUniformSuperpos { .. }
-            | qpu::MetaExpr::Conditional { .. } => Ok(tv_allocator.alloc_type_var()),
+            qpu::MetaExpr::Predicated { .. } | qpu::MetaExpr::Conditional { .. } => {
+                Ok(tv_allocator.alloc_type_var())
+            }
 
             qpu::MetaExpr::QLit { vec } => {
                 Ok(if let Some(dim) = vec.get_dim() {
@@ -1701,7 +1722,7 @@ impl MetaProgram {
 
         let mut var_val_map = HashMap::new();
 
-        while let Some(constraint ) = constraints.pop() {
+        while let Some(constraint) = constraints.pop() {
             match (constraint.0, constraint.1) {
                 (DimExpr::DimVar { var, .. }, DimExpr::DimConst { val, .. })
                 | (DimExpr::DimConst { val, .. }, DimExpr::DimVar { var, .. }) => {
@@ -1709,7 +1730,18 @@ impl MetaProgram {
                 }
 
                 // TODO: this case should not be hard-coded
-                (DimExpr::DimSum { left: left_left, right: left_right, .. }, DimExpr::DimSum { left: right_left, right: right_right, .. }) if left_left == left_right && right_left == right_right => {
+                (
+                    DimExpr::DimSum {
+                        left: left_left,
+                        right: left_right,
+                        ..
+                    },
+                    DimExpr::DimSum {
+                        left: right_left,
+                        right: right_right,
+                        ..
+                    },
+                ) if left_left == left_right && right_left == right_right => {
                     let left = *left_left;
                     let right = *right_right;
                     constraints.push(DimVarConstraint::new(left, right));

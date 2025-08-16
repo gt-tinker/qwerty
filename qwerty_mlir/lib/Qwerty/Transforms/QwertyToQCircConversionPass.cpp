@@ -1578,13 +1578,70 @@ struct SuperposOpLowering : public mlir::OpConversionPattern<qwerty::SuperposOp>
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(qwerty::PrimitiveBasis::Z, dim))});
         llvm::SmallVector<qwerty::BasisElemAttr> desired_prim_bases;
-        for (qwerty::BasisVectorAttr elem_vec : adaptor.getSuperpos().getElems()[0].getVectors()) {
+        auto vecs = adaptor.getSuperpos().getElems()[0].getVectors();
+        for (qwerty::BasisVectorAttr elem_vec : vecs) {
             desired_prim_bases.push_back(rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(elem_vec.getPrimBasis(), elem_vec.getDim())));
         }
         qwerty::BasisAttr desired_basis = rewriter.getAttr<qwerty::BasisAttr>(desired_prim_bases);
         rewriter.replaceOpWithNewOp<qwerty::QBundleBasisTranslationOp>(
             superPosOp, std_N, desired_basis, mlir::ValueRange(), qbundle);
+        return mlir::success();
+    }
+};
+
+struct EnsembleOpLowering : public mlir::OpConversionPattern<qwerty::EnsembleOp> {
+    using mlir::OpConversionPattern<qwerty::EnsembleOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(qwerty::EnsembleOp ensemble,
+                                        OpAdaptor adaptor,
+                                        mlir::ConversionPatternRewriter &rewriter) const final {
+        mlir::Location loc = ensemble.getLoc();
+        qwerty::SuperposAttr superpos_attr = ensemble.getSuperpos();
+        size_t n_superpos_elems = superpos_attr.getElems().size();
+        size_t n_extra_bits = BITS_NEEDED(n_superpos_elems);
+
+        llvm::SmallVector<qwerty::SuperposElemAttr> new_superpos_elems;
+        for (auto [i, superpos_elem] : llvm::enumerate(superpos_attr.getElems())) {
+            llvm::SmallVector<qwerty::BasisVectorAttr> new_vectors;
+            llvm::APInt extra_bits(n_extra_bits, i);
+            new_vectors.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
+                qwerty::PrimitiveBasis::Z, extra_bits, n_extra_bits, false));
+            auto old_vectors = superpos_elem.getVectors();
+            new_vectors.append(old_vectors.begin(), old_vectors.end());
+            qwerty::SuperposElemAttr new_superpos_elem =
+                rewriter.getAttr<qwerty::SuperposElemAttr>(
+                    superpos_elem.getProb(),
+                    superpos_elem.getPhase(),
+                    new_vectors
+                );
+            new_superpos_elems.push_back(new_superpos_elem);
+        }
+
+        qwerty::SuperposAttr new_superpos_attr =
+            rewriter.getAttr<qwerty::SuperposAttr>(new_superpos_elems);
+        mlir::Value superpos = rewriter.create<qwerty::SuperposOp>(
+            loc, new_superpos_attr).getQbundle();
+
+        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(
+            loc, superpos).getQubits();
+        assert(unpacked.size() > n_extra_bits
+               && "Superpos bundle is too small");
+
+        llvm::SmallVector<mlir::Value> extra_qubits(
+            unpacked.begin(),
+            unpacked.begin() + n_extra_bits);
+        llvm::SmallVector<mlir::Value> ensemble_qubits(
+            unpacked.begin() + n_extra_bits,
+            unpacked.end());
+
+        mlir::Value extra_qbundle = rewriter.create<qwerty::QBundlePackOp>(
+            loc, extra_qubits).getQbundle();
+        mlir::Value ensemble_qbundle = rewriter.create<qwerty::QBundlePackOp>(
+            loc, ensemble_qubits).getQbundle();
+
+        rewriter.create<qwerty::QBundleDiscardOp>(loc, extra_qbundle);
+        rewriter.replaceOp(ensemble, ensemble_qbundle);
         return mlir::success();
     }
 };
@@ -3476,7 +3533,8 @@ struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<
                      QBundleProjectOpLowering,
                      QBundleFlipOpLowering,
                      QBundleRotateOpLowering,
-                     SuperposOpLowering>(type_converter, &getContext());
+                     SuperposOpLowering,
+                     EnsembleOpLowering>(type_converter, &getContext());
 
         if (mlir::failed(mlir::applyFullConversion(module_op, target, std::move(patterns)))) {
             signalPassFailure();
