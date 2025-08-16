@@ -425,7 +425,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(expected_meas, 0),
                            shots//4*3, "Too few correct answers")
 
-    @unittest.skip("cannot instantiate or infer return types")
+    @unittest.skip("cannot instantiate or have free dim vars")
     def test_fig10_fig11_qpe(self):
         from .integ.qce25_figs import qpeuser
         for _ in range(32):
@@ -463,7 +463,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         from .integ.qce25_figs import period
         self.assertTrue(any(period.test() == 'Success!' for _ in range(32)))
 
-    @unittest.skip("cannot infer return types & modmul not implemented")
+    @unittest.skip("free dimvars not supported & modmul not implemented")
     def test_fig18_shor(self):
         from .integ.qce25_figs import shor
         self.assertTrue(any(shor.test() == 4 for _ in range(32)))
