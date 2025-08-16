@@ -1,3 +1,4 @@
+use crate::wrap_ast::wrap_dim_expr::DimExpr;
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg, meta, typecheck};
 
@@ -72,14 +73,11 @@ impl Type {
     }
 
     #[classmethod]
-    fn new_reg(_cls: &Bound<'_, PyType>, elem_ty: RegKind, dim: usize) -> Self {
+    fn new_reg(_cls: &Bound<'_, PyType>, elem_ty: RegKind, dim: DimExpr) -> Self {
         Self {
             ty: meta::MetaType::RegType {
                 elem_ty: elem_ty.to_ast_kind(),
-                dim: meta::DimExpr::DimConst {
-                    val: dim.into(),
-                    dbg: None,
-                },
+                dim: dim.dim_expr,
             },
         }
     }

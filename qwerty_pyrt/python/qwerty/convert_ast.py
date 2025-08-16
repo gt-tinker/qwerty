@@ -154,6 +154,9 @@ def convert_func_ast(ast_kind: AstKind, module: ast.Module,
     else:
         raise ValueError('unknown AST type {}'.format(ast_kind))
 
+REG_TYPES = {'bit': RegKind.Bit,
+             'qubit': RegKind.Qubit}
+
 class BaseVisitor:
     """
     Common Python AST visitor for both ``@classical`` and ``@qpu`` kernels.
@@ -271,49 +274,52 @@ class BaseVisitor:
         """
         if isinstance(node, ast.Name):
             type_name = node.id
-            if type_name == 'qubit':
-                return Type.new_reg(RegKind.Qubit, 1)
-            elif type_name == 'bit':
-                return Type.new_reg(RegKind.Bit, 1)
+            one = DimExpr.new_const(1, self.get_debug_loc(node))
+            if type_name in REG_TYPES:
+                reg_kind = REG_TYPES[type_name]
+                return Type.new_reg(reg_kind, one)
             elif type_name == 'qfunc':
-                return Type.new_func(Type.new_reg(RegKind.Qubit, 1),
-                                     Type.new_reg(RegKind.Qubit, 1))
+                return Type.new_func(Type.new_reg(RegKind.Qubit, one),
+                                     Type.new_reg(RegKind.Qubit, one))
             elif type_name == 'rev_qfunc':
-                return Type.new_rev_func(Type.new_reg(RegKind.Qubit, 1))
+                return Type.new_rev_func(Type.new_reg(RegKind.Qubit, one))
             else:
                 raise QwertySyntaxError('Unknown type name {} found'
                                         .format(type_name),
                                         self.get_debug_loc(node))
         elif isinstance(node, ast.Subscript) \
                 and isinstance(node.value, ast.Name) \
-                and (type_name := node.value.id) in ('bit', 'qubit', 'qfunc', 'rev_qfunc') \
-                and isinstance((dim_node := node.slice), ast.Constant) \
-                and isinstance((dim := dim_node.value), int):
-            if type_name == 'qubit':
-                return Type.new_reg(RegKind.Qubit, dim)
-            elif type_name == 'bit':
-                return Type.new_reg(RegKind.Bit, dim)
-            elif type_name == 'qfunc':
-                return Type.new_func(Type.new_reg(RegKind.Qubit, dim),
-                                     Type.new_reg(RegKind.Qubit, dim))
+                and (type_name := node.value.id) in ('bit', 'qubit', 'qfunc', 'rev_qfunc'):
+            arg = node.slice
+            if type_name in REG_TYPES:
+                dim = self.extract_dimvar_expr(arg)
+                reg_kind = REG_TYPES[type_name]
+                return Type.new_reg(reg_kind, dim)
             elif type_name == 'rev_qfunc':
+                dim = self.extract_dimvar_expr(arg)
                 return Type.new_rev_func(Type.new_reg(RegKind.Qubit, dim),
                                          Type.new_reg(RegKind.Qubit, dim))
+            elif type_name == 'qfunc':
+                if isinstance((dims_node := arg), ast.Tuple):
+                    if len(dims_node_elts := dims_node.elts) != 2:
+                        raise QwertySyntaxError('Wrong number of params to '
+                                                'qfunc. Expected 2 but got '
+                                                f'{dims_node_elts}',
+                                                self.get_debug_loc(dims_node))
+
+                    in_dim_node, out_dim_node = dims_node_elts
+                    in_dim = self.extract_dimvar_expr(in_dim_node)
+                    out_dim = self.extract_dimvar_expr(out_dim_node)
+                    return Type.new_func(Type.new_reg(RegKind.Qubit, in_dim),
+                                         Type.new_reg(RegKind.Qubit, out_dim))
+                else:
+                    dim = self.extract_dimvar_expr(arg)
+                    return Type.new_func(Type.new_reg(RegKind.Qubit, dim),
+                                         Type.new_reg(RegKind.Qubit, dim))
             else:
-                raise QwertySyntaxError('Unknown type name {}[N] found'
+                raise QwertySyntaxError('Unknown type name {}[...] found'
                                         .format(type_name),
                                         self.get_debug_loc(node))
-        elif isinstance(node, ast.Subscript) \
-                and isinstance(node.value, ast.Name) \
-                and (type_name := node.value.id) == 'qfunc' \
-                and isinstance((dims_node := node.slice), ast.Tuple) \
-                and len(dims_node_elts := dims_node.elts) != 2 \
-                and isinstance((in_dim_node := dims_node_elts[0]), ast.Constant) \
-                and isinstance((out_dim_node := dims_node_elts[1]), ast.Constant) \
-                and isinstance((in_dim := in_dim_node.value), int) \
-                and isinstance((out_dim := out_dim_node.value), int):
-            return Type.new_func(Type.new_reg(RegKind.Qubit, in_dim),
-                                 Type.new_reg(RegKind.Qubit, out_dim))
         else:
             raise QwertySyntaxError('Unknown type',
                                     self.get_debug_loc(node))

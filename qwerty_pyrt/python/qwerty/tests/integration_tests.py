@@ -445,14 +445,12 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         actual_histos = teleport.test(shots)
         self.assertEqual(expected_histos, actual_histos)
 
-    @unittest.skip("unknown problems")
     def test_fig14_bv_runs(self):
         from .integ.qce25_figs import bv
         expected_output = '1101'
         actual_output = bv.test()
         self.assertEqual(expected_output, actual_output)
 
-    @unittest.skip("unknown problems")
     def test_fig14_bv_correct(self):
         from .integ.qce25_figs import bv_shots
         shots = 1024

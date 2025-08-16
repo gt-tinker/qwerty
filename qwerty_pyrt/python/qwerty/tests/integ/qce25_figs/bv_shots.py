@@ -20,5 +20,5 @@ def bv(secret_str, shots):
 secret_str = bit[4](0b1101)
 #print(bv(secret_str))
 
-def test():
+def test(shots):
   return bv(secret_str, shots)
