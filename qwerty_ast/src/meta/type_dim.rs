@@ -10,7 +10,7 @@ use std::fmt;
 /// because macro parameters are distinct from function dimension variables
 /// (even if they have the same name), and even dimension variables with the
 /// same name across different functions must be distinct.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DimVar {
     /// Example:
     /// ```text
@@ -44,7 +44,7 @@ impl fmt::Display for DimVar {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DimExpr {
     /// Dimension variable. Example syntax:
     /// ```text
@@ -89,6 +89,139 @@ pub enum DimExpr {
 }
 
 impl DimExpr {
+    /// Return the same dimension variable expression but without any debug
+    /// symbols. Useful for comparing expressions.
+    pub fn strip_dbg(&self) -> DimExpr {
+        match self {
+            DimExpr::DimVar { var, dbg: _ } => DimExpr::DimVar {
+                var: var.clone(),
+                dbg: None,
+            },
+            DimExpr::DimConst { val, dbg: _ } => DimExpr::DimConst {
+                val: val.clone(),
+                dbg: None,
+            },
+            DimExpr::DimSum {
+                left,
+                right,
+                dbg: _,
+            } => DimExpr::DimSum {
+                left: Box::new(left.strip_dbg()),
+                right: Box::new(right.strip_dbg()),
+                dbg: None,
+            },
+            DimExpr::DimProd {
+                left,
+                right,
+                dbg: _,
+            } => DimExpr::DimProd {
+                left: Box::new(left.strip_dbg()),
+                right: Box::new(right.strip_dbg()),
+                dbg: None,
+            },
+            DimExpr::DimNeg { val, dbg: _ } => DimExpr::DimNeg {
+                val: Box::new(val.strip_dbg()),
+                dbg: None,
+            },
+        }
+    }
+
+    /// Recursively flatten a tree of `DimSum`s into a list of operands.
+    fn flatten_sum(&self, out: &mut Vec<DimExpr>) {
+        if let DimExpr::DimSum {
+            left,
+            right,
+            dbg: _,
+        } = self
+        {
+            left.flatten_sum(out);
+            right.flatten_sum(out);
+        } else {
+            out.push(self.clone());
+        }
+    }
+
+    /// Recursively flatten a tree of `DimProd`s into a list of operands.
+    fn flatten_prod(&self, out: &mut Vec<DimExpr>) {
+        if let DimExpr::DimProd {
+            left,
+            right,
+            dbg: _,
+        } = self
+        {
+            left.flatten_prod(out);
+            right.flatten_prod(out);
+        } else {
+            out.push(self.clone());
+        }
+    }
+
+    /// Return a canon form of this expression in which:
+    ///
+    /// 1. Trees of `DimSum` and `DimProd` are rebuilt in a left-recursive
+    ///    form where operands are sorted.
+    ///
+    /// Debug symbols are not removed. You should call [`DimExpr::strip_dbg`]
+    /// for that first if you want it.
+    pub fn canonicalize(&self) -> DimExpr {
+        match self {
+            // Base cases
+            DimExpr::DimVar { .. } | DimExpr::DimConst { .. } => self.clone(),
+
+            DimExpr::DimNeg { val, dbg } => DimExpr::DimNeg {
+                val: Box::new(val.canonicalize()),
+                dbg: dbg.clone(),
+            },
+
+            DimExpr::DimSum {
+                left, right, dbg, ..
+            } => {
+                let mut vals = vec![];
+                left.flatten_sum(&mut vals);
+                right.flatten_sum(&mut vals);
+                vals.sort();
+                vals.into_iter()
+                    .reduce(|left, right| DimExpr::DimSum {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        dbg: dbg.clone(),
+                    })
+                    .unwrap()
+            }
+
+            DimExpr::DimProd {
+                left, right, dbg, ..
+            } => {
+                let mut vals = vec![];
+                left.flatten_prod(&mut vals);
+                right.flatten_prod(&mut vals);
+                vals.sort();
+                vals.into_iter()
+                    .reduce(|left, right| DimExpr::DimProd {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        dbg: dbg.clone(),
+                    })
+                    .unwrap()
+            }
+        }
+    }
+
+    /// Returns `true` if this expression contains at least one dim var.
+    pub fn contains_dim_var(&self) -> bool {
+        match self {
+            DimExpr::DimVar { .. } => true,
+            DimExpr::DimConst { .. } => false,
+            DimExpr::DimSum { left, right, .. } => {
+                left.contains_dim_var() || right.contains_dim_var()
+            }
+            DimExpr::DimProd { left, right, .. } => {
+                left.contains_dim_var() || right.contains_dim_var()
+            }
+            DimExpr::DimNeg { val, .. } => val.contains_dim_var(),
+        }
+    }
+
     /// Extract a constant integer from this dimension variable expression or
     /// return an error if it is not fully folded yet.
     pub fn extract(&self) -> Result<usize, LowerError> {

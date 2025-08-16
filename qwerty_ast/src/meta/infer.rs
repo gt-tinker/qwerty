@@ -90,8 +90,34 @@ impl DimVarConstraint {
     pub fn new(left: DimExpr, right: DimExpr) -> Self {
         Self(left, right)
     }
+
+    /// Returns `true` if we can easily detect that this constraint is trivial.
+    /// That is, there are many possible trivial constraints for which this
+    /// would return `false`.
+    pub fn is_obviously_trivial(&self) -> bool {
+        let left = self.0.strip_dbg().canonicalize();
+        let right = self.1.strip_dbg().canonicalize();
+        left == right
+    }
+
+    /// Returns `true` if there is at least one dimension variable in this
+    /// constraint.
+    pub fn contains_dim_var(&self) -> bool {
+        self.0.contains_dim_var() || self.1.contains_dim_var()
+    }
+
+    /// Returns `true` if this constraint is a waste of time to include in
+    /// unification.
+    pub fn should_skip(&self) -> bool {
+        self.is_obviously_trivial() || !self.contains_dim_var()
+    }
+
+    pub fn strip_dbg(&self) -> DimVarConstraint {
+        DimVarConstraint::new(self.0.strip_dbg(), self.1.strip_dbg())
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct DimVarConstraints(Vec<DimVarConstraint>);
 
 impl DimVarConstraints {
@@ -99,8 +125,14 @@ impl DimVarConstraints {
         Self(vec![])
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &DimVarConstraint> {
+        self.0.iter()
+    }
+
     fn insert(&mut self, constraint: DimVarConstraint) {
-        self.0.push(constraint)
+        if !constraint.should_skip() {
+            self.0.push(constraint)
+        }
     }
 }
 
@@ -444,6 +476,60 @@ impl InferType {
             }),
         }
     }
+
+    fn broadcast_tensor(
+        tv_allocator: &mut TypeVarAllocator,
+        allow_func: bool,
+        dbg: &Option<DebugLoc>,
+        val: InferType,
+        factor: DimExpr,
+    ) -> Result<InferType, LowerError> {
+        match val {
+            // Not much we can do here
+            InferType::TypeVar { .. } => Ok(tv_allocator.alloc_type_var()),
+
+            // This is the way typecheck.rs works: [] + [] has the type []
+            InferType::UnitType => Ok(InferType::UnitType),
+
+            InferType::RegType { elem_ty, dim } => {
+                let prod = DimExpr::DimSum {
+                    left: Box::new(dim),
+                    right: Box::new(factor),
+                    dbg: dbg.clone(),
+                };
+                Ok(InferType::RegType { elem_ty, dim: prod })
+            }
+
+            InferType::FuncType { in_ty, out_ty } if allow_func => {
+                let new_in_ty = Self::broadcast_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ false,
+                    dbg,
+                    *in_ty,
+                    factor.clone(),
+                )?;
+                let new_out_ty = Self::broadcast_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ false,
+                    dbg,
+                    *out_ty,
+                    factor,
+                )?;
+                Ok(InferType::FuncType {
+                    in_ty: Box::new(new_in_ty),
+                    out_ty: Box::new(new_out_ty),
+                })
+            }
+
+            bad_val => Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    // TODO: more specific error message?
+                    kind: TypeErrorKind::InvalidType(bad_val.to_string()),
+                },
+                dbg: dbg.clone(),
+            }),
+        }
+    }
 }
 
 pub struct TypeVarAllocator {
@@ -548,6 +634,14 @@ impl qpu::MetaVector {
     /// Returns None if the dimension cannot be determined.
     fn get_dim(&self) -> Option<DimExpr> {
         match self {
+            qpu::MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
+                val.get_dim().map(|val_dim| DimExpr::DimProd {
+                    left: Box::new(val_dim),
+                    right: Box::new(factor.clone()),
+                    dbg: dbg.clone(),
+                })
+            }
+
             qpu::MetaVector::ZeroVector { dbg }
             | qpu::MetaVector::OneVector { dbg }
             | qpu::MetaVector::PadVector { dbg }
@@ -578,9 +672,7 @@ impl qpu::MetaVector {
             }),
 
             // These are handled by expansion
-            qpu::MetaVector::VectorAlias { .. }
-            | qpu::MetaVector::VectorSymbol { .. }
-            | qpu::MetaVector::VectorBroadcastTensor { .. } => None,
+            qpu::MetaVector::VectorAlias { .. } | qpu::MetaVector::VectorSymbol { .. } => None,
         }
     }
 }
@@ -662,6 +754,18 @@ impl ExprConstrainable for qpu::MetaExpr {
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
         match self {
+            qpu::MetaExpr::BroadcastTensor { val, factor, dbg } => {
+                let val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                InferType::broadcast_tensor(
+                    tv_allocator,
+                    /*allow_func=*/ true,
+                    dbg,
+                    val_ty,
+                    factor.clone(),
+                )
+            }
+
             qpu::MetaExpr::Instantiate { .. } => todo!("build_type_constraints() for Instantiate"),
 
             qpu::MetaExpr::Variable { name, dbg } => {
@@ -858,7 +962,6 @@ impl ExprConstrainable for qpu::MetaExpr {
             // type var and move on.
             qpu::MetaExpr::ExprMacro { .. }
             | qpu::MetaExpr::BasisMacro { .. }
-            | qpu::MetaExpr::BroadcastTensor { .. }
             | qpu::MetaExpr::Repeat { .. } => Ok(tv_allocator.alloc_type_var()),
         }
     }
