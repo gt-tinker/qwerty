@@ -1,6 +1,6 @@
 """
-Fig. 16 of the Qwerty QCE '25 paper, but reworked not to require type
-inference.
+Fig. 16 of the Qwerty QCE '25 paper, but reworked to require only dimvar
+inference. Why? Because ``Mod`` inserts an internal dimvar during expansion.
 """
 
 import math
@@ -26,7 +26,7 @@ def period_finding(f):
 
 @classical
 def mod4(x: bit[3]) -> bit[3]:
-    return x & bit[3](0b011)
+    return x % 4
 
 def test():
     return period_finding(mod4)
