@@ -770,6 +770,50 @@ impl qpu::MetaVector {
             qpu::MetaVector::VectorAlias { .. } | qpu::MetaVector::VectorSymbol { .. } => None,
         }
     }
+
+    fn target_atom_count(&self) -> Option<DimExpr> {
+        match self {
+            qpu::MetaVector::VectorBroadcastTensor { val, factor, dbg } => {
+                val.target_atom_count().map(|val_count| DimExpr::DimProd {
+                    left: Box::new(val_count),
+                    right: Box::new(factor.clone()),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            qpu::MetaVector::VectorUnit { dbg }
+            | qpu::MetaVector::ZeroVector { dbg }
+            | qpu::MetaVector::OneVector { dbg }
+            | qpu::MetaVector::PadVector { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ZERO,
+                dbg: dbg.clone(),
+            }),
+
+            qpu::MetaVector::TargetVector { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ONE,
+                dbg: dbg.clone(),
+            }),
+
+            qpu::MetaVector::VectorTilt { q, .. } => q.target_atom_count(),
+
+            qpu::MetaVector::UniformVectorSuperpos { q1, .. } => q1.target_atom_count(),
+
+            qpu::MetaVector::VectorBiTensor { left, right, dbg } => {
+                let left_count = left.target_atom_count();
+                let right_count = right.target_atom_count();
+                left_count
+                    .zip(right_count)
+                    .map(|(l_count, r_count)| DimExpr::DimSum {
+                        left: Box::new(l_count),
+                        right: Box::new(r_count),
+                        dbg: dbg.clone(),
+                    })
+            }
+
+            // These are handled by expansion
+            qpu::MetaVector::VectorAlias { .. } | qpu::MetaVector::VectorSymbol { .. } => None,
+        }
+    }
 }
 
 impl qpu::MetaBasisGenerator {
@@ -821,6 +865,42 @@ impl qpu::MetaBasis {
                         dbg: dbg.clone(),
                     })
             }
+
+            // Fingers crossed expansion will get rid of these
+            qpu::MetaBasis::BasisAlias { .. }
+            | qpu::MetaBasis::BasisAliasRec { .. }
+            | qpu::MetaBasis::BasisBroadcastTensor { .. } => None,
+        }
+    }
+
+    /// Returns the number of target atoms `'_'` inside this basis or `None` if
+    /// it cannot be determined.
+    fn target_atom_count(&self) -> Option<DimExpr> {
+        match self {
+            qpu::MetaBasis::BasisLiteral { vecs, .. } => {
+                assert!(!vecs.is_empty(), "basis literals cannot be empty");
+                vecs[0].target_atom_count()
+            }
+
+            qpu::MetaBasis::EmptyBasisLiteral { dbg } => Some(DimExpr::DimConst {
+                val: IBig::ZERO,
+                dbg: dbg.clone(),
+            }),
+
+            qpu::MetaBasis::BasisBiTensor { left, right, dbg } => {
+                let left_count = left.get_dim();
+                let right_count = right.get_dim();
+                left_count
+                    .zip(right_count)
+                    .map(|(l_count, r_count)| DimExpr::DimSum {
+                        left: Box::new(l_count),
+                        right: Box::new(r_count),
+                        dbg: dbg.clone(),
+                    })
+            }
+
+            // TODO: figure out hwo this would work
+            qpu::MetaBasis::ApplyBasisGenerator { .. } => None,
 
             // Fingers crossed expansion will get rid of these
             qpu::MetaBasis::BasisAlias { .. }
@@ -1053,10 +1133,75 @@ impl ExprConstrainable for qpu::MetaExpr {
                 })
             }
 
-            // TODO: implement these
-            qpu::MetaExpr::Predicated { .. } | qpu::MetaExpr::Conditional { .. } => {
-                Ok(tv_allocator.alloc_type_var())
+            qpu::MetaExpr::Predicated {
+                then_func,
+                else_func,
+                pred,
+                dbg,
+            } => {
+                let then_ty = then_func.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+                let else_ty = else_func.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+
+                if let Some(num_target_qubits) = pred.target_atom_count() {
+                    if let InferType::FuncType { in_ty, out_ty } = &then_ty {
+                        if let InferType::RegType { dim, .. } = &**in_ty {
+                            dv_constraints.insert(DimVarConstraint::new(
+                                dim.clone(),
+                                num_target_qubits.clone(),
+                            ));
+                        }
+                        if let InferType::RegType { dim, .. } = &**out_ty {
+                            dv_constraints.insert(DimVarConstraint::new(
+                                dim.clone(),
+                                num_target_qubits.clone(),
+                            ));
+                        }
+                    }
+
+                    if let InferType::FuncType { in_ty, out_ty } = &else_ty {
+                        if let InferType::RegType { dim, .. } = &**in_ty {
+                            dv_constraints.insert(DimVarConstraint::new(
+                                dim.clone(),
+                                num_target_qubits.clone(),
+                            ));
+                        }
+                        if let InferType::RegType { dim, .. } = &**out_ty {
+                            dv_constraints
+                                .insert(DimVarConstraint::new(dim.clone(), num_target_qubits));
+                        }
+                    }
+                }
+
+                ty_constraints.insert(TypeConstraint::new(then_ty, else_ty, dbg.clone()));
+
+                if let Some(basis_dim) = pred.get_dim() {
+                    Ok(InferType::FuncType {
+                        in_ty: Box::new(InferType::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: basis_dim.clone(),
+                        }),
+                        out_ty: Box::new(InferType::RegType {
+                            elem_ty: RegKind::Qubit,
+                            dim: basis_dim,
+                        }),
+                    })
+                } else {
+                    Ok(tv_allocator.alloc_type_var())
+                }
             }
+
+            // TODO: implement this
+            qpu::MetaExpr::Conditional { .. } => Ok(tv_allocator.alloc_type_var()),
 
             qpu::MetaExpr::QLit { vec } => {
                 Ok(if let Some(dim) = vec.get_dim() {

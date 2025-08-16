@@ -337,6 +337,13 @@ class MetaInferIntegrationTests(unittest.TestCase):
         expected_period = 4
         self.assertTrue(any(period.test() == expected_period for _ in range(8)))
 
+    def test_predicate_in(self):
+        from .integ.meta import predicate_in
+        shots = 1024
+        expected_histo = {bit[3](0b101): shots}
+        actual_histo = predicate_in.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""

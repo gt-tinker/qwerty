@@ -179,6 +179,8 @@ class BaseVisitor:
         self._func_class = func_class
         # Used when constructing DimVars, since each contains the function name
         self._func_name = None
+        self._next_internal_dim_var_id = 0
+        self._internal_dim_vars = []
         # We push to this when we parsing the body of a Repeat or a
         # BasisAliasRecDef and pop when we're done
         self._macro_dimvar_stack = []
@@ -206,6 +208,19 @@ class BaseVisitor:
         dbg = DebugLoc(self.filename, row or 0, col or 0)
         set_dbg_frame(dbg, self.frame)
         return dbg
+
+    def allocate_internal_dim_var(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        """
+        If we are inside a function, allocate a temporary dimension
+        variable. If not, crash.
+        """
+        assert self._func_name is not None, 'cannot allocate internal ' \
+                                            'dimvar outside function'
+        dim_var_name = f'__{self._next_internal_dim_var_id}'
+        self._internal_dim_vars.append(dim_var_name)
+        self._next_internal_dim_var_id += 1
+        dim_var = DimVar.new_func_var(dim_var_name, self._func_name)
+        return DimExpr.new_var(dim_var, dbg)
 
     def extract_dimvar_expr(self, node: ast.AST) -> DimExpr:
         """
@@ -536,6 +551,10 @@ class BaseVisitor:
 
         # ...except traversing the function body
         body = self.visit(func_def.body)
+
+        # We may have allocated internal dimvars while walking through body, so
+        # include them in the AST
+        dim_vars += self._internal_dim_vars
 
         return self._func_class(generated_func_name, args, ret_type, body, is_rev, dim_vars, dbg)
 
@@ -1616,6 +1635,44 @@ class QpuVisitor(BaseVisitor):
         else:
             return QpuExpr.new_predicated(then_expr, else_expr, pred_basis, dbg)
 
+    def visit_Compare(self, compare: ast.Compare):
+        """
+        Convert a Python `x in y` AST node into a Qwerty predication
+        `x if y else id**N`.
+        """
+        dbg = self.get_debug_loc(compare)
+
+        if len(compare.ops) != 1 or len(compare.comparators) != 1:
+            raise QwertySyntaxError('Invalid comparison syntax', dbg)
+
+        left_node = compare.left
+        op, = compare.ops
+        right_node, = compare.comparators
+
+        if not isinstance(op, ast.In):
+            cmp_name = type(op).__name__
+            raise QwertySyntaxError(f'Unknown comparison {cmp_name}', dbg)
+
+        if self._func_name is None:
+            raise QwertySyntaxError('Cannot use `in` syntax outside of a '
+                                    'function', dbg)
+        else:
+            internal_dim_var = self.allocate_internal_dim_var(dbg)
+
+        # '?'**N
+        pad_vec = Vector.new_vector_broadcast_tensor(
+            Vector.new_pad_vector(dbg),
+            internal_dim_var,
+            dbg)
+        pad_basis = Basis.new_basis_literal([pad_vec], dbg)
+        # '?'**N >> '?'**N
+        identity = QpuExpr.new_basis_translation(pad_basis, pad_basis, dbg)
+
+        then_func = self.visit(left_node)
+        else_func = identity
+        pred_basis = self.extract_basis(right_node)
+        return QpuExpr.new_predicated(then_func, else_func, pred_basis, dbg)
+
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):
     #        return self.visit_BoolOp_Or(boolOp)
@@ -1720,6 +1777,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_Attribute(node)
         elif isinstance(node, ast.IfExp):
             return self.visit_IfExp(node)
+        elif isinstance(node, ast.Compare):
+            return self.visit_Compare(node)
         #elif isinstance(node, ast.BoolOp):
         #    return self.visit_BoolOp(node)
         else:
