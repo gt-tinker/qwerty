@@ -11,7 +11,7 @@ from qwerty.convert_ast import convert_qpu_repl_input, \
                                CapturedBitReg
 from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, \
                                 BinaryOpKind, DebugLoc, Basis, Vector, \
-                                QpuStmt, ClassicalStmt, EmbedKind
+                                QpuStmt, ClassicalStmt, EmbedKind, FloatExpr
 
 class SingleVarCapturer(Capturer):
     def __init__(self, name: str, captured: CapturedValue):
@@ -127,7 +127,7 @@ class ConvertAstQpuTests(unittest.TestCase):
                             dbg2),
                         Vector.new_vector_symbol('0', dbg2),
                         dbg2),
-                    180.0,
+                    FloatExpr.new_const(180.0, dbg3),
                     dbg3)
             ], dbg3),
             dbg1))
@@ -199,7 +199,7 @@ class ConvertAstQpuTests(unittest.TestCase):
                 Basis.new_basis_literal([Vector.new_vector_symbol('0', dbg_str2),
                                          Vector.new_vector_tilt(
                                              Vector.new_vector_symbol('1', dbg_str4),
-                                             180.0,
+                                             FloatExpr.new_const(180.0, dbg_neg),
                                              dbg_neg)],
                                         dbg_set),
                 dbg_set))

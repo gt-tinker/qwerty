@@ -14,11 +14,11 @@ from .runtime import bit
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, QwertySyntaxError, \
                  get_frame, set_dbg_frame
 from ._qwerty_pyrt import DebugLoc, RegKind, Type, QpuFunctionDef, \
-                          QpuPrelude, ClassicalFunctionDef, Vector, Basis, \
-                          QpuStmt, ClassicalStmt, QpuExpr, ClassicalExpr, \
-                          BasisGenerator, UnaryOpKind, BinaryOpKind, \
-                          EmbedKind, DimVar, DimExpr, ExprMacroPattern, \
-                          BasisMacroPattern, RecDefParam
+                          QpuPrelude, ClassicalFunctionDef, FloatExpr, \
+                          Vector, Basis, QpuStmt, ClassicalStmt, QpuExpr, \
+                          ClassicalExpr, BasisGenerator, UnaryOpKind, \
+                          BinaryOpKind, EmbedKind, DimVar, DimExpr, \
+                          ExprMacroPattern, BasisMacroPattern, RecDefParam
 
 #################### COMMON CODE FOR BOTH @QPU AND @CLASSICAL DSLs ####################
 
@@ -41,7 +41,15 @@ class CapturedValue(ABC):
     @abstractmethod
     def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
         """
-        Return this value a dimension variable expression node or throw a
+        Return this value as a dimension variable expression or throw a
+        ``QwertySyntaxError`` if that is not possible.
+        """
+        ...
+
+    @abstractmethod
+    def to_float_expr(self, dbg: Optional[DebugLoc]) -> FloatExpr:
+        """
+        Return this value as a float expression or throw a
         ``QwertySyntaxError`` if that is not possible.
         """
         ...
@@ -60,6 +68,10 @@ class CapturedSymbol(CapturedValue):
         raise QwertySyntaxError("Functions cannot be used in dimension "
                                 "variable expressions", dbg)
 
+    def to_float_expr(self, dbg: Optional[DebugLoc]) -> FloatExpr:
+        raise QwertySyntaxError("Functions cannot be used in float "
+                                "expressions", dbg)
+
 class CapturedBitReg(CapturedValue):
     """A captured ``bit[N]``."""
 
@@ -76,6 +88,10 @@ class CapturedBitReg(CapturedValue):
         raise QwertySyntaxError("Bit registers cannot be used in dimension "
                                 "variable expressions", dbg)
 
+    def to_float_expr(self, dbg: Optional[DebugLoc]) -> FloatExpr:
+        raise QwertySyntaxError("Bit registers cannot be used in float "
+                                "expressions", dbg)
+
 class CapturedInt(CapturedValue):
     """A captured ``int``."""
 
@@ -89,6 +105,27 @@ class CapturedInt(CapturedValue):
 
     def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
         return DimExpr.new_const(self.int_val, dbg)
+
+    def to_float_expr(self, dbg: Optional[DebugLoc]) -> FloatExpr:
+        return FloatExpr.new_dim_expr(self.to_dim_expr(), dbg)
+
+class CapturedFloat(CapturedValue):
+    """A captured ``float``."""
+
+    def __init__(self, float_val: float):
+        self.float_val = float_val
+
+    def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
+                dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
+        raise QwertySyntaxError("floats cannot be captured in Qwerty "
+                                "kernels", dbg)
+
+    def to_dim_expr(self, dbg: Optional[DebugLoc]) -> DimExpr:
+        raise QwertySyntaxError("floats cannot be used in dimension "
+                                "variable expressions", dbg)
+
+    def to_float_expr(self, dbg: Optional[DebugLoc]) -> FloatExpr:
+        return FloatExpr.new_const(self.float_val, dbg)
 
 class CaptureError(Exception):
     """
@@ -268,6 +305,11 @@ class BaseVisitor:
             left = self.extract_dimvar_expr(node.left)
             right = self.extract_dimvar_expr(node.right)
             return DimExpr.new_prod(left, right, dbg)
+        elif isinstance(node, ast.BinOp) \
+                and isinstance(node.op, ast.Pow):
+            base = self.extract_dimvar_expr(node.left)
+            pow_ = self.extract_dimvar_expr(node.right)
+            return DimExpr.new_pow(base, pow_, dbg)
         elif isinstance(node, ast.UnaryOp) \
                 and isinstance(node.op, ast.USub):
             val = self.extract_dimvar_expr(node.operand)
@@ -711,6 +753,15 @@ class BaseVisitor:
         else:
             return None
 
+    def capture_float_expr(self, var_name: str, dbg: DebugLoc) \
+                          -> Optional[FloatExpr]:
+        captured = self.capture(var_name, dbg)
+
+        if captured is not None:
+            return captured.to_float_expr(dbg)
+        else:
+            return None
+
     def visit_Name(self, name: ast.Name) -> QpuExpr | ClassicalExpr:
         """
         Convert a Python AST identitifer node into a Qwerty variable name AST
@@ -956,7 +1007,8 @@ class QpuVisitor(BaseVisitor):
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
             left = self.extract_basis_vector(node.left)
             right = self.extract_basis_vector(node.right)
-            right_neg = Vector.new_vector_tilt(right, 180.0, dbg)
+            angle_deg = FloatExpr.new_const(180.0, dbg)
+            right_neg = Vector.new_vector_tilt(right, angle_deg, dbg)
             return Vector.new_uniform_vector_superpos(left, right_neg, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
             left = self.extract_basis_vector(node.left)
@@ -968,11 +1020,12 @@ class QpuVisitor(BaseVisitor):
             return Vector.new_vector_broadcast_tensor(left, right, dbg)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
             q = self.extract_basis_vector(node.left)
-            angle_deg = self.extract_float_const(node.right)
+            angle_deg = self.extract_float_expr(node.right)
             return Vector.new_vector_tilt(q, angle_deg, dbg)
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
             q = self.extract_basis_vector(node.operand)
-            return Vector.new_vector_tilt(q, 180.0, dbg)
+            angle_deg = FloatExpr.new_const(180.0, dbg)
+            return Vector.new_vector_tilt(q, angle_deg, dbg)
         elif self.is_vector_atom_intrinsic(node):
             return self.extract_vector_atom_intrinsic(node)
         elif isinstance(node, ast.Constant) and node.value == '':
@@ -1066,6 +1119,8 @@ class QpuVisitor(BaseVisitor):
         elif allow_singleton and \
                 ((isinstance(node, ast.UnaryOp)
                     and isinstance(node.op, ast.USub)) \
+                or (isinstance(node, ast.BinOp)
+                    and isinstance(node.op, ast.MatMult)) \
                 or (isinstance(node, ast.Constant) \
                     and isinstance(node.value, str)) \
                 or self.is_vector_atom_intrinsic(node)):
@@ -1075,71 +1130,63 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unknown basis syntax {}'
                                     .format(node_name), dbg)
 
-    # TODO: expand this into extract_float_expr()
-    def extract_float_const(self, node: ast.AST) -> float:
-        if isinstance(node, ast.Constant) \
-                and isinstance(node.value, (int, float)):
-            return float(node.value)
+    def extract_float_expr(self, node: ast.AST) -> FloatExpr:
+        """
+        Extract a float expression, like a tilt, for example::
+
+            '1' @ (360/2)
+                   ^^^^^^
+        """
+        dbg = self.get_debug_loc(node)
+
+        if isinstance(name := node, ast.Name):
+            var_name = name.id
+            captured = self.capture_float_expr(var_name, dbg)
+            if captured is not None:
+                return captured
+            else:
+                dim_expr = self.extract_dimvar_expr(node)
+                return FloatExpr.new_dim_expr(dim_expr, dbg)
+        elif isinstance(node, ast.Constant) \
+                and type(node.value) in (int, float):
+            return FloatExpr.new_const(float(node.value), dbg)
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            val = self.extract_float_expr(node.operand)
+            return FloatExpr.new_neg(val, dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            return FloatExpr.new_div(self.extract_float_expr(node.left),
+                                     self.extract_float_expr(node.right),
+                                     dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+            return FloatExpr.new_prod(self.extract_float_expr(node.left),
+                                      self.extract_float_expr(node.right),
+                                      dbg)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            dim_expr = self.extract_dimvar_expr(node)
+            return FloatExpr.new_dim_expr(dim_expr, dbg)
+        #elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        #    return FloatBinaryOp(dbg, FLOAT_MOD,
+        #                         self.extract_float_expr(node.left),
+        #                         self.extract_float_expr(node.right))
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return FloatExpr.new_sum(self.extract_float_expr(node.left),
+                                     self.extract_float_expr(node.right),
+                                     dbg)
+        #elif isinstance(node, ast.Subscript) \
+        #        and isinstance(node.value, ast.Name) \
+        #        and isinstance(node.slice, ast.List) \
+        #        and len(node.slice.elts) == 1:
+        #    val = self.visit(node.value)
+        #    idx = node.slice.elts[0]
+        #    lower = self.extract_dimvar_expr(idx)
+        #    upper = lower.copy()
+        #    upper += DimVarExpr('', 1)
+        #    return Slice(dbg, val, lower, upper)
         else:
             node_name = type(node).__name__
-            raise QwertySyntaxError('Unsupported float constant syntax '
-                                    + node_name, self.get_debug_loc(node))
-
-    #def extract_float_expr(self, node: ast.AST):
-    #    """
-    #    Extract a float expression, like a tilt, for example::
-
-    #        '1' @ (3*pi/2)
-    #               ^^^^^^
-    #    """
-    #    dbg = self.get_debug_loc(node)
-
-    #    if isinstance(node, ast.Name) and node.id == 'pi':
-    #        return FloatLiteral(dbg, math.pi)
-    #    if isinstance(node, ast.Name) and node.id in self.dim_vars:
-    #        return FloatDimVarExpr(dbg, self.extract_dimvar_expr(node))
-    #    elif isinstance(node, ast.Constant) \
-    #            and type(node.value) in (int, float):
-    #        return FloatLiteral(dbg, float(node.value))
-    #    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-    #        return FloatNeg(dbg, self.extract_float_expr(node.operand))
-    #    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-    #        return FloatBinaryOp(dbg, FLOAT_DIV,
-    #                             self.extract_float_expr(node.left),
-    #                             self.extract_float_expr(node.right))
-    #    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-    #        return FloatBinaryOp(dbg, FLOAT_MUL,
-    #                             self.extract_float_expr(node.left),
-    #                             self.extract_float_expr(node.right))
-    #    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
-    #        return FloatBinaryOp(dbg, FLOAT_POW,
-    #                             self.extract_float_expr(node.left),
-    #                             self.extract_float_expr(node.right))
-    #    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
-    #        return FloatBinaryOp(dbg, FLOAT_MOD,
-    #                             self.extract_float_expr(node.left),
-    #                             self.extract_float_expr(node.right))
-    #    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-    #        return FloatBinaryOp(dbg, FLOAT_ADD,
-    #                             self.extract_float_expr(node.left),
-    #                             self.extract_float_expr(node.right))
-    #    elif isinstance(node, ast.Name):
-    #        return self.visit(node)
-    #    elif isinstance(node, ast.Subscript) \
-    #            and isinstance(node.value, ast.Name) \
-    #            and isinstance(node.slice, ast.List) \
-    #            and len(node.slice.elts) == 1:
-    #        val = self.visit(node.value)
-    #        idx = node.slice.elts[0]
-    #        lower = self.extract_dimvar_expr(idx)
-    #        upper = lower.copy()
-    #        upper += DimVarExpr('', 1)
-    #        return Slice(dbg, val, lower, upper)
-    #    else:
-    #        node_name = type(node).__name__
-    #        raise QwertySyntaxError('Unsupported float expression {}'
-    #                                .format(node_name),
-    #                                self.get_debug_loc(node))
+            raise QwertySyntaxError('Unsupported float expression {}'
+                                    .format(node_name),
+                                    self.get_debug_loc(node))
 
     def visit_FunctionDef(self, func_def: ast.FunctionDef) -> QpuFunctionDef:
         """

@@ -78,6 +78,17 @@ pub enum DimExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// Raise one dimension variable values to the power of another. Example
+    /// syntax:
+    /// ```text
+    /// 2**J
+    /// ```
+    DimPow {
+        base: Box<DimExpr>,
+        pow: Box<DimExpr>,
+        dbg: Option<DebugLoc>,
+    },
+
     /// Negation of a dimension variable value. Example syntax:
     /// ```text
     /// -N
@@ -142,6 +153,12 @@ impl DimExpr {
                 dbg: None,
             },
 
+            DimExpr::DimPow { base, pow, dbg: _ } => DimExpr::DimPow {
+                base: Box::new(base.strip_dbg()),
+                pow: Box::new(pow.strip_dbg()),
+                dbg: None,
+            },
+
             DimExpr::DimNeg { val, dbg: _ } => DimExpr::DimNeg {
                 val: Box::new(val.strip_dbg()),
                 dbg: None,
@@ -198,9 +215,13 @@ impl DimExpr {
                 dbg: dbg.clone(),
             },
 
-            DimExpr::DimSum {
-                left, right, dbg, ..
-            } => {
+            DimExpr::DimPow { base, pow, dbg } => DimExpr::DimPow {
+                base: Box::new(base.canonicalize()),
+                pow: Box::new(pow.canonicalize()),
+                dbg: dbg.clone(),
+            },
+
+            DimExpr::DimSum { left, right, dbg } => {
                 let mut vals = vec![];
                 left.canonicalize().flatten_sum(&mut vals);
                 right.canonicalize().flatten_sum(&mut vals);
@@ -215,9 +236,7 @@ impl DimExpr {
                     .unwrap()
             }
 
-            DimExpr::DimProd {
-                left, right, dbg, ..
-            } => {
+            DimExpr::DimProd { left, right, dbg } => {
                 let mut vals = vec![];
                 left.canonicalize().flatten_prod(&mut vals);
                 right.canonicalize().flatten_prod(&mut vals);
@@ -245,6 +264,7 @@ impl DimExpr {
             DimExpr::DimProd { left, right, .. } => {
                 left.contains_dim_var() || right.contains_dim_var()
             }
+            DimExpr::DimPow { base, pow, .. } => base.contains_dim_var() || pow.contains_dim_var(),
             DimExpr::DimNeg { val, .. } => val.contains_dim_var(),
         }
     }
@@ -273,6 +293,7 @@ impl DimExpr {
             DimExpr::DimVar { dbg, .. }
             | DimExpr::DimSum { dbg, .. }
             | DimExpr::DimProd { dbg, .. }
+            | DimExpr::DimPow { dbg, .. }
             | DimExpr::DimNeg { dbg, .. } => Err(LowerError {
                 kind: LowerErrorKind::NotFullyFolded,
                 dbg: dbg.clone(),
@@ -290,6 +311,7 @@ impl fmt::Display for DimExpr {
             DimExpr::DimConst { val, .. } => write!(f, "{}", val),
             DimExpr::DimSum { left, right, .. } => write!(f, "({})+({})", left, right),
             DimExpr::DimProd { left, right, .. } => write!(f, "({})*({})", left, right),
+            DimExpr::DimPow { base, pow, .. } => write!(f, "({})**({})", base, pow),
             DimExpr::DimNeg { val, .. } => write!(f, "-({})", val),
         }
     }

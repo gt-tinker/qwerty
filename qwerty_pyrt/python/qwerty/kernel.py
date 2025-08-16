@@ -20,7 +20,8 @@ from ._qwerty_pyrt import Program
 from .runtime import dimvar, bit
 from .pyast_utils import get_func_pyast
 from .convert_ast import AstKind, convert_func_ast, Capturer, CaptureError, \
-                         CapturedSymbol, CapturedBitReg, CapturedInt
+                         CapturedSymbol, CapturedBitReg, CapturedInt, \
+                         CapturedFloat
 from .prelude import PreludeHandle
 from .default_qpu_prelude import default_qpu_prelude
 
@@ -102,6 +103,8 @@ class PyCapturer(Capturer):
                 return CapturedBitReg(bit_reg)
             elif isinstance(int_val := python_obj, int):
                 return CapturedInt(int_val)
+            elif isinstance(float_val := python_obj, float):
+                return CapturedFloat(float_val)
             else:
                 raise CaptureError(type(python_obj).__name__)
         else:

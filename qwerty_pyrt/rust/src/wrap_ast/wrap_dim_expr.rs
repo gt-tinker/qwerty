@@ -89,6 +89,22 @@ impl DimExpr {
     }
 
     #[classmethod]
+    fn new_pow(
+        _cls: &Bound<'_, PyType>,
+        base: DimExpr,
+        pow: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            dim_expr: meta::DimExpr::DimPow {
+                base: Box::new(base.dim_expr),
+                pow: Box::new(pow.dim_expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_neg(_cls: &Bound<'_, PyType>, val: DimExpr, dbg: Option<DebugLoc>) -> Self {
         Self {
             dim_expr: meta::DimExpr::DimNeg {

@@ -112,6 +112,12 @@ impl DimExpr {
                 dbg: dbg.clone(),
             },
 
+            DimExpr::DimPow { base, pow, dbg } => DimExpr::DimPow {
+                base: Box::new(base.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                pow: Box::new(pow.substitute_dim_var(dim_var, new_dim_expr)),
+                dbg: dbg.clone(),
+            },
+
             DimExpr::DimNeg { val, dbg } => DimExpr::DimNeg {
                 val: Box::new(val.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
@@ -198,6 +204,35 @@ impl DimExpr {
                                 prog,
                             ),
                         }
+                    })
+                })
+            }
+
+            DimExpr::DimPow { base, pow, dbg } => {
+                base.expand(env).and_then(|(expanded_base, base_prog)| {
+                    pow.expand(env).and_then(|(expanded_pow, pow_prog)| {
+                        expanded_pow.extract().map(|pow_int| {
+                            match (&expanded_base, base_prog.join(pow_prog)) {
+                                (
+                                    DimExpr::DimConst { val: base_val, .. },
+                                    prog @ Progress::Full,
+                                ) => (
+                                    DimExpr::DimConst {
+                                        val: base_val.pow(pow_int),
+                                        dbg: dbg.clone(),
+                                    },
+                                    prog,
+                                ),
+                                (_, prog) => (
+                                    DimExpr::DimPow {
+                                        base: Box::new(expanded_base),
+                                        pow: Box::new(expanded_pow),
+                                        dbg: dbg.clone(),
+                                    },
+                                    prog,
+                                ),
+                            }
+                        })
                     })
                 })
             }

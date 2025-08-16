@@ -51,6 +51,93 @@ impl fmt::Display for PlainQpuStmt {
 
 #[pyclass]
 #[derive(Clone)]
+pub struct FloatExpr {
+    pub expr: meta::qpu::FloatExpr,
+}
+
+#[pymethods]
+impl FloatExpr {
+    #[classmethod]
+    fn new_dim_expr(_cls: &Bound<'_, PyType>, expr: DimExpr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatDimExpr {
+                expr: expr.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_const(_cls: &Bound<'_, PyType>, val: f64, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatConst {
+                val,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_sum(
+        _cls: &Bound<'_, PyType>,
+        left: FloatExpr,
+        right: FloatExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatSum {
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_prod(
+        _cls: &Bound<'_, PyType>,
+        left: FloatExpr,
+        right: FloatExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatProd {
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_div(
+        _cls: &Bound<'_, PyType>,
+        left: FloatExpr,
+        right: FloatExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatDiv {
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_neg(_cls: &Bound<'_, PyType>, val: FloatExpr, dbg: Option<DebugLoc>) -> Self {
+        Self {
+            expr: meta::qpu::FloatExpr::FloatNeg {
+                val: Box::new(val.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
 pub struct Vector {
     vec: meta::qpu::MetaVector,
 }
@@ -165,17 +252,14 @@ impl Vector {
     fn new_vector_tilt(
         _cls: &Bound<'_, PyType>,
         q: Vector,
-        angle_deg: f64,
+        angle_deg: FloatExpr,
         dbg: Option<DebugLoc>,
     ) -> Self {
         let dbg = dbg.map(|dbg| dbg.dbg);
         Self {
             vec: meta::qpu::MetaVector::VectorTilt {
                 q: Box::new(q.vec.clone()),
-                angle_deg: meta::qpu::FloatExpr::FloatConst {
-                    val: angle_deg,
-                    dbg: dbg.clone(),
-                },
+                angle_deg: angle_deg.expr,
                 dbg,
             },
         }

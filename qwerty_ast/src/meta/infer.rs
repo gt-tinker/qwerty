@@ -391,6 +391,16 @@ impl DimExpr {
                 }
             }
 
+            DimExpr::DimPow { base, pow, dbg } => {
+                let stripped_base = base.strip(var_val_map)?;
+                let stripped_pow = pow.strip(var_val_map)?;
+                DimExpr::DimPow {
+                    base: Box::new(stripped_base),
+                    pow: Box::new(stripped_pow),
+                    dbg,
+                }
+            }
+
             DimExpr::DimNeg { val, dbg } => {
                 let stripped_val = val.strip(var_val_map)?;
                 DimExpr::DimNeg {
