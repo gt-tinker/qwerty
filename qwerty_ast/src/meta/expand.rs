@@ -211,28 +211,29 @@ impl DimExpr {
             DimExpr::DimPow { base, pow, dbg } => {
                 base.expand(env).and_then(|(expanded_base, base_prog)| {
                     pow.expand(env).and_then(|(expanded_pow, pow_prog)| {
-                        expanded_pow.extract().map(|pow_int| {
-                            match (&expanded_base, base_prog.join(pow_prog)) {
+                        match (&expanded_base, &expanded_pow, base_prog.join(pow_prog)) {
+                            (
+                                DimExpr::DimConst { val: base_val, .. },
+                                DimExpr::DimConst { .. },
+                                prog @ Progress::Full,
+                            ) => expanded_pow.extract().map(|pow_int| {
                                 (
-                                    DimExpr::DimConst { val: base_val, .. },
-                                    prog @ Progress::Full,
-                                ) => (
                                     DimExpr::DimConst {
                                         val: base_val.pow(pow_int),
                                         dbg: dbg.clone(),
                                     },
                                     prog,
-                                ),
-                                (_, prog) => (
-                                    DimExpr::DimPow {
-                                        base: Box::new(expanded_base),
-                                        pow: Box::new(expanded_pow),
-                                        dbg: dbg.clone(),
-                                    },
-                                    prog,
-                                ),
-                            }
-                        })
+                                )
+                            }),
+                            (_, _, prog) => Ok((
+                                DimExpr::DimPow {
+                                    base: Box::new(expanded_base),
+                                    pow: Box::new(expanded_pow),
+                                    dbg: dbg.clone(),
+                                },
+                                prog,
+                            )),
+                        }
                     })
                 })
             }
