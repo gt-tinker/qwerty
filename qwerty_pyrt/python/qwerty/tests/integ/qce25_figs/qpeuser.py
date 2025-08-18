@@ -25,8 +25,8 @@ def tilt_op(q):
 
 def test():
     output = ''
-    output += str('Expected:', angle)
+    output += str(f'Expected: {angle_deg}\n')
     angle_got = 360*qpe(precision, init1,
                         tilt_op)
-    output += str('Actual:', float(angle_got))
+    output += str(f'Actual: {float(angle_got)}')
     return output

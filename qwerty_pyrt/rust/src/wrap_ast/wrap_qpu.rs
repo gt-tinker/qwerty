@@ -504,6 +504,22 @@ impl QpuExpr {
     }
 
     #[classmethod]
+    fn new_instantiate(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        param: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::Instantiate {
+                name,
+                param: param.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_repeat(
         _cls: &Bound<'_, PyType>,
         for_each: QpuExpr,

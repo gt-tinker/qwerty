@@ -193,6 +193,13 @@ impl MetaFunc {
         }
     }
 
+    pub fn get_dbg(&self) -> &Option<DebugLoc> {
+        match self {
+            MetaFunc::Qpu(func_def) => &func_def.dbg,
+            MetaFunc::Classical(func_def) => &func_def.dbg,
+        }
+    }
+
     /// Extract a plain [`ast::Func`] from this MetaQwerty [`MetaFunc`] or
     /// return an error if e.g. contained dimension variable expressions are
     /// not fully folded yet.

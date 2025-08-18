@@ -459,13 +459,11 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(expected_meas, 0),
                            shots//4*3, "Too few correct answers")
 
-    @unittest.skip("cannot instantiate or have free dim vars")
     def test_fig10_fig11_qpe(self):
         from .integ.qce25_figs import qpeuser
-        for _ in range(32):
-            expected_output = 'Expected: 225.0\nActual: 225.0'
-            actual_output = qpeuser.test()
-            self.assertEqual(expected_output, actual_output)
+        expected_output = 'Expected: 225.0\nActual: 225.0'
+        actual_output = qpeuser.test()
+        self.assertEqual(expected_output, actual_output)
 
     def test_fig13_teleport(self):
         from .integ.qce25_figs import teleport

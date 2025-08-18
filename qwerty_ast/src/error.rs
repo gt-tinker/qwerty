@@ -154,13 +154,30 @@ pub enum LowerErrorKind {
     // TODO: add more details
     NotFullyFolded,
     Malformed,
-    IntegerTooBig { offender: IBig },
-    NegativeInteger { offender: IBig },
+    IntegerTooBig {
+        offender: IBig,
+    },
+    NegativeInteger {
+        offender: IBig,
+    },
     DivisionByZero,
     RepeatMustBeOnRightOfPipe,
     Stuck,
     MissingFuncTypeAnnotation,
-    TypeError { kind: TypeErrorKind },
+    TypeError {
+        kind: TypeErrorKind,
+    },
+    CannotInferDimVar {
+        dim_var_names: Vec<String>,
+    },
+    DimVarConflict {
+        dim_var_name: String,
+        first_val: IBig,
+        second_val: IBig,
+    },
+    CannotInstantiate {
+        func_name: String,
+    },
 }
 
 impl fmt::Display for LowerErrorKind {
@@ -215,6 +232,30 @@ impl fmt::Display for LowerErrorKind {
                 write!(f, "Function type annotation missing")
             }
             LowerErrorKind::TypeError { kind } => write!(f, "{}", kind),
+            LowerErrorKind::CannotInferDimVar { dim_var_names } => {
+                write!(f, "Cannot infer the following dimension variables: ")?;
+                for (i, dim_var_name) in dim_var_names.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", dim_var_name)?;
+                }
+                Ok(())
+            }
+            LowerErrorKind::DimVarConflict {
+                dim_var_name,
+                first_val,
+                second_val,
+            } => {
+                write!(
+                    f,
+                    "Conflict when inferring dimension variable {}: value {} versus value {}",
+                    dim_var_name, first_val, second_val
+                )
+            }
+            LowerErrorKind::CannotInstantiate { func_name } => {
+                write!(f, "Cannot instantiate function {}", func_name)
+            }
         }
     }
 }

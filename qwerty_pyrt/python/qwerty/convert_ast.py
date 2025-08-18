@@ -30,6 +30,14 @@ class CapturedValue(ABC):
     """A captured value."""
 
     @abstractmethod
+    def to_symbol_name(self, dbg: Optional[DebugLoc]) -> str:
+        """
+        Return this value as a symbol name or throw a ``QwertySyntaxError`` if
+        that is not possible.
+        """
+        ...
+
+    @abstractmethod
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
         """
@@ -60,6 +68,9 @@ class CapturedSymbol(CapturedValue):
     def __init__(self, mangled_name: str):
         self.mangled_name = mangled_name
 
+    def to_symbol_name(self, dbg: Optional[DebugLoc]) -> str:
+        return self.mangled_name
+
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
         return expr_class.new_variable(self.mangled_name, dbg)
@@ -77,6 +88,10 @@ class CapturedBitReg(CapturedValue):
 
     def __init__(self, bit_reg: bit):
         self.bit_reg = bit_reg
+
+    def to_symbol_name(self, dbg: Optional[DebugLoc]) -> str:
+        raise QwertySyntaxError("Bit registers cannot be used as symbol names",
+                                dbg)
 
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
@@ -98,6 +113,9 @@ class CapturedInt(CapturedValue):
     def __init__(self, int_val: int):
         self.int_val = int_val
 
+    def to_symbol_name(self, dbg: Optional[DebugLoc]) -> str:
+        raise QwertySyntaxError("ints cannot be used as symbol names", dbg)
+
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
         raise QwertySyntaxError("ints cannot be captured in Qwerty "
@@ -114,6 +132,9 @@ class CapturedFloat(CapturedValue):
 
     def __init__(self, float_val: float):
         self.float_val = float_val
+
+    def to_symbol_name(self, dbg: Optional[DebugLoc]) -> str:
+        raise QwertySyntaxError("floats cannot be used as symbol names", dbg)
 
     def to_expr(self, expr_class: type[QpuExpr | ClassicalExpr],
                 dbg: Optional[DebugLoc]) -> QpuExpr | ClassicalExpr:
@@ -735,6 +756,15 @@ class BaseVisitor:
 
         return captured
 
+    def capture_symbol_name(self, var_name: str, dbg: DebugLoc) \
+                           -> Optional[str]:
+        captured = self.capture(var_name, dbg)
+
+        if captured is not None:
+            return captured.to_symbol_name(dbg)
+        else:
+            return None
+
     def capture_expr(self, var_name: str, dbg: DebugLoc) \
                     -> Optional[QpuExpr | ClassicalExpr]:
         captured = self.capture(var_name, dbg)
@@ -1203,32 +1233,33 @@ class QpuVisitor(BaseVisitor):
             raise QwertySyntaxError('Unknown constant syntax',
                                     self.get_debug_loc(const))
 
-    ## Broadcast tensor, i.e., tensoring something with itself repeatedly
-    #def visit_Subscript(self, subscript: ast.Subscript):
-    #    """
-    #    Convert a Python getitem expression into a Qwerty ``BroadcastTensor``
-    #    AST node. For example, the Python syntax ``t[N]`` becomes a
-    #    ``BroadcastTensor`` with a child that is the conversion of ``t``.
-    #    There is special-case handling here for ``fourier[N]`` and any other
-    #    inseparable bases added in the future.
-    #    """
-    #    value, slice_ = subscript.value, subscript.slice
-    #    dbg = self.get_debug_loc(subscript)
+    def visit_Subscript(self, subscript: ast.Subscript):
+        """
+        Convert a Python expression ``func[[N]`` into a Qwerty ``Instantiate``
+        AST node.
+        """
+        dbg = self.get_debug_loc(subscript)
+        value, slice_ = subscript.value, subscript.slice
 
-    #    if isinstance(list_ := slice_, ast.List) and list_.elts:
-    #        value_node = self.visit(value)
-    #        instance_vals = [self.extract_dimvar_expr(elt) for elt in list_.elts]
-    #        return Instantiate(dbg, value_node, instance_vals)
+        if isinstance(name_node := value, ast.Name) \
+                and isinstance(list_ := slice_, ast.List) and list_.elts:
+            n_elts = len(list_.elts)
+            if n_elts != 1:
+                raise QwertySyntaxError(
+                    'Currently only one dimensional expression can be passed '
+                    f'to instantiation, not {n_elts} expressions', dbg)
 
-    #    factor = self.extract_dimvar_expr(slice_)
+            name = name_node.id
+            name_dbg = self.get_debug_loc(name_node)
+            mangled_name = self.capture_symbol_name(name, name_dbg)
+            if mangled_name is None:
+                mangled_name = name
 
-    #    # Special case: Fourier basis
-    #    if isinstance(value, ast.Name) \
-    #            and value.id == 'fourier':
-    #        return BuiltinBasis(dbg, FOURIER, factor)
-
-    #    value_node = self.visit(value)
-    #    return BroadcastTensor(dbg, value_node, factor)
+            param_node, = list_.elts
+            param = self.extract_dimvar_expr(param_node)
+            return QpuExpr.new_instantiate(mangled_name, param, dbg)
+        else:
+            raise QwertySyntaxError('Invalid instantiation syntax', dbg)
 
     def visit_BinOp(self, binOp: ast.BinOp):
         if isinstance(binOp.op, ast.Add):
@@ -1801,8 +1832,8 @@ class QpuVisitor(BaseVisitor):
     def visit(self, node: ast.AST):
         if isinstance(node, ast.Constant):
             return self.visit_Constant(node)
-        #elif isinstance(node, ast.Subscript):
-        #    return self.visit_Subscript(node)
+        elif isinstance(node, ast.Subscript):
+            return self.visit_Subscript(node)
         #elif isinstance(node, ast.BinOp):
         elif isinstance(node, ast.BinOp):
             return self.visit_BinOp(node)
