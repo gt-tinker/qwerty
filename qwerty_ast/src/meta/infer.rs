@@ -1226,7 +1226,6 @@ impl ExprConstrainable for qpu::MetaExpr {
                 )?;
 
                 if let Some(num_target_qubits) = pred.target_atom_count() {
-                    //eprintln!("33333333 num tgt: {:#?}", num_target_qubits);
                     if let InferType::FuncType { in_ty, out_ty } = &then_ty {
                         if let InferType::RegType { dim, .. } = &**in_ty {
                             dv_constraints.insert(DimVarConstraint::new(
@@ -1259,7 +1258,6 @@ impl ExprConstrainable for qpu::MetaExpr {
                 ty_constraints.insert(TypeConstraint::new(then_ty, else_ty, dbg.clone()));
 
                 if let Some(basis_dim) = pred.get_dim() {
-                    //eprintln!("33333333 dim: {:#?}", basis_dim);
                     Ok(InferType::FuncType {
                         in_ty: Box::new(InferType::RegType {
                             elem_ty: RegKind::Qubit,
@@ -2092,9 +2090,7 @@ impl MetaProgram {
                 }
 
                 // TODO: support more cases
-                (l, r) => {
-                    //eprintln!("22222222 THROWING AWAY: {:#?} = {:#?}", l, r);
-                }
+                _ => {}
             }
         }
 

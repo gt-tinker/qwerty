@@ -4,7 +4,8 @@ use crate::{
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, classical,
-        infer::{DimVarAssignments, FuncDimVarAssignments}, qpu,
+        infer::{DimVarAssignments, FuncDimVarAssignments},
+        qpu,
     },
 };
 use std::collections::{HashMap, HashSet};
@@ -698,7 +699,10 @@ impl MetaProgram {
                         dbg: func_def.get_dbg().clone(),
                     }))
                 } else if missing_dvs.len() == 1 {
-                    Some(Ok((func_name, (missing_dvs[0].to_string(), func_def, dv_assign))))
+                    Some(Ok((
+                        func_name,
+                        (missing_dvs[0].to_string(), func_def, dv_assign),
+                    )))
                 } else {
                     None
                 }
@@ -712,7 +716,12 @@ impl MetaProgram {
         let mut funcs_instantiated = HashSet::new();
 
         // Stack
-        let mut func_worklist: Vec<_> = self.funcs.iter().cloned().zip(dv_assign.into_iter()).collect();
+        let mut func_worklist: Vec<_> = self
+            .funcs
+            .iter()
+            .cloned()
+            .zip(dv_assign.into_iter())
+            .collect();
         let mut expanded_funcs = vec![];
 
         while let Some((func, dv_assign)) = func_worklist.pop() {
@@ -754,10 +763,8 @@ impl MetaProgram {
             }
         }
 
-        let (new_funcs, new_func_dv_assigns): (Vec<_>, Vec<_>) = expanded_funcs
-            .into_iter()
-            .rev()
-            .unzip();
+        let (new_funcs, new_func_dv_assigns): (Vec<_>, Vec<_>) =
+            expanded_funcs.into_iter().rev().unzip();
         let new_dv_assign = DimVarAssignments::new(new_func_dv_assigns);
 
         Ok((
@@ -773,7 +780,6 @@ impl MetaProgram {
         &self,
         init_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        //eprintln!("000000 ROUND OF LOWERING BEGINS: {:#?}", self);
         let mut dv_assign = init_dv_assign;
         let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
@@ -795,12 +801,11 @@ impl MetaProgram {
     pub fn lower(&self) -> Result<ast::Program, LowerError> {
         let init_dv_assign = DimVarAssignments::empty(self);
         let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign)?;
-        //eprintln!("1111111 dimvars after 1 round: {:#?}", dv_assign);
-        //eprintln!("1111111 full program after 1 round: {:#?}", new_prog);
         let (new_prog, dv_assign) = new_prog.do_instantiations(dv_assign)?;
         let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
 
-        if let Some((func, missing_dvs, _dv_assign)) = new_prog.missing_dim_vars(&dv_assign).next() {
+        if let Some((func, missing_dvs, _dv_assign)) = new_prog.missing_dim_vars(&dv_assign).next()
+        {
             Err(LowerError {
                 kind: LowerErrorKind::CannotInferDimVar {
                     dim_var_names: missing_dvs,
