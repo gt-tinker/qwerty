@@ -94,8 +94,6 @@ impl DimVarAssignments {
             })
             .collect();
 
-        eprintln!("from_val_var_map() ----> {:#?}", func_dim_var_assign);
-
         Self(func_dim_var_assign)
     }
 
@@ -1154,22 +1152,19 @@ impl ExprConstrainable for qpu::MetaExpr {
                     dv_constraints,
                 )?;
 
-                let ty = InferType::bi_tensor(
+                InferType::bi_tensor(
                     tv_allocator,
                     /*allow_func=*/ true,
                     dbg,
                     left_ty,
                     right_ty,
-                );
-                eprintln!("555555555: bi_tensor result: {:#?}", ty);
-                ty
+                )
             }
 
             qpu::MetaExpr::BasisTranslation { bin, bout, .. } => {
                 let bin_dim = bin.get_dim();
                 let bout_dim = bout.get_dim();
 
-                eprintln!("999999999: BTRANS bin={:#?} -> bin_dim={:#?}; bout={:#?} -> bout_dim={:#?}", bin, bin_dim, bout, bout_dim);
                 if let (Some(in_dim), Some(out_dim)) = (&bin_dim, &bout_dim) {
                     dv_constraints.insert(DimVarConstraint::new(in_dim.clone(), out_dim.clone()));
                 }
@@ -1231,7 +1226,6 @@ impl ExprConstrainable for qpu::MetaExpr {
                 )?;
 
                 if let Some(num_target_qubits) = pred.target_atom_count() {
-                    eprintln!("444444 FOUND {} target atoms", num_target_qubits);
                     if let InferType::FuncType { in_ty, out_ty } = &then_ty {
                         if let InferType::RegType { dim, .. } = &**in_ty {
                             dv_constraints.insert(DimVarConstraint::new(
@@ -1259,8 +1253,6 @@ impl ExprConstrainable for qpu::MetaExpr {
                                 .insert(DimVarConstraint::new(dim.clone(), num_target_qubits));
                         }
                     }
-                } else {
-                    eprintln!("444444 DID NOT FIND target atoms. offender: {:#?}", pred);
                 }
 
                 ty_constraints.insert(TypeConstraint::new(then_ty, else_ty, dbg.clone()));
@@ -1830,7 +1822,6 @@ impl MetaProgram {
         dv_constraints: &mut DimVarConstraints,
         ty_assign: &mut TypeAssignments,
     ) -> Result<(), LowerError> {
-        eprintln!("7777777 all type constraints: {:#?}", ty_constraints);
         while let Some(ty_constraint) = ty_constraints.pop() {
             match ty_constraint.as_pair() {
                 (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id }, _)
@@ -1954,8 +1945,6 @@ impl MetaProgram {
         let mut var_val_map = old_var_val_map;
 
         while let Some(constraint) = constraints.pop() {
-            eprintln!("000000 dv constraint: {:#?}", constraint);
-
             match (constraint.0, constraint.1) {
                 (
                     DimExpr::DimVar { var, dbg: var_dbg },
@@ -2095,13 +2084,9 @@ impl MetaProgram {
                 }
 
                 // TODO: support more cases
-                (left, right) => {
-                    eprintln!("8888888 throwing away constraint: {:#?} = {:#?}", left, right);
-                }
+                _ => {}
             }
         }
-
-        eprintln!("unify_dv() ====> {:#?}", var_val_map);
 
         Ok(var_val_map)
     }
@@ -2128,7 +2113,6 @@ impl MetaProgram {
         &self,
         old_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        eprintln!("111111111111 infer program: {:#?}", self);
         let old_val_var_map = old_dv_assign.into_var_val_map(self);
         let (ty_assign, var_val_map) = self.find_assignments(old_val_var_map)?;
 

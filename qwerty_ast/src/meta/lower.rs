@@ -643,8 +643,6 @@ impl MetaProgram {
         &self,
         dv_assign: &DimVarAssignments,
     ) -> impl Iterator<Item = (MetaFunc, Vec<String>)> {
-        eprintln!("~~~~> {:#?}", dv_assign);
-
         self.funcs
             .iter()
             .zip(dv_assign.iter())
@@ -679,7 +677,6 @@ impl MetaProgram {
             .filter_map(|(func_def, missing_dvs)| {
                 let func_name = func_def.get_name().to_string();
                 if missing_dvs.len() > 1 {
-                    eprintln!("//////////////> dying in do_instantiations()");
                     Some(Err(LowerError {
                         kind: LowerErrorKind::CannotInferDimVar {
                             dim_var_names: missing_dvs,
@@ -773,30 +770,17 @@ impl MetaProgram {
         &self,
         init_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        eprintln!("!!!! ROUND OF LOWERING: {:#?}", init_dv_assign);
         let mut dv_assign = init_dv_assign;
         let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
         loop {
-            eprintln!(":::: iteration of lowering hmmmm");
             let (new_program, new_dv_assign, infer_progress) = program.infer(dv_assign)?;
-            eprintln!("XXXXXX inferred dvs: {:#?}", new_dv_assign);
             let (new_program, expand_progress) = new_program.expand(&new_dv_assign)?;
             let progress = infer_progress.join(expand_progress);
 
-            eprintln!(
-                "status: infer_progress={:?}, expand_progress={:?}, progress={:?}, program is same={:?}, program state={:#?}",
-                infer_progress,
-                expand_progress,
-                progress,
-                program == new_program,
-                new_program
-            );
             if progress.is_finished() || program == new_program {
-                eprintln!("bailing out.");
                 return Ok((new_program, new_dv_assign, progress));
             } else {
-                eprintln!("trying another round.");
                 dv_assign = new_dv_assign;
                 program = new_program;
                 continue;
@@ -811,7 +795,6 @@ impl MetaProgram {
         let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
 
         if let Some((func, missing_dvs)) = new_prog.missing_dim_vars(&dv_assign).next() {
-            eprintln!("//////////////> dying in lower()");
             Err(LowerError {
                 kind: LowerErrorKind::CannotInferDimVar {
                     dim_var_names: missing_dvs,
