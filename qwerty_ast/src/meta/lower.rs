@@ -4,10 +4,10 @@ use crate::{
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, classical,
-        infer::DimVarAssignments, qpu,
+        infer::{DimVarAssignments, FuncDimVarAssignments}, qpu,
     },
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Allows expansion/inference to report on whether it is completed yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -656,7 +656,7 @@ impl MetaProgram {
     fn missing_dim_vars(
         &self,
         dv_assign: &DimVarAssignments,
-    ) -> impl Iterator<Item = (MetaFunc, Vec<String>)> {
+    ) -> impl Iterator<Item = (MetaFunc, Vec<String>, FuncDimVarAssignments)> {
         self.funcs
             .iter()
             .zip(dv_assign.iter())
@@ -677,7 +677,7 @@ impl MetaProgram {
                 if missing_dv_names.is_empty() {
                     None
                 } else {
-                    Some((func.clone(), missing_dv_names))
+                    Some((func.clone(), missing_dv_names, func_dvs.clone()))
                 }
             })
     }
@@ -688,7 +688,7 @@ impl MetaProgram {
     ) -> Result<(MetaProgram, DimVarAssignments), LowerError> {
         let candidates = self
             .missing_dim_vars(&dv_assign)
-            .filter_map(|(func_def, missing_dvs)| {
+            .filter_map(|(func_def, missing_dvs, dv_assign)| {
                 let func_name = func_def.get_name().to_string();
                 if missing_dvs.len() > 1 {
                     Some(Err(LowerError {
@@ -698,7 +698,7 @@ impl MetaProgram {
                         dbg: func_def.get_dbg().clone(),
                     }))
                 } else if missing_dvs.len() == 1 {
-                    Some(Ok((func_name, (missing_dvs[0].to_string(), func_def))))
+                    Some(Ok((func_name, (missing_dvs[0].to_string(), func_def, dv_assign))))
                 } else {
                     None
                 }
@@ -706,37 +706,38 @@ impl MetaProgram {
             .collect::<Result<HashMap<_, _>, LowerError>>()?;
 
         let mut inst_counter = 0usize;
-        // Mapping of (func name, param) -> index in the map below
+        // Mapping of (func name, param) -> name
         let mut instantiated_funcs = HashMap::new();
-        // mapping of original func name -> Vec<MetaFunc>
-        let mut func_instantiations = HashMap::new();
+        // Marked as instantiated already
+        let mut funcs_instantiated = HashSet::new();
 
+        // Stack
+        let mut func_worklist: Vec<_> = self.funcs.iter().cloned().zip(dv_assign.into_iter()).collect();
         let mut expanded_funcs = vec![];
-        for func in self.funcs.iter().rev() {
-            let expanded_func = if func_instantiations.contains_key(func.get_name()) {
-                func.clone()
-            } else {
+
+        while let Some((func, dv_assign)) = func_worklist.pop() {
+            if !funcs_instantiated.contains(func.get_name()) {
                 let callback = |func_name: String, param_val: DimExpr, dbg: Option<DebugLoc>| {
-                    if let Some((missing_dv, func_def)) = candidates.get(&func_name) {
-                        let instance_idx = instantiated_funcs
+                    if let Some((missing_dv, func_def, dv_assign)) = candidates.get(&func_name) {
+                        let instance_name = instantiated_funcs
                             .entry((func_name.to_string(), param_val.clone()))
                             .or_insert_with(|| {
                                 // TODO: make sure this is a unique function name
                                 let new_name = format!("{}__inst{}", func_name, inst_counter);
                                 inst_counter += 1;
                                 let instance = func_def.instantiate(
-                                    new_name,
+                                    new_name.to_string(),
                                     missing_dv.to_string(),
                                     param_val,
                                 );
-                                let instances = func_instantiations
-                                    .entry(func_name.to_string())
-                                    .or_insert_with(Vec::new);
-                                instances.push(instance);
-                                instances.len() - 1
-                            });
-                        let instance = &func_instantiations[&func_name][*instance_idx];
-                        let instance_name = instance.get_name().to_string();
+                                let new_dv_assign = dv_assign.without_dv(func_def, missing_dv);
+                                func_worklist.push((instance, new_dv_assign));
+
+                                // Mark this function as instantiated
+                                funcs_instantiated.insert(func_name.to_string());
+                                new_name
+                            })
+                            .to_string();
                         Ok(instance_name)
                     } else {
                         Err(LowerError {
@@ -749,35 +750,13 @@ impl MetaProgram {
                 };
 
                 let (new_func, _moved_cb) = func.expand_instantiations(callback)?;
-                new_func
-            };
-            expanded_funcs.push(expanded_func);
+                expanded_funcs.push((new_func, dv_assign));
+            }
         }
 
-        // mapping of original func name -> Vec<MetaFunc>
-        //let mut func_instantiations = HashMap::new();
-        //for ((func_name, _param_val), instance) in instantiated_funcs.drain() {
-        //}
-
-        // If we are introducing or removing functions then we have to update dv_assign
         let (new_funcs, new_func_dv_assigns): (Vec<_>, Vec<_>) = expanded_funcs
             .into_iter()
             .rev()
-            .zip(dv_assign.into_iter())
-            .flat_map(|(func, func_dv_assign)| {
-                if let Some(instances) = func_instantiations.get(func.get_name()) {
-                    let (removed_dv_name, _func) = &candidates[func.get_name()];
-                    let instance_func_dv_assign =
-                        func_dv_assign.without_dv(&func, &removed_dv_name);
-                    instances
-                        .iter()
-                        .cloned()
-                        .map(|instance| (instance, instance_func_dv_assign.clone()))
-                        .collect()
-                } else {
-                    vec![(func, func_dv_assign)]
-                }
-            })
             .unzip();
         let new_dv_assign = DimVarAssignments::new(new_func_dv_assigns);
 
@@ -794,7 +773,7 @@ impl MetaProgram {
         &self,
         init_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        eprintln!("000000 ROUND OF LOWERING BEGINS: {:#?}", self);
+        //eprintln!("000000 ROUND OF LOWERING BEGINS: {:#?}", self);
         let mut dv_assign = init_dv_assign;
         let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
@@ -816,12 +795,12 @@ impl MetaProgram {
     pub fn lower(&self) -> Result<ast::Program, LowerError> {
         let init_dv_assign = DimVarAssignments::empty(self);
         let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign)?;
-        eprintln!("1111111 dimvars after 1 round: {:#?}", dv_assign);
-        eprintln!("1111111 full program after 1 round: {:#?}", new_prog);
+        //eprintln!("1111111 dimvars after 1 round: {:#?}", dv_assign);
+        //eprintln!("1111111 full program after 1 round: {:#?}", new_prog);
         let (new_prog, dv_assign) = new_prog.do_instantiations(dv_assign)?;
         let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
 
-        if let Some((func, missing_dvs)) = new_prog.missing_dim_vars(&dv_assign).next() {
+        if let Some((func, missing_dvs, _dv_assign)) = new_prog.missing_dim_vars(&dv_assign).next() {
             Err(LowerError {
                 kind: LowerErrorKind::CannotInferDimVar {
                     dim_var_names: missing_dvs,
