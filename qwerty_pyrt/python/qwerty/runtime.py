@@ -450,8 +450,12 @@ class cfrac:
          Information, 2010.
     """
 
-    def __init__(self, partial_denoms):
-        self.partial_denoms = list(partial_denoms)
+    def __init__(self, frac_or_partial_denoms):
+        if isinstance(frac_or_partial_denoms, Fraction):
+            self.partial_denoms = self._get_frac_partial_denoms(
+                frac_or_partial_denoms)
+        else:
+            self.partial_denoms = list(frac_or_partial_denoms)
 
     def __str__(self):
         return str(self.partial_denoms)
@@ -487,12 +491,7 @@ class cfrac:
         return [self[:size-i].as_frac() for i in reversed(range(size))]
 
     @classmethod
-    def from_fraction(cls, frac: Fraction):
-        """
-        Construct a continued fraction from a ``fractions.Fraction` instance.
-        This is an implementation of the "continued fractions algorithm" as
-        defined in Theorem A4.14 and Box 5.3 of of Nielsen and Chuang.
-        """
+    def _get_frac_partial_denoms(cls, frac: Fraction):
         cur_frac = frac
 
         if cur_frac < 0:
@@ -511,6 +510,17 @@ class cfrac:
                partial_denoms.append(integral)
                cur_frac = Fraction(new_numerator, denom)
             partial_denoms.append(cur_frac.denominator)
+
+        return partial_denoms
+
+    @classmethod
+    def from_fraction(cls, frac: Fraction):
+        """
+        Construct a continued fraction from a ``fractions.Fraction` instance.
+        This is an implementation of the "continued fractions algorithm" as
+        defined in Theorem A4.14 and Box 5.3 of of Nielsen and Chuang.
+        """
+        partial_denoms = cls._get_frac_partial_denoms(frac)
         return cls(partial_denoms)
 
 #class _int(HybridPythonQwertyType):

@@ -5,7 +5,7 @@ Fig. 18 of the Qwerty QCE '25 paper.
 import math
 from qwerty import *
 #from qpe import qpe
-from .qpe import qpe
+from .qpe2 import qpe
 
 def order_finding(err_tol, x, modN):
   m = math.ceil(math.log2(modN))

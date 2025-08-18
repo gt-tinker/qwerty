@@ -16,7 +16,7 @@ use melior::{
 use qwerty_ast::{
     ast::{
         self, BitLiteral, FunctionDef, Variable,
-        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, Slice, UnaryOp, UnaryOpKind, ModMul},
+        classical::{self, BinaryOp, BinaryOpKind, ModMul, ReduceOp, Slice, UnaryOp, UnaryOpKind},
     },
     typecheck::{ComputeKind, FuncsAvailable},
 };
@@ -199,9 +199,16 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::Repeat(_) => todo!("@classical repeat op"),
 
-        classical::Expr::ModMul(modmul @ ModMul { x, j, y, mod_n, dbg }) => {
-            let (y_ty, y_compute_kind, y_vals) =
-                ast_classical_expr_to_mlir(&**y, ctx, block);
+        classical::Expr::ModMul(
+            modmul @ ModMul {
+                x,
+                j,
+                y,
+                mod_n,
+                dbg,
+            },
+        ) => {
+            let (y_ty, y_compute_kind, y_vals) = ast_classical_expr_to_mlir(&**y, ctx, block);
             assert_eq!(y_vals.len(), 1, "wire should have 1 mlir value");
             let y_val = y_vals[0];
 
@@ -212,9 +219,12 @@ fn ast_classical_expr_to_mlir(
             let loc = dbg_to_loc(dbg.clone());
             let x_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *x as i64);
             let j_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *j as i64);
-            let mod_n_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *mod_n as i64);
+            let mod_n_attr =
+                IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *mod_n as i64);
             let product = block
-                .append_operation(ccirc::modmul(&MLIR_CTX, x_attr, j_attr, mod_n_attr, y_val, loc))
+                .append_operation(ccirc::modmul(
+                    &MLIR_CTX, x_attr, j_attr, mod_n_attr, y_val, loc,
+                ))
                 .result(0)
                 .unwrap()
                 .into();

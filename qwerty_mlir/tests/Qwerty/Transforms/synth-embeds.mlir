@@ -148,7 +148,11 @@ qwerty.func @embed_sign[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]
 //  CHECK-NEXT:   %3 = qwerty.qbpack(%2#0, %2#1, %2#2, %2#3, %1#0, %1#1, %1#2, %1#3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[8]>
 //  CHECK-NEXT:   %4 = qwerty.call @silly__xor(%3) : (!qwerty<qbundle[8]>) -> !qwerty<qbundle[8]>
 //  CHECK-NEXT:   %5:8 = qwerty.qbunpack %4 : (!qwerty<qbundle[8]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %6 = qwerty.qbpack(%5#4, %5#5, %5#6, %5#7, %5#0, %5#1, %5#2, %5#3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[8]>
+//  CHECK-NEXT:   %leftResult, %rightResult = qcirc.gate2q[]:Swap %5#0, %5#4 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %leftResult_0, %rightResult_1 = qcirc.gate2q[]:Swap %5#1, %5#5 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %leftResult_2, %rightResult_3 = qcirc.gate2q[]:Swap %5#2, %5#6 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %leftResult_4, %rightResult_5 = qcirc.gate2q[]:Swap %5#3, %5#7 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %6 = qwerty.qbpack(%leftResult, %leftResult_0, %leftResult_2, %leftResult_4, %rightResult, %rightResult_1, %rightResult_3, %rightResult_5) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[8]>
 //  CHECK-NEXT:   %7 = qwerty.call @silly__inv__xor(%6) : (!qwerty<qbundle[8]>) -> !qwerty<qbundle[8]>
 //  CHECK-NEXT:   %8:8 = qwerty.qbunpack %7 : (!qwerty<qbundle[8]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %9 = qwerty.qbpack(%8#4, %8#5, %8#6, %8#7) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[4]>
