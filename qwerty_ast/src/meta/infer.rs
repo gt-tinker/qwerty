@@ -896,7 +896,7 @@ impl qpu::MetaBasis {
                 val.get_dim().map(|val_dim| DimExpr::DimProd {
                     left: Box::new(val_dim),
                     right: Box::new(factor.clone()),
-                    dbg: dbg.clone()
+                    dbg: dbg.clone(),
                 })
             }
 
@@ -937,8 +937,7 @@ impl qpu::MetaBasis {
             }
 
             // Fingers crossed expansion will get rid of these
-            qpu::MetaBasis::BasisAlias { .. }
-            | qpu::MetaBasis::BasisAliasRec { .. } => None,
+            qpu::MetaBasis::BasisAlias { .. } | qpu::MetaBasis::BasisAliasRec { .. } => None,
         }
     }
 
@@ -950,7 +949,7 @@ impl qpu::MetaBasis {
                 val.target_atom_count().map(|val_count| DimExpr::DimProd {
                     left: Box::new(val_count),
                     right: Box::new(factor.clone()),
-                    dbg: dbg.clone()
+                    dbg: dbg.clone(),
                 })
             }
 
@@ -980,8 +979,7 @@ impl qpu::MetaBasis {
             qpu::MetaBasis::ApplyBasisGenerator { .. } => None,
 
             // Fingers crossed expansion will get rid of these
-            qpu::MetaBasis::BasisAlias { .. }
-            | qpu::MetaBasis::BasisAliasRec { .. } => None,
+            qpu::MetaBasis::BasisAlias { .. } | qpu::MetaBasis::BasisAliasRec { .. } => None,
         }
     }
 }

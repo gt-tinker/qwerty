@@ -391,7 +391,11 @@ impl<S: Expandable> MetaFunctionDef<S> {
             })
             .collect();
         let old_dim_vars: HashSet<_> = dim_vars.iter().cloned().collect();
-        let new_dim_vars: Vec<_> = dim_vars.iter().chain(env_dim_vars.difference(&old_dim_vars)).cloned().collect();
+        let new_dim_vars: Vec<_> = dim_vars
+            .iter()
+            .chain(env_dim_vars.difference(&old_dim_vars))
+            .cloned()
+            .collect();
 
         let (expanded_ret_ty, ret_ty_prog) = if let Some(ret_ty) = ret_type {
             let (ty, prog) = ret_ty.expand(&env)?;
