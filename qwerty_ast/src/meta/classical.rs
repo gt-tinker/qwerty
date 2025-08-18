@@ -72,6 +72,18 @@ pub enum MetaExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// Modular multiplication. Example syntax:
+    /// ```text
+    /// x**2**J * y % modN
+    /// ```
+    ModMul {
+        x: DimExpr,
+        j: DimExpr,
+        y: Box<MetaExpr>,
+        mod_n: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A constant bit register. Example syntax:
     /// ```text
     /// bit[N](0b0)
@@ -93,6 +105,7 @@ impl MetaExpr {
             | MetaExpr::UnaryOp { dbg, .. }
             | MetaExpr::BinaryOp { dbg, .. }
             | MetaExpr::ReduceOp { dbg, .. }
+            | MetaExpr::ModMul { dbg, .. }
             | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
         }
     }
@@ -156,6 +169,27 @@ impl MetaExpr {
                     dbg: dbg.clone(),
                 })
             }),
+            MetaExpr::ModMul {
+                x,
+                j,
+                y,
+                mod_n,
+                dbg,
+            } => x.extract().and_then(|x_int| {
+                j.extract().and_then(|j_int| {
+                    y.extract().and_then(|ast_y| {
+                        mod_n.extract().map(|mod_n_int| {
+                            ast::classical::Expr::ModMul(ast::classical::ModMul {
+                                x: x_int,
+                                j: j_int,
+                                y: Box::new(ast_y),
+                                mod_n: mod_n_int,
+                                dbg: dbg.clone(),
+                            })
+                        })
+                    })
+                })
+            }),
             MetaExpr::BitLiteral { val, n_bits, dbg } => n_bits.extract().map(|n_bits_int| {
                 ast::classical::Expr::BitLiteral(ast::BitLiteral {
                     val: val.clone(),
@@ -201,6 +235,9 @@ impl fmt::Display for MetaExpr {
                     BinaryOpKind::Xor => "xor",
                 };
                 write!(f, "({}).{}_reduce()", kind_str, *val)
+            }
+            MetaExpr::ModMul { x, j, y, mod_n, .. } => {
+                write!(f, "({})**2**({}) * ({}) % ({})", x, j, y, mod_n)
             }
             MetaExpr::BitLiteral { val, n_bits, .. } => {
                 write!(f, "bit[{}](0b{:b})", n_bits, val)

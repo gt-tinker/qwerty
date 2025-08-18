@@ -156,6 +156,26 @@ impl ClassicalExpr {
     }
 
     #[classmethod]
+    fn new_mod_mul(
+        _cls: &Bound<'_, PyType>,
+        x: DimExpr,
+        j: DimExpr,
+        y: ClassicalExpr,
+        mod_n: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::ModMul {
+                x: x.dim_expr,
+                j: j.dim_expr,
+                y: Box::new(y.expr),
+                mod_n: mod_n.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_bit_literal(
         _cls: &Bound<'_, PyType>,
         val: UBigWrap,

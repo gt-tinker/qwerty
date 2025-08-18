@@ -201,7 +201,7 @@ impl fmt::Display for Expr {
             }
             Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}) * {}", *val, amt),
             Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {
-                write!(f, "mod_mul({}, {}, {}, {})", x, j, *y, mod_n)
+                write!(f, "{}**2**{} * ({}) % {}", x, j, *y, mod_n)
             }
             Expr::BitLiteral(blit) => write!(f, "{}", blit),
         }

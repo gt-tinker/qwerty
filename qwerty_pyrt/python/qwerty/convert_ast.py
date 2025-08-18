@@ -2055,47 +2055,42 @@ class ClassicalVisitor(BaseVisitor):
         """
         Convert a Python expression ``x % N`` to a Qwerty ``Mod`` AST node.
         This is useful for making a simple period finding oracle.
+        This can also convert a Python expression ``X**2**J*y % N`` to a Qwerty
+        ``ModMulOp`` AST node. This is useful for the order finding oracle in
+        the order finding subroutine of Shor's algorithm.
         """
         dbg = self.get_debug_loc(binOp)
-        dividend = self.visit(binOp.left)
-        divisor = self.extract_dimvar_expr(binOp.right)
-        return ClassicalExpr.new_mod(dividend, divisor, dbg)
-#
-#    # Modular multiplication: X**2**J*y % N
-#    def visit_BinOp_Mod(self, mod: ast.BinOp):
-#        """
-#        Convert a Python expression ``X**2**J*y % N`` to a Qwerty ``ModMulOp``
-#        AST node. This is useful for the order finding oracle in the order
-#        finding subroutine of Shor's algorithm.
-#        """
-#        if not isinstance((left_mul := mod.left), ast.BinOp) \
-#                or not isinstance(left_mul.op, ast.Mult) \
-#                or not isinstance((pow_ := left_mul.left), ast.BinOp) \
-#                or not isinstance(pow_.op, ast.Pow) \
-#                or not isinstance((inner_pow := pow_.right), ast.BinOp) \
-#                or not isinstance(inner_pow.op, ast.Pow):
-#            raise QwertySyntaxError('Unknown modulo syntax',
-#                                    self.get_debug_loc(mod))
-#
-#        x = self.extract_dimvar_expr(pow_.left)
-#        exp_base = self.extract_dimvar_expr(inner_pow.left)
-#        j = self.extract_dimvar_expr(inner_pow.right)
-#        y = self.visit(left_mul.right)
-#        modN = self.extract_dimvar_expr(mod.right)
-#
-#        if not exp_base.is_constant():
-#            raise QwertySyntaxError('Dimvars not allowed in base of exponent in '
-#                                    'modular multiplication',
-#                                    self.get_debug_loc(inner_pow.left))
-#        if exp_base.get_value() != 2:
-#            raise QwertySyntaxError('Currently, only 2 is supported as the '
-#                                    'base of the exponent in modular '
-#                                    'multiplication',
-#                                    self.get_debug_loc(inner_pow.left))
-#
-#        dbg = self.get_debug_loc(mod)
-#        return ModMulOp(dbg, x, j, y, modN)
 
+        # Modular multiplication: X**2**J*y % N
+        if isinstance((left_mul := binOp.left), ast.BinOp) \
+                and isinstance(left_mul.op, ast.Mult) \
+                and isinstance((pow_ := left_mul.left), ast.BinOp) \
+                and isinstance(pow_.op, ast.Pow) \
+                and isinstance((inner_pow := pow_.right), ast.BinOp) \
+                and isinstance(inner_pow.op, ast.Pow):
+            x = self.extract_dimvar_expr(pow_.left)
+            exp_base_node = inner_pow.left
+            j = self.extract_dimvar_expr(inner_pow.right)
+            y = self.visit(left_mul.right)
+            modN = self.extract_dimvar_expr(binOp.right)
+
+            if not isinstance(exp_base_node, ast.Constant):
+                raise QwertySyntaxError('Dimvars not allowed in base of exponent in '
+                                        'modular multiplication', dbg)
+            exp_base = exp_base_node.value
+            if exp_base != 2:
+                raise QwertySyntaxError('Currently, only 2 is supported as the '
+                                        'base of the exponent in modular '
+                                        'multiplication', dbg)
+
+            return ClassicalExpr.new_mod_mul(x, j, y, modN, dbg)
+        # Ordinary modulus x % 4
+        else:
+            dividend = self.visit(binOp.left)
+            divisor = self.extract_dimvar_expr(binOp.right)
+
+            return ClassicalExpr.new_mod(dividend, divisor, dbg)
+#
     def visit_Call(self, call: ast.Call):
         """
         Convert a Python call expression into either a ``BitLiteral`` Qwerty

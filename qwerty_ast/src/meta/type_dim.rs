@@ -233,7 +233,10 @@ impl DimExpr {
                         right: Box::new(right),
                         dbg: dbg.clone(),
                     })
-                    .unwrap()
+                    .unwrap_or_else(|| DimExpr::DimConst {
+                        val: IBig::ZERO,
+                        dbg: dbg.clone(),
+                    })
             }
 
             DimExpr::DimProd { left, right, dbg } => {
@@ -248,7 +251,10 @@ impl DimExpr {
                         right: Box::new(right),
                         dbg: dbg.clone(),
                     })
-                    .unwrap()
+                    .unwrap_or_else(|| DimExpr::DimConst {
+                        val: IBig::ONE,
+                        dbg: dbg.clone(),
+                    })
             }
         }
     }

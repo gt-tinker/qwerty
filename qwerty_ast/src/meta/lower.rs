@@ -126,6 +126,20 @@ impl classical::MetaExpr {
                 dbg: dbg.clone(),
             },
 
+            classical::MetaExpr::ModMul {
+                x,
+                j,
+                y,
+                mod_n,
+                dbg,
+            } => classical::MetaExpr::ModMul {
+                x: x.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                j: j.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                y: Box::new(y.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                mod_n: mod_n.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
             classical::MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 classical::MetaExpr::BitLiteral {
                     val: val.clone(),
@@ -692,48 +706,58 @@ impl MetaProgram {
             .collect::<Result<HashMap<_, _>, LowerError>>()?;
 
         let mut inst_counter = 0usize;
-        // Mapping of (func name, param) -> instantiation (a MetaFunc)
+        // Mapping of (func name, param) -> index in the map below
         let mut instantiated_funcs = HashMap::new();
-
-        let callback = |func_name: String, param_val: DimExpr, dbg: Option<DebugLoc>| {
-            if let Some((missing_dv, func_def)) = candidates.get(&func_name) {
-                let func_name = instantiated_funcs
-                    .entry((func_name.to_string(), param_val.clone()))
-                    .or_insert_with(|| {
-                        // TODO: make sure this is a unique function name
-                        let new_name = format!("{}__inst{}", func_name, inst_counter);
-                        inst_counter += 1;
-                        func_def.instantiate(new_name, missing_dv.to_string(), param_val)
-                    })
-                    .get_name()
-                    .to_string();
-                Ok(func_name)
-            } else {
-                Err(LowerError {
-                    kind: LowerErrorKind::CannotInstantiate {
-                        func_name: func_name.to_string(),
-                    },
-                    dbg: dbg.clone(),
-                })
-            }
-        };
+        // mapping of original func name -> Vec<MetaFunc>
+        let mut func_instantiations = HashMap::new();
 
         let mut expanded_funcs = vec![];
-        let mut next_callback = callback;
         for func in self.funcs.iter().rev() {
-            let (new_func, moved_cb) = func.expand_instantiations(next_callback)?;
-            expanded_funcs.push(new_func);
-            next_callback = moved_cb;
+            let expanded_func = if func_instantiations.contains_key(func.get_name()) {
+                func.clone()
+            } else {
+                let callback = |func_name: String, param_val: DimExpr, dbg: Option<DebugLoc>| {
+                    if let Some((missing_dv, func_def)) = candidates.get(&func_name) {
+                        let instance_idx = instantiated_funcs
+                            .entry((func_name.to_string(), param_val.clone()))
+                            .or_insert_with(|| {
+                                // TODO: make sure this is a unique function name
+                                let new_name = format!("{}__inst{}", func_name, inst_counter);
+                                inst_counter += 1;
+                                let instance = func_def.instantiate(
+                                    new_name,
+                                    missing_dv.to_string(),
+                                    param_val,
+                                );
+                                let instances = func_instantiations
+                                    .entry(func_name.to_string())
+                                    .or_insert_with(Vec::new);
+                                instances.push(instance);
+                                instances.len() - 1
+                            });
+                        let instance = &func_instantiations[&func_name][*instance_idx];
+                        let instance_name = instance.get_name().to_string();
+                        Ok(instance_name)
+                    } else {
+                        Err(LowerError {
+                            kind: LowerErrorKind::CannotInstantiate {
+                                func_name: func_name.to_string(),
+                            },
+                            dbg: dbg.clone(),
+                        })
+                    }
+                };
+
+                let (new_func, _moved_cb) = func.expand_instantiations(callback)?;
+                new_func
+            };
+            expanded_funcs.push(expanded_func);
         }
 
         // mapping of original func name -> Vec<MetaFunc>
-        let mut func_instantiations = HashMap::new();
-        for ((func_name, _param_val), instance) in instantiated_funcs.drain() {
-            func_instantiations
-                .entry(func_name)
-                .or_insert_with(Vec::new)
-                .push(instance);
-        }
+        //let mut func_instantiations = HashMap::new();
+        //for ((func_name, _param_val), instance) in instantiated_funcs.drain() {
+        //}
 
         // If we are introducing or removing functions then we have to update dv_assign
         let (new_funcs, new_func_dv_assigns): (Vec<_>, Vec<_>) = expanded_funcs
@@ -770,6 +794,7 @@ impl MetaProgram {
         &self,
         init_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
+        eprintln!("000000 ROUND OF LOWERING BEGINS: {:#?}", self);
         let mut dv_assign = init_dv_assign;
         let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
@@ -791,6 +816,8 @@ impl MetaProgram {
     pub fn lower(&self) -> Result<ast::Program, LowerError> {
         let init_dv_assign = DimVarAssignments::empty(self);
         let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign)?;
+        eprintln!("1111111 dimvars after 1 round: {:#?}", dv_assign);
+        eprintln!("1111111 full program after 1 round: {:#?}", new_prog);
         let (new_prog, dv_assign) = new_prog.do_instantiations(dv_assign)?;
         let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
 

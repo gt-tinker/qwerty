@@ -964,8 +964,8 @@ impl qpu::MetaBasis {
             }),
 
             qpu::MetaBasis::BasisBiTensor { left, right, dbg } => {
-                let left_count = left.get_dim();
-                let right_count = right.get_dim();
+                let left_count = left.target_atom_count();
+                let right_count = right.target_atom_count();
                 left_count
                     .zip(right_count)
                     .map(|(l_count, r_count)| DimExpr::DimSum {
@@ -1035,7 +1035,9 @@ impl ExprConstrainable for qpu::MetaExpr {
             qpu::MetaExpr::EmbedClassical {
                 func, embed_kind, ..
             } => {
-                if let qpu::MetaExpr::Variable { name, dbg } = &**func {
+                if let qpu::MetaExpr::Instantiate { name, dbg, .. }
+                | qpu::MetaExpr::Variable { name, dbg } = &**func
+                {
                     if let Some((in_dim, out_dim)) = env.get_cfunc_dims(name) {
                         let qdim = match embed_kind {
                             EmbedKind::Sign => in_dim,
@@ -1224,6 +1226,7 @@ impl ExprConstrainable for qpu::MetaExpr {
                 )?;
 
                 if let Some(num_target_qubits) = pred.target_atom_count() {
+                    //eprintln!("33333333 num tgt: {:#?}", num_target_qubits);
                     if let InferType::FuncType { in_ty, out_ty } = &then_ty {
                         if let InferType::RegType { dim, .. } = &**in_ty {
                             dv_constraints.insert(DimVarConstraint::new(
@@ -1256,6 +1259,7 @@ impl ExprConstrainable for qpu::MetaExpr {
                 ty_constraints.insert(TypeConstraint::new(then_ty, else_ty, dbg.clone()));
 
                 if let Some(basis_dim) = pred.get_dim() {
+                    //eprintln!("33333333 dim: {:#?}", basis_dim);
                     Ok(InferType::FuncType {
                         in_ty: Box::new(InferType::RegType {
                             elem_ty: RegKind::Qubit,
@@ -1388,6 +1392,12 @@ impl ExprConstrainable for classical::MetaExpr {
                     },
                 };
                 Ok(ty)
+            }
+
+            classical::MetaExpr::ModMul { y, .. } => {
+                let y_ty =
+                    y.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                Ok(y_ty)
             }
 
             classical::MetaExpr::BitLiteral { n_bits, .. } => {
@@ -2082,7 +2092,9 @@ impl MetaProgram {
                 }
 
                 // TODO: support more cases
-                _ => {}
+                (l, r) => {
+                    //eprintln!("22222222 THROWING AWAY: {:#?} = {:#?}", l, r);
+                }
             }
         }
 

@@ -133,6 +133,30 @@ impl MetaExpr {
                 })
             }
 
+            MetaExpr::ModMul {
+                x,
+                j,
+                y,
+                mod_n,
+                dbg,
+            } => {
+                let (expanded_x, x_prog) = x.expand(env)?;
+                let (expanded_j, j_prog) = j.expand(env)?;
+                let (expanded_y, y_prog) = y.expand(env)?;
+                let (expanded_mod_n, mod_n_prog) = mod_n.expand(env)?;
+                let progress = x_prog.join(j_prog).join(y_prog).join(mod_n_prog);
+                Ok((
+                    MetaExpr::ModMul {
+                        x: expanded_x,
+                        j: expanded_j,
+                        y: Box::new(expanded_y),
+                        mod_n: expanded_mod_n,
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                ))
+            }
+
             MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 n_bits.expand(env).map(|(expanded_n_bits, n_bits_prog)| {
                     (

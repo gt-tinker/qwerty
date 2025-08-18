@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  _cook_programmer_traceback, get_python_vars, \
                  QwertyProgrammerError, QwertySyntaxError
-from ._qwerty_pyrt import Program
+from ._qwerty_pyrt import Program, QpuFunctionDef, QpuStmt, QpuExpr, \
+                          EmbedKind, DimExpr, DimVar
 from .runtime import dimvar, bit
 from .pyast_utils import get_func_pyast
 from .convert_ast import AstKind, convert_func_ast, Capturer, CaptureError, \
@@ -53,6 +54,40 @@ class KernelHandle:
 
     def __init__(self, func_name: str):
         self.func_name = func_name
+
+    # TODO: add this for sign and xor too
+    # TODO: hardcoding the instantiation here is a complete hack
+    @property
+    @_cook_programmer_traceback
+    def inplace(self):
+        """
+        Support for f.inplace in Python code.
+        """
+        global program, _global_func_counter
+        # TODO: set a useful debug loc
+        dbg = None
+
+        func_name = f'{self.func_name}__inplace_{_global_func_counter}'
+        _global_func_counter += 1
+
+        arg_var_expr = QpuExpr.new_variable('q', dbg)
+        dim_var = DimVar.new_func_var('K', func_name)
+        param = DimExpr.new_var(dim_var, dbg)
+        cfunc_inst = QpuExpr.new_instantiate(self.func_name, param, dbg)
+        embed_expr = QpuExpr.new_embed_classical(cfunc_inst, EmbedKind.InPlace,
+                                                 dbg)
+        pipe_expr = QpuExpr.new_pipe(arg_var_expr, embed_expr, dbg)
+        ret_inst = QpuStmt.new_return(pipe_expr, dbg)
+
+        args = [(None, 'q')]
+        ret_type = None
+        body = [ret_inst]
+        is_rev = True
+        dim_vars = ['K']
+        func_ast = QpuFunctionDef(func_name, args, ret_type, body, is_rev,
+                                  dim_vars, dbg)
+        program.add_qpu_function_def(func_ast)
+        return KernelHandle(func_name)
 
     @_cook_programmer_traceback
     def __call__(self, *, shots=None):
