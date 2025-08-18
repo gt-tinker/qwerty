@@ -10,12 +10,13 @@ use melior::{
         attribute::{BoolAttribute, IntegerAttribute, StringAttribute},
         operation::OperationResult,
         symbol_table::Visibility,
+        r#type::IntegerType,
     },
 };
 use qwerty_ast::{
     ast::{
         self, BitLiteral, FunctionDef, Variable,
-        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, Slice, UnaryOp, UnaryOpKind},
+        classical::{self, BinaryOp, BinaryOpKind, ReduceOp, Slice, UnaryOp, UnaryOpKind, ModMul},
     },
     typecheck::{ComputeKind, FuncsAvailable},
 };
@@ -198,7 +199,28 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::Repeat(_) => todo!("@classical repeat op"),
 
-        classical::Expr::ModMul(_) => todo!("@classical modmul op"),
+        classical::Expr::ModMul(modmul @ ModMul { x, j, y, mod_n, dbg }) => {
+            let (y_ty, y_compute_kind, y_vals) =
+                ast_classical_expr_to_mlir(&**y, ctx, block);
+            assert_eq!(y_vals.len(), 1, "wire should have 1 mlir value");
+            let y_val = y_vals[0];
+
+            let (ty, compute_kind) = modmul
+                .calc_type(&(y_ty, y_compute_kind))
+                .expect("ModMul to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let x_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *x as i64);
+            let j_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *j as i64);
+            let mod_n_attr = IntegerAttribute::new(IntegerType::new(&MLIR_CTX, 64).into(), *mod_n as i64);
+            let product = block
+                .append_operation(ccirc::modmul(&MLIR_CTX, x_attr, j_attr, mod_n_attr, y_val, loc))
+                .result(0)
+                .unwrap()
+                .into();
+            let mlir_vals = vec![product];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::BitLiteral(blit @ BitLiteral { val, n_bits, dbg }) => {
             let (ty, compute_kind) = blit.calc_type().expect("BitLiteral to pass type checking");

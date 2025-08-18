@@ -106,6 +106,17 @@ def CCirc_NotOp : CCirc_Op<"not", [Pure, InferTypeOpAdaptor]> {
     let hasCanonicalizer = 1;
 }
 
+def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Modular multiplier";
+    let description = [{
+        Modular multiplication in-place
+    }];
+    let arguments = (ins I64Attr:$x, I64Attr:$j, I64Attr:$modN, CCirc_Wire:$y);
+    let results = (outs CCirc_Wire:$product);
+    let assemblyFormat = "$x $j $modN $y attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
+}
+
 def Qwerty_WirePackOp : CCirc_Op<"wirepack", [
         Pure, InferTypeOpAdaptor]> {
     let summary = "Combine wire bundles into a wire[N]";

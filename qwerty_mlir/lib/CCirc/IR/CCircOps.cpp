@@ -15,6 +15,29 @@
 
 namespace {
 
+// Extended Euclidean Algorithm from
+// https://cp-algorithms.com/algebra/extended-euclid-algorithm.html
+uint64_t extended_euclidean(uint64_t a, uint64_t b, uint64_t &x, uint64_t &y) {
+    x = 1, y = 0;
+    uint64_t x1 = 0, y1 = 1, a1 = a, b1 = b;
+    while (b1) {
+        uint64_t q = a1 / b1;
+        std::tie(x, x1) = std::make_tuple(x1, x - q * x1);
+        std::tie(y, y1) = std::make_tuple(y1, y - q * y1);
+        std::tie(a1, b1) = std::make_tuple(b1, a1 - q * b1);
+    }
+    return a1;
+}
+
+// Modular inverse from
+// https://cp-algorithms.com/algebra/module-inverse.html
+uint64_t modular_inverse(uint64_t a, uint64_t m) {
+    uint64_t x, y;
+    uint64_t g = extended_euclidean(a, m, x, y);
+    assert(g == 1 && "Modular inverse does not exist");
+    return (x % m + m) % m;
+}
+
 struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
 
@@ -235,6 +258,25 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
             [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                 {fwd_in, inv_out}).second;
             assert(inserted && "Re-encountered a NotOp operand");
+        } else if (ModMulOp mod_mul = llvm::dyn_cast<ModMulOp>(op)) {
+            assert(!inv_circ.getBody().empty()
+                   && "Inverse circuit body missing");
+
+            mlir::Value fwd_in = mod_mul.getY();
+            mlir::Value fwd_out = mod_mul.getProduct();
+            assert(fwd_to_inv.contains(fwd_out)
+                   && "NotOp result never encountered");
+
+            mlir::Value inv_in = fwd_to_inv.at(fwd_out);
+            uint64_t x_inv = modular_inverse(mod_mul.getX(),
+                                             mod_mul.getModN());
+            mlir::Value inv_out = rewriter.create<ModMulOp>(
+                mod_mul.getLoc(), x_inv, mod_mul.getJ(),
+                mod_mul.getModN(), inv_in).getResult();
+
+            [[maybe_unused]] bool inserted = fwd_to_inv.insert(
+                {fwd_in, inv_out}).second;
+            assert(inserted && "Re-encountered a ModMulOp operand");
         } else if (WirePackOp pack =
                 llvm::dyn_cast<WirePackOp>(op)) {
             assert(!inv_circ.getBody().empty()
@@ -359,6 +401,22 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
     results.add<DoubleNegationPattern>(context);
+}
+
+mlir::LogicalResult ModMulOp::verify() {
+    if (getY().getType() != getProduct().getType()) {
+        return emitOpError("Input and output wire sizes do not match");
+    }
+    return mlir::success();
+}
+
+mlir::LogicalResult ModMulOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        ModMulOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    inferredReturnTypes.push_back(adaptor.getY().getType());
+    return mlir::success();
 }
 
 mlir::LogicalResult WirePackOp::inferReturnTypes(

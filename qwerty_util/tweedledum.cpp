@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "mockturtle/algorithms/cleanup.hpp"
+#include "mockturtle/generators/modular_arithmetic.hpp"
 #include "tweedledum/Passes/Decomposition/parity_decomp.h"
 #include "tweedledum/Synthesis/transform_synth.h"
 #include "tweedledum/Synthesis/xag_synth.h"
@@ -140,7 +141,52 @@ TweedledumCircuit TweedledumCircuit::fromCCirc(ccirc::CircuitOp circ) {
 
         #undef ELIF_UNARY_OP
 
-        else {
+        else if (ccirc::ModMulOp mod_mul = llvm::dyn_cast<ccirc::ModMulOp>(&op)) {
+            assert(val_signals.contains(mod_mul.getY()) && "operand of ModMul not tracked");
+
+            uint64_t x = mod_mul.getX();
+            uint64_t j = mod_mul.getJ();
+            uint64_t N = mod_mul.getModN();
+
+            // TODO: should use llvm::APInt here in case N is very large. For now, we
+            //       are only simulating, so it's probably fine as-is
+            // Go ahead and do the repeated squaring here, classically
+            uint64_t x_2j_modN = x % N;
+            for (uint64_t i = 1; i <= j; i++) {
+                x_2j_modN = (x_2j_modN * x_2j_modN) % N;
+            }
+
+            auto y_wires_smallvec = val_signals.at(mod_mul.getY());
+            std::vector<mockturtle::xag_network::signal> y_wires(
+                y_wires_smallvec.begin(), y_wires_smallvec.end());
+            size_t n_bits = y_wires.size();
+
+            std::vector<mockturtle::xag_network::signal> x_wires;
+            for (size_t i = 0; i < n_bits; i++) {
+                // Use the same endianness as Tweedledum
+                bool bit = (x_2j_modN >> i) & 0x1;
+                x_wires.push_back(net.get_constant(bit));
+            }
+
+            std::vector<bool> N_as_bits;
+            for (size_t i = 0; i < y_wires.size(); i++) {
+                bool bit = (N >> i) & 0x1;
+                N_as_bits.push_back(bit);
+            }
+
+            // Tweedledum uses the opposite endianness as we do, so reverse the input qubits
+            std::vector<mockturtle::xag_network::signal> y_wires_rev(
+                y_wires.rbegin(), y_wires.rend());
+            // Overwrites x_wires with the result
+            mockturtle::modular_multiplication_inplace(net, x_wires, y_wires_rev, N_as_bits);
+            // Also reverse the output
+            llvm::SmallVector<mockturtle::xag_network::signal> result_signals(
+                x_wires.rbegin(), x_wires.rend());
+
+            [[maybe_unused]] bool inserted = val_signals.try_emplace(
+                mod_mul.getProduct(), std::move(result_signals)).second;
+            assert(inserted && "encountered value twice?");
+        } else {
             op.dump();
             assert(0 && "Missing handling for ccirc op");
         }

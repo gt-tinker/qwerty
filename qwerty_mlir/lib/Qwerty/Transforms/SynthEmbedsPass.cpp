@@ -4,6 +4,7 @@
 
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
+#include "QCirc/IR/QCircOps.h"
 #include "CCirc/IR/CCircOps.h"
 #include "tweedledum.hpp"
 #include "PassDetail.h"
@@ -149,10 +150,19 @@ qwerty::FuncOp synthInPlace(
     mlir::ValueRange results = rewriter.create<qwerty::CallOp>(loc, fwd_xor_func, repacked).getResults();
     mlir::ValueRange results_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, results).getQubits();
 
+    //llvm::SmallVector<mlir::Value> qubits(results_unpacked);
+    //for (size_t i = 0; i < dim; i++) {
+    //    // Swap by renaming
+    //    std::swap(qubits[i], qubits[i + dim]);
+    //}
+    //mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+
     llvm::SmallVector<mlir::Value> qubits(results_unpacked);
     for (size_t i = 0; i < dim; i++) {
-        // Swap by renaming
-        std::swap(qubits[i], qubits[i + dim]);
+        qcirc::Gate2QOp swap = rewriter.create<qcirc::Gate2QOp>(
+            loc, qcirc::Gate2Q::Swap, mlir::ValueRange(), qubits[i], qubits[i + dim]);
+        qubits[i] = swap.getLeftResult();
+        qubits[i + dim] = swap.getRightResult();
     }
     mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
 
