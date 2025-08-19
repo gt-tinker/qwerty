@@ -310,6 +310,11 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         expected_period = 4
         self.assertTrue(any(period.test() == expected_period for _ in range(8)))
 
+    def test_arith_select(self):
+        from .integ.meta_noinfer import arith_select
+        output = arith_select.test()
+        self.assertIn(output, [bit[1](0b0), bit[1](0b1)], "Final output was not in the select options!")
+
 @unittest.skipIf(should_skip, skip_msg)
 class MetaInferIntegrationTests(unittest.TestCase):
     """
