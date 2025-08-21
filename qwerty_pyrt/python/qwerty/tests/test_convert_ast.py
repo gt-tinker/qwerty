@@ -101,6 +101,24 @@ class ConvertAstQpuTests(unittest.TestCase):
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
 
+    def test_qubit_literal_non_uniform_neg_superpos(self):
+        actual_qw_ast = self.convert_expr("""
+            0.25*'0' - 0.75*'1'
+        """)
+        dbg_neg = self.dbg(1, 1)
+        dbg_strlit1 = self.dbg(1, 6)
+        dbg_strlit2 = self.dbg(1, 17)
+        expected_qw_ast = QpuStmt.new_expr(
+            QpuExpr.new_non_uniform_superpos([
+                (0.25, Vector.new_vector_symbol('0', dbg_strlit1)),
+                (0.75, Vector.new_vector_tilt(
+                    Vector.new_vector_symbol('1', dbg_strlit2),
+                    FloatExpr.new_const(180.0, dbg_neg),
+                    dbg_neg)),
+            ], dbg_neg))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
     def test_basis_singleton(self):
         actual_qw_ast = self.convert_expr("""
             '010' >> -'010'

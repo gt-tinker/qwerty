@@ -1321,8 +1321,23 @@ class QpuVisitor(BaseVisitor):
 
     def visit_BinOp_Sub(self, binOp: ast.BinOp):
         # A top-level `-` expression must be a qubit literal (a superpos with a
-        # negative phase)
-        return self.extract_qubit_literal(binOp)
+        # negative phase). But we can do a check here to see if it is a uniform
+        # superpos or a non-uniform one. For now, we lower uniform
+        # superpositions to a qubit literal and nonuniform ones to the
+        # dedicated ``NonUniformSuperpos`` node.
+        dbg = self.get_debug_loc(binOp)
+        left = binOp.left
+        right = binOp.right
+        if (elems := self.try_extract_weighted_superpos(left, right)) \
+                is not None:
+            # Patch the elements returned by try_extract_weighted_superpos()
+            (left, (right_prob, right_vec)) = elems
+            angle_deg = FloatExpr.new_const(180.0, dbg)
+            new_right_vec = Vector.new_vector_tilt(right_vec, angle_deg, dbg)
+            new_elems = [left, (right_prob, new_right_vec)]
+            return QpuExpr.new_non_uniform_superpos(new_elems, dbg)
+        else:
+            return self.extract_qubit_literal(binOp)
 
     def visit_BinOp_BitOr(self, binOp: ast.BinOp):
         """
