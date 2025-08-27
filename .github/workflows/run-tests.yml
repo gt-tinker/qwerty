@@ -52,8 +52,7 @@ jobs:
           export QWERTY_BUILD_TESTS=true
           python3 -m venv venv
           . venv/bin/activate
-          pcd qwerty_pyrt
-          pip install maturin
           cd qwerty_pyrt
+          pip install maturin
           maturin develop
           dev/run-tests.sh
