@@ -54,5 +54,6 @@ jobs:
           . venv/bin/activate
           cd qwerty_pyrt
           pip install maturin
-          maturin develop
-          dev/run-tests.sh
+          maturin build --release --out dist
+          pip install dist/*.whl
+          ../dev/run-tests.sh
