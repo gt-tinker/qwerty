@@ -8,8 +8,8 @@ from argparse import ArgumentParser
 from qwerty import *
 
 @qpu
-def kernel() -> bit[2]:
-    return ('00' or '11') | measure[2]
+def kernel():
+    return ('00' or '11') | measure**2
 
 if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)

@@ -8,17 +8,16 @@ bitstring determined by both the quantum algorithm and classical algorithm.
 from argparse import ArgumentParser
 from qwerty import *
 
-def bv(f, acc=None):
-    @qpu[[N]](f)
-    def kernel(f: cfunc[N,1]) -> bit[N]:
-        return 'p'[N] | f.sign \
-                      | pm[N] >> std[N] \
-                      | std[N].measure
-    return kernel(acc=acc)
-
+def bv(f):
+    @qpu[[N]]
+    def kernel():
+        return 'p'**N | f.sign \
+                      | pm**N >> std**N \
+                      | std.measure**N
+    return kernel()
 def get_black_box(secret_string):
-    @classical[[N]](secret_string)
-    def f(secret_string: bit[N], x: bit[N]) -> bit:
+    @classical
+    def f(x):
         return (secret_string & x).xor_reduce()
     return f
 
@@ -35,15 +34,9 @@ if __name__ == '__main__':
     parser.add_argument('secret_bits',
                         help='The secret bitstring used to define the black '
                              'box for f(x) (i.e., the oracle). Example: 1101')
-    parser.add_argument('--acc',
-                        default=None,
-                        help='Name of an XACC accelerator. Optional and valid '
-                             'only when Qwerty was built with QIR-EE support.')
     args = parser.parse_args()
-
     secret_str = bit.from_str(args.secret_bits)
     n_bits = len(secret_str)
     black_box = get_black_box(secret_str)
-
     print('Classical:', naive_classical(black_box, n_bits))
-    print('Quantum:  ', bv(black_box, acc=args.acc))
+    print('Quantum:  ', bv(black_box))

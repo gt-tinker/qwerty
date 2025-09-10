@@ -1,4 +1,4 @@
-Testing
+Testing (need to fix the paths mentioned in this document)
 =======
 
 Types of tests and their locations:
