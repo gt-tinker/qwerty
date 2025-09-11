@@ -18,8 +18,8 @@ struct TweedledumCircuit {
     tweedledum::Circuit circ;
     size_t n_total_qubits, n_data_qubits, n_ancilla_qubits;
 
-    TweedledumCircuit(tweedledum::Circuit raw_circ)
-                     : circ(cleanupCircuit(raw_circ)),
+    TweedledumCircuit(tweedledum::Circuit circ)
+                     : circ(circ),
                        n_total_qubits(circ.num_qubits()),
                        n_data_qubits(numDataQubits(circ)),
                        n_ancilla_qubits(n_total_qubits - n_data_qubits) {}
@@ -32,7 +32,6 @@ struct TweedledumCircuit {
     static TweedledumCircuit fromPermutation(std::vector<uint32_t> &perm);
 
     static size_t numDataQubits(tweedledum::Circuit &circ);
-    static tweedledum::Circuit cleanupCircuit(tweedledum::Circuit &circ);
 
     // Transpile to QCirc IR, putting the result in a FuncOp with the specified
     // symbol name (`name')

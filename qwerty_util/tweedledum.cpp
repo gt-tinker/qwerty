@@ -4,7 +4,6 @@
 
 #include "mockturtle/algorithms/cleanup.hpp"
 #include "mockturtle/generators/modular_arithmetic.hpp"
-#include "tweedledum/Passes/Decomposition/parity_decomp.h"
 #include "tweedledum/Synthesis/transform_synth.h"
 #include "tweedledum/Synthesis/xag_synth.h"
 #include "tweedledum/Utils/Classical/xag_optimize.h"
@@ -218,11 +217,6 @@ size_t TweedledumCircuit::numDataQubits(tweedledum::Circuit &circ) {
     return circ.num_qubits();
 }
 
-tweedledum::Circuit TweedledumCircuit::cleanupCircuit(
-        tweedledum::Circuit &circ) {
-    return tweedledum::parity_decomp(circ);
-}
-
 void TweedledumCircuit::toFile(const std::string base_name) {
     std::ofstream stream("tweedledum_circ_" + base_name + ".txt");
     // Use 100 columns because we are big boys with big boy monitors
@@ -247,6 +241,7 @@ void TweedledumCircuit::toQCircInline(
     }
 
     circ.foreach_instruction([&](const tweedledum::Instruction &inst) {
+        size_t n_fixed_controls = control_qubits.size();
         llvm::SmallVector<mlir::Value> controls(
             control_qubits.begin(), control_qubits.end());
         for (size_t i = 0; i < inst.num_controls(); i++) {
@@ -260,7 +255,6 @@ void TweedledumCircuit::toQCircInline(
             }
             controls.push_back(qubits[qubit_idx]);
         }
-        mlir::ValueRange controlResults;
 
         if (inst.num_targets() == 2) {
             // Swap gates
@@ -272,7 +266,9 @@ void TweedledumCircuit::toQCircInline(
                     qubits[leftIdx], qubits[rightIdx]);
                 qubits[leftIdx] = output.getLeftResult();
                 qubits[rightIdx] = output.getRightResult();
-                controlResults = output.getControlResults();
+                controls.clear();
+                mlir::ValueRange controlResults = output.getControlResults();
+                controls.append(controlResults.begin(), controlResults.end());
             } else {
                 assert(0 && "Unknown two-qubit gate");
             }
@@ -306,30 +302,66 @@ void TweedledumCircuit::toQCircInline(
             mlir::Value inputQubit = qubits[idx];
             mlir::Value outputQubit;
 
-            if (gate != (qcirc::Gate1Q)-1) {
-                auto output = builder.create<qcirc::Gate1QOp>(
-                    loc, gate, controls, inputQubit);
-                outputQubit = output.getResult();
-                controlResults = output.getControlResults();
-            } else if (gate1p != (qcirc::Gate1Q1P)-1) {
-                mlir::Value param = wrapFloatConst(builder, loc, tweedledum::rotation_angle(inst).value());
-                auto output = builder.create<qcirc::Gate1Q1POp>(
-                    loc, gate1p, param, controls, inputQubit);
-                outputQubit = output.getResult();
-                controlResults = output.getControlResults();
-            } else if (gate3p != (qcirc::Gate1Q3P)-1) {
-                const tweedledum::Op::U &u = inst.cast<tweedledum::Op::U>();
-                mlir::Value firstParam = wrapFloatConst(builder, loc, u.theta());
-                mlir::Value secondParam = wrapFloatConst(builder, loc, u.phi());
-                mlir::Value thirdParam = wrapFloatConst(builder, loc, u.lambda());
+            if (inst.name() == "parity") {
+                // In Tweedledum, controls work differently for parity
+                // operations. Every control is a control for a different CNOT.
+                llvm::SmallVector<mlir::Value> fixed_controls(
+                    controls.begin(), controls.begin() + n_fixed_controls);
+                llvm::SmallVector<mlir::Value> individual_controls(
+                    controls.begin() + n_fixed_controls, controls.end());
 
-                auto output = builder.create<qcirc::Gate1Q3POp>(
-                    loc, gate3p, firstParam, secondParam, thirdParam,
-                    controls, inputQubit);
-                outputQubit = output.getResult();
-                controlResults = output.getControlResults();
+                for (size_t i = 0; i < individual_controls.size(); i++) {
+                    llvm::SmallVector<mlir::Value> this_controls(fixed_controls);
+                    this_controls.push_back(individual_controls[i]);
+
+                    auto output = builder.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, this_controls, inputQubit);
+                    inputQubit = output.getResult();
+
+                    mlir::ValueRange controlResults = output.getControlResults();
+                    assert(controlResults.size() == this_controls.size()
+                           && "Wrong number of controls returned");
+                    fixed_controls.clear();
+                    fixed_controls.append(controlResults.begin(),
+                                          controlResults.begin() + n_fixed_controls);
+                    individual_controls[i] = controlResults[n_fixed_controls];
+                }
+
+                outputQubit = inputQubit;
+                controls.clear();
+                controls.append(fixed_controls);
+                controls.append(individual_controls);
             } else {
-                assert(0 && "Unknown gate");
+                mlir::ValueRange controlResults;
+
+                if (gate != (qcirc::Gate1Q)-1) {
+                    auto output = builder.create<qcirc::Gate1QOp>(
+                        loc, gate, controls, inputQubit);
+                    outputQubit = output.getResult();
+                    controlResults = output.getControlResults();
+                } else if (gate1p != (qcirc::Gate1Q1P)-1) {
+                    mlir::Value param = wrapFloatConst(builder, loc, tweedledum::rotation_angle(inst).value());
+                    auto output = builder.create<qcirc::Gate1Q1POp>(
+                        loc, gate1p, param, controls, inputQubit);
+                    outputQubit = output.getResult();
+                    controlResults = output.getControlResults();
+                } else if (gate3p != (qcirc::Gate1Q3P)-1) {
+                    const tweedledum::Op::U &u = inst.cast<tweedledum::Op::U>();
+                    mlir::Value firstParam = wrapFloatConst(builder, loc, u.theta());
+                    mlir::Value secondParam = wrapFloatConst(builder, loc, u.phi());
+                    mlir::Value thirdParam = wrapFloatConst(builder, loc, u.lambda());
+
+                    auto output = builder.create<qcirc::Gate1Q3POp>(
+                        loc, gate3p, firstParam, secondParam, thirdParam,
+                        controls, inputQubit);
+                    outputQubit = output.getResult();
+                    controlResults = output.getControlResults();
+                } else {
+                    assert(0 && "Unknown gate");
+                }
+
+                controls.clear();
+                controls.append(controlResults.begin(), controlResults.end());
             }
 
             qubits[idx] = outputQubit;
@@ -337,10 +369,9 @@ void TweedledumCircuit::toQCircInline(
             assert(0 && "Unsupported number of target qubits");
         }
 
-        size_t n_fixed_controls = control_qubits.size();
         control_qubits.clear();
-        control_qubits.append(controlResults.begin(),
-                              controlResults.begin() + n_fixed_controls);
+        control_qubits.append(controls.begin(),
+                              controls.begin() + n_fixed_controls);
 
         for (size_t i = 0; i < inst.num_controls(); i++) {
             tweedledum::Qubit qubit = inst.control(i);
@@ -349,9 +380,9 @@ void TweedledumCircuit::toQCircInline(
                 // Controlled-on-zero, so undo the X we added earlier
                 qubits[qubit_idx] = builder.create<qcirc::Gate1QOp>(
                     loc, qcirc::Gate1Q::X, mlir::ValueRange(),
-                    controlResults[n_fixed_controls + i]).getResult();
+                    controls[n_fixed_controls + i]).getResult();
             } else {
-                qubits[qubit_idx] = controlResults[n_fixed_controls + i];
+                qubits[qubit_idx] = controls[n_fixed_controls + i];
             }
         }
     });
