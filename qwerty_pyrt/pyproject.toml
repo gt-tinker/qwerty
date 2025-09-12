@@ -13,5 +13,4 @@ dynamic = ["version"]
 
 [tool.maturin]
 python-source = "python"
-exclude = ["qwerty/tests/**"]
 module-name = "qwerty._qwerty_pyrt"

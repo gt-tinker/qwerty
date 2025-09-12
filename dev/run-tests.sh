@@ -49,6 +49,8 @@ popd >/dev/null
 
 if (( ok == 1 )); then
     printf '\nsuccess!\n'
+    exit 0
 else
     printf '\nSomething failed. Please look above.\n'
+    exit 1
 fi
