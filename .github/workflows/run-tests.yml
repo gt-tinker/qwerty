@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v5
-        with: 
+        with:
           submodules: true
       - name: Install build dependencies
         run: sudo apt install -y ninja-build python3-dev libffi-dev libzstd-dev libtinfo-dev
