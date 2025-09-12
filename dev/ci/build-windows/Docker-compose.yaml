@@ -1,0 +1,31 @@
+services:
+  windows:
+    image: dockurr/windows
+    container_name: windows-vm
+    environment:
+      VERSION: "11"
+      USERNAME: ${WINDOWS_VM_USERNAME}
+      PASSWORD: ${WINDOWS_VM_PASSWORD}
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    stop_grace_period: 2m
+    ports:
+      # For VNC web viewer. Consider disabling after confirming RDP works since VNC is not secure.
+      - 8006:8006
+
+      # For RDP. In your RDP client, use "<host_machine_ip_address>:3390" for the path, and
+      # use WINDOWS-VM-USERNAME and WINDOWS-VM-PASSWORD from the .env file for the credentials.
+      - 3390:3389/tcp
+      - 3390:3389/udp
+    volumes:
+      # Persists the underlying Windows VM's data.
+      - ./vm-storage:/storage
+
+      # Mounts the setup script.
+      - ./setup-vm.ps1:/data/setup-vm.ps1:ro
+
+      # Mounts the build script.
+      - ./build-llvm.ps1:/data/build-llvm.ps1:ro
