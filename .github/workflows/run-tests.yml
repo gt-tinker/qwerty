@@ -3,9 +3,15 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - qwerty/**
+      - dev/**
+      - qir_runner
+      - qwerty_ast/**
+      - qwerty_melior
       - qwerty_mlir/**
-      - test/**
+      - qwerty_mlir_sys
+      - qwerty_pyrt/**
+      - qwerty_util/**
+      - tweedledum
       - .github/**
 jobs:
   build:
