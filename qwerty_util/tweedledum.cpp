@@ -423,37 +423,3 @@ void TweedledumCircuit::toQCircInline(
         raw_qubits[qubit_idx + i] = qubits[i];
     }
 }
-
-qwerty::FuncOp TweedledumCircuit::toFuncOp(
-        mlir::OpBuilder &builder,
-        mlir::Location loc,
-        mlir::ModuleOp module,
-        const std::string name) {
-    auto qbundle_type = builder.getType<qwerty::QBundleType>(n_data_qubits);
-    auto func_type = builder.getType<qwerty::FunctionType>(
-        builder.getFunctionType({qbundle_type}, {qbundle_type}),
-        /*reversible=*/true);
-
-    builder.setInsertionPointToEnd(module.getBody());
-    auto func = builder.create<qwerty::FuncOp>(loc, name, func_type);
-    // Sets insert point to end of this block
-    mlir::Block *block = builder.createBlock(&func.getBody(), {}, {qbundle_type}, {loc});
-    auto unpacked = builder.create<qwerty::QBundleUnpackOp>(loc, block->getArgument(0)).getQubits();
-
-    llvm::SmallVector<mlir::Value> qubits(unpacked);
-    toQCircInline(builder, loc, qubits, 0);
-
-    auto repacked = builder.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
-    builder.create<qwerty::ReturnOp>(loc, repacked);
-
-    // Set the function symbol as private so that inlining will prune it. The
-    // programmer shouldn't be calling a @classical kernel directly; it should
-    // only be called inside a @qpu kernel
-    func.setPrivate();
-
-    if (mlir::failed(mlir::verify(func))) {
-        return nullptr;
-    } else {
-        return func;
-    }
-}

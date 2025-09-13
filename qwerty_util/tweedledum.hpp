@@ -33,15 +33,8 @@ struct TweedledumCircuit {
 
     static size_t numDataQubits(tweedledum::Circuit &circ);
 
-    // Transpile to QCirc IR, putting the result in a FuncOp with the specified
-    // symbol name (`name')
-    qwerty::FuncOp toFuncOp(mlir::OpBuilder &builder,
-                            mlir::Location loc,
-                            mlir::ModuleOp module,
-                            const std::string name);
-
-    // Similar to toFuncOp(), except the QCirc ops are created inline wherever
-    // the builder's insertion point is, without creating a new FuncOp
+    // Transpile to QCirc IR, inserting QCirc ops are inline wherever the
+    // builder's insertion point is, without creating a new FuncOp
     void toQCircInline(mlir::OpBuilder &builder,
                        mlir::Location loc,
                        llvm::SmallVectorImpl<mlir::Value> &qubits,
