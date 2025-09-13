@@ -3079,7 +3079,7 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
     }
 };
 
-// Invoke Tweedledum to synthesize a permutation
+// Invoke code yanked out of Tweedledum to synthesize a permutation
 void synthesizePermutation(mlir::RewriterBase &rewriter,
                            mlir::Location loc,
                            llvm::SmallVectorImpl<mlir::Value> &control_qubits,
@@ -3090,6 +3090,9 @@ void synthesizePermutation(mlir::RewriterBase &rewriter,
     assert(left.getDim() == right.getDim()
            && left.getVectors().size() == right.getVectors().size()
            && "Not a permutation");
+
+    // TODO: Use trick discussed with Pulkit on April 18th 2025 if e.g.
+    //       left.getDim > 16
 
     uint32_t two_to_the_n = 1ULL << left.getDim();
     std::vector<uint32_t> perm(two_to_the_n);
@@ -3116,8 +3119,8 @@ void synthesizePermutation(mlir::RewriterBase &rewriter,
         perm[l_idx] = r_idx;
     }
 
-    TweedledumCircuit circ = TweedledumCircuit::fromPermutation(perm);
-    circ.toQCircInline(rewriter, loc, control_qubits, qubits, qubit_idx);
+    qcirc::synthPermutation(rewriter, loc, control_qubits, qubits, qubit_idx,
+                            perm);
 }
 
 // This pattern matches only on basis translations that are aligned and in the

@@ -22,8 +22,10 @@
 #ifdef _MSC_VER
     #include <intrin.h>
     #define BITS_NEEDED(x) ((sizeof (unsigned __int64))*CHAR_BIT-__lzcnt64(x))
+    #define BITS_POPCOUNT(x) __popcnt64(x)
 #else
     #define BITS_NEEDED(x) ((sizeof (unsigned long long))*CHAR_BIT-__builtin_clzll(x))
+    #define BITS_POPCOUNT(x) __builtin_popcountll(x)
 #endif
 
 #endif
