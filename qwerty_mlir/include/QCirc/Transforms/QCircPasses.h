@@ -1,8 +1,8 @@
-//===- QcircPasses.h - Qcirc Patterns and Passes ------------*- C++ -*-===//
+//===- QCircPasses.h - Qcirc Patterns and Passes ------------*- C++ -*-===//
 //
 //===----------------------------------------------------------------------===//
 //
-// This header declares patterns and passes on MemRef operations.
+// This header declares patterns and passes on quantum circuits.
 //
 //===----------------------------------------------------------------------===//
 
