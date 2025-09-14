@@ -40,6 +40,7 @@
 #include "CCirc/IR/CCircDialect.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/Transforms/QCircPasses.h"
+#include "CCirc/Transforms/CCircPasses.h"
 
 // Just for testing
 namespace qwerty {
@@ -65,6 +66,7 @@ int main(int argc, char **argv) {
 
     qwerty::registerQwertyPasses();
     qcirc::registerQCircPasses();
+    ccirc::registerCCircPasses();
 
     // Just for testing
     qwerty::test::registerTestFuncSpecAnalysisPass();
