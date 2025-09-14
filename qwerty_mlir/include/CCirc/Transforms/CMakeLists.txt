@@ -1,0 +1,6 @@
+set(LLVM_TARGET_DEFINITIONS CCircPasses.td)
+mlir_tablegen(CCircPasses.h.inc -gen-pass-decls -name CCirc)
+mlir_tablegen(CCircPasses.capi.h.inc -gen-pass-capi-header --prefix CCirc)
+mlir_tablegen(CCircPasses.capi.cpp.inc -gen-pass-capi-impl --prefix CCirc)
+add_public_tablegen_target(MLIRCCircPassIncGen)
+add_dependencies(mlir-headers MLIRCCircPassIncGen)
