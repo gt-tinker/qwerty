@@ -3079,22 +3079,20 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
     }
 };
 
-// Invoke code yanked out of Tweedledum to synthesize a permutation
-void synthesizePermutation(mlir::RewriterBase &rewriter,
-                           mlir::Location loc,
-                           llvm::SmallVectorImpl<mlir::Value> &control_qubits,
-                           llvm::SmallVectorImpl<mlir::Value> &qubits,
-                           size_t qubit_idx,
-                           qwerty::BasisVectorListAttr left,
-                           qwerty::BasisVectorListAttr right) {
-    assert(left.getDim() == right.getDim()
-           && left.getVectors().size() == right.getVectors().size()
-           && "Not a permutation");
-
-    // TODO: Use trick discussed with Pulkit on April 18th 2025 if e.g.
-    //       left.getDim > 16
-
-    uint32_t two_to_the_n = 1ULL << left.getDim();
+// Synthesize the reversible permutation at the heart of a basis translation
+// circuit using the transformation-based synthesis algorithm from Tweedledum.
+// This is expensive at compile time (exponentially expensive with respect to
+// the number of qubits, actually) but produces a high-quality circuit.
+void synthesizePermutationSlow(
+        mlir::RewriterBase &rewriter,
+        mlir::Location loc,
+        llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+        llvm::SmallVectorImpl<mlir::Value> &qubits,
+        size_t qubit_idx,
+        qwerty::BasisVectorListAttr left,
+        qwerty::BasisVectorListAttr right) {
+    size_t dim = left.getDim();
+    uint32_t two_to_the_n = 1ULL << dim;
     std::vector<uint32_t> perm(two_to_the_n);
     // Initialize this as identity. That way, we treat
     //     {'00','10'} >> {'10','00'}
@@ -3119,8 +3117,64 @@ void synthesizePermutation(mlir::RewriterBase &rewriter,
         perm[l_idx] = r_idx;
     }
 
-    qcirc::synthPermutation(rewriter, loc, control_qubits, qubits, qubit_idx,
-                            perm);
+    qcirc::synthPermutationSlow(rewriter, loc, control_qubits, qubits,
+                                qubit_idx, perm);
+}
+
+// Synthesize the reversible permutation at the heart of a basis translation
+// circuit using an algorithm that is basically the quantum equivalent of
+// converting a classical truth table to a classical circuit of ANDs (for each
+// row) and an OR (for each column). This is only used for large numbers of
+// qubits where synthesizePermutationSlow() is too expensive.
+void synthesizePermutationFast(
+        mlir::RewriterBase &rewriter,
+        mlir::Location loc,
+        llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+        llvm::SmallVectorImpl<mlir::Value> &qubits,
+        size_t qubit_idx,
+        qwerty::BasisVectorListAttr left,
+        qwerty::BasisVectorListAttr right) {
+    llvm::SmallVector<std::pair<llvm::APInt, llvm::APInt>> perm;
+    for (auto [left_vec, right_vec] : llvm::zip(left.getVectors(),
+                                                right.getVectors())) {
+        llvm::APInt left = left_vec.getEigenbits();
+        llvm::APInt right = right_vec.getEigenbits();
+        if (left != right) {
+            perm.emplace_back(std::move(left), std::move(right));
+        }
+    }
+
+    qcirc::synthPermutationFast(rewriter, loc, control_qubits, qubits,
+                                qubit_idx, perm);
+}
+
+// Synthesize the reversible permutation of basis states at the heart of a
+// basis translation circuit.
+void synthesizePermutation(mlir::RewriterBase &rewriter,
+                           mlir::Location loc,
+                           llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+                           llvm::SmallVectorImpl<mlir::Value> &qubits,
+                           size_t qubit_idx,
+                           qwerty::BasisVectorListAttr left,
+                           qwerty::BasisVectorListAttr right) {
+    assert(left.getDim() == right.getDim()
+           && left.getVectors().size() == right.getVectors().size()
+           && "Not a permutation");
+    size_t dim = left.getDim();
+
+    // Run the O(2^n) algorithm (which generates a high-quality circuit) if n
+    // is small. Else run a polynomial-time algorithm that emits a
+    // lower-quality circuit.
+    // How was 10 determined? I tried running the `megaperm` integration test
+    // several times with different choices of thresholds, and it seems like 10
+    // is crossover point after which our brute-force synthesis is faster.
+    if (dim <= 10) {
+        synthesizePermutationSlow(rewriter, loc, control_qubits, qubits,
+                                  qubit_idx, left, right);
+    } else {
+        synthesizePermutationFast(rewriter, loc, control_qubits, qubits,
+                                  qubit_idx, left, right);
+    }
 }
 
 // This pattern matches only on basis translations that are aligned and in the

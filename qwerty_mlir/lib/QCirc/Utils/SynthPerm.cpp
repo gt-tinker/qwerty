@@ -110,7 +110,7 @@ inline GateList multidirectional(std::vector<uint32_t> perm)
 
 namespace qcirc {
 
-void synthPermutation(
+void synthPermutationSlow(
         mlir::OpBuilder &builder,
         mlir::Location loc,
         llvm::SmallVectorImpl<mlir::Value> &control_qubits,
@@ -149,6 +149,177 @@ void synthPermutation(
                 qubits[qubit_idx + c] = this_control_qubits[nonfixed_ctrls_start++];
             }
         }
+    }
+}
+
+// From my and Pulkit's brain, not Tweedledum
+void synthPermutationFast(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+        llvm::SmallVectorImpl<mlir::Value> &qubits,
+        size_t qubit_idx,
+        const llvm::SmallVector<std::pair<llvm::APInt, llvm::APInt>> &perm) {
+    // Mapping of XOR masks to ancilla indices and lists of vectors that need
+    // this mask applied
+    llvm::DenseMap<llvm::APInt,
+                   std::pair<size_t, llvm::SmallVector<llvm::APInt>>> mask_vecs;
+    // Pairs of ancilla indices and controls to clean up
+    llvm::SmallVector<std::pair<size_t, llvm::APInt>> cleanup_queue;
+
+    for (const std::pair<llvm::APInt, llvm::APInt> &perm_pair : perm) {
+        const llvm::APInt &left = perm_pair.first;
+        const llvm::APInt &right = perm_pair.second;
+        llvm::APInt mask(left);
+        mask ^= right;
+
+        if (!mask.isZero()) {
+            auto result_pair = mask_vecs.try_emplace(mask,
+                mask_vecs.size(), std::initializer_list<llvm::APInt>{});
+            result_pair.first->getSecond().second.push_back(left);
+            size_t ancilla_idx = result_pair.first->getSecond().first;
+            cleanup_queue.emplace_back(ancilla_idx, right);
+        }
+    }
+
+    // Will be useful in a second for iterating over the map deterministically
+    llvm::SmallVector<llvm::APInt> sorted_masks;
+    for (auto mask_vecs_entry : mask_vecs) {
+        sorted_masks.push_back(mask_vecs_entry.getFirst());
+    }
+    llvm::sort(sorted_masks, [](const llvm::APInt &left, const llvm::APInt &right) {
+        return left.ult(right);
+    });
+
+    // Allocate ancilla
+    llvm::SmallVector<mlir::Value> ancillas;
+    for (size_t i = 0; i < mask_vecs.size(); i++) {
+        ancillas.push_back(builder.create<qcirc::QallocOp>(loc).getResult());
+    }
+
+    // Flip ancilla bits in subspaces
+    for (llvm::APInt &mask : sorted_masks) {
+        auto mask_vecs_pair = mask_vecs.at(mask);
+        size_t ancilla_idx = mask_vecs_pair.first;
+        llvm::SmallVector<llvm::APInt> &vecs = mask_vecs_pair.second;
+
+        // TODO: optimize the case where e.g. a C0NOT and C1NOT can be replaced
+        //       with a NOT
+        mlir::Value ancilla = ancillas[ancilla_idx];
+
+        for (llvm::APInt &vec : vecs) {
+            llvm::SmallVector<mlir::Value> controls(control_qubits.begin(),
+                                                    control_qubits.end());
+            for (size_t j = 0; j < vec.getBitWidth(); j++) {
+                mlir::Value ctrl = qubits[qubit_idx + j];
+                bool bit = vec[vec.getBitWidth()-1-j];
+                if (!bit) {
+                    // Controlled-on-zero
+                    ctrl = builder.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, mlir::ValueRange(),
+                        ctrl).getResult();
+                }
+                controls.push_back(ctrl);
+            }
+
+            qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+                loc, qcirc::Gate1Q::X, controls, ancilla);
+            ancilla = x.getResult();
+
+            mlir::ValueRange control_results = x.getControlResults();
+            assert(control_results.size() == controls.size()
+                   && "wrong number of output control qubits");
+            size_t n_fixed_controls = control_qubits.size();
+            control_qubits.clear();
+            control_qubits.append(control_results.begin(),
+                                  control_results.begin() + n_fixed_controls);
+
+            for (size_t j = 0; j < vec.getBitWidth(); j++) {
+                mlir::Value ctrl = control_results[n_fixed_controls + j];
+                bool bit = vec[vec.getBitWidth()-1-j];
+                if (!bit) {
+                    // Undo bit flip above
+                    ctrl = builder.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, mlir::ValueRange(),
+                        ctrl).getResult();
+                }
+                qubits[qubit_idx + j] = ctrl;
+            }
+        }
+
+        ancillas[ancilla_idx] = ancilla;
+    }
+
+    // Flip main qubits based on ancilla
+    for (llvm::APInt &mask : sorted_masks) {
+        auto mask_vecs_pair = mask_vecs.at(mask);
+        size_t ancilla_idx = mask_vecs_pair.first;
+        mlir::Value ancilla = ancillas[ancilla_idx];
+
+        for (size_t j = 0; j < mask.getBitWidth(); j++) {
+            bool bit = mask[mask.getBitWidth()-1-j];
+            if (bit) {
+                qcirc::Gate1QOp cnot = builder.create<qcirc::Gate1QOp>(
+                    loc, qcirc::Gate1Q::X, ancilla, qubits[qubit_idx + j]);
+                assert(cnot.getControlResults().size() == 1
+                       && "expected one control result from cnot");
+                ancilla = cnot.getControlResults()[0];
+                qubits[qubit_idx + j] = cnot.getResult();
+            }
+        }
+
+        ancillas[ancilla_idx] = ancilla;
+    }
+
+    // Uncompute (clean up ancilla)
+    for (auto [ancilla_idx, vec] : cleanup_queue) {
+        // TODO: optimize the case where e.g. a C0NOT and C1NOT can be replaced
+        //       with a NOT
+        mlir::Value ancilla = ancillas[ancilla_idx];
+
+        llvm::SmallVector<mlir::Value> controls(control_qubits.begin(),
+                                                control_qubits.end());
+        for (size_t j = 0; j < vec.getBitWidth(); j++) {
+            mlir::Value ctrl = qubits[qubit_idx + j];
+            bool bit = vec[vec.getBitWidth()-1-j];
+            if (!bit) {
+                // Controlled-on-zero
+                ctrl = builder.create<qcirc::Gate1QOp>(
+                    loc, qcirc::Gate1Q::X, mlir::ValueRange(),
+                    ctrl).getResult();
+            }
+            controls.push_back(ctrl);
+        }
+
+        qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+            loc, qcirc::Gate1Q::X, controls, ancilla);
+        ancilla = x.getResult();
+
+        mlir::ValueRange control_results = x.getControlResults();
+        assert(control_results.size() == controls.size()
+               && "wrong number of output control qubits");
+        size_t n_fixed_controls = control_qubits.size();
+        control_qubits.clear();
+        control_qubits.append(control_results.begin(),
+                              control_results.begin() + n_fixed_controls);
+
+        for (size_t j = 0; j < vec.getBitWidth(); j++) {
+            mlir::Value ctrl = control_results[n_fixed_controls + j];
+            bool bit = vec[vec.getBitWidth()-1-j];
+            if (!bit) {
+                // Undo bit flip above
+                ctrl = builder.create<qcirc::Gate1QOp>(
+                    loc, qcirc::Gate1Q::X, mlir::ValueRange(),
+                    ctrl).getResult();
+            }
+            qubits[qubit_idx + j] = ctrl;
+        }
+
+        ancillas[ancilla_idx] = ancilla;
+    }
+
+    for (mlir::Value ancilla : ancillas) {
+        builder.create<qcirc::QfreeZeroOp>(loc, ancilla);
     }
 }
 

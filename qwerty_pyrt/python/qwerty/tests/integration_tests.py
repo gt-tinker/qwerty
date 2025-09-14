@@ -358,6 +358,20 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_histos = float_expr.test(shots)
         self.assertEqual(expected_histos, actual_histos)
 
+    def test_megaperm(self):
+        from .integ.meta import megaperm
+        shots = 1024
+
+        # The 16-qubit case is handled by tweedledum-based synthesis, but the
+        # 18-qubit case is handled by our custom synthesis.
+        for n_qubits in (10, 18):
+            all_ones = bit.from_str('1'*n_qubits)
+            all_ones_except_upper3 = bit.from_str('000' + '1'*(n_qubits-3))
+            expected_histos = ({all_ones: shots},
+                               {all_ones_except_upper3: shots})
+            actual_histos = megaperm.test(n_qubits, shots)
+            self.assertEqual(expected_histos, actual_histos)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
