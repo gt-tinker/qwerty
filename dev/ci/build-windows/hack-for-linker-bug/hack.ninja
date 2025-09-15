@@ -1,5 +1,5 @@
 rule python_update_ninja_script
-    command = cmd.exe /c "python ../ci/build-windows/hack-for-linker-bug/update_ninja_script.py"
+    command = cmd.exe /c "python ../dev/ci/build-windows/hack-for-linker-bug/update_ninja_script.py"
 
 build python_update_ninja_script: python_update_ninja_script
 

@@ -10,5 +10,5 @@
 cd "$GITHUB_WORKSPACE"
 hostname
 
-cd ci/build-manylinux
+cd dev/ci/build-manylinux
 exec ./build-manylinux-llvm.sh apptainer "$LLVM_VERSION" /projects/ci-runners/qwerty-llvm-builds/llvm
