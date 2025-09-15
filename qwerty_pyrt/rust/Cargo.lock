@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "qir-backend"
-version = "0.7.5"
+version = "0.8.3"
 dependencies = [
  "bitvec",
  "num-bigint",
@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "qir-stdlib"
-version = "0.7.5"
+version = "0.8.3"
 dependencies = [
  "num-bigint",
  "rand",
@@ -559,7 +559,7 @@ dependencies = [
 
 [[package]]
 name = "quantum-sparse-sim"
-version = "0.7.5"
+version = "0.8.3"
 dependencies = [
  "ndarray",
  "num-bigint",

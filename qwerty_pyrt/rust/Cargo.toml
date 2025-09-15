@@ -13,7 +13,7 @@ dashu = "0.4.2"
 pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py310"] }
 melior = { version = "0.25.0", path = "../../qwerty_melior/melior" }
 qwerty_ast = { version = "0.1.0", path = "../../qwerty_ast" }
-qir-backend = { version = "0.7.5", path = "../../qir_runner/backend" }
+qir-backend = { version = "0.8.3", path = "../../qir_runner/backend" }
 qwerty-mlir-sys = { version = "0.5.0", path = "../../qwerty_mlir_sys", optional = true }
 
 [features]
