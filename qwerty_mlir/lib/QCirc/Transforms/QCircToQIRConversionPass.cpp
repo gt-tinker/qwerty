@@ -1453,7 +1453,7 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
                         loc, pointerType(builder), capture_tuple, capture_arg,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
-                        /*inbounds=*/true).getRes();
+                        mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 mlir::Value loaded =
                     builder.create<mlir::LLVM::LoadOp>(
                         loc, capture_type, gep).getRes();
@@ -1486,7 +1486,7 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
                         loc, pointerType(builder), arg_tuple, args_arg,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
-                        /*inbounds=*/true).getRes();
+                        mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 mlir::Value loaded =
                     builder.create<mlir::LLVM::LoadOp>(
                         loc, arg_type, gep).getRes();
@@ -1737,7 +1737,7 @@ void createCaptureRefcountFuncs(
                 ref_tuple_arg,
                 std::initializer_list<mlir::LLVM::GEPArg>{
                     0, static_cast<int32_t>(i)},
-                /*inbounds=*/true).getRes();
+                mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
         mlir::Value ref_val = builder.create<mlir::LLVM::LoadOp>(
             loc, capture_type, ref_gep).getRes();
         builder.setInsertionPointToEnd(alias_entry_block);
@@ -1747,7 +1747,7 @@ void createCaptureRefcountFuncs(
                 alias_tuple_arg,
                 std::initializer_list<mlir::LLVM::GEPArg>{
                     0, static_cast<int32_t>(i)},
-                /*inbounds=*/true).getRes();
+                mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
         mlir::Value alias_val = builder.create<mlir::LLVM::LoadOp>(
             loc, capture_type, alias_gep).getRes();
 
@@ -1955,7 +1955,7 @@ struct CallableCreateOpLowering : public mlir::OpConversionPattern<qcirc::Callab
                         captures,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
-                        /*inbounds=*/true).getRes();
+                        mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 rewriter.create<mlir::LLVM::StoreOp>(loc, capture_val, gep);
             }
         }
@@ -2049,7 +2049,7 @@ struct CallableInvokeOpLowering : public mlir::OpConversionPattern<qcirc::Callab
                         arg_ptr,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
-                        /*inbounds=*/true).getRes();
+                        mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 rewriter.create<mlir::LLVM::StoreOp>(loc, arg_val, gep);
             }
         }

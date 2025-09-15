@@ -1,5 +1,5 @@
 # Usage:
-# .\build-llvm.ps1 -version 20.1.7
+# .\build-llvm.ps1 -version 21.1.1
 
 param(
     [Parameter(Mandatory=$true)][string]$version

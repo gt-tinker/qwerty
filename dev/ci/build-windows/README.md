@@ -5,7 +5,7 @@ You have two options for building LLVM on Windows with these scripts:
 
 ## Option 1: Building on Local Windows Machine
 
-Run `.\build-llvm.ps1 -version 20.1.7` in PowerShell.
+Run `.\build-llvm.ps1 -version 21.1.1` in PowerShell.
 
 ## Option 2: Building with an Ephemeral Self-Hosted GitHub Actions Runner on AWS CodeBuild
 
@@ -33,7 +33,7 @@ Run `.\build-llvm.ps1 -version 20.1.7` in PowerShell.
    * If creation fails, you will need to go to IAM and clean up the roles and
      polices created by the wizard. (The error handling by AWS is quite poor.)
 4. Set up a GitHub Actions workflow like [the one in `qwerty-llvm-builds`][2]
-   to run `.\build-llvm.ps1 -version 20.1.7` for you. This is the important
+   to run `.\build-llvm.ps1 -version 21.1.1` for you. This is the important
    part:
    ```
    runs-on: codebuild-qwerty-llvm-build-windows-${{ github.run_id }}-${{ github.run_attempt }}

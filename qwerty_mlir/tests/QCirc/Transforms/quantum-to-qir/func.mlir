@@ -61,10 +61,10 @@ qcirc.callable_metadata private @const_calli__trivial__metadata captures [] spec
 
 //  CHECK-NEXT: define ptr @const_calli(ptr %0) {
 //  CHECK-NEXT:   %2 = call ptr @__quantum__rt__callable_create(ptr @const_calli__trivial__metadata__func_table, ptr null, ptr null)
-//  CHECK-NEXT:   %3 = call ptr @__quantum__rt__tuple_create(i64 ptrtoint (ptr getelementptr ({ ptr }, ptr null, i32 1) to i64))
+//  CHECK-NEXT:   %3 = call ptr @__quantum__rt__tuple_create(i64 8)
 //  CHECK-NEXT:   %4 = getelementptr inbounds { ptr }, ptr %3, i32 0, i32 0
 //  CHECK-NEXT:   store ptr %0, ptr %4, align 8
-//  CHECK-NEXT:   %5 = call ptr @__quantum__rt__tuple_create(i64 ptrtoint (ptr getelementptr (ptr, ptr null, i32 1) to i64))
+//  CHECK-NEXT:   %5 = call ptr @__quantum__rt__tuple_create(i64 8)
 //  CHECK-NEXT:   call void @__quantum__rt__callable_invoke(ptr %2, ptr %3, ptr %5)
 //  CHECK-NEXT:   call void @__quantum__rt__tuple_update_reference_count(ptr %3, i32 -1)
 //  CHECK-NEXT:   %6 = load ptr, ptr %5, align 8
@@ -105,10 +105,10 @@ qcirc.callable_metadata private @const_adj_calli__trivial__metadata captures [] 
 //  CHECK-NEXT: define ptr @const_adj_calli(ptr %0) {
 //  CHECK-NEXT:   %2 = call ptr @__quantum__rt__callable_create(ptr @const_adj_calli__trivial__metadata__func_table, ptr null, ptr null)
 //  CHECK-NEXT:   call void @__quantum__rt__callable_make_adjoint(ptr %2)
-//  CHECK-NEXT:   %3 = call ptr @__quantum__rt__tuple_create(i64 ptrtoint (ptr getelementptr ({ ptr }, ptr null, i32 1) to i64))
+//  CHECK-NEXT:   %3 = call ptr @__quantum__rt__tuple_create(i64 8)
 //  CHECK-NEXT:   %4 = getelementptr inbounds { ptr }, ptr %3, i32 0, i32 0
 //  CHECK-NEXT:   store ptr %0, ptr %4, align 8
-//  CHECK-NEXT:   %5 = call ptr @__quantum__rt__tuple_create(i64 ptrtoint (ptr getelementptr (ptr, ptr null, i32 1) to i64))
+//  CHECK-NEXT:   %5 = call ptr @__quantum__rt__tuple_create(i64 8)
 //  CHECK-NEXT:   call void @__quantum__rt__callable_invoke(ptr %2, ptr %3, ptr %5)
 //  CHECK-NEXT:   call void @__quantum__rt__tuple_update_reference_count(ptr %3, i32 -1)
 //  CHECK-NEXT:   %6 = load ptr, ptr %5, align 8

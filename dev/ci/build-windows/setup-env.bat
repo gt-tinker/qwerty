@@ -6,8 +6,8 @@ rem The /p flag sets $PATH and $MLIR_DIR too. Useful when building LLVM
 rem locally, but probably not if you downloaded a prebuilt archive
 if not "%1"=="/p" goto skipset
 
-set PATH=%PATH%;C:\qwerty\build-installed\llvm20\bin
-set MLIR_DIR=C:\qwerty\build-installed\llvm20\lib\cmake\mlir
+set PATH=%PATH%;C:\qwerty\build-installed\llvm21\bin
+set MLIR_DIR=C:\qwerty\build-installed\llvm21\lib\cmake\mlir
 :skipset
 
 set CMAKE_GENERATOR=Ninja

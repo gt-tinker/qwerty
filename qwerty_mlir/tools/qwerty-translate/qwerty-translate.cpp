@@ -11,45 +11,40 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/DebugProgramInstruction.h"
-#include "mlir/IR/MLIRContext.h"
-#include "mlir/Tools/mlir-translate/MlirTranslateMain.h"
+#include "mlir/Dialect/DLTI/DLTI.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Target/LLVMIR/Dialect/All.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
-#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/ModuleTranslation.h"
+#include "llvm/IR/DebugProgramInstruction.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 
+#include "mlir/Tools/mlir-translate/MlirTranslateMain.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h" // for mlir::asMainReturnCode()
 
 #include "QCirc/IR/QCircDialect.h"
 
-extern llvm::cl::opt<bool> WriteNewDbgInfoFormat;
-
 namespace {
+// Yanked from mlir/lib/Target/LLVMIR/ConvertToLLVMIR.cpp, except we register
+// QCirc dialect translations too below.
 void registerToQIRTranslation() {
     mlir::TranslateFromMLIRRegistration registration(
         "mlir-to-qir", "Translate MLIR to QIR",
         [](mlir::Operation *op, llvm::raw_ostream &output) {
             llvm::LLVMContext llvmContext;
             auto llvmModule = mlir::translateModuleToLLVMIR(op, llvmContext);
-            if (!llvmModule) {
+            if (!llvmModule)
                 return mlir::failure();
-            }
 
-            // Taken from mlir/lib/Target/LLVMIR/ConvertToLLVMIR.cpp
-            // See https://llvm.org/docs/RemoveDIsDebugInfo.html
-            llvm::ScopedDbgInfoFormatSetter formatSetter(*llvmModule,
-                                                WriteNewDbgInfoFormat);
-
-            if (WriteNewDbgInfoFormat)
-                llvmModule->removeDebugIntrinsicDeclarations();
+            llvmModule->removeDebugIntrinsicDeclarations();
             llvmModule->print(output, nullptr);
             return mlir::success();
         },
         [](mlir::DialectRegistry &registry) {
-            mlir::registerBuiltinDialectTranslation(registry);
-            mlir::registerLLVMDialectTranslation(registry);
+            registry.insert<mlir::DLTIDialect, mlir::func::FuncDialect>();
+            mlir::registerAllToLLVMIRTranslations(registry);
             qcirc::registerQCircDialectTranslation(registry);
         });
 }

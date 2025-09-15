@@ -897,6 +897,21 @@ mlir::ArrayRef<mlir::Type> FuncOp::getResultTypes() {
     return getQwertyFuncType().getFunctionType().getResults();
 }
 
+// Required because of an aggravating change to call interfaces:
+// https://discourse.llvm.org/t/mlir-rfc-extracting-argument-and-result-attributes-interface-to-share-it-between-call-and-functions/84107
+// https://github.com/llvm/llvm-project/pull/123176/
+// If I could un-merge an LLVM PR by cutting off a limb, I'd be typing this
+// about 25 pounds lighter.
+#define AGGRAVATING_CALL_INTERFACE_BOILERPLATE(op_name) \
+    mlir::ArrayAttr op_name::getArgAttrsAttr() { return nullptr; } \
+    mlir::ArrayAttr op_name::getResAttrsAttr() { return nullptr; } \
+    void op_name::setArgAttrsAttr(mlir::ArrayAttr attrs) {} \
+    void op_name::setResAttrsAttr(mlir::ArrayAttr attrs) {} \
+    mlir::Attribute op_name::removeArgAttrsAttr() { return nullptr; } \
+    mlir::Attribute op_name::removeResAttrsAttr() { return nullptr; }
+
+AGGRAVATING_CALL_INTERFACE_BOILERPLATE(FuncOp)
+
 // Parsing/Printing
 
 // Lifted from mlir/lib/Interfaces/FunctionImplementation.cpp
@@ -1156,6 +1171,8 @@ mlir::Operation::operand_range CallOp::getArgOperands() {
 mlir::MutableOperandRange CallOp::getArgOperandsMutable() {
     return getCapturesAndOperandsMutable();
 }
+
+AGGRAVATING_CALL_INTERFACE_BOILERPLATE(CallOp)
 
 // SymbolUserOpInterface Methods
 
@@ -1451,6 +1468,8 @@ mlir::MutableOperandRange CallIndirectOp::getArgOperandsMutable() {
     return getCallOperandsMutable();
 }
 
+AGGRAVATING_CALL_INTERFACE_BOILERPLATE(CallIndirectOp)
+
 mlir::LogicalResult CallIndirectOp::inferReturnTypes(
         mlir::MLIRContext *ctx,
         std::optional<mlir::Location> loc,
@@ -1548,6 +1567,8 @@ llvm::ArrayRef<mlir::Type> LambdaOp::getArgumentTypes() {
 llvm::ArrayRef<mlir::Type> LambdaOp::getResultTypes() {
     return getResult().getType().getFunctionType().getResults();
 }
+
+AGGRAVATING_CALL_INTERFACE_BOILERPLATE(LambdaOp)
 
 // Adapted from lib/IR/FunctionImplementation.cpp in MLIR
 mlir::ParseResult LambdaOp::parse(mlir::OpAsmParser &parser,

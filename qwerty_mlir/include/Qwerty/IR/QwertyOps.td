@@ -35,9 +35,7 @@ def Qwerty_FuncOp : Qwerty_Op<"func", [
 
     let arguments = (ins SymbolNameAttr:$sym_name,
                          TypeAttrOf<Qwerty_FunctionType>:$qwerty_func_type,
-                         OptionalAttr<StrAttr>:$sym_visibility,
-                         OptionalAttr<DictArrayAttr>:$arg_attrs,
-                         OptionalAttr<DictArrayAttr>:$res_attrs);
+                         OptionalAttr<StrAttr>:$sym_visibility);
 
     let regions = (region SizedRegion<1>:$body);
 
@@ -45,7 +43,7 @@ def Qwerty_FuncOp : Qwerty_Op<"func", [
 
     let builders = [
         OpBuilder<(ins "::llvm::StringRef":$sym_name, "FunctionType":$qwerty_func_type), [{
-            build($_builder, $_state, sym_name, qwerty_func_type, nullptr, nullptr, nullptr);
+            build($_builder, $_state, sym_name, qwerty_func_type, nullptr);
         }]>
     ];
 

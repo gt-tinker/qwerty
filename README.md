@@ -30,13 +30,13 @@ If you are working only on the AST, you need to install only [Rust][3].
 Otherwise (e.g., to build the full compiler/runtime), you need to install
 [Rust][3] _and_ the following:
 
-1. LLVM 20.1.7 (with MLIR). First, download the LLVM build archive that is
+1. LLVM 21.1.1 (with MLIR). First, download the LLVM build archive that is
    appropriate for your OS [from our repository][4]. Then you need to set both
    of the following environment variables (assuming `$HOME/bin` is where you
    extracted the LLVM archive, for example):
    ```
-   $ export PATH=$PATH:$HOME/bin/llvm20/bin/
-   $ export MLIR_DIR=$HOME/bin/llvm20/lib/cmake/mlir/
+   $ export PATH=$PATH:$HOME/bin/llvm21/bin/
+   $ export MLIR_DIR=$HOME/bin/llvm21/lib/cmake/mlir/
    ```
    You should set these persistently, e.g. in your `~/.bashrc` or `~/.zshrc`.
 
@@ -122,5 +122,5 @@ To run a particular integration test in `gdb` (e.g., `bv_nometa`):
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://www.rust-lang.org/tools/install
-[4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v20.1.7
+[4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [5]: https://llvm.org/docs/CommandGuide/FileCheck.html

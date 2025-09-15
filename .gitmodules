@@ -12,3 +12,6 @@
 [submodule "qwerty_melior"]
 	path = qwerty_melior
 	url = https://github.com/gt-tinker/qwerty-melior.git
+[submodule "tblgen-rs"]
+	path = tblgen-rs
+	url = https://github.com/gt-tinker/tblgen-rs.git
