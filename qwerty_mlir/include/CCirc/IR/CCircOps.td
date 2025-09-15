@@ -51,14 +51,16 @@ def CCirc_ReturnOp : CCirc_Op<"return", [Pure, HasParent<"CircuitOp">,
     let assemblyFormat = "attr-dict ($operands^ `:` qualified(type($operands)))?";
 }
 
-def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, InferTypeOpAdaptor]> {
+def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor]> {
     let summary = "Constant bits";
     let description = [{
-        Arbitrary-length constant bit
+        Arbitrary-length constant wires
     }];
     let arguments = (ins APIntAttr:$value);
     let results = (outs CCirc_Wire:$result);
     let assemblyFormat = "$value attr-dict `:` qualified(type($result))";
+    let hasVerifier = 1;
+    let hasFolder = 1;
 }
 
 def CCirc_AndOp : CCirc_Op<"and", [Pure, InferTypeOpAdaptor]> {
@@ -104,6 +106,17 @@ def CCirc_NotOp : CCirc_Op<"not", [Pure, InferTypeOpAdaptor]> {
     let assemblyFormat = "`(` $operand `)` attr-dict `:` functional-type(operands, results)";
     let hasVerifier = 1;
     let hasCanonicalizer = 1;
+}
+
+def CCirc_ParityOp : CCirc_Op<"parity", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Parity operation";
+    let description = [{
+        Compute the bitwise XOR of all operands. Useful for making a high-level XAG.
+    }];
+    let arguments = (ins Variadic<CCirc_Wire>:$inputs);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $inputs `)` attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
 }
 
 def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
