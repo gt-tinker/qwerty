@@ -347,6 +347,14 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
     return inv_circ;
 }
 
+mlir::LogicalResult ConstantOp::verify() {
+    if (getValue().getBitWidth() != getResult().getType().getDim()) {
+        return emitOpError("dim of result type does not size of value");
+    }
+
+    return mlir::success();
+}
+
 mlir::LogicalResult ConstantOp::inferReturnTypes(
         mlir::MLIRContext *ctx,
         std::optional<mlir::Location> loc,
@@ -355,6 +363,10 @@ mlir::LogicalResult ConstantOp::inferReturnTypes(
     inferredReturnTypes.push_back(
         WireType::get(ctx, adaptor.getValue().getBitWidth()));
     return mlir::success();
+}
+
+mlir::OpFoldResult ConstantOp::fold(ConstantOp::FoldAdaptor adaptor) {
+    return getValueAttr();
 }
 
 #define BINARY_OP_VERIFY_AND_INFER(name) \
@@ -401,6 +413,32 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
     results.add<DoubleNegationPattern>(context);
+}
+
+mlir::LogicalResult ParityOp::verify() {
+    if (getInputs().empty()) {
+        return emitOpError("Parity needs at least one operand");
+    }
+    mlir::Type first_ty = getInputs()[0].getType();
+
+    for (mlir::Type operand_ty : getInputs().getTypes()) {
+        if (operand_ty != first_ty) {
+            return emitOpError("Operand wire sizes do not match");
+        }
+    }
+
+    return mlir::success();
+}
+mlir::LogicalResult ParityOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        ParityOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    if (adaptor.getInputs().empty()) {
+        return mlir::failure();
+    }
+    inferredReturnTypes.push_back(adaptor.getInputs()[0].getType());
+    return mlir::success();
 }
 
 mlir::LogicalResult ModMulOp::verify() {
