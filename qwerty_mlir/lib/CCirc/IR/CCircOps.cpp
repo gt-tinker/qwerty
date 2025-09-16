@@ -55,6 +55,82 @@ struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     }
 };
 
+struct PushNotThroughParity : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        if (op.getResult().getType().getDim() != 1) {
+            // TODO: support parity ops on multiple bits
+            return mlir::failure();
+        }
+
+        bool any_not_operands = false;
+        bool negated = false;
+        llvm::SmallVector<mlir::Value> new_operands;
+
+        for (mlir::Value operand : op.getOperands()) {
+            if (ccirc::NotOp not_op =
+                    operand.getDefiningOp<ccirc::NotOp>()) {
+                any_not_operands = true;
+                negated = !negated;
+                new_operands.push_back(not_op.getOperand());
+            } else {
+                new_operands.push_back(operand);
+            }
+        }
+
+        if (!any_not_operands) {
+            return mlir::failure();
+        }
+
+        mlir::Location loc = op.getLoc();
+        mlir::Value parity_result =
+            rewriter.create<ccirc::ParityOp>(loc, new_operands).getResult();
+        if (negated) {
+            rewriter.replaceOpWithNewOp<ccirc::NotOp>(op, parity_result);
+        } else {
+            rewriter.replaceOp(op, parity_result);
+        }
+        return mlir::success();
+    }
+};
+
+struct MergeParityOps : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        if (op.getResult().getType().getDim() != 1) {
+            // TODO: support parity ops on multiple bits
+            return mlir::failure();
+        }
+
+        bool any_parity_operands = false;
+        llvm::SmallVector<mlir::Value> new_operands;
+
+        for (mlir::Value operand : op.getOperands()) {
+            if (ccirc::ParityOp upstream_parity =
+                    operand.getDefiningOp<ccirc::ParityOp>()) {
+                any_parity_operands = true;
+                mlir::ValueRange upstream_operands =
+                    upstream_parity.getOperands();
+                new_operands.append(upstream_operands.begin(),
+                                    upstream_operands.end());
+            } else {
+                new_operands.push_back(operand);
+            }
+        }
+
+        if (!any_parity_operands) {
+            return mlir::failure();
+        }
+
+        rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, new_operands);
+        return mlir::success();
+    }
+};
+
 struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
     using OpRewritePattern<ccirc::WireUnpackOp>::OpRewritePattern;
 
@@ -416,12 +492,12 @@ void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
 }
 
 mlir::LogicalResult ParityOp::verify() {
-    if (getInputs().empty()) {
+    if (getOperands().empty()) {
         return emitOpError("Parity needs at least one operand");
     }
-    mlir::Type first_ty = getInputs()[0].getType();
+    mlir::Type first_ty = getOperands()[0].getType();
 
-    for (mlir::Type operand_ty : getInputs().getTypes()) {
+    for (mlir::Type operand_ty : getOperands().getTypes()) {
         if (operand_ty != first_ty) {
             return emitOpError("Operand wire sizes do not match");
         }
@@ -434,11 +510,17 @@ mlir::LogicalResult ParityOp::inferReturnTypes(
         std::optional<mlir::Location> loc,
         ParityOp::Adaptor adaptor,
         llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
-    if (adaptor.getInputs().empty()) {
+    if (adaptor.getOperands().empty()) {
         return mlir::failure();
     }
-    inferredReturnTypes.push_back(adaptor.getInputs()[0].getType());
+    inferredReturnTypes.push_back(adaptor.getOperands()[0].getType());
     return mlir::success();
+}
+
+void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
+                                           mlir::MLIRContext *context) {
+    results.add<PushNotThroughParity,
+                MergeParityOps>(context);
 }
 
 mlir::LogicalResult ModMulOp::verify() {
