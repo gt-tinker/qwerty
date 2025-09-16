@@ -52,8 +52,9 @@ class KernelHandle:
     invoke it like a Python function.
     """
 
-    def __init__(self, func_name: str):
+    def __init__(self, func_name: str, original_func: Optional[Callable[..., Any]] = None):
         self.func_name = func_name
+        self.original_func = original_func
 
     # TODO: add this for sign and xor too
     # TODO: hardcoding the instantiation here is a complete hack
@@ -90,26 +91,32 @@ class KernelHandle:
         return KernelHandle(func_name)
 
     @_cook_programmer_traceback
-    def __call__(self, *, shots=None):
+    def __call__(self, *args, shots=None):
         """
         Call a ``@classical`` kernel by just calling the actual Python
         function, and call a ``@qpu`` kernel by jumping into the JIT'd code.
         """
-
         global program
 
-        # TODO: call OG function with actual arguments for @classical
+        if self.original_func is not None:
+            if shots is not None:
+                raise ValueError('Cannot pass shots to Python code')
 
-        # TODO: return an instance of a new Histogram class that iterates over
-        #       each observation instead of keys
-        histo = dict(program.call(self.func_name, 1 if shots is None else shots, QWERTY_DEBUG))
-
-        if shots is not None:
-            return histo
+            return self.original_func(*args)
         else:
-            # We passed shots=1. So return the only bitstring in the histogram
-            bits, = histo.keys()
-            return bits
+            if args:
+                raise ValueError('Cannot pass arguments to quantum code')
+
+            # TODO: return an instance of a new Histogram class that iterates over
+            #       each observation instead of keys
+            histo = dict(program.call(self.func_name, 1 if shots is None else shots, QWERTY_DEBUG))
+
+            if shots is not None:
+                return histo
+            else:
+                # We passed shots=1. So return the only bitstring in the histogram
+                bits, = histo.keys()
+                return bits
 
 class PyCapturer(Capturer):
     """
@@ -144,6 +151,13 @@ class PyCapturer(Capturer):
                 raise CaptureError(type(python_obj).__name__)
         else:
             return None
+
+def _ast_kind_keeps_original_func(ast_kind: AstKind) -> bool:
+    """
+    Returns true if the original function should be kept and called for this
+    AST kind. Currently, this is just ``@classical`` functions.
+    """
+    return ast_kind == AstKind.CLASSICAL
 
 def _jit(ast_kind, func, last_dimvars=None, prelude=None):
     """
@@ -184,7 +198,8 @@ def _jit(ast_kind, func, last_dimvars=None, prelude=None):
 
     _global_func_counter += 1
     func_name = ast_func_def.get_name()
-    return KernelHandle(func_name)
+    original_func = func if _ast_kind_keeps_original_func(ast_kind) else None
+    return KernelHandle(func_name, original_func)
 
 class JitProxy(ABC):
     """

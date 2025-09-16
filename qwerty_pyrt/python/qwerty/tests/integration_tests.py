@@ -114,6 +114,19 @@ class NoMetaIntegrationTests(unittest.TestCase):
         expected_histo = {bit[3](0b101): shots}
         self.assertEqual(expected_histo, fourier.test(shots))
 
+    def test_classical_call(self):
+        from .integ.nometa import classical_call
+        secret_string = bit[3](0b110)
+        expected_output = [bit[1](0b0), # <- 0b000
+                           bit[1](0b0), # <- 0b001
+                           bit[1](0b1), # <- 0b010
+                           bit[1](0b1), # <- 0b011
+                           bit[1](0b1), # <- 0b100
+                           bit[1](0b1), # <- 0b101
+                           bit[1](0b0), # <- 0b110
+                           bit[1](0b0)] # <- 0b111
+        self.assertEqual(expected_output, classical_call.test(secret_string))
+
 @unittest.skipIf(should_skip, skip_msg)
 class MetaNoPreludeNoInferIntegrationTests(unittest.TestCase):
     """
