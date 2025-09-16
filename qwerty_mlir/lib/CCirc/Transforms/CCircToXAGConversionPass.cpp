@@ -5,6 +5,28 @@
 
 #include "PassDetail.h"
 
+// This pass makes a ccirc.circuit op meet the following requirements:
+// 1. Semantics are identical to the original circuit
+// 2. Every child ops is either structural (ccirc.return, ccirc.wirepack,
+//    ccirc.wireunpack)
+// 3. ...or every child op is one of the following logical ops with 1-bit
+//    operands and 1-bit results:
+//    a) ccirc.not
+//    b) ccirc.and
+//    c) ccirc.parity
+//    d) ccirc.constant
+// Other logic ops (e.g., ccirc.or) are initially decomposed into intermediate
+// multi-bit versions of the above ops, which are then decomposed into
+// structural ops and logical ops (a)-(d) above.
+// Running the canonicalizer after this pass will remove redundant
+// packing/unpacking, deduplicate constant ops, simplify idioms such as
+// `x XOR 0`, merge parity ops, and propagate not ops through parity ops,
+// producing a high-level XAG [1]. That is, a digital logic circuit containing
+// only 1-bit ANDs, 1-bit parity ops whose results may be negated, and an
+// optional final NOT on outputs [1].
+//
+// [1]: https://doi.org/10.23919/DATE51398.2021.9474163
+
 namespace {
 
 struct SplitMultiBitConstant
