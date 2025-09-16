@@ -113,9 +113,10 @@ def CCirc_ParityOp : CCirc_Op<"parity", [Pure, InferTypeOpAdaptor]> {
     let description = [{
         Compute the bitwise XOR of all operands. Useful for making a high-level XAG.
     }];
-    let arguments = (ins Variadic<CCirc_Wire>:$inputs);
+    let arguments = (ins Variadic<CCirc_Wire>:$operands);
     let results = (outs CCirc_Wire:$result);
-    let assemblyFormat = "`(` $inputs `)` attr-dict `:` functional-type(operands, results)";
+    let assemblyFormat = "`(` $operands `)` attr-dict `:` functional-type(operands, results)";
+    let hasCanonicalizer = 1;
     let hasVerifier = 1;
 }
 
