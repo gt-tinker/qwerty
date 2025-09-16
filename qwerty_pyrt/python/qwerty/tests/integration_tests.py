@@ -385,6 +385,15 @@ class MetaInferIntegrationTests(unittest.TestCase):
             actual_histos = megaperm.test(n_qubits, shots)
             self.assertEqual(expected_histos, actual_histos)
 
+    def test_deutsch(self):
+        from .integ.meta import deutsch
+        shots = 1024
+        balanced_out = bit[1](0b1)
+        constant_out = bit[1](0b0)
+        expected_result = [(balanced_out, {balanced_out: shots}),
+                           (constant_out, {constant_out: shots})]
+        self.assertEqual(expected_result, deutsch.test(shots))
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
