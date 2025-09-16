@@ -5,6 +5,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
+#include "CCirc/IR/CCircOps.h"
+
 // Miscellaneous utilities for the QCirc dialect, specifically for generating
 // OpenQASM 3.0 and taking the adjoint of basic blocks.
 
@@ -160,6 +162,13 @@ void synthPermutationFast(
         llvm::SmallVectorImpl<mlir::Value> &qubits,
         size_t qubit_idx,
         const llvm::SmallVector<std::pair<llvm::APInt, llvm::APInt>> &perm);
+
+void synthBennettFromXAG(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        ccirc::CircuitOp xag_circ,
+        llvm::SmallVectorImpl<mlir::Value> &qubits,
+        size_t qubit_idx);
 
 } // namespace qcirc
 
