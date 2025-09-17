@@ -5,21 +5,28 @@
 This repository consists of the following four top-level projects:
 
 1. `qwerty_ast` (Rust): Defines the Qwerty AST and typechecking/optimizations on it
-2. `qwerty_mlir` (C++/Tablegen): MLIR dialects/passes for optimizing Qwerty programs and producing OpenQASM 3 or QIR
-3. `qwerty_util` (C++): C++ utility code, presently just a wrapper around `tweedledum`
-4. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` Python module (in Rust via PyO3), glues together `qwerty_ast` and `qwerty_mlir`, and JITs the resulting IR to simulate with `qir-runner`
+2. `qwerty_mlir` (C++/Tablegen): MLIR dialects/passes for optimizing Qwerty
+   programs and producing OpenQASM 3 or QIR
+3. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR and JITs and runs it
+4. `qwerty_util` (C++): C++ utility code, presently just a wrapper around
+   [`tweedledum`][7]
+5. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
+   interfaces with the Rust code above via [PyO3][6]
 
 There are also the following forks of third-party libraries that referenced as
 git submodules:
 
-1. `qir_runner` (Rust): Used for its implementation of the QIR runtime (which
-   uses its good quantum simulator)
-2. `tweedledum` (C++): Used for synthesizes classical circuits (or classical
+1. [`qir_runner`][8] (Rust): Used for its implementation of the QIR runtime, which
+   includes a good quantum simulator
+2. [`tweedledum`][7] (C++): Used for synthesizes classical circuits (or classical
    permutations) as quantum circuits
-3. `qwerty_mlir_sys` (Rust): Provides [Rust bindings for the C API for MLIR
-   dialects][1] (both for ours and for upstream dialects)
-4. `qwerty_melior` (Rust): A convenient [wrapper for using MLIR APIs in
-   Rust][2]
+3. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
+   bindings for the C API for MLIR dialects (both for our dialects and for
+   upstream dialects)
+4. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
+   using MLIR APIs in Rust
+5. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][9], Rust bindings for
+   [Tablegen][10] required by `melior` with no changes except upgrading LLVM.
 
 ## Getting Started
 
@@ -124,3 +131,8 @@ To run a particular integration test in `gdb` (e.g., `bv_nometa`):
 [3]: https://www.rust-lang.org/tools/install
 [4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [5]: https://llvm.org/docs/CommandGuide/FileCheck.html
+[6]: https://pyo3.rs/
+[7]: https://github.com/boschmitt/tweedledum
+[8]: https://github.com/qir-alliance/qir-runner/
+[9]: https://github.com/mlir-rs/tblgen-rs/
+[10]: https://llvm.org/docs/TableGen/

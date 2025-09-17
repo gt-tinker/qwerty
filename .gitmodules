@@ -1,17 +1,17 @@
-[submodule "tpls/tweedledum"]
+[submodule "tweedledum"]
 	path = tweedledum
 	url = https://github.com/gt-tinker/tweedledum.git
 	branch = qwerty
-[submodule "tpls/qir-runner"]
+[submodule "qir-runner"]
 	path = qir_runner
 	url = https://github.com/gt-tinker/qir-runner.git
 	branch = qwerty
-[submodule "qwerty-mlir-sys"]
+[submodule "qwerty_mlir_sys"]
 	path = qwerty_mlir_sys
 	url = https://github.com/gt-tinker/qwerty-mlir-sys.git
 [submodule "qwerty_melior"]
 	path = qwerty_melior
 	url = https://github.com/gt-tinker/qwerty-melior.git
-[submodule "tblgen-rs"]
-	path = tblgen-rs
+[submodule "tblgen_rs"]
+	path = tblgen_rs
 	url = https://github.com/gt-tinker/tblgen-rs.git

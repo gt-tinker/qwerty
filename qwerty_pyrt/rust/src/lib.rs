@@ -1,4 +1,3 @@
-mod mlir;
 mod wrap_ast;
 mod wrap_repl;
 

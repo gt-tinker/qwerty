@@ -1,0 +1,10 @@
+[package]
+name = "qwerty_ast_to_mlir"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dashu = "0.4.2"
+qwerty_ast = { version = "0.1.0", path = "../qwerty_ast" }
+melior = { version = "0.25.0", path = "../qwerty_melior/melior" }
+qir-backend = { version = "0.8.3", path = "../qir_runner/backend" }

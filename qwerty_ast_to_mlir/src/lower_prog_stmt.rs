@@ -1,4 +1,4 @@
-use crate::mlir::{
+use crate::{
     ctx::{BoundVals, Ctx},
     lower_classical::ast_classical_func_def_to_mlir,
     lower_qpu::ast_qpu_func_def_to_mlir,

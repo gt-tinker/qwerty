@@ -1,5 +1,4 @@
 use crate::{
-    mlir::run_ast,
     wrap_ast::{
         py_glue::{ProgErrKind, UBigWrap, get_bit_reg, get_err},
         wrap_classical::ClassicalFunctionDef,
@@ -9,6 +8,7 @@ use crate::{
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};
 use qwerty_ast::meta;
+use qwerty_ast_to_mlir::run_ast;
 
 #[pyclass]
 pub struct Program {

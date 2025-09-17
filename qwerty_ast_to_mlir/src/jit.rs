@@ -1,4 +1,4 @@
-use crate::mlir::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
+use crate::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
 use dashu::integer::UBig;
 use melior::{
     Error, ExecutionEngine,
