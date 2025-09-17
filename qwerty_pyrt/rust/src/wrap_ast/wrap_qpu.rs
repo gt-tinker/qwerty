@@ -1,7 +1,7 @@
 use crate::wrap_ast::{
     py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
     wrap_dim_expr::DimExpr,
-    wrap_type::{DebugLoc, Type, TypeEnv},
+    wrap_type::{DebugLoc, MacroEnv, Type, TypeEnv},
 };
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, meta};
@@ -1035,9 +1035,14 @@ impl QpuStmt {
         }
     }
 
-    pub fn extract<'py>(&self, py: Python<'py>) -> PyResult<PlainQpuStmt> {
+    pub fn lower<'py>(
+        &self,
+        py: Python<'py>,
+        env: &mut MacroEnv,
+        plain_ty_env: &TypeEnv,
+    ) -> PyResult<PlainQpuStmt> {
         self.stmt
-            .extract()
+            .lower(&mut env.env, &plain_ty_env.env)
             .map(|ast_stmt| PlainQpuStmt { stmt: ast_stmt })
             .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))
     }
@@ -1108,5 +1113,10 @@ impl QpuPrelude {
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
+    }
+
+    fn get_stmts(&self) -> Vec<QpuStmt> {
+        let meta::Prelude { body, .. } = &self.prelude;
+        body.iter().cloned().map(|stmt| QpuStmt { stmt }).collect()
     }
 }

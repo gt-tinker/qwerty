@@ -14,4 +14,4 @@ pub use wrap_qpu::{
     Basis, BasisGenerator, BasisMacroPattern, EmbedKind, ExprMacroPattern, FloatExpr, PlainQpuExpr,
     PlainQpuStmt, QpuExpr, QpuFunctionDef, QpuPrelude, QpuStmt, RecDefParam, Vector,
 };
-pub use wrap_type::{DebugLoc, RegKind, Type, TypeEnv};
+pub use wrap_type::{DebugLoc, MacroEnv, RegKind, Type, TypeEnv};

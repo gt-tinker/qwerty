@@ -14,6 +14,9 @@ class PreludeHandle:
     def __init__(self, prelude: QpuPrelude):
         self._prelude = prelude
 
+    def _get_stmts(self):
+        return self._prelude.get_stmts()
+
 @_cook_programmer_traceback
 def qpu_prelude(func: Callable[..., ...]) -> PreludeHandle:
     """

@@ -12,23 +12,28 @@ use std::fmt;
 /// same name across different functions must be distinct.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DimVar {
+    /// A macro parameter whose scope is only the definition of a macro.
     /// Example:
     /// ```text
     /// fourier[N] = fourier[N-1] // std.revolve
-    ///                      ^
     /// ```
     /// Another example:
     /// ```text
     /// (op[[i]] for i in range(M))
     ///      ^
     /// ```
-    MacroParam {
-        var_name: String,
-    },
-    FuncVar {
-        var_name: String,
-        func_name: String,
-    },
+    MacroParam { var_name: String },
+    /// A function dimension variable. Example:
+    /// ```text
+    /// @qpu[[N]]
+    /// def foo():
+    ///     ...
+    /// ```
+    FuncVar { var_name: String, func_name: String },
+
+    /// A global dimension variable. Currently only used in the REPL to allow
+    /// for temporary dimension variable allocation during expansion.
+    GlobalVar { var_name: String },
 }
 
 impl fmt::Display for DimVar {
@@ -37,7 +42,9 @@ impl fmt::Display for DimVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             // TODO: disambiguate these two variants?
-            DimVar::MacroParam { var_name } | DimVar::FuncVar { var_name, .. } => {
+            DimVar::MacroParam { var_name }
+            | DimVar::FuncVar { var_name, .. }
+            | DimVar::GlobalVar { var_name } => {
                 write!(f, "{}", var_name)
             }
         }

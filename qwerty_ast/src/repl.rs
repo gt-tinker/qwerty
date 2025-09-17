@@ -82,7 +82,7 @@ impl Expr {
                 })),
                 _ => todo!("Rest of QLit eval_step"),
             },
-            Expr::QubitRef { .. } => None,
+            Expr::QubitRef { .. } | Expr::UnitLiteral { .. } => None,
             _ => todo!("eval_step() for Expr"),
         }
     }

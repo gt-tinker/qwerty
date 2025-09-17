@@ -1,8 +1,9 @@
 use crate::wrap_ast::wrap_dim_expr::DimExpr;
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg, meta, typecheck};
+use std::fmt;
 
-#[pyclass(eq, hash, frozen)]
+#[pyclass(str, eq, hash, frozen)]
 #[derive(Clone, PartialEq, Hash)]
 pub struct DebugLoc {
     pub dbg: dbg::DebugLoc,
@@ -23,6 +24,12 @@ impl DebugLoc {
 
     fn get_line(&self) -> usize {
         self.dbg.line
+    }
+}
+
+impl fmt::Display for DebugLoc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.dbg)
     }
 }
 
@@ -101,6 +108,21 @@ impl TypeEnv {
     pub fn new() -> Self {
         TypeEnv {
             env: typecheck::TypeEnv::new(),
+        }
+    }
+}
+
+#[pyclass]
+pub struct MacroEnv {
+    pub env: meta::MacroEnv,
+}
+
+#[pymethods]
+impl MacroEnv {
+    #[new]
+    pub fn new() -> Self {
+        MacroEnv {
+            env: meta::MacroEnv::new(meta::DimVarScope::Global),
         }
     }
 }

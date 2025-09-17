@@ -2,17 +2,16 @@ use crate::{
     error::{LowerError, LowerErrorKind, TypeErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress,
-        infer::{DimVarAssignments, FuncDimVarAssignments},
-        qpu,
+        infer::DimVarAssignments, qpu,
     },
 };
 use dashu::integer::IBig;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 mod expand_classical;
 mod expand_qpu;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AliasBinding {
     BasisAlias {
         rhs: qpu::MetaBasis,
@@ -23,7 +22,7 @@ pub enum AliasBinding {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MacroBinding {
     ExprMacro {
         lhs_pat: qpu::ExprMacroPattern,
@@ -39,16 +38,25 @@ pub enum MacroBinding {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DimVarValue {
     Unknown,
     Known(IBig),
 }
 
-#[derive(Debug)]
+/// The scope to which a new (currently internal) dimvar would belong
+#[derive(Debug, Clone)]
+pub enum DimVarScope {
+    /// A global dimension variable. Used only in the REPL currently.
+    Global,
+    /// A dimension variable for a function with the provided name.
+    Func(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct MacroEnv {
     /// Used for allocating new dimension variables
-    func_name: String,
+    new_dim_var_scope: DimVarScope,
     next_internal_dim_var_id: usize,
     pub aliases: HashMap<String, AliasBinding>,
     pub macros: HashMap<String, MacroBinding>,
@@ -57,9 +65,9 @@ pub struct MacroEnv {
 }
 
 impl MacroEnv {
-    pub fn new(func_name: String) -> MacroEnv {
+    pub fn new(new_dim_var_scope: DimVarScope) -> MacroEnv {
         MacroEnv {
-            func_name,
+            new_dim_var_scope,
             next_internal_dim_var_id: 0,
             aliases: HashMap::new(),
             macros: HashMap::new(),
@@ -68,21 +76,58 @@ impl MacroEnv {
         }
     }
 
+    pub fn to_dv_assign(&self) -> DimVarAssignments {
+        DimVarAssignments::new(
+            self.dim_vars
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    DimVarValue::Unknown => None,
+                    DimVarValue::Known(val) => Some((k.clone(), val.clone())),
+                })
+                .collect(),
+        )
+    }
+
+    pub fn update_from_dv_assign(
+        &mut self,
+        dv_assign: &DimVarAssignments,
+    ) -> Result<(), LowerError> {
+        for (dv, val) in dv_assign.iter() {
+            if let Some(DimVarValue::Known(old_val)) = self
+                .dim_vars
+                .insert(dv.clone(), DimVarValue::Known(val.clone()))
+                && old_val != *val
+            {
+                return Err(LowerError {
+                    kind: LowerErrorKind::DimVarConflict {
+                        dim_var_name: dv.to_string(),
+                        first_val: val.clone(),
+                        second_val: old_val,
+                    },
+                    // TODO: pass a helpful debug location
+                    dbg: None,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
     /// Add a temporary dimension variable that we feel reasonably confident
     /// that inference can take care of.
     pub fn allocate_internal_dim_var(&mut self) -> DimVar {
         loop {
             let var_name = format!("__{}", self.next_internal_dim_var_id);
             self.next_internal_dim_var_id += 1;
-            let var = DimVar::FuncVar {
-                var_name,
-                func_name: self.func_name.clone(),
+            let var = match &self.new_dim_var_scope {
+                DimVarScope::Global => DimVar::GlobalVar { var_name },
+                DimVarScope::Func(func_name) => DimVar::FuncVar {
+                    var_name,
+                    func_name: func_name.clone(),
+                },
             };
-            if self
-                .dim_vars
-                .insert(var.clone(), DimVarValue::Unknown)
-                .is_none()
-            {
+            if let Entry::Vacant(vacant) = self.dim_vars.entry(var.clone()) {
+                vacant.insert(DimVarValue::Unknown);
                 break var;
             }
         }
@@ -325,7 +370,7 @@ pub trait Expandable {
 impl<S: Expandable> MetaFunctionDef<S> {
     fn expand(
         &self,
-        dvs: &FuncDimVarAssignments,
+        dvs: &DimVarAssignments,
     ) -> Result<(MetaFunctionDef<S>, Progress), LowerError> {
         let MetaFunctionDef {
             name,
@@ -337,20 +382,20 @@ impl<S: Expandable> MetaFunctionDef<S> {
             dbg,
         } = self;
 
-        let mut env = MacroEnv::new(name.to_string());
+        let mut env = MacroEnv::new(DimVarScope::Func(name.to_string()));
 
-        for (dim_var_name, dim_var_value) in dim_vars.iter().zip(dvs.iter()) {
-            let dv_val = if let Some(val) = dim_var_value {
+        for dim_var_name in dim_vars {
+            let dv = DimVar::FuncVar {
+                var_name: dim_var_name.to_string(),
+                func_name: name.to_string(),
+            };
+            let dv_val = if let Some(val) = dvs.get(&dv) {
                 DimVarValue::Known(val.clone())
             } else {
                 DimVarValue::Unknown
             };
 
-            let var = DimVar::FuncVar {
-                var_name: dim_var_name.to_string(),
-                func_name: name.to_string(),
-            };
-            if env.dim_vars.insert(var, dv_val).is_some() {
+            if env.dim_vars.insert(dv, dv_val).is_some() {
                 // Duplicate dimvar
                 return Err(LowerError {
                     kind: LowerErrorKind::Malformed,
@@ -438,7 +483,7 @@ impl<S: Expandable> MetaFunctionDef<S> {
 }
 
 impl MetaFunc {
-    fn expand(&self, dvs: &FuncDimVarAssignments) -> Result<(MetaFunc, Progress), LowerError> {
+    fn expand(&self, dvs: &DimVarAssignments) -> Result<(MetaFunc, Progress), LowerError> {
         match self {
             MetaFunc::Qpu(qpu_func_def) => qpu_func_def
                 .expand(dvs)
@@ -459,11 +504,9 @@ impl MetaProgram {
         dv_assign: &DimVarAssignments,
     ) -> Result<(MetaProgram, Progress), LowerError> {
         let MetaProgram { funcs, dbg } = self;
-        assert_eq!(funcs.len(), dv_assign.len());
         let funcs_pairs = funcs
             .iter()
-            .zip(dv_assign.iter())
-            .map(|(func, dvs)| func.expand(dvs))
+            .map(|func| func.expand(dv_assign))
             .collect::<Result<Vec<(MetaFunc, Progress)>, LowerError>>()?;
         let (expanded_funcs, progresses): (Vec<_>, Vec<_>) = funcs_pairs.into_iter().unzip();
         let progress = progresses

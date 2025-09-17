@@ -1,136 +1,62 @@
 use crate::{
-    ast::{RegKind, qpu::EmbedKind},
+    ast::{self, RegKind, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind, TypeErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, Progress, classical, qpu,
     },
+    typecheck,
 };
 use dashu::integer::IBig;
 use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub struct FuncDimVarAssignments(Vec<Option<IBig>>);
-
-impl FuncDimVarAssignments {
-    pub fn new(vals: Vec<Option<IBig>>) -> Self {
-        Self(vals)
-    }
-
-    pub fn empty(func: &MetaFunc) -> Self {
-        Self(
-            std::iter::repeat(None)
-                .take(func.get_dim_vars().len())
-                .collect(),
-        )
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Option<IBig>> {
-        self.0.iter()
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = Option<IBig>> {
-        self.0.into_iter()
-    }
-
-    /// Panics if the dimvar is not found in the function.
-    pub fn without_dv(&self, func: &MetaFunc, dv_name: &str) -> Self {
-        let dv_idx = func
-            .get_dim_vars()
-            .into_iter()
-            .position(|this_dv_name| this_dv_name == dv_name)
-            .expect("dimvar to exist");
-        let (left, right) = self.0.split_at(dv_idx);
-        Self::new(
-            left.into_iter()
-                .chain(right.into_iter().skip(1))
-                .cloned()
-                .collect(),
-        )
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DimVarAssignments(Vec<FuncDimVarAssignments>);
+pub struct DimVarAssignments(HashMap<DimVar, IBig>);
 
 impl DimVarAssignments {
-    pub fn new(func_dv_assigns: Vec<FuncDimVarAssignments>) -> Self {
-        Self(func_dv_assigns)
+    pub fn new(mappings: HashMap<DimVar, IBig>) -> Self {
+        Self(mappings)
     }
 
-    pub fn empty(program: &MetaProgram) -> Self {
-        Self(
-            program
-                .funcs
-                .iter()
-                .map(FuncDimVarAssignments::empty)
-                .collect(),
-        )
+    pub fn empty() -> Self {
+        Self(HashMap::new())
     }
 
-    pub fn from_val_var_map(program: &MetaProgram, val_var_map: &HashMap<DimVar, IBig>) -> Self {
-        let func_dim_var_assign = program
-            .funcs
-            .iter()
-            .map(|func| {
-                let dim_var_vals = func
-                    .get_dim_vars()
-                    .into_iter()
-                    .map(|dim_var| {
-                        let var = DimVar::FuncVar {
-                            var_name: dim_var.to_string(),
-                            func_name: func.get_name().to_string(),
-                        };
-                        val_var_map.get(&var).cloned()
-                    })
-                    .collect();
-
-                FuncDimVarAssignments::new(dim_var_vals)
-            })
-            .collect();
-
-        Self(func_dim_var_assign)
+    pub fn insert(&mut self, key: DimVar, val: IBig) -> Option<IBig> {
+        self.0.insert(key, val)
     }
 
-    pub fn into_var_val_map(self, program: &MetaProgram) -> HashMap<DimVar, IBig> {
-        let var_val_map: HashMap<_, _> = program
-            .funcs
-            .iter()
-            .zip(self.into_iter())
-            .flat_map(|(func, func_dv_assign)| {
-                func.get_dim_vars()
-                    .into_iter()
-                    .cloned()
-                    .zip(func_dv_assign.into_iter())
-                    .filter_map(|(dv_name, dv_val_opt)| {
-                        dv_val_opt.map(|dv_val| {
-                            let dv = DimVar::FuncVar {
-                                var_name: dv_name,
-                                func_name: func.get_name().to_string(),
-                            };
-                            (dv, dv_val)
-                        })
-                    })
-            })
-            .collect();
-        var_val_map
+    pub fn get(&self, key: &DimVar) -> Option<&IBig> {
+        self.0.get(key)
     }
 
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &FuncDimVarAssignments> {
+    pub fn iter(&self) -> impl Iterator<Item = (&DimVar, &IBig)> {
         self.0.iter()
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = FuncDimVarAssignments> {
-        self.0.into_iter()
+    pub fn contains_key(&self, dv: &DimVar) -> bool {
+        self.0.contains_key(dv)
+    }
+
+    pub fn move_dim_var_values_to_instances(&mut self, func: &MetaFunc, instance_names: &[String]) {
+        for dv_name in func.get_dim_vars() {
+            let original_dv = DimVar::FuncVar {
+                var_name: dv_name.to_string(),
+                func_name: func.get_name().to_string(),
+            };
+
+            if let Some(val) = self.0.remove(&original_dv) {
+                for instance_name in instance_names {
+                    let instance_dv = DimVar::FuncVar {
+                        var_name: dv_name.to_string(),
+                        func_name: instance_name.to_string(),
+                    };
+                    let prev_val = self.0.insert(instance_dv, val.clone());
+                    assert_eq!(prev_val, None, "instance already exists?");
+                }
+            }
+        }
     }
 }
 
@@ -245,13 +171,10 @@ impl FuncTypeAssignment {
         self.1.substitute_type_var(type_var_id, new_type);
     }
 
-    fn strip(
-        self,
-        var_val_map: &HashMap<DimVar, IBig>,
-    ) -> (Vec<Option<MetaType>>, Option<MetaType>) {
+    fn strip(self, dv_assign: &DimVarAssignments) -> (Vec<Option<MetaType>>, Option<MetaType>) {
         (
-            self.0.into_iter().map(|ty| ty.strip(var_val_map)).collect(),
-            self.1.strip(var_val_map),
+            self.0.into_iter().map(|ty| ty.strip(dv_assign)).collect(),
+            self.1.strip(dv_assign),
         )
     }
 
@@ -319,13 +242,17 @@ impl TypeAssignments {
         Self(func_ty_assigns)
     }
 
+    pub fn empty() -> Self {
+        Self(vec![])
+    }
+
     pub fn into_iter_stripped(
         self,
-        var_val_map: &HashMap<DimVar, IBig>,
+        dv_assign: &DimVarAssignments,
     ) -> impl Iterator<Item = (Vec<Option<MetaType>>, Option<MetaType>)> {
         self.0
             .into_iter()
-            .map(|fn_ty_assign| fn_ty_assign.strip(var_val_map))
+            .map(|fn_ty_assign| fn_ty_assign.strip(dv_assign))
     }
 
     fn substitute_type_var(&mut self, type_var_id: usize, new_type: &InferType) {
@@ -411,10 +338,10 @@ impl fmt::Display for InferType {
 }
 
 impl DimExpr {
-    pub fn strip(self, var_val_map: &HashMap<DimVar, IBig>) -> Option<DimExpr> {
+    pub fn strip(self, dv_assign: &DimVarAssignments) -> Option<DimExpr> {
         Some(match self {
             DimExpr::DimVar { var, dbg } => {
-                let val = var_val_map.get(&var)?;
+                let val = dv_assign.get(&var)?;
                 DimExpr::DimConst {
                     val: val.clone(),
                     dbg,
@@ -424,8 +351,8 @@ impl DimExpr {
             dim_const @ DimExpr::DimConst { .. } => dim_const,
 
             DimExpr::DimSum { left, right, dbg } => {
-                let stripped_left = left.strip(var_val_map)?;
-                let stripped_right = right.strip(var_val_map)?;
+                let stripped_left = left.strip(dv_assign)?;
+                let stripped_right = right.strip(dv_assign)?;
                 DimExpr::DimSum {
                     left: Box::new(stripped_left),
                     right: Box::new(stripped_right),
@@ -434,8 +361,8 @@ impl DimExpr {
             }
 
             DimExpr::DimProd { left, right, dbg } => {
-                let stripped_left = left.strip(var_val_map)?;
-                let stripped_right = right.strip(var_val_map)?;
+                let stripped_left = left.strip(dv_assign)?;
+                let stripped_right = right.strip(dv_assign)?;
                 DimExpr::DimProd {
                     left: Box::new(stripped_left),
                     right: Box::new(stripped_right),
@@ -444,8 +371,8 @@ impl DimExpr {
             }
 
             DimExpr::DimPow { base, pow, dbg } => {
-                let stripped_base = base.strip(var_val_map)?;
-                let stripped_pow = pow.strip(var_val_map)?;
+                let stripped_base = base.strip(dv_assign)?;
+                let stripped_pow = pow.strip(dv_assign)?;
                 DimExpr::DimPow {
                     base: Box::new(stripped_base),
                     pow: Box::new(stripped_pow),
@@ -454,7 +381,7 @@ impl DimExpr {
             }
 
             DimExpr::DimNeg { val, dbg } => {
-                let stripped_val = val.strip(var_val_map)?;
+                let stripped_val = val.strip(dv_assign)?;
                 DimExpr::DimNeg {
                     val: Box::new(stripped_val),
                     dbg,
@@ -465,6 +392,33 @@ impl DimExpr {
 }
 
 impl InferType {
+    fn from_plain_type(plain_ty: &ast::Type) -> Self {
+        match plain_ty {
+            ast::Type::FuncType { in_ty, out_ty } => InferType::FuncType {
+                in_ty: Box::new(Self::from_plain_type(&**in_ty)),
+                out_ty: Box::new(Self::from_plain_type(&**out_ty)),
+            },
+            ast::Type::RevFuncType { in_out_ty } => InferType::FuncType {
+                in_ty: Box::new(Self::from_plain_type(&**in_out_ty).clone()),
+                out_ty: Box::new(Self::from_plain_type(&**in_out_ty)),
+            },
+            ast::Type::RegType { elem_ty, dim } => InferType::RegType {
+                elem_ty: *elem_ty,
+                dim: DimExpr::DimConst {
+                    val: (*dim).into(),
+                    dbg: None,
+                },
+            },
+            ast::Type::TupleType { tys } => InferType::TupleType {
+                tys: tys
+                    .iter()
+                    .map(|ty| InferType::from_plain_type(ty))
+                    .collect(),
+            },
+            ast::Type::UnitType => InferType::UnitType,
+        }
+    }
+
     fn from_stripped(tv_allocator: &mut TypeVarAllocator, opt_ty: Option<MetaType>) -> Self {
         if let Some(ty) = opt_ty {
             match ty {
@@ -493,25 +447,25 @@ impl InferType {
         }
     }
 
-    fn strip(self, var_val_map: &HashMap<DimVar, IBig>) -> Option<MetaType> {
+    fn strip(self, dv_assign: &DimVarAssignments) -> Option<MetaType> {
         match self {
             InferType::TypeVar { .. } => None,
             InferType::FuncType { in_ty, out_ty } => {
-                let meta_in_ty = in_ty.strip(var_val_map)?;
-                let meta_out_ty = out_ty.strip(var_val_map)?;
+                let meta_in_ty = in_ty.strip(dv_assign)?;
+                let meta_out_ty = out_ty.strip(dv_assign)?;
                 Some(MetaType::FuncType {
                     in_ty: Box::new(meta_in_ty),
                     out_ty: Box::new(meta_out_ty),
                 })
             }
             InferType::RegType { elem_ty, dim } => {
-                let dim = dim.strip(var_val_map)?;
+                let dim = dim.strip(dv_assign)?;
                 Some(MetaType::RegType { elem_ty, dim })
             }
             InferType::TupleType { tys } => {
                 let meta_tys = tys
                     .into_iter()
-                    .map(|ty| ty.strip(var_val_map))
+                    .map(|ty| ty.strip(dv_assign))
                     .collect::<Option<Vec<_>>>()?;
                 Some(MetaType::TupleType { tys: meta_tys })
             }
@@ -740,6 +694,16 @@ impl TypeEnv {
         }
 
         Ok(ret)
+    }
+
+    fn from_plain_ty_env(plain_ty_env: &typecheck::TypeEnv) -> Self {
+        TypeEnv {
+            bindings: plain_ty_env
+                .all_vars()
+                .map(|(name, ty)| (name.to_string(), InferType::from_plain_type(ty)))
+                .collect(),
+            cfuncs: HashMap::new(),
+        }
     }
 
     fn insert(&mut self, name: String, ty: InferType) -> Result<(), LowerError> {
@@ -1791,6 +1755,271 @@ impl MetaFunc {
     }
 }
 
+fn unify_ty(
+    ty_constraints: &mut TypeConstraints,
+    dv_constraints: &mut DimVarConstraints,
+    ty_assign: &mut TypeAssignments,
+) -> Result<(), LowerError> {
+    while let Some(ty_constraint) = ty_constraints.pop() {
+        match ty_constraint.as_pair() {
+            (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id }, _)
+                if left_id == right_id =>
+            {
+                // Already matches
+                Ok(())
+            }
+
+            (InferType::TypeVar { id: left_id }, right, _) if !right.contains_type_var(left_id) => {
+                ty_assign.substitute_type_var(left_id, &right);
+                ty_constraints.substitute_type_var(left_id, &right);
+                Ok(())
+            }
+
+            (left, InferType::TypeVar { id: right_id }, _) if !left.contains_type_var(right_id) => {
+                ty_assign.substitute_type_var(right_id, &left);
+                ty_constraints.substitute_type_var(right_id, &left);
+                Ok(())
+            }
+
+            (
+                InferType::FuncType {
+                    in_ty: left_in_ty,
+                    out_ty: left_out_ty,
+                },
+                InferType::FuncType {
+                    in_ty: right_in_ty,
+                    out_ty: right_out_ty,
+                },
+                dbg,
+            ) => {
+                ty_constraints.insert(TypeConstraint::new(*left_in_ty, *right_in_ty, dbg.clone()));
+                ty_constraints.insert(TypeConstraint::new(*left_out_ty, *right_out_ty, dbg));
+                Ok(())
+            }
+
+            (
+                InferType::RegType {
+                    elem_ty: left_elem_ty,
+                    dim: left_dim,
+                },
+                InferType::RegType {
+                    elem_ty: right_elem_ty,
+                    dim: right_dim,
+                },
+                _,
+            ) if left_elem_ty == right_elem_ty => {
+                dv_constraints.insert(DimVarConstraint::new(left_dim, right_dim));
+                Ok(())
+            }
+
+            (
+                InferType::TupleType { tys: left_tys },
+                InferType::TupleType { tys: right_tys },
+                dbg,
+            ) if left_tys.len() == right_tys.len() => {
+                for (left_ty, right_ty) in left_tys.into_iter().zip(right_tys.into_iter()) {
+                    ty_constraints.insert(TypeConstraint::new(left_ty, right_ty, dbg.clone()));
+                }
+                Ok(())
+            }
+
+            (InferType::UnitType, InferType::UnitType, _) => Ok(()),
+
+            (InferType::UnitType, InferType::RegType { elem_ty: _, dim }, _)
+            | (InferType::RegType { elem_ty: _, dim }, InferType::UnitType, _) => {
+                // Interesting special case: unify Unit and qubit[N] by
+                // adding a dimvar constraint that N=0.
+                // TODO: set a debug location
+                let zero = DimExpr::DimConst {
+                    val: IBig::ZERO,
+                    dbg: None,
+                };
+                dv_constraints.insert(DimVarConstraint::new(dim, zero));
+                Ok(())
+            }
+
+            // TODO: use a more specific pattern here so that when we add
+            //       types in the future, we get a Rust compiler error here
+            (left, right, dbg) => Err(LowerError {
+                kind: LowerErrorKind::TypeError {
+                    kind: TypeErrorKind::MismatchedTypes {
+                        expected: left.to_string(),
+                        found: right.to_string(),
+                    },
+                },
+                dbg,
+            }),
+        }?;
+    }
+
+    Ok(())
+}
+
+fn unify_dv(
+    old_dv_assign: DimVarAssignments,
+    dv_constraints: &DimVarConstraints,
+) -> Result<DimVarAssignments, LowerError> {
+    let mut constraints: Vec<_> = dv_constraints
+        .iter()
+        .filter_map(|constraint| {
+            let canon_constraint = constraint.strip_dbg().canonicalize();
+            if canon_constraint.is_obviously_trivial() || !canon_constraint.contains_dim_var() {
+                None
+            } else {
+                Some(canon_constraint)
+            }
+        })
+        .collect();
+
+    let mut dv_assign = old_dv_assign;
+
+    while let Some(constraint) = constraints.pop() {
+        match (constraint.0, constraint.1) {
+            (
+                DimExpr::DimVar { var, dbg: var_dbg },
+                DimExpr::DimConst {
+                    val,
+                    dbg: const_dbg,
+                },
+            )
+            | (
+                DimExpr::DimConst {
+                    val,
+                    dbg: const_dbg,
+                },
+                DimExpr::DimVar { var, dbg: var_dbg },
+            ) => {
+                if let Some(old_val) = dv_assign.insert(var.clone(), val.clone()) {
+                    if old_val != val {
+                        let dbg = const_dbg.or(var_dbg);
+                        return Err(LowerError {
+                            kind: LowerErrorKind::DimVarConflict {
+                                dim_var_name: var.to_string(),
+                                first_val: old_val,
+                                second_val: val,
+                            },
+                            dbg,
+                        });
+                    }
+                }
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_left == left_right && right_left == right_right => {
+                let left = *left_left;
+                let right = *right_right;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_left == left_right && right_left == right_right => {
+                let left = *left_left;
+                let right = *right_right;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_left == right_left => {
+                let left = *left_right;
+                let right = *right_right;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_right == right_right => {
+                let left = *left_left;
+                let right = *right_left;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_left == right_right => {
+                let left = *left_right;
+                let right = *right_left;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: this case should not be hard-coded
+            (
+                DimExpr::DimSum {
+                    left: left_left,
+                    right: left_right,
+                    ..
+                },
+                DimExpr::DimSum {
+                    left: right_left,
+                    right: right_right,
+                    ..
+                },
+            ) if left_right == right_left => {
+                let left = *left_left;
+                let right = *right_right;
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+
+            // TODO: support more cases
+            _ => {}
+        }
+    }
+
+    Ok(dv_assign)
+}
+
 impl MetaProgram {
     fn build_type_constraints(
         &self,
@@ -1822,281 +2051,6 @@ impl MetaProgram {
         Ok((ty_constraints, dv_constraints, ty_assign))
     }
 
-    fn unify_ty(
-        &self,
-        ty_constraints: &mut TypeConstraints,
-        dv_constraints: &mut DimVarConstraints,
-        ty_assign: &mut TypeAssignments,
-    ) -> Result<(), LowerError> {
-        while let Some(ty_constraint) = ty_constraints.pop() {
-            match ty_constraint.as_pair() {
-                (InferType::TypeVar { id: left_id }, InferType::TypeVar { id: right_id }, _)
-                    if left_id == right_id =>
-                {
-                    // Already matches
-                    Ok(())
-                }
-
-                (InferType::TypeVar { id: left_id }, right, _)
-                    if !right.contains_type_var(left_id) =>
-                {
-                    ty_assign.substitute_type_var(left_id, &right);
-                    ty_constraints.substitute_type_var(left_id, &right);
-                    Ok(())
-                }
-
-                (left, InferType::TypeVar { id: right_id }, _)
-                    if !left.contains_type_var(right_id) =>
-                {
-                    ty_assign.substitute_type_var(right_id, &left);
-                    ty_constraints.substitute_type_var(right_id, &left);
-                    Ok(())
-                }
-
-                (
-                    InferType::FuncType {
-                        in_ty: left_in_ty,
-                        out_ty: left_out_ty,
-                    },
-                    InferType::FuncType {
-                        in_ty: right_in_ty,
-                        out_ty: right_out_ty,
-                    },
-                    dbg,
-                ) => {
-                    ty_constraints.insert(TypeConstraint::new(
-                        *left_in_ty,
-                        *right_in_ty,
-                        dbg.clone(),
-                    ));
-                    ty_constraints.insert(TypeConstraint::new(*left_out_ty, *right_out_ty, dbg));
-                    Ok(())
-                }
-
-                (
-                    InferType::RegType {
-                        elem_ty: left_elem_ty,
-                        dim: left_dim,
-                    },
-                    InferType::RegType {
-                        elem_ty: right_elem_ty,
-                        dim: right_dim,
-                    },
-                    _,
-                ) if left_elem_ty == right_elem_ty => {
-                    dv_constraints.insert(DimVarConstraint::new(left_dim, right_dim));
-                    Ok(())
-                }
-
-                (
-                    InferType::TupleType { tys: left_tys },
-                    InferType::TupleType { tys: right_tys },
-                    dbg,
-                ) if left_tys.len() == right_tys.len() => {
-                    for (left_ty, right_ty) in left_tys.into_iter().zip(right_tys.into_iter()) {
-                        ty_constraints.insert(TypeConstraint::new(left_ty, right_ty, dbg.clone()));
-                    }
-                    Ok(())
-                }
-
-                (InferType::UnitType, InferType::UnitType, _) => Ok(()),
-
-                (InferType::UnitType, InferType::RegType { elem_ty: _, dim }, _)
-                | (InferType::RegType { elem_ty: _, dim }, InferType::UnitType, _) => {
-                    // Interesting special case: unify Unit and qubit[N] by
-                    // adding a dimvar constraint that N=0.
-                    // TODO: set a debug location
-                    let zero = DimExpr::DimConst {
-                        val: IBig::ZERO,
-                        dbg: None,
-                    };
-                    dv_constraints.insert(DimVarConstraint::new(dim, zero));
-                    Ok(())
-                }
-
-                // TODO: use a more specific pattern here so that when we add
-                //       types in the future, we get a Rust compiler error here
-                (left, right, dbg) => Err(LowerError {
-                    kind: LowerErrorKind::TypeError {
-                        kind: TypeErrorKind::MismatchedTypes {
-                            expected: left.to_string(),
-                            found: right.to_string(),
-                        },
-                    },
-                    dbg,
-                }),
-            }?;
-        }
-
-        Ok(())
-    }
-
-    fn unify_dv(
-        &self,
-        old_var_val_map: HashMap<DimVar, IBig>,
-        dv_constraints: &DimVarConstraints,
-    ) -> Result<HashMap<DimVar, IBig>, LowerError> {
-        let mut constraints: Vec<_> = dv_constraints
-            .iter()
-            .filter_map(|constraint| {
-                let canon_constraint = constraint.strip_dbg().canonicalize();
-                if canon_constraint.is_obviously_trivial() || !canon_constraint.contains_dim_var() {
-                    None
-                } else {
-                    Some(canon_constraint)
-                }
-            })
-            .collect();
-
-        let mut var_val_map = old_var_val_map;
-
-        while let Some(constraint) = constraints.pop() {
-            match (constraint.0, constraint.1) {
-                (
-                    DimExpr::DimVar { var, dbg: var_dbg },
-                    DimExpr::DimConst {
-                        val,
-                        dbg: const_dbg,
-                    },
-                )
-                | (
-                    DimExpr::DimConst {
-                        val,
-                        dbg: const_dbg,
-                    },
-                    DimExpr::DimVar { var, dbg: var_dbg },
-                ) => {
-                    if let Some(old_val) = var_val_map.insert(var.clone(), val.clone()) {
-                        if old_val != val {
-                            let dbg = const_dbg.or(var_dbg);
-                            return Err(LowerError {
-                                kind: LowerErrorKind::DimVarConflict {
-                                    dim_var_name: var.to_string(),
-                                    first_val: old_val,
-                                    second_val: val,
-                                },
-                                dbg,
-                            });
-                        }
-                    }
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_left == left_right && right_left == right_right => {
-                    let left = *left_left;
-                    let right = *right_right;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_left == left_right && right_left == right_right => {
-                    let left = *left_left;
-                    let right = *right_right;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_left == right_left => {
-                    let left = *left_right;
-                    let right = *right_right;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_right == right_right => {
-                    let left = *left_left;
-                    let right = *right_left;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_left == right_right => {
-                    let left = *left_right;
-                    let right = *right_left;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: this case should not be hard-coded
-                (
-                    DimExpr::DimSum {
-                        left: left_left,
-                        right: left_right,
-                        ..
-                    },
-                    DimExpr::DimSum {
-                        left: right_left,
-                        right: right_right,
-                        ..
-                    },
-                ) if left_right == right_left => {
-                    let left = *left_left;
-                    let right = *right_right;
-                    constraints.push(DimVarConstraint::new(left, right));
-                }
-
-                // TODO: support more cases
-                _ => {}
-            }
-        }
-
-        Ok(var_val_map)
-    }
-
     fn inference_progress(&self) -> Progress {
         self.funcs
             .iter()
@@ -2106,24 +2060,23 @@ impl MetaProgram {
 
     fn find_assignments(
         &self,
-        old_var_val_map: HashMap<DimVar, IBig>,
-    ) -> Result<(TypeAssignments, HashMap<DimVar, IBig>), LowerError> {
+        old_dv_assign: DimVarAssignments,
+    ) -> Result<(TypeAssignments, DimVarAssignments), LowerError> {
         let (mut ty_constraints, mut dv_constraints, mut ty_assign) =
             self.build_type_constraints()?;
-        self.unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
-        let var_val_map = self.unify_dv(old_var_val_map, &dv_constraints)?;
-        Ok((ty_assign, var_val_map))
+        unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
+        let new_dv_assign = unify_dv(old_dv_assign, &dv_constraints)?;
+        Ok((ty_assign, new_dv_assign))
     }
 
     pub fn infer(
         &self,
         old_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        let old_val_var_map = old_dv_assign.into_var_val_map(self);
-        let (ty_assign, var_val_map) = self.find_assignments(old_val_var_map)?;
+        let (ty_assign, new_dv_assign) = self.find_assignments(old_dv_assign)?;
 
         let new_funcs = ty_assign
-            .into_iter_stripped(&var_val_map)
+            .into_iter_stripped(&new_dv_assign)
             .zip(self.funcs.iter())
             .map(|((arg_tys, ret_ty), func)| func.with_tys(&arg_tys, &ret_ty))
             .collect();
@@ -2132,9 +2085,31 @@ impl MetaProgram {
             dbg: self.dbg.clone(),
         };
 
-        let dv_assign = DimVarAssignments::from_val_var_map(self, &var_val_map);
         let progress = new_prog.inference_progress();
+        Ok((new_prog, new_dv_assign, progress))
+    }
+}
 
-        Ok((new_prog, dv_assign, progress))
+impl qpu::MetaStmt {
+    pub fn infer(
+        &self,
+        old_dv_assign: DimVarAssignments,
+        plain_ty_env: &typecheck::TypeEnv,
+    ) -> Result<DimVarAssignments, LowerError> {
+        let mut tv_allocator = TypeVarAllocator::new();
+        let mut env = TypeEnv::from_plain_ty_env(plain_ty_env);
+        let mut ty_constraints = TypeConstraints::new();
+        let mut dv_constraints = DimVarConstraints::new();
+        let mut ty_assign = TypeAssignments::empty();
+
+        self.build_type_constraints(
+            &mut tv_allocator,
+            &mut env,
+            &mut ty_constraints,
+            &mut dv_constraints,
+        )?;
+        unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
+        let new_dv_assign = unify_dv(old_dv_assign, &dv_constraints)?;
+        Ok(new_dv_assign)
     }
 }

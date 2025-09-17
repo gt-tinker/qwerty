@@ -67,6 +67,10 @@ impl TypeEnv {
         }
     }
 
+    pub fn all_vars(&self) -> impl Iterator<Item = (&String, &Type)> {
+        self.vars.iter()
+    }
+
     pub fn insert_classical_func(
         &mut self,
         name: &str,

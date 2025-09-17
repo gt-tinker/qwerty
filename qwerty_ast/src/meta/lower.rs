@@ -4,8 +4,11 @@ use crate::{
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, DimVar, MetaFunc, MetaFunctionDef, MetaProgram, MetaType, classical,
-        infer::DimVarAssignments, qpu,
+        expand::{Expandable, MacroEnv},
+        infer::DimVarAssignments,
+        qpu,
     },
+    typecheck,
 };
 use std::collections::HashMap;
 
@@ -657,37 +660,34 @@ impl MetaProgram {
         &self,
         dv_assign: &DimVarAssignments,
     ) -> impl Iterator<Item = (MetaFunc, Vec<String>)> {
-        self.funcs
-            .iter()
-            .zip(dv_assign.iter())
-            .filter_map(|(func, func_dvs)| {
-                let missing_dv_names: Vec<_> = func
-                    .get_dim_vars()
-                    .into_iter()
-                    .zip(func_dvs.clone().into_iter())
-                    .filter_map(|(dv_name, dv_val)| {
-                        if dv_val.is_none() {
-                            Some(dv_name.to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+        self.funcs.iter().filter_map(|func| {
+            let missing_dv_names: Vec<_> = func
+                .get_dim_vars()
+                .into_iter()
+                .filter(|dv_name| {
+                    let dv = DimVar::FuncVar {
+                        var_name: dv_name.to_string(),
+                        func_name: func.get_name().to_string(),
+                    };
+                    !dv_assign.contains_key(&dv)
+                })
+                .cloned()
+                .collect();
 
-                if missing_dv_names.is_empty() {
-                    None
-                } else {
-                    Some((func.clone(), missing_dv_names))
-                }
-            })
+            if missing_dv_names.is_empty() {
+                None
+            } else {
+                Some((func.clone(), missing_dv_names))
+            }
+        })
     }
 
     fn do_instantiations(
         &self,
-        dv_assign: DimVarAssignments,
+        old_dv_assign: DimVarAssignments,
     ) -> Result<(MetaProgram, DimVarAssignments), LowerError> {
         let candidates = self
-            .missing_dim_vars(&dv_assign)
+            .missing_dim_vars(&old_dv_assign)
             .filter_map(|(func_def, missing_dvs)| {
                 let func_name = func_def.get_name().to_string();
                 if missing_dvs.len() > 1 {
@@ -713,25 +713,23 @@ impl MetaProgram {
             HashMap::new();
 
         // Stack
-        let mut func_worklist: Vec<_> = self
-            .funcs
-            .iter()
-            .cloned()
-            .zip(dv_assign.into_iter())
-            .collect();
-        let mut expanded_funcs = vec![];
+        let mut dv_assign = old_dv_assign;
+        let mut func_worklist: Vec<_> = self.funcs.clone();
+        let mut new_funcs = vec![];
 
-        while let Some((func, dv_assign)) = func_worklist.pop() {
+        while let Some(func) = func_worklist.pop() {
             if let Some(instances) = funcs_instantiated.get(func.get_name()) {
+                let mut instance_names = vec![];
                 for (instance_name, missing_dv, param_val) in instances {
                     let instance = func.instantiate(
                         instance_name.to_string(),
                         missing_dv.to_string(),
                         param_val.clone(),
                     );
-                    let new_dv_assign = dv_assign.without_dv(&func, missing_dv);
-                    func_worklist.push((instance, new_dv_assign));
+                    instance_names.push(instance_name.to_string());
+                    func_worklist.push(instance);
                 }
+                dv_assign.move_dim_var_values_to_instances(&func, &instance_names);
             } else {
                 let callback = |func_name: String, param_val: DimExpr, dbg: Option<DebugLoc>| {
                     if let Some(missing_dv) = candidates.get(&func_name) {
@@ -766,20 +764,18 @@ impl MetaProgram {
                 };
 
                 let (new_func, _moved_cb) = func.expand_instantiations(callback)?;
-                expanded_funcs.push((new_func, dv_assign));
+                new_funcs.push(new_func);
             }
         }
 
-        let (new_funcs, new_func_dv_assigns): (Vec<_>, Vec<_>) =
-            expanded_funcs.into_iter().rev().unzip();
-        let new_dv_assign = DimVarAssignments::new(new_func_dv_assigns);
+        new_funcs.reverse();
 
         Ok((
             MetaProgram {
                 funcs: new_funcs,
                 dbg: self.dbg.clone(),
             },
-            new_dv_assign,
+            dv_assign,
         ))
     }
 
@@ -806,7 +802,7 @@ impl MetaProgram {
     }
 
     pub fn lower(&self) -> Result<ast::Program, LowerError> {
-        let init_dv_assign = DimVarAssignments::empty(self);
+        let init_dv_assign = DimVarAssignments::empty();
         let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign)?;
         let (new_prog, dv_assign) = new_prog.do_instantiations(dv_assign)?;
         let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
@@ -825,6 +821,34 @@ impl MetaProgram {
             })
         } else {
             new_prog.extract()
+        }
+    }
+}
+
+impl qpu::MetaStmt {
+    pub fn lower(
+        &self,
+        init_env: &mut MacroEnv,
+        plain_ty_env: &typecheck::TypeEnv,
+    ) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
+        let mut dv_assign = init_env.to_dv_assign();
+        let (mut stmt, _expand_progress) = self.expand(&mut init_env.clone())?;
+
+        loop {
+            let new_dv_assign = stmt.infer(dv_assign, plain_ty_env)?;
+            let mut env = init_env.clone();
+            env.update_from_dv_assign(&new_dv_assign)?;
+            let (new_stmt, expand_progress) = stmt.expand(&mut env)?;
+
+            if expand_progress.is_finished() || stmt == new_stmt {
+                // Use init_env as an output parameter
+                *init_env = env;
+                break new_stmt.extract();
+            } else {
+                dv_assign = new_dv_assign;
+                stmt = new_stmt;
+                continue;
+            }
         }
     }
 }
