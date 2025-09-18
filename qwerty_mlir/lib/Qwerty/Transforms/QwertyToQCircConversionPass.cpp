@@ -31,8 +31,6 @@
 #include "Qwerty/Utils/QwertyUtils.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 
-#include "tweedledum.hpp"
-
 namespace qwerty {
 #define GEN_PASS_DEF_QWERTYTOQCIRCCONVERSION
 #include "Qwerty/Transforms/QwertyPasses.h.inc"

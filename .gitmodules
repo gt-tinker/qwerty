@@ -1,7 +1,3 @@
-[submodule "tweedledum"]
-	path = tweedledum
-	url = https://github.com/gt-tinker/tweedledum.git
-	branch = qwerty
 [submodule "qir-runner"]
 	path = qir_runner
 	url = https://github.com/gt-tinker/qir-runner.git
@@ -21,3 +17,6 @@
 [submodule "qsim"]
 	path = qsim
 	url = https://github.com/quantumlib/qsim.git
+[submodule "eigen"]
+	path = eigen
+	url = https://gitlab.com/libeigen/eigen.git

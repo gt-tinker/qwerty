@@ -10,8 +10,6 @@ on:
       - qwerty_mlir/**
       - qwerty_mlir_sys
       - qwerty_pyrt/**
-      - qwerty_util/**
-      - tweedledum
       - .github/**
 jobs:
   build:
