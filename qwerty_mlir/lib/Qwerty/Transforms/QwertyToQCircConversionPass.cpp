@@ -31,8 +31,6 @@
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "PassDetail.h"
 
-#include "tweedledum.hpp"
-
 // This pass converts Qwerty constructs to quantum circuits. Most of Sections
 // 6.1-6.3 of the CGO paper happen in this file. Your best bet for navigating
 // this file is to work backwards from the pass itself (at the bottom of this

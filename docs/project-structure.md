@@ -29,6 +29,8 @@ git submodules:
    using MLIR APIs in Rust
 5. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][6], Rust bindings for
    [Tablegen][7] required by `melior` with no changes except upgrading LLVM.
+6. `eigen` (C++): Actually not a fork, just the [Eigen3][16] linear algebra
+   library used by `qwerty_mlir`
 
 The following sections describe the structure of these subprojects. For each
 file, relevant sections of [the CGO '25 paper][8] are written in bold in square
@@ -200,3 +202,4 @@ brackets.
 [13]: https://github.com/lsils/mockturtle
 [14]: https://docs.python.org/3/library/ast.html
 [15]: https://doc.rust-lang.org/book/ch20-05-macros.html#procedural-macros-for-generating-code-from-attributes
+[16]: https://eigen.tuxfamily.org/
