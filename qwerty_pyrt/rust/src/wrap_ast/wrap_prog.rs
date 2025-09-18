@@ -1,10 +1,8 @@
-use crate::{
-    wrap_ast::{
-        py_glue::{ProgErrKind, UBigWrap, get_bit_reg, get_err},
-        wrap_classical::ClassicalFunctionDef,
-        wrap_qpu::QpuFunctionDef,
-        wrap_type::DebugLoc,
-    },
+use crate::wrap_ast::{
+    py_glue::{ProgErrKind, UBigWrap, get_bit_reg, get_err},
+    wrap_classical::ClassicalFunctionDef,
+    wrap_qpu::QpuFunctionDef,
+    wrap_type::DebugLoc,
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};
 use qwerty_ast::meta;

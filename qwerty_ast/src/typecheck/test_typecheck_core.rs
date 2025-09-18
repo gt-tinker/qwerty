@@ -196,3 +196,157 @@ fn test_functiondef_get_type_tuple_args() {
         panic!("Expected FuncType");
     }
 }
+
+#[test]
+fn test_functiondef_classical_nonbit_arg_err() {
+    let dbg = Some(DebugLoc {
+        file: "epic.py".to_string(),
+        line: 32,
+        col: 1,
+    });
+    let func: FunctionDef<classical::Expr> = FunctionDef {
+        name: "oracle".to_string(),
+        args: vec![(
+            Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim: 1,
+            },
+            "x".to_string(),
+        )],
+        ret_type: Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim: 1,
+        },
+        body: vec![],
+        is_rev: false,
+        dbg: dbg.clone(),
+    };
+    let funcs_avail = FuncsAvailable::new();
+    let result = func.new_type_env(&funcs_avail);
+    assert!(matches!(result, Err(TypeError {
+        kind: TypeErrorKind::NonBitArgToClassicalFunc(msg),
+        dbg: err_dbg,
+    }) if msg == "qubit[1]".to_string() && err_dbg == dbg));
+}
+
+#[test]
+fn test_functiondef_classical_no_args_err() {
+    let dbg = Some(DebugLoc {
+        file: "epic.py".to_string(),
+        line: 32,
+        col: 1,
+    });
+    let func: FunctionDef<classical::Expr> = FunctionDef {
+        name: "oracle".to_string(),
+        args: vec![],
+        ret_type: Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim: 1,
+        },
+        body: vec![],
+        is_rev: false,
+        dbg: dbg.clone(),
+    };
+    let funcs_avail = FuncsAvailable::new();
+    let result = func.new_type_env(&funcs_avail);
+    assert!(matches!(result, Err(TypeError {
+        kind: TypeErrorKind::NonBitArgToClassicalFunc(msg),
+        dbg: err_dbg,
+    }) if msg == "no arguments".to_string() && err_dbg == dbg));
+}
+
+#[test]
+fn test_functiondef_classical_empty_bit_arg_err() {
+    let dbg = Some(DebugLoc {
+        file: "epic.py".to_string(),
+        line: 32,
+        col: 1,
+    });
+    let func: FunctionDef<classical::Expr> = FunctionDef {
+        name: "oracle".to_string(),
+        args: vec![(
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 0,
+            },
+            "x".to_string(),
+        )],
+        ret_type: Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim: 1,
+        },
+        body: vec![],
+        is_rev: false,
+        dbg: dbg.clone(),
+    };
+    let funcs_avail = FuncsAvailable::new();
+    let result = func.new_type_env(&funcs_avail);
+    assert!(matches!(result, Err(TypeError {
+        kind: TypeErrorKind::NonBitArgToClassicalFunc(msg),
+        dbg: err_dbg,
+    }) if msg == "bit[0]".to_string() && err_dbg == dbg));
+}
+
+#[test]
+fn test_functiondef_classical_nonbit_ret_err() {
+    let dbg = Some(DebugLoc {
+        file: "epic.py".to_string(),
+        line: 32,
+        col: 1,
+    });
+    let func: FunctionDef<classical::Expr> = FunctionDef {
+        name: "oracle".to_string(),
+        args: vec![(
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 1,
+            },
+            "x".to_string(),
+        )],
+        ret_type: Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim: 1,
+        },
+        body: vec![],
+        is_rev: false,
+        dbg: dbg.clone(),
+    };
+    let funcs_avail = FuncsAvailable::new();
+    let result = func.new_type_env(&funcs_avail);
+    assert!(matches!(result, Err(TypeError {
+        kind: TypeErrorKind::NonBitRetFromClassicalFunc(msg),
+        dbg: err_dbg,
+    }) if msg == "qubit[1]".to_string() && err_dbg == dbg));
+}
+
+#[test]
+fn test_functiondef_classical_empty_bit_ret_err() {
+    let dbg = Some(DebugLoc {
+        file: "epic.py".to_string(),
+        line: 32,
+        col: 1,
+    });
+    let func: FunctionDef<classical::Expr> = FunctionDef {
+        name: "oracle".to_string(),
+        args: vec![(
+            Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim: 1,
+            },
+            "x".to_string(),
+        )],
+        ret_type: Type::RegType {
+            elem_ty: RegKind::Bit,
+            dim: 0,
+        },
+        body: vec![],
+        is_rev: false,
+        dbg: dbg.clone(),
+    };
+    let funcs_avail = FuncsAvailable::new();
+    let result = func.new_type_env(&funcs_avail);
+    assert!(matches!(result, Err(TypeError {
+        kind: TypeErrorKind::NonBitRetFromClassicalFunc(msg),
+        dbg: err_dbg,
+    }) if msg == "nothing".to_string() && err_dbg == dbg));
+}

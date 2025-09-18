@@ -212,6 +212,13 @@ impl Program {
 impl<E: TypeCheckable> FunctionDef<E> {
     /// Returns a new `TypeEnv` for type checking the body of this function.
     pub fn new_type_env(&self, funcs_available: &FuncsAvailable) -> Result<TypeEnv, TypeError> {
+        let arg_tys: Vec<_> = self
+            .args
+            .iter()
+            .map(|(arg_ty, _arg_name)| arg_ty.clone())
+            .collect();
+        E::validate_signature(&arg_tys, &self.ret_type, &self.dbg)?;
+
         let mut env = TypeEnv::new();
         let dbg = &self.dbg;
 
@@ -1399,6 +1406,15 @@ impl QubitRef {
 
 // --- EXPRESSIONS (TRAIT DEFINITION) ---
 pub trait TypeCheckable {
+    /// Validates a function signature for this expression type.
+    fn validate_signature(
+        _arg_tys: &[Type],
+        _ret_ty: &Type,
+        _dbg: &Option<DebugLoc>,
+    ) -> Result<(), TypeError> {
+        Ok(())
+    }
+
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
 }
 
@@ -1428,6 +1444,65 @@ impl TypeCheckable for qpu::Expr {
 
 // --- EXPRESSIONS (CLASSICAL IMPLEMENTATION) ---
 impl TypeCheckable for classical::Expr {
+    /// Validates a function signature for this expression type.
+    fn validate_signature(
+        arg_tys: &[Type],
+        ret_ty: &Type,
+        dbg: &Option<DebugLoc>,
+    ) -> Result<(), TypeError> {
+        let mut total_in_dim = 0;
+        for arg_ty in arg_tys {
+            if let Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim,
+            } = arg_ty
+            {
+                if *dim == 0 {
+                    return Err(TypeError {
+                        kind: TypeErrorKind::NonBitArgToClassicalFunc(arg_ty.to_string()),
+                        dbg: dbg.clone(),
+                    });
+                }
+
+                total_in_dim += dim;
+                // No problem
+                continue;
+            } else {
+                return Err(TypeError {
+                    kind: TypeErrorKind::NonBitArgToClassicalFunc(arg_ty.to_string()),
+                    dbg: dbg.clone(),
+                });
+            }
+        }
+
+        if total_in_dim == 0 {
+            Err(TypeError {
+                kind: TypeErrorKind::NonBitArgToClassicalFunc("no arguments".to_string()),
+                dbg: dbg.clone(),
+            })
+        } else {
+            if let Type::RegType {
+                elem_ty: RegKind::Bit,
+                dim,
+            } = ret_ty
+            {
+                if *dim == 0 {
+                    Err(TypeError {
+                        kind: TypeErrorKind::NonBitRetFromClassicalFunc("nothing".to_string()),
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
+            } else {
+                Err(TypeError {
+                    kind: TypeErrorKind::NonBitRetFromClassicalFunc(ret_ty.to_string()),
+                    dbg: dbg.clone(),
+                })
+            }
+        }
+    }
+
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         match self {
             classical::Expr::Variable(var) => var.typecheck(env),

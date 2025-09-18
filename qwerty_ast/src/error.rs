@@ -21,6 +21,8 @@ pub enum TypeErrorKind {
     InvalidFloat { float: f64 },
     ReturnNotLastStatement,
     ReturnOutsideFunction,
+    NonBitArgToClassicalFunc(String),
+    NonBitRetFromClassicalFunc(String),
     InvalidIntermediateComputation,
     // Quantum-specific errors:
     LinearVariableUsedTwice(String),
@@ -89,6 +91,16 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::ReturnOutsideFunction => write!(
                 f,
                 "The return statement can only be written inside a function."
+            ),
+            TypeErrorKind::NonBitArgToClassicalFunc(arg_ty) => write!(
+                f,
+                "Arguments to @classical function must be nonempty registers of bits (bit[N]), not {}",
+                arg_ty
+            ),
+            TypeErrorKind::NonBitRetFromClassicalFunc(ret_ty) => write!(
+                f,
+                "Every @classical function must return a nonempty register of bits (bit[N]), not {}",
+                ret_ty
             ),
             TypeErrorKind::InvalidIntermediateComputation => write!(
                 f,
