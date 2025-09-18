@@ -323,4 +323,4 @@ void synthPermutationFast(
     }
 }
 
-} // namespace tweedledum
+} // namespace qcirc

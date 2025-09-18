@@ -5,8 +5,8 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/IR/QCircOps.h"
+#include "QCirc/Utils/QCircUtils.h"
 #include "CCirc/IR/CCircOps.h"
-#include "tweedledum.hpp"
 #include "PassDetail.h"
 
 // This is a pass that converts all qwerty.embed_* ops that reference classical
@@ -16,13 +16,16 @@
 namespace {
 
 // Create an XOR embedding of a classical circuit.
-qwerty::FuncOp synthXor(
-        mlir::RewriterBase &rewriter, ccirc::CircuitOp circ, mlir::Location loc) {
-    qwerty::FunctionType func_ty = qwerty::EmbedXorOp::getQwertyFuncTypeOf(circ);
+qwerty::FuncOp synthXor(mlir::RewriterBase &rewriter,
+                        ccirc::CircuitOp circ,
+                        mlir::Location loc) {
+    qwerty::FunctionType func_ty =
+        qwerty::EmbedXorOp::getQwertyFuncTypeOf(circ);
     std::string embed_func_name = circ.getSymName().str() + "__xor";
 
     rewriter.setInsertionPointAfter(circ);
-    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, func_ty);
+    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(
+        loc, embed_func_name, func_ty);
     new_func.setPrivate();
     mlir::Block *block = rewriter.createBlock(
         &new_func.getBody(), {}, func_ty.getFunctionType().getInputs(), {loc});
@@ -33,7 +36,7 @@ qwerty::FuncOp synthXor(
         loc, block->getArgument(0));
     llvm::SmallVector<mlir::Value> qubits(unpack.getQubits());
 
-    TweedledumCircuit::fromCCirc(circ).toQCircInline(rewriter, loc, qubits, 0);
+    qcirc::synthBennettFromXAG(rewriter, loc, circ, qubits, 0);
 
     mlir::Value packed =
         rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
