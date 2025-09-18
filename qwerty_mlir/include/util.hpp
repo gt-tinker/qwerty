@@ -1,4 +1,4 @@
-// Headers for libqwutil (used by both the frontend and MLIR)
+// Headers for miscellaneous C++-isms
 
 // You need to #include this before anything else on Windows.
 // See https://stackoverflow.com/a/6563891/321301

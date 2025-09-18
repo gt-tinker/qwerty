@@ -8,7 +8,6 @@
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tweedledum/Utils/Numbers.h"
 
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
