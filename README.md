@@ -8,9 +8,7 @@ This repository consists of the following four top-level projects:
 2. `qwerty_mlir` (C++/Tablegen): MLIR dialects/passes for optimizing Qwerty
    programs and producing OpenQASM 3 or QIR
 3. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR and JITs and runs it
-4. `qwerty_util` (C++): C++ utility code, presently just a wrapper around
-   [`tweedledum`][7]
-5. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
+4. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
    interfaces with the Rust code above via [PyO3][6]
 
 There are also the following forks of third-party libraries that referenced as
@@ -18,15 +16,15 @@ git submodules:
 
 1. [`qir_runner`][8] (Rust): Used for its implementation of the QIR runtime, which
    includes a good quantum simulator
-2. [`tweedledum`][7] (C++): Used for synthesizes classical circuits (or classical
-   permutations) as quantum circuits
-3. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
+2. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
    bindings for the C API for MLIR dialects (both for our dialects and for
    upstream dialects)
-4. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
+3. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
    using MLIR APIs in Rust
-5. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][9], Rust bindings for
-   [Tablegen][10] required by `melior` with no changes except upgrading LLVM.
+4. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][9], Rust bindings for
+   [Tablegen][10] required by `melior` with no changes except upgrading LLVM
+5. `eigen` (C++): Actually not a fork, just the [Eigen3][11] linear algebra
+   library used by `qwerty_mlir`
 
 ## Getting Started
 
@@ -81,10 +79,9 @@ You may need to install `cargo-llvm-cov` first with:
 
 ### Fiddling with MLIR
 
-If you only want to work on MLIR (or the other C++ code in `qwerty_util`, or
-even `tweedledum`):
+If you only want to work on MLIR:
 
-    $ git submodule update --init tweedledum
+    $ git submodule update --init eigen
     $ mkdir build && cd build
     $ cmake -G Ninja ..
     $ ninja
@@ -132,7 +129,7 @@ To run a particular integration test in `gdb` (e.g., `bv_nometa`):
 [4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [5]: https://llvm.org/docs/CommandGuide/FileCheck.html
 [6]: https://pyo3.rs/
-[7]: https://github.com/boschmitt/tweedledum
 [8]: https://github.com/qir-alliance/qir-runner/
 [9]: https://github.com/mlir-rs/tblgen-rs/
 [10]: https://llvm.org/docs/TableGen/
+[11]: https://eigen.tuxfamily.org/

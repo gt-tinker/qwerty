@@ -1,7 +1,6 @@
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "tweedledum/Utils/Numbers.h"
 
 #include "Qwerty/IR/QwertyDialect.h"
 #include "Qwerty/IR/QwertyOps.h"
