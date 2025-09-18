@@ -16,10 +16,9 @@ add_mlir_dialect_library(MLIRQwertyTransforms
   MLIRQwertyAnalysis
   MLIRQwertyUtils
   MLIRQCirc
+  MLIRQCircUtils
   MLIRCCirc
   MLIRPass
   MLIRTransforms
-  # For qwerty/tweedledum.cpp
-  qwutil
 )
 
