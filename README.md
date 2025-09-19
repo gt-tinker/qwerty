@@ -83,7 +83,7 @@ If you only want to work on MLIR:
 
     $ git submodule update --init eigen
     $ mkdir build && cd build
-    $ cmake -G Ninja ..
+    $ cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
     $ ninja
 
 Note that the build you just created will not be used by Rust at all. It is
