@@ -190,6 +190,9 @@ qwerty::FuncOp synthInPlace(
     return new_func;
 }
 
+// TODO: needs to run run ccirctoxag & canonicalization on every circuit before
+//       it runs synth on it. we can do this similarly to how inlining runs the
+//       canonicalizer
 struct SynthEmbedsPass
         : public qwerty::impl::SynthEmbedsBase<SynthEmbedsPass> {
     void runOnOperation() override {
