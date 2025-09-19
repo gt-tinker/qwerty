@@ -195,7 +195,7 @@ void synthBennettFromXAG(
 
     ccirc::ReturnOp ret = llvm::cast<ccirc::ReturnOp>(
         xag_circ.bodyBlock().getTerminator());
-    size_t ret_qubit_idx = 0;
+    size_t ret_qubit_idx = in_dim;
     for (mlir::Value ret_val : ret.getOperands()) {
         size_t ret_dim = llvm::cast<ccirc::WireType>(
             ret_val.getType()).getDim();
@@ -217,6 +217,8 @@ void synthBennettFromXAG(
         }
     }
 
+    assert(qubits.size() == dim
+           && "Wrong number of qubits. Ancillas not freed yet?");
     for (size_t i = 0; i < dim; i++) {
         init_qubits[qubit_idx + i] = qubits[i];
     }
