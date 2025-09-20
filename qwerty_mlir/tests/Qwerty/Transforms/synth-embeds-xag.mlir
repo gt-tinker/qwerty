@@ -226,3 +226,26 @@ qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]>
   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %1 : !qwerty<qbundle[5]>
 }
+
+// -----
+
+// CHECK-LABEL: qwerty.func private @constant_output__xor[](%arg0: !qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]> {
+//  CHECK-NEXT:   %0:8 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[8]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %result = qcirc.gate1q[]:X %0#4 : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %result_0 = qcirc.gate1q[]:X %0#5 : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %result_1 = qcirc.gate1q[]:X %0#7 : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %1 = qwerty.qbpack(%0#0, %0#1, %0#2, %0#3, %result, %result_0, %0#6, %result_1) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[8]>
+//  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[8]>
+//  CHECK-NEXT: }
+ccirc.circuit private @constant_output(%arg0: !ccirc<wire[4]>) irrev {
+  %0 = ccirc.constant 0 : i1 : !ccirc<wire[1]>
+  %1 = ccirc.constant 1 : i1 : !ccirc<wire[1]>
+  %2 = ccirc.wirepack(%1, %1, %0, %1) : (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[4]>
+  ccirc.return %2 : !ccirc<wire[4]>
+}
+
+qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[8]>) irrev-> !qwerty<qbundle[8]> {
+  %0 = qwerty.embed_xor @constant_output : !qwerty<func(!qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]>>
+  %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]>>, !qwerty<qbundle[8]>) -> !qwerty<qbundle[8]>
+  qwerty.return %1 : !qwerty<qbundle[8]>
+}
