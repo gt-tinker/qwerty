@@ -78,7 +78,7 @@ ExternalProject_Add(tweedledum
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/tweedledum
     # Last part is because tweedledum is seemingly built without -fPIC by
     # default despite compiling to a library. Possible MSVC++-ism?
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DTWEEDLEDUM_PYBINDS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_POSITION_INDEPENDENT_CODE=ON
     # EXTREME hack: For some reason, in its infinite wisdom, setuptools(?) uses
     # an ever-changing symlink to ninja (i.e., the path to ninja actually
     # changes for every invocation of `pip install'). So to spare ourselves the

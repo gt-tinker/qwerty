@@ -57,7 +57,7 @@ struct CalcConstantBinder {
 
             // This might (MIGHT) be constant-like... try and see
             llvm::SmallVector<mlir::OpFoldResult> folded;
-            mlir::LogicalResult result = calc->fold(/*operands=*/std::nullopt, folded);
+            mlir::LogicalResult result = calc->fold(/*operands=*/{}, folded);
             if (!mlir::succeeded(result)) {
                 return false;
             }
