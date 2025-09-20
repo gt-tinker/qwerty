@@ -144,6 +144,19 @@ void synthInPlace(
                         qubits[tgt_qubit_start_idx] = toffoli.getResult();
                     });
             });
+    } else if (ccirc::ConstantOp const_op =
+            val_to_synth.getDefiningOp<ccirc::ConstantOp>()) {
+        llvm::APInt val = const_op.getValue();
+        assert(val.getBitWidth() == 1
+               && "Expected constants in canon XAG to be 1-bit");
+        if (val.isOne()) {
+            qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+                loc, qcirc::Gate1Q::X, mlir::ValueRange(),
+                qubits[tgt_qubit_start_idx]);
+            qubits[tgt_qubit_start_idx] = x.getResult();
+        } else { // val.isZero()
+            // Nothing to do
+        }
     } else {
         assert(0 && "Purported XAG not in canon XAG form");
     }
