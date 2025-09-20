@@ -249,3 +249,21 @@ qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[8]>) irrev-> !qwerty<qbundle[8]>
   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[8]>) rev-> !qwerty<qbundle[8]>>, !qwerty<qbundle[8]>) -> !qwerty<qbundle[8]>
   qwerty.return %1 : !qwerty<qbundle[8]>
 }
+
+// -----
+
+// TODO: do this better like the DATE '21 paper does
+
+ccirc.circuit private @parity_and(%arg0: !ccirc<wire[4]>) irrev {
+  %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+  %1 = ccirc.parity(%0#0, %0#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %2 = ccirc.parity(%0#2, %0#3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %3 = ccirc.and(%1, %2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %3 : !ccirc<wire[1]>
+}
+
+qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]> {
+  %0 = qwerty.embed_xor @parity_and : !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  qwerty.return %1 : !qwerty<qbundle[5]>
+}
