@@ -40,7 +40,7 @@ qwerty::FuncOp synthXor(mlir::RewriterBase &rewriter,
         loc, block->getArgument(0));
     llvm::SmallVector<mlir::Value> qubits(unpack.getQubits());
 
-    qcirc::synthBennettFromXAG(rewriter, loc, circ, qubits, 0);
+    qcirc::synthBennettFromXAG(rewriter, loc, circ, qubits);
 
     mlir::Value packed =
         qwerty::QBundlePackOp::create(rewriter, loc, qubits).getQbundle();
