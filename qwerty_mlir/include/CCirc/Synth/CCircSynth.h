@@ -40,6 +40,16 @@ void synthBitRotate(
         llvm::SmallVectorImpl<mlir::Value> &wires_k,
         llvm::SmallVectorImpl<mlir::Value> &wires_out);
 
+// Synthesize classical circuitry that achieves X * y % N, where X and N are
+// constants.
+void synthModMul(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt x,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_y,
+        llvm::SmallVectorImpl<mlir::Value> &wires_out);
+
 } // namespace ccirc
 
 #endif // DIALECT_INCLUDE_CCIRC_SYNTH_CCIRC_SYNTH_H
