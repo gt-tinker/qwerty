@@ -1,7 +1,7 @@
 #include "util.hpp"
 #include <algorithm>
 #include "QCirc/IR/QCircOps.h"
-#include "QCirc/Utils/QCircUtils.h"
+#include "QCirc/Synth/QCircSynth.h"
 
 // Synthesizes a Bennett embedding, i.e., a circuit U that achieves
 // U|x⟩|y⟩ = |x⟩|y⊕f(x)⟩. Assumes that the input circuit is a XAG.

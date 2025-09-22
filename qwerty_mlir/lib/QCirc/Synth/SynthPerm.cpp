@@ -28,7 +28,7 @@
 
 #include "util.hpp"
 #include "QCirc/IR/QCircOps.h"
-#include "QCirc/Utils/QCircUtils.h"
+#include "QCirc/Synth/QCircSynth.h"
 
 namespace {
 
