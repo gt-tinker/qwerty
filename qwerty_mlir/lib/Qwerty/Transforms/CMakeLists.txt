@@ -16,6 +16,7 @@ add_mlir_dialect_library(MLIRQwertyTransforms
   MLIRQwertyAnalysis
   MLIRQwertyUtils
   MLIRQCirc
+  MLIRQCircSynth
   MLIRQCircUtils
   MLIRCCirc
   MLIRPass

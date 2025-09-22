@@ -5,7 +5,7 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/IR/QCircOps.h"
-#include "QCirc/Utils/QCircUtils.h"
+#include "QCirc/Synth/QCircSynth.h"
 #include "CCirc/IR/CCircOps.h"
 #include "PassDetail.h"
 

@@ -24,6 +24,7 @@
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/IR/QCircOps.h"
+#include "QCirc/Synth/QCircSynth.h"
 #include "QCirc/Utils/QCircUtils.h"
 #include "Qwerty/Analysis/FuncSpecAnalysis.h"
 #include "Qwerty/IR/QwertyOps.h"
