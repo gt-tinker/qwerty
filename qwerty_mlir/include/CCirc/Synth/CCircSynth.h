@@ -36,8 +36,8 @@ void synthBitRotate(
         mlir::OpBuilder &builder,
         mlir::Location loc,
         BitRotateDirection kind,
-        llvm::SmallVectorImpl<mlir::Value> &n_wires,
-        llvm::SmallVectorImpl<mlir::Value> &k_wires,
+        llvm::SmallVectorImpl<mlir::Value> &wires_n,
+        llvm::SmallVectorImpl<mlir::Value> &wires_k,
         llvm::SmallVectorImpl<mlir::Value> &wires_out);
 
 } // namespace ccirc
