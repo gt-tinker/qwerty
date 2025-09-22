@@ -120,6 +120,22 @@ def CCirc_ParityOp : CCirc_Op<"parity", [Pure, InferTypeOpAdaptor]> {
     let hasVerifier = 1;
 }
 
+def CCirc_RotateLeftOp : CCirc_Op<"rotl", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Perform rotl(value, amount)";
+    let arguments = (ins CCirc_Wire:$value, CCirc_Wire:$amount);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $value `,` $amount `)` attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
+}
+
+def CCirc_RotateRightOp : CCirc_Op<"rotr", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Perform rotr(value, amount)";
+    let arguments = (ins CCirc_Wire:$value, CCirc_Wire:$amount);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "`(` $value `,` $amount `)` attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
+}
+
 def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
     let summary = "Modular multiplier";
     let description = [{
