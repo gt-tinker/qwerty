@@ -29,8 +29,11 @@ def Qwerty_Dialect : Dialect {
   // This depends on qcirc because QBundlePackOp / QBundleUnpackOp use the
   // qubit type, and some canonicalization patterns work with qubits directly.
   // This dialect also depends on ccirc because of ops for embedding classical
-  // functions.
-  let dependentDialects = ["qcirc::QCircDialect", "ccirc::CCircDialect"];
+  // functions. The `-synth-embeds` pass creates `arith` ops too, so we also
+  // mark it as a dependency.
+  let dependentDialects = ["qcirc::QCircDialect",
+                           "ccirc::CCircDialect",
+                           "::mlir::arith::ArithDialect"];
 
   let extraClassDeclaration = [{
     private:

@@ -169,16 +169,24 @@ qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]>
 // CHECK-LABEL: qwerty.func private @and_and__xor[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
 //  CHECK-NEXT:   %0:5 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %1 = qcirc.qalloc : () -> !qcirc.qubit
-//  CHECK-NEXT:   %controlResults:2, %result = qcirc.gate1q[%0#0, %0#1]:X %1 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %2 = qcirc.qalloc : () -> !qcirc.qubit
-//  CHECK-NEXT:   %controlResults_0:2, %result_1 = qcirc.gate1q[%0#2, %0#3]:X %2 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %2 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant 3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults:2, %result = qcirc.gate1q1p[%0#0, %0#1]:Rx(%2) %1 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %3 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %controlResults_0:2, %result_1 = qcirc.gate1q1p[%0#2, %0#3]:Rx(%2) %3 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %controlResults_2:2, %result_3 = qcirc.gate1q[%result, %result_1]:X %0#4 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %controlResults_4:2, %result_5 = qcirc.gate1q[%controlResults_0#0, %controlResults_0#1]:X %controlResults_2#1 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %4 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant -3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults_4:2, %result_5 = qcirc.gate1q1p[%controlResults#0, %controlResults#1]:Rx(%4) %controlResults_2#0 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   qcirc.qfreez %result_5 : (!qcirc.qubit) -> ()
-//  CHECK-NEXT:   %controlResults_6:2, %result_7 = qcirc.gate1q[%controlResults#0, %controlResults#1]:X %controlResults_2#0 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_6:2, %result_7 = qcirc.gate1q1p[%controlResults_0#0, %controlResults_0#1]:Rx(%4) %controlResults_2#1 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   qcirc.qfreez %result_7 : (!qcirc.qubit) -> ()
-//  CHECK-NEXT:   %3 = qwerty.qbpack(%controlResults_6#0, %controlResults_6#1, %controlResults_4#0, %controlResults_4#1, %result_3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
-//  CHECK-NEXT:   qwerty.return %3 : !qwerty<qbundle[5]>
+//  CHECK-NEXT:   %5 = qwerty.qbpack(%controlResults_4#0, %controlResults_4#1, %controlResults_6#0, %controlResults_6#1, %result_3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   qwerty.return %5 : !qwerty<qbundle[5]>
 //  CHECK-NEXT: }
 ccirc.circuit private @and_and(%arg0: !ccirc<wire[4]>) irrev {
   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
@@ -199,18 +207,26 @@ qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]>
 // CHECK-LABEL: qwerty.func private @and_not_and__xor[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
 //  CHECK-NEXT:   %0:5 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %1 = qcirc.qalloc : () -> !qcirc.qubit
-//  CHECK-NEXT:   %controlResults:2, %result = qcirc.gate1q[%0#0, %0#1]:X %1 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %result_0 = qcirc.gate1q[]:X %result : (!qcirc.qubit) -> !qcirc.qubit
-//  CHECK-NEXT:   %2 = qcirc.qalloc : () -> !qcirc.qubit
-//  CHECK-NEXT:   %controlResults_1:2, %result_2 = qcirc.gate1q[%0#2, %0#3]:X %2 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %controlResults_3:2, %result_4 = qcirc.gate1q[%result_0, %result_2]:X %0#4 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   %controlResults_5:2, %result_6 = qcirc.gate1q[%controlResults_1#0, %controlResults_1#1]:X %controlResults_3#1 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
-//  CHECK-NEXT:   qcirc.qfreez %result_6 : (!qcirc.qubit) -> ()
-//  CHECK-NEXT:   %result_7 = qcirc.gate1q[]:X %controlResults_3#0 : (!qcirc.qubit) -> !qcirc.qubit
-//  CHECK-NEXT:   %controlResults_8:2, %result_9 = qcirc.gate1q[%controlResults#0, %controlResults#1]:X %result_7 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %2 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant 3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults:2, %result = qcirc.gate1q1p[%0#0, %0#1]:Rx(%2) %1 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %3 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %controlResults_0:2, %result_1 = qcirc.gate1q1p[%0#2, %0#3]:Rx(%2) %3 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %result_2 = qcirc.gate1q[]:X %result : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %controlResults_3:2, %result_4 = qcirc.gate1q[%result_2, %result_1]:X %0#4 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %result_5 = qcirc.gate1q[]:X %controlResults_3#0 : (!qcirc.qubit) -> !qcirc.qubit
+//  CHECK-NEXT:   %4 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant -3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults_6:2, %result_7 = qcirc.gate1q1p[%controlResults#0, %controlResults#1]:Rx(%4) %result_5 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   qcirc.qfreez %result_7 : (!qcirc.qubit) -> ()
+//  CHECK-NEXT:   %controlResults_8:2, %result_9 = qcirc.gate1q1p[%controlResults_0#0, %controlResults_0#1]:Rx(%4) %controlResults_3#1 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   qcirc.qfreez %result_9 : (!qcirc.qubit) -> ()
-//  CHECK-NEXT:   %3 = qwerty.qbpack(%controlResults_8#0, %controlResults_8#1, %controlResults_5#0, %controlResults_5#1, %result_4) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
-//  CHECK-NEXT:   qwerty.return %3 : !qwerty<qbundle[5]>
+//  CHECK-NEXT:   %5 = qwerty.qbpack(%controlResults_6#0, %controlResults_6#1, %controlResults_8#0, %controlResults_8#1, %result_4) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   qwerty.return %5 : !qwerty<qbundle[5]>
 //  CHECK-NEXT: }
 ccirc.circuit private @and_not_and(%arg0: !ccirc<wire[4]>) irrev {
   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
@@ -252,8 +268,16 @@ qwerty.func @embed_xor[](%arg0: !qwerty<qbundle[8]>) irrev-> !qwerty<qbundle[8]>
 
 // -----
 
-// TODO: do this better like the DATE '21 paper does
-
+// CHECK-LABEL: qwerty.func private @parity_and__xor[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
+//  CHECK-NEXT:   %0:5 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults, %result = qcirc.gate1q[%0#1]:X %0#0 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_0, %result_1 = qcirc.gate1q[%0#3]:X %0#2 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_2:2, %result_3 = qcirc.gate1q[%result, %result_1]:X %0#4 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_4, %result_5 = qcirc.gate1q[%controlResults_0]:X %controlResults_2#1 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_6, %result_7 = qcirc.gate1q[%controlResults]:X %controlResults_2#0 : (!qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %1 = qwerty.qbpack(%result_7, %controlResults_6, %result_5, %controlResults_4, %result_3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   qwerty.return %1 : !qwerty<qbundle[5]>
+//  CHECK-NEXT: }
 ccirc.circuit private @parity_and(%arg0: !ccirc<wire[4]>) irrev {
   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
   %1 = ccirc.parity(%0#0, %0#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>

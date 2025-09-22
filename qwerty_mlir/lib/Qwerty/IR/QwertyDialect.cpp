@@ -1,6 +1,7 @@
 //===- QwertyDialect.cpp - Qwerty dialect ---------------------*- C++ -*-===//
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Transforms/InliningUtils.h"
 
 #include "QCirc/IR/QCircDialect.h"
