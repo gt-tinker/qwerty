@@ -8,6 +8,8 @@
 
 namespace ccirc {
 
+// Similar to create_ite() in tweedledum:
+// https://github.com/boschmitt/tweedledum/blob/9d3a2fab17e8531e1edc0ab927397d449b9942a4/external/mockturtle/mockturtle/networks/abstract_xag.hpp#L362-L378
 mlir::Value synthIfElse(
         mlir::OpBuilder &builder,
         mlir::Location loc,
@@ -29,6 +31,8 @@ mlir::Value synthIfElse(
     return wire_final_or;
 }
 
+// Idea taken from tweedledum:
+// https://github.com/boschmitt/tweedledum/blob/9d3a2fab17e8531e1edc0ab927397d449b9942a4/external/mockturtle/mockturtle/generators/control.hpp#L86-L110
 void synthMux(
         mlir::OpBuilder &builder,
         mlir::Location loc,
