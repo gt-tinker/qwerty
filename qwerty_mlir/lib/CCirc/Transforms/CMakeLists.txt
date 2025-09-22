@@ -7,6 +7,7 @@ add_mlir_dialect_library(MLIRCCircTransforms
   LINK_LIBS PUBLIC
   MLIRInferTypeOpInterface
   MLIRCCirc
+  MLIRCCircSynth
   MLIRPass
   MLIRTransforms
 )
