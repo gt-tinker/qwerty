@@ -1,6 +1,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "CCirc/IR/CCircOps.h"
+#include "CCirc/Synth/CCircSynth.h"
 #include "CCirc/Transforms/CCircPasses.h"
 
 #include "PassDetail.h"
@@ -64,6 +65,54 @@ struct SplitMultiBitConstant
     }
 };
 
+void decomposeRotate(
+        mlir::ConversionPatternRewriter &rewriter,
+        mlir::Value value,
+        mlir::Value amt,
+        mlir::Operation *op,
+        ccirc::BitRotateDirection dir) {
+    mlir::Location loc = op->getLoc();
+    mlir::ValueRange value_wires = rewriter.create<ccirc::WireUnpackOp>(
+        loc, value).getWires();
+    llvm::SmallVector<mlir::Value> wires_n(value_wires);
+
+    mlir::ValueRange amount_wires = rewriter.create<ccirc::WireUnpackOp>(
+        loc, amt).getWires();
+    llvm::SmallVector<mlir::Value> wires_k(amount_wires);
+
+    llvm::SmallVector<mlir::Value> wires_out;
+    ccirc::synthBitRotate(rewriter, loc, dir, wires_n, wires_k, wires_out);
+    rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, wires_out);
+}
+
+struct DecomposeRotateLeft
+        : public mlir::OpConversionPattern<ccirc::RotateLeftOp> {
+    using mlir::OpConversionPattern<ccirc::RotateLeftOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::RotateLeftOp rotl,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        decomposeRotate(rewriter, adaptor.getValue(), adaptor.getAmount(),
+                        rotl, ccirc::BitRotateDirection::Left);
+        return mlir::success();
+    }
+};
+
+struct DecomposeRotateRight
+        : public mlir::OpConversionPattern<ccirc::RotateRightOp> {
+    using mlir::OpConversionPattern<ccirc::RotateRightOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::RotateRightOp rotr,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        decomposeRotate(rewriter, adaptor.getValue(), adaptor.getAmount(),
+                        rotr, ccirc::BitRotateDirection::Right);
+        return mlir::success();
+    }
+};
+
 struct CCircToXAGConversionPass
         : public ccirc::CCircToXAGConversionBase<CCircToXAGConversionPass> {
     void runOnOperation() override {
@@ -93,7 +142,9 @@ struct CCircToXAGConversionPass
             });
 
         mlir::RewritePatternSet patterns(&getContext());
-        patterns.add<SplitMultiBitConstant>(&getContext());
+        patterns.add<SplitMultiBitConstant,
+                     DecomposeRotateLeft,
+                     DecomposeRotateRight>(&getContext());
 
         if (mlir::failed(mlir::applyFullConversion(circ, target, std::move(patterns)))) {
             signalPassFailure();
