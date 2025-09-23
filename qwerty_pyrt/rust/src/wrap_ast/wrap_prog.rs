@@ -55,6 +55,10 @@ impl Program {
             .typecheck()
             .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
 
+        // TODO: If in debug mode (see bool), then we can traverse the Program
+        // and print everything (either via !debug or !print)
+        // OR write it to a file (with some std name)
+
         run_ast(&plain_ast, &func_name, num_shots, debug)
             .into_iter()
             .map(|shot_result| {

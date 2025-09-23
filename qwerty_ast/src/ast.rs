@@ -387,6 +387,10 @@ pub struct Program {
     pub dbg: Option<DebugLoc>,
 }
 
+// TODO: Implement Display for this (which amounts to traversing
+// the Program and printing all the children anyway)
+// THEN we can just print the Program in qwerty_pyrt/rust/src/wrap_ast/wrap_prog.rs (@ bottom)
+
 // ----- Miscellaneous math for angles and bits -----
 
 /// Tolerance for floating point comparison
