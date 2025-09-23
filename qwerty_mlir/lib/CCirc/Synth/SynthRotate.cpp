@@ -8,7 +8,7 @@
 
 namespace ccirc {
 
-// Similar to create_ite() in tweedledum:
+// This circuit is from create_ite() in tweedledum:
 // https://github.com/boschmitt/tweedledum/blob/9d3a2fab17e8531e1edc0ab927397d449b9942a4/external/mockturtle/mockturtle/networks/abstract_xag.hpp#L362-L378
 mlir::Value synthIfElse(
         mlir::OpBuilder &builder,
@@ -16,19 +16,35 @@ mlir::Value synthIfElse(
         mlir::Value wire_cond,
         mlir::Value wire_then,
         mlir::Value wire_else) {
-    // One-bit multiplexer. Fig. 3.12 (page 68) of Patt & Patel 3rd ed.
-    mlir::Value wire_then_branch = builder.create<ccirc::AndOp>(
-        loc, wire_cond, wire_then).getResult();
+    // This is a 1-bit mux: `cond? then : else`. This is implemented as
+    // `((then ^ else) & ~cond) ^ then`. You can verify the correctness of this
+    // decomposition with a truth table, but here is my intuition for it:
+    //
+    // 1. `then ^ else` is 1 iff `then` and `else` differ. Note that if this is
+    //    (i.e., if `then` and `else` differ), then flipping `then` will produce
+    //    `else`.
+    // 2. If `cond == 0` (that is, if `~cond` is true), then we want the output
+    //    to be `else`.
+    // 3. Thus, we should return `then` if `(then ^ else) & ~cond` is 1, else
+    //    we should return `~then`. The expression
+    //    `((then ^ else) & ~cond) ^ then` achieves exactly this.
+    //
+    // Why do it this way? ANDs (Toffolis) are dramatically more expensive than
+    // XORs (CNOTs), both in terms of ancilla and T gates.
 
-    mlir::Value wire_not_cond = builder.create<ccirc::NotOp>(
+    mlir::Value then_and_else_differ = builder.create<ccirc::XorOp>(
+        loc, wire_then, wire_else).getResult();
+
+    mlir::Value else_desired = builder.create<ccirc::NotOp>(
         loc, wire_cond).getResult();
-    mlir::Value wire_else_branch = builder.create<ccirc::AndOp>(
-        loc, wire_not_cond, wire_else).getResult();
 
-    mlir::Value wire_final_or = builder.create<ccirc::OrOp>(
-        loc, wire_then_branch, wire_else_branch).getResult();
+    mlir::Value should_flip_then = builder.create<ccirc::AndOp>(
+        loc, else_desired, then_and_else_differ).getResult();
 
-    return wire_final_or;
+    mlir::Value maybe_flipped_then = builder.create<ccirc::XorOp>(
+        loc, wire_then, should_flip_then).getResult();
+
+    return maybe_flipped_then;
 }
 
 // Idea taken from tweedledum:
