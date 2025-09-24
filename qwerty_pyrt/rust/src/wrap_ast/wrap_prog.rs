@@ -7,6 +7,7 @@ use crate::wrap_ast::{
 use pyo3::{conversion::IntoPyObject, prelude::*};
 use qwerty_ast::meta;
 use qwerty_ast_to_mlir::run_ast;
+use std::{env, fs};
 
 #[pyclass]
 pub struct Program {
@@ -55,9 +56,25 @@ impl Program {
             .typecheck()
             .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
 
-        // TODO: If in debug mode (see bool), then we can traverse the Program
-        // and print everything (either via !debug or !print)
-        // OR write it to a file (with some std name)
+        if debug {
+            // actually, since plain_ast is a regular program (not a
+            // MetaProgram), we can just write it? no shenanegans required
+            println!("");
+            let dump_dir = env::current_dir().unwrap().join("qwerty-dump");
+            eprintln!(
+                "The Qwerty AST file will be dumped to directory `{}`",
+                dump_dir.display()
+            );
+
+            // make sure the directory exists
+            fs::create_dir_all(&dump_dir)?;
+
+            // build full path
+            let dump_path = dump_dir.join("ast.qwerty");
+
+            // write out using Display impl
+            fs::write(&dump_path, plain_ast.to_string())?;
+        }
 
         run_ast(&plain_ast, &func_name, num_shots, debug)
             .into_iter()

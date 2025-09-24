@@ -349,7 +349,46 @@ impl<E> FunctionDef<E> {
     }
 }
 
-impl<E: std::fmt::Display> std::fmt::Display for FunctionDef<E> {
+// NOTE: Until there is a nice way to distinguish these, there
+// are two display implementations. One could use Trivializable,
+// but you would have to modify it to return Option<Expr> and
+// this seemed antithetical to the purpose. I also didn't want
+// to create another trait just for this.
+impl std::fmt::Display for FunctionDef<qpu::Expr> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn {}(", self.name)?;
+        for (i, (ty, arg_name)) in self.args.iter().enumerate() {
+            write!(f, "{arg_name} {ty}")?;
+            if i + 1 != self.args.len() {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, ") -> {}", self.ret_type)?;
+        if self.is_rev {
+            write!(f, " rev")?;
+        }
+        writeln!(f, " {{")?;
+
+        // Print body, one stmt per line with indentation
+        for stmt in &self.body {
+            // NOTE: We ignore things from the prelude if they
+            // are unit literals, since they aren't really helpful w.r.t output
+            if let Stmt::Expr(StmtExpr { expr: qpu::Expr::UnitLiteral(_), .. }) = stmt {
+                continue;
+            }
+            writeln!(f, "    {stmt}")?;
+        }
+
+        write!(f, "}}\n")?;
+
+        if let Some(dbg) = &self.dbg {
+            writeln!(f, "dbg: {dbg}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for FunctionDef<classical::Expr> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "fn {}(", self.name)?;
         for (i, (ty, arg_name)) in self.args.iter().enumerate() {
@@ -369,7 +408,7 @@ impl<E: std::fmt::Display> std::fmt::Display for FunctionDef<E> {
             writeln!(f, "    {stmt}")?;
         }
 
-        write!(f, "}}")?;
+        write!(f, "}}\n")?;
 
         if let Some(dbg) = &self.dbg {
             writeln!(f, "dbg: {dbg}")?;
