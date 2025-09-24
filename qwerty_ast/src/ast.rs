@@ -349,6 +349,35 @@ impl<E> FunctionDef<E> {
     }
 }
 
+impl<E: std::fmt::Display> std::fmt::Display for FunctionDef<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn {}(", self.name)?;
+        for (i, (ty, arg_name)) in self.args.iter().enumerate() {
+            write!(f, "{arg_name} {ty}")?;
+            if i + 1 != self.args.len() {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, ") -> {}", self.ret_type)?;
+        if self.is_rev {
+            write!(f, " rev")?;
+        }
+        writeln!(f, " {{")?;
+
+        // Print body, one stmt per line with indentation
+        for stmt in &self.body {
+            writeln!(f, "    {stmt}")?;
+        }
+
+        write!(f, "}}")?;
+
+        if let Some(dbg) = &self.dbg {
+            writeln!(f, "dbg: {dbg}")?;
+        }
+        Ok(())
+    }
+}
+
 // ----- Program (Top-Level Function Container) -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -377,6 +406,15 @@ impl Func {
     }
 }
 
+impl std::fmt::Display for Func {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Func::Qpu(def) => write!(f, "@qpu {def}"),
+            Func::Classical(def) => write!(f, "@classical {def}"),
+        }
+    }
+}
+
 /// The top-level node in a Qwerty program that holds all function defintiions.
 ///
 /// In the current implementation, there is only one of these per Python
@@ -387,9 +425,17 @@ pub struct Program {
     pub dbg: Option<DebugLoc>,
 }
 
-// TODO: Implement Display for this (which amounts to traversing
-// the Program and printing all the children anyway)
-// THEN we can just print the Program in qwerty_pyrt/rust/src/wrap_ast/wrap_prog.rs (@ bottom)
+impl std::fmt::Display for Program {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for func in &self.funcs {
+            writeln!(f, "{func}")?;
+        }
+        if let Some(dbg) = &self.dbg {
+            writeln!(f, "{dbg}")?;
+        }
+        Ok(())
+    }
+}
 
 // ----- Miscellaneous math for angles and bits -----
 

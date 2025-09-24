@@ -5,10 +5,12 @@
 #include <deque>
 #include <unordered_map>
 
+// NOTE: Just added control flow, see if works
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -21,11 +23,11 @@
 
 #include "Eigen/SparseCore"
 
-#include "PassDetail.h"
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/Utils/QCircUtils.h"
+#include "PassDetail.h"
 #include "Qwerty/Analysis/FuncSpecAnalysis.h"
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
@@ -3048,52 +3050,52 @@ void shootdownStandardizations(
 // for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 // NOTE: This requires a separate synthesis for std[N-1] // std.revolve >>
 // std**N
-struct SplitRevolveBasisGenTranslation
-    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-  using mlir::OpConversionPattern<
-      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const final {
-    // NOTE: In this pattern, see above discussion, we are splitting and
-    // creating two basis translations from one for "canonicalization"
-    // purposes
-  }
-}
-
-// TODO: Fix this
-// match this pattern only when there is an applyrevolvegeneratorattr
-// and it is the only basis element (this stops us from having predicated
-// revolve statements) (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
-// should not exist, ever, we hate it (for now)
-struct SplitRevolveBasisGeneratorPass
-    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-  using mlir::OpConversionPattern<
-      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const final {
-    // NOTE: This ends up being the recursive step, we only match on
-    // NOTE: We DON'T want to match on the "base case", which takes the
-    // form std**N >> std**(N-1) // std.revolve
-  }
-}
-
-struct LowerRevolveBasisGeneratorPass
-    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-  using mlir::OpConversionPattern<
-      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const final {
-    // NOTE: In this pattern, we explicitly lower the base case, which is
-    // std**N >> std**(N-1) // std.revolve
-    // Just apply the hepler function here
-  }
-}
+// struct SplitRevolveBasisGenTranslation
+//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+//   using mlir::OpConversionPattern<
+//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+//
+//   mlir::LogicalResult
+//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+//                   mlir::ConversionPatternRewriter &rewriter) const final {
+//     // NOTE: In this pattern, see above discussion, we are splitting and
+//     // creating two basis translations from one for "canonicalization"
+//     // purposes
+//   }
+// }
+//
+// // TODO: Fix this
+// // match this pattern only when there is an applyrevolvegeneratorattr
+// // and it is the only basis element (this stops us from having predicated
+// // revolve statements) (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
+// // should not exist, ever, we hate it (for now)
+// struct SplitRevolveBasisGeneratorPass
+//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+//   using mlir::OpConversionPattern<
+//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+//
+//   mlir::LogicalResult
+//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+//                   mlir::ConversionPatternRewriter &rewriter) const final {
+//     // NOTE: This ends up being the recursive step, we only match on
+//     // NOTE: We DON'T want to match on the "base case", which takes the
+//     // form std**N >> std**(N-1) // std.revolve
+//   }
+// }
+//
+// struct LowerRevolveBasisGeneratorPass
+//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+//   using mlir::OpConversionPattern<
+//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+//
+//   mlir::LogicalResult
+//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+//                   mlir::ConversionPatternRewriter &rewriter) const final {
+//     // NOTE: In this pattern, we explicitly lower the base case, which is
+//     // std**N >> std**(N-1) // std.revolve
+//     // Just apply the hepler function here
+//   }
+// }
 
 // This pattern does most of the work for synthesizing a basis translation
 // besides synthesis of classical logic. Please see Section 6.3 of the CGO
