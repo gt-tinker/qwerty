@@ -12,7 +12,7 @@ use std::{collections::HashMap, env, fs};
 
 const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
-const QWERTY_AST_FILENAME: &str = "qwerty-ast.py";
+const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
 
 struct RunPassesConfig {
     decompose_multi_ctrl: bool,
@@ -243,7 +243,7 @@ pub fn run_meta_ast(
     if debug {
         println!("");
         let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
-        fs::create_dir_all(&dump_dir)?;
+        fs::create_dir_all(&dump_dir).unwrap();
 
         // build full path
         let dump_path = dump_dir.join(QWERTY_AST_FILENAME);
@@ -253,13 +253,21 @@ pub fn run_meta_ast(
         );
 
         let dump_str = format!(
-            concat!("from qwerty import *\n\n", "{}", "print({}())\n"),
-            canon_ast.to_string(),
+            concat!(
+                "from qwerty import *\n\n",
+                "{}\n",
+                "def _run_ast(shots={}):\n",
+                "    return {}(shots=shots)\n\n",
+                "if __name__ == '__main__':\n",
+                "    histogram(_run_ast())\n"
+            ),
+            canon_ast.to_python_code(),
+            num_shots,
             func_name,
         );
 
         // write out using Display impl
-        fs::write(&dump_path, dump_str)?;
+        fs::write(&dump_path, dump_str).unwrap();
     }
     Ok(run_ast(&canon_ast, func_name, num_shots, debug))
 }

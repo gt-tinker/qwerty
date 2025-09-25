@@ -1,7 +1,7 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    BitLiteral, Canonicalizable, Trivializable, Variable, angle_approx_total_cmp,
+    BitLiteral, Canonicalizable, ToPythonCode, Trivializable, Variable, angle_approx_total_cmp,
     angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
@@ -408,6 +408,116 @@ impl fmt::Display for Expr {
     }
 }
 
+impl ToPythonCode for Expr {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Variable(var) => write!(f, "{}", var),
+            Expr::UnitLiteral(UnitLiteral { .. }) => write!(f, "[]"),
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind,
+                ..
+            }) => {
+                let embed_kind_str = match embed_kind {
+                    EmbedKind::Sign => "SIGN",
+                    EmbedKind::Xor => "XOR",
+                    EmbedKind::InPlace => "INPLACE",
+                };
+                write!(f, "__EMBED_{}__({})", embed_kind_str, func_name)
+            }
+            Expr::Adjoint(Adjoint { func, .. }) => {
+                write!(f, "~(")?;
+                func.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Pipe(Pipe { lhs, rhs, .. }) => {
+                write!(f, "(")?;
+                lhs.fmt_py(f)?;
+                write!(f, ") | (")?;
+                rhs.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Measure(Measure { basis, .. }) => {
+                write!(f, "__MEASURE__(")?;
+                basis.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Discard(Discard { .. }) => write!(f, "__DISCARD__()"),
+            Expr::Tensor(Tensor { vals, .. }) => {
+                for (i, val) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ")")?;
+                }
+                Ok(())
+            }
+            Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
+                write!(f, "(")?;
+                bin.fmt_py(f)?;
+                write!(f, ") >> (")?;
+                bout.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Predicated(Predicated {
+                then_func,
+                else_func,
+                pred,
+                ..
+            }) => {
+                write!(f, "(")?;
+                then_func.fmt_py(f)?;
+                write!(f, ") if (")?;
+                pred.fmt_py(f)?;
+                write!(f, ") else (")?;
+                else_func.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::NonUniformSuperpos(NonUniformSuperpos { pairs, .. }) => {
+                for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " + ")?;
+                    }
+                    write!(f, "{}*(", prob)?;
+                    qlit.fmt_py(f)?;
+                    write!(f, ")")?;
+                }
+                Ok(())
+            }
+            Expr::Ensemble(Ensemble { pairs, .. }) => {
+                for (i, (prob, qlit)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ^ ")?;
+                    }
+                    write!(f, "{}*(", prob)?;
+                    qlit.fmt_py(f)?;
+                    write!(f, ")")?;
+                }
+                Ok(())
+            }
+            Expr::Conditional(Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                ..
+            }) => {
+                write!(f, "(")?;
+                then_expr.fmt_py(f)?;
+                write!(f, ") if (")?;
+                cond.fmt_py(f)?;
+                write!(f, ") else (")?;
+                else_expr.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::QLit(qlit) => qlit.fmt_py(f),
+            Expr::BitLiteral(blit) => write!(f, "{}", blit),
+            Expr::QubitRef(QubitRef { index }) => write!(f, "q[{}]", index),
+        }
+    }
+}
+
 // ----- Qubit Literals -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -494,6 +604,39 @@ impl fmt::Display for QLit {
                         write!(f, "*")?;
                     }
                     write!(f, "({})", q)?;
+                }
+                Ok(())
+            }
+            QLit::QubitUnit { .. } => write!(f, "''"),
+        }
+    }
+}
+
+impl ToPythonCode for QLit {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QLit::ZeroQubit { .. } => write!(f, "__SYM_STD0__()"),
+            QLit::OneQubit { .. } => write!(f, "__SYM_STD1__()"),
+            QLit::QubitTilt { q, angle_deg, .. } => {
+                write!(f, "(")?;
+                q.fmt_py(f)?;
+                write!(f, ")@{}", *angle_deg)
+            }
+            QLit::UniformSuperpos { q1, q2, .. } => {
+                write!(f, "(")?;
+                q1.fmt_py(f)?;
+                write!(f, ") + (")?;
+                q2.fmt_py(f)?;
+                write!(f, ")")
+            }
+            QLit::QubitTensor { qs, .. } => {
+                for (i, q) in qs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "(")?;
+                    q.fmt_py(f)?;
+                    write!(f, ")")?;
                 }
                 Ok(())
             }
@@ -1261,6 +1404,41 @@ impl fmt::Display for Vector {
     }
 }
 
+impl ToPythonCode for Vector {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Vector::ZeroVector { .. } => write!(f, "__SYM_STD0__()"),
+            Vector::OneVector { .. } => write!(f, "__SYM_STD1__()"),
+            Vector::PadVector { .. } => write!(f, "__SYM_PAD__()"),
+            Vector::TargetVector { .. } => write!(f, "__SYM_TARGET__()"),
+            Vector::VectorTilt { q, angle_deg, .. } => {
+                write!(f, "(")?;
+                q.fmt_py(f)?;
+                write!(f, ")@{}", *angle_deg)
+            }
+            Vector::UniformVectorSuperpos { q1, q2, .. } => {
+                write!(f, "(")?;
+                q1.fmt_py(f)?;
+                write!(f, ") + (")?;
+                q2.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Vector::VectorTensor { qs, .. } => {
+                for (i, q) in qs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "(")?;
+                    q.fmt_py(f)?;
+                    write!(f, ")")?;
+                }
+                Ok(())
+            }
+            Vector::VectorUnit { .. } => write!(f, "''"),
+        }
+    }
+}
+
 // ----- Basis -----
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1321,6 +1499,20 @@ impl fmt::Display for BasisGenerator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BasisGenerator::Revolve { v1, v2, .. } => write!(f, "{{{},{}}}.revolve", v1, v2),
+        }
+    }
+}
+
+impl ToPythonCode for BasisGenerator {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BasisGenerator::Revolve { v1, v2, .. } => {
+                write!(f, "__REVOLVE__(")?;
+                v1.fmt_py(f)?;
+                write!(f, ", ")?;
+                v2.fmt_py(f)?;
+                write!(f, ")")
+            }
         }
     }
 }
@@ -1710,7 +1902,6 @@ impl fmt::Display for Basis {
                     write!(f, "{}", vec)?;
                 }
                 write!(f, "}}")
-                // Ok(())
             }
             Basis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
             Basis::BasisTensor { bases, .. } => {
@@ -1725,6 +1916,44 @@ impl fmt::Display for Basis {
             Basis::ApplyBasisGenerator {
                 basis, generator, ..
             } => write!(f, "({}) // ({})", basis, generator),
+        }
+    }
+}
+
+impl ToPythonCode for Basis {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Basis::BasisLiteral { vecs, .. } => {
+                write!(f, "{{")?;
+                for (i, vec) in vecs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    vec.fmt_py(f)?;
+                }
+                write!(f, "}}")
+            }
+            Basis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
+            Basis::BasisTensor { bases, .. } => {
+                for (i, b) in bases.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "*")?;
+                    }
+                    write!(f, "(")?;
+                    b.fmt_py(f)?;
+                    write!(f, ")")?;
+                }
+                Ok(())
+            }
+            Basis::ApplyBasisGenerator {
+                basis, generator, ..
+            } => {
+                write!(f, "(")?;
+                basis.fmt_py(f)?;
+                write!(f, ") // (")?;
+                generator.fmt_py(f)?;
+                write!(f, ")")
+            }
         }
     }
 }

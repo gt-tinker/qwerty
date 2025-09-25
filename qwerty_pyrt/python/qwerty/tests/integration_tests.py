@@ -1,7 +1,9 @@
 import os
+import sys
+import tempfile
 import unittest
+import qwerty.kernel
 from qwerty.runtime import bit
-from qwerty.kernel import _reset_compiler_state
 from qwerty.err import QwertyTypeError
 
 should_skip = bool(os.environ.get('SKIP_INTEGRATION_TESTS'))
@@ -12,7 +14,7 @@ class NoMetaIntegrationTests(unittest.TestCase):
     """Integration tests that do not use metaQwerty features at all."""
 
     def setUp(self):
-        _reset_compiler_state()
+        qwerty.kernel._reset_compiler_state()
 
     def test_randbit(self):
         from .integ.nometa import randbit
@@ -135,7 +137,7 @@ class MetaNoPreludeNoInferIntegrationTests(unittest.TestCase):
     """
 
     def setUp(self):
-        _reset_compiler_state()
+        qwerty.kernel._reset_compiler_state()
 
     def test_bv_nomacro_noclassical(self):
         from .integ.meta_noprelude_noinfer import bv_nomacro_noclassical
@@ -186,7 +188,7 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
     """
 
     def setUp(self):
-        _reset_compiler_state()
+        qwerty.kernel._reset_compiler_state()
 
     def test_randbit(self):
         from .integ.meta_noinfer import randbit
@@ -336,7 +338,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
     """
 
     def setUp(self):
-        _reset_compiler_state()
+        qwerty.kernel._reset_compiler_state()
 
     def test_infer_ret_type(self):
         from .integ.meta import infer_ret_type
@@ -394,19 +396,40 @@ class MetaInferIntegrationTests(unittest.TestCase):
                            (constant_out, {constant_out: shots})]
         self.assertEqual(expected_result, deutsch.test(shots))
 
-    def test_bv(self):
+    # Tests that the Qwerty AST printed when $QWERTY_DEBUG==1 runs as a Python
+    # module
+    def test_bv_qwerty_debug_ast(self):
         from .integ.meta import bv
         shots = 1024
         expected_histo = {bit[4](0b1101): shots}
-        actual_histo = bv.test(shots)
-        self.assertEqual(expected_histo, actual_histo)
+
+        old_QWERTY_DEBUG = qwerty.kernel.QWERTY_DEBUG
+        old_cwd = os.getcwd()
+        old_sys_path = sys.path
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                qwerty.kernel.QWERTY_DEBUG = True
+                os.chdir(tmpdir)
+                actual_histo_normal = bv.test(shots)
+
+                sys.path.append(os.path.join(tmpdir, 'qwerty-debug'))
+                import qwerty_ast
+            finally:
+                os.chdir(old_cwd)
+                qwerty.kernel.QWERTY_DEBUG = old_QWERTY_DEBUG
+                sys.path = old_sys_path
+
+            actual_histo_gen_ast = qwerty_ast._run_ast(shots=shots)
+
+        self.assertEqual(expected_histo, actual_histo_normal)
+        self.assertEqual(expected_histo, actual_histo_gen_ast)
 
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
 
     def setUp(self):
-        _reset_compiler_state()
+        qwerty.kernel._reset_compiler_state()
 
     def test_fig1_fig2_grover(self):
         from .integ.qce25_figs import grover

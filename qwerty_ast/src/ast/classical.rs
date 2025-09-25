@@ -1,6 +1,6 @@
 //! Expressions for `@classical` functions.
 
-use super::{BitLiteral, Canonicalizable, Trivializable, Variable};
+use super::{BitLiteral, Canonicalizable, ToPythonCode, Trivializable, Variable};
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
 use std::fmt;
@@ -175,12 +175,12 @@ impl fmt::Display for Expr {
             Expr::BinaryOp(BinaryOp {
                 kind, left, right, ..
             }) => {
-                let kind_str = match kind {
+                let kind_op = match kind {
                     BinaryOpKind::And => "&",
                     BinaryOpKind::Or => "|",
                     BinaryOpKind::Xor => "^",
                 };
-                write!(f, "({}) {} ({})", *left, kind_str, *right)
+                write!(f, "({}) {} ({})", *left, kind_op, *right)
             }
             Expr::ReduceOp(ReduceOp { kind, val, .. }) => {
                 let kind_str = match kind {
@@ -188,7 +188,7 @@ impl fmt::Display for Expr {
                     BinaryOpKind::Or => "or",
                     BinaryOpKind::Xor => "xor",
                 };
-                write!(f, "({}).{}_reduce()", kind_str, *val)
+                write!(f, "({}).{}_reduce()", *val, kind_str)
             }
             Expr::RotateOp(RotateOp { kind, val, amt, .. }) => {
                 let kind_str = match kind {
@@ -200,12 +200,20 @@ impl fmt::Display for Expr {
             Expr::Concat(Concat { left, right, .. }) => {
                 write!(f, "({}) ++ ({})", *left, *right)
             }
-            Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}) * {}", *val, amt),
+            Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}).repeat({})", *val, amt),
             Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {
                 write!(f, "{}**2**{} * ({}) % {}", x, j, *y, mod_n)
             }
             Expr::BitLiteral(blit) => write!(f, "{}", blit),
         }
+    }
+}
+
+impl ToPythonCode for Expr {
+    fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Delegate to the `Display` implementation. For now, there are no
+        // `@classical` macros
+        write!(f, "{}", self)
     }
 }
 
