@@ -394,6 +394,13 @@ class MetaInferIntegrationTests(unittest.TestCase):
                            (constant_out, {constant_out: shots})]
         self.assertEqual(expected_result, deutsch.test(shots))
 
+    def test_bv(self):
+        from .integ.meta import bv
+        shots = 1024
+        expected_histo = {bit[4](0b1101): shots}
+        actual_histo = bv.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
