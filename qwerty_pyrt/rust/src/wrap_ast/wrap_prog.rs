@@ -5,8 +5,11 @@ use crate::wrap_ast::{
     wrap_type::DebugLoc,
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};
-use qwerty_ast::meta;
-use qwerty_ast_to_mlir::run_ast;
+use qwerty_ast::{
+    error::{LowerError, LowerErrorKind},
+    meta,
+};
+use qwerty_ast_to_mlir::run_meta_ast;
 
 #[pyclass]
 pub struct Program {
@@ -46,16 +49,16 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let plain_ast = self
-            .program
-            .lower()
-            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
+        let shots =
+            run_meta_ast(&self.program, &func_name, num_shots, debug).map_err(|err| match err {
+                LowerError {
+                    kind: LowerErrorKind::TypeError { kind },
+                    dbg,
+                } => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
+                LowerError { kind, dbg } => get_err(py, ProgErrKind::Expand, kind.to_string(), dbg),
+            })?;
 
-        plain_ast
-            .typecheck()
-            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
-
-        run_ast(&plain_ast, &func_name, num_shots, debug)
+        shots
             .into_iter()
             .map(|shot_result| {
                 let as_int = UBigWrap(shot_result.bits).into_pyobject(py)?;

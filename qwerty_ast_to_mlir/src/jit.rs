@@ -7,7 +7,7 @@ use melior::{
     ir::{Module, operation::OperationPrintingFlags},
     pass::{PassIrPrintingOptions, PassManager, transform},
 };
-use qwerty_ast::ast::Program;
+use qwerty_ast::{ast::Program, error::LowerError, meta::MetaProgram};
 use std::{collections::HashMap, env};
 
 struct RunPassesConfig {
@@ -104,7 +104,7 @@ macro_rules! qir_symbol {
     };
 }
 
-pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -> Vec<ShotResult> {
+fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
 
     let mut module = ast_program_to_mlir(prog);
@@ -221,4 +221,19 @@ pub fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -
             count: *count,
         })
         .collect()
+}
+
+pub fn run_meta_ast(
+    prog: &MetaProgram,
+    func_name: &str,
+    num_shots: usize,
+    debug: bool,
+) -> Result<Vec<ShotResult>, LowerError> {
+    let plain_ast = prog.lower()?;
+
+    plain_ast.typecheck().map_err(Into::<LowerError>::into)?;
+
+    // TODO: canonicalize AST
+
+    Ok(run_ast(&plain_ast, func_name, num_shots, debug))
 }

@@ -1,6 +1,6 @@
 use crate::{ast::qpu::VectorAtomKind, dbg::DebugLoc};
 use dashu::integer::IBig;
-use std::fmt;
+use std::{convert::From, fmt};
 
 // For type checking
 
@@ -276,4 +276,13 @@ impl fmt::Display for LowerErrorKind {
 pub struct LowerError {
     pub kind: LowerErrorKind,
     pub dbg: Option<DebugLoc>,
+}
+
+impl From<TypeError> for LowerError {
+    fn from(err: TypeError) -> Self {
+        LowerError {
+            kind: LowerErrorKind::TypeError { kind: err.kind },
+            dbg: err.dbg,
+        }
+    }
 }
