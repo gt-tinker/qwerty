@@ -28,8 +28,6 @@ from .default_qpu_prelude import default_qpu_prelude
 
 QWERTY_DEBUG = bool(os.environ.get('QWERTY_DEBUG', False))
 QWERTY_FILE = str(os.environ.get('QWERTY_FILE', "module"))
-#set_debug(QWERTY_DEBUG)
-#_mlir_handle = MlirHandle(QWERTY_FILE)
 _global_func_counter = 0
 
 # No debug info for the Program node since we don't really have a way get it
@@ -109,7 +107,8 @@ class KernelHandle:
 
             # TODO: return an instance of a new Histogram class that iterates over
             #       each observation instead of keys
-            histo = dict(program.call(self.func_name, 1 if shots is None else shots, QWERTY_DEBUG))
+            num_shots = 1 if shots is None else shots
+            histo = dict(program.call(self.func_name, num_shots, QWERTY_DEBUG))
 
             if shots is not None:
                 return histo
