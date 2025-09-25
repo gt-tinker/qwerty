@@ -1,7 +1,8 @@
 //! Expressions for `@classical` functions.
 
-use super::{BitLiteral, Variable};
+use super::{BitLiteral, Canonicalizable, Trivializable, Variable};
 use crate::dbg::DebugLoc;
+use dashu::integer::UBig;
 use std::fmt;
 
 // ----- Classical Operators -----
@@ -204,6 +205,48 @@ impl fmt::Display for Expr {
                 write!(f, "{}**2**{} * ({}) % {}", x, j, *y, mod_n)
             }
             Expr::BitLiteral(blit) => write!(f, "{}", blit),
+        }
+    }
+}
+
+impl Trivializable for Expr {
+    /// Closest thing we have to a canonical trivial expression is an unused
+    /// bit literal.
+    fn trivial(dbg: Option<DebugLoc>) -> Self {
+        Self::BitLiteral(BitLiteral {
+            val: UBig::ZERO,
+            n_bits: 1,
+            dbg,
+        })
+    }
+
+    /// No expressions in the `@classical` DSL have side effects, so every
+    /// expression is trivial.
+    fn is_trivial(&self) -> bool {
+        true
+    }
+}
+
+impl Canonicalizable for Expr {
+    fn canonicalize(&self) -> Self {
+        match self {
+            Expr::UnaryOp(UnaryOp {
+                kind: UnaryOpKind::Not,
+                val,
+                dbg: _,
+            }) => {
+                match &**val {
+                    // ~~x --> x
+                    Expr::UnaryOp(UnaryOp {
+                        kind: UnaryOpKind::Not,
+                        val: inner_val,
+                        dbg: _,
+                    }) => (**inner_val).clone(),
+                    _ => self.clone(),
+                }
+            }
+
+            _ => self.clone(),
         }
     }
 }

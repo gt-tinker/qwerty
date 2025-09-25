@@ -278,6 +278,8 @@ pub struct LowerError {
     pub dbg: Option<DebugLoc>,
 }
 
+/// This is is useful when you call something that can return `Err(TypeError)`
+/// inside a function/method that returns a `Result<T, LowerError>`.
 impl From<TypeError> for LowerError {
     fn from(err: TypeError) -> Self {
         LowerError {

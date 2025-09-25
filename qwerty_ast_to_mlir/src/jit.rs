@@ -230,10 +230,7 @@ pub fn run_meta_ast(
     debug: bool,
 ) -> Result<Vec<ShotResult>, LowerError> {
     let plain_ast = prog.lower()?;
-
     plain_ast.typecheck().map_err(Into::<LowerError>::into)?;
-
-    // TODO: canonicalize AST
-
-    Ok(run_ast(&plain_ast, func_name, num_shots, debug))
+    let canon_ast = plain_ast.canonicalize();
+    Ok(run_ast(&canon_ast, func_name, num_shots, debug))
 }

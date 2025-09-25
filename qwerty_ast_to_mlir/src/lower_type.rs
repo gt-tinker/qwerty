@@ -4,7 +4,7 @@ use melior::{
     ir::{self, Location, r#type::FunctionType},
 };
 use qwerty_ast::{
-    ast::{self, FunctionDef, RegKind},
+    ast::{self, Canonicalizable, FunctionDef, RegKind, Trivializable},
     dbg::DebugLoc,
 };
 
@@ -74,7 +74,10 @@ pub fn ast_ty_to_mlir_tys<E: Lowerable>(ty: &ast::Type) -> Vec<ir::Type<'static>
 }
 
 /// Returns the type of a FunctionDef AST node as an mlir::Type.
-pub fn ast_func_mlir_ty<E: Lowerable>(func_def: &FunctionDef<E>) -> ir::Type<'static> {
+pub fn ast_func_mlir_ty<E>(func_def: &FunctionDef<E>) -> ir::Type<'static>
+where
+    E: Lowerable + Trivializable + Canonicalizable + Clone,
+{
     let mlir_tys = ast_ty_to_mlir_tys::<E>(&func_def.get_type());
     assert_eq!(mlir_tys.len(), 1);
     mlir_tys[0]
