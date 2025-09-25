@@ -1709,7 +1709,8 @@ impl fmt::Display for Basis {
                     }
                     write!(f, "{}", vec)?;
                 }
-                Ok(())
+                write!(f, "}}")
+                // Ok(())
             }
             Basis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
             Basis::BasisTensor { bases, .. } => {

@@ -11,7 +11,6 @@ use qwerty_ast::{
     meta,
 };
 use qwerty_ast_to_mlir::run_meta_ast;
-use std::{env, fs};
 
 #[pyclass]
 pub struct Program {
@@ -59,7 +58,6 @@ impl Program {
                 } => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
                 LowerError { kind, dbg } => get_err(py, ProgErrKind::Expand, kind.to_string(), dbg),
             })?;
-
 
         shots
             .into_iter()

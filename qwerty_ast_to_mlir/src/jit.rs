@@ -8,7 +8,7 @@ use melior::{
     pass::{PassIrPrintingOptions, PassManager, transform},
 };
 use qwerty_ast::{ast::Program, error::LowerError, meta::MetaProgram};
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, fs};
 
 struct RunPassesConfig {
     decompose_multi_ctrl: bool,
@@ -232,5 +232,29 @@ pub fn run_meta_ast(
     let plain_ast = prog.lower()?;
     plain_ast.typecheck().map_err(Into::<LowerError>::into)?;
     let canon_ast = plain_ast.canonicalize();
+    if debug {
+        println!("");
+        let dump_dir = env::current_dir().unwrap().join("qwerty-dump");
+
+        // make sure the directory exists
+        fs::create_dir_all(&dump_dir)?;
+
+        // build full path
+        let dump_path = dump_dir.join("ast.py");
+        eprintln!(
+            "The Qwerty AST file will be dumped to file `{}`",
+            dump_path.display()
+        );
+
+        let dump_str = format!(
+            "{}\n\n{}\n\n{}",
+            "from qwerty import *",
+            canon_ast.to_string(),
+            format!("print({}())", func_name)
+        );
+
+        // write out using Display impl
+        fs::write(&dump_path, dump_str)?;
+    }
     Ok(run_ast(&canon_ast, func_name, num_shots, debug))
 }

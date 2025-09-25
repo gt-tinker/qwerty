@@ -453,64 +453,30 @@ where
 // but you would have to modify it to return Option<Expr> and
 // this seemed antithetical to the purpose. I also didn't want
 // to create another trait just for this.
-impl fmt::Display for FunctionDef<qpu::Expr> {
+impl<E: fmt::Display> fmt::Display for FunctionDef<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "fn {}(", self.name)?;
+        if self.is_rev {
+            write!(f, "@reversible\n")?;
+        }
+        write!(f, "def {}(", self.name)?;
         for (i, (ty, arg_name)) in self.args.iter().enumerate() {
-            write!(f, "{arg_name} {ty}")?;
+            write!(f, "{arg_name}: {ty}")?;
             if i + 1 != self.args.len() {
                 write!(f, ", ")?;
             }
         }
         write!(f, ") -> {}", self.ret_type)?;
-        if self.is_rev {
-            write!(f, " rev")?;
-        }
-        writeln!(f, " {{")?;
-
-        // Print body, one stmt per line with indentation
-        for stmt in &self.body {
-            // NOTE: We ignore things from the prelude if they
-            // are unit literals, since they aren't really helpful w.r.t output
-            if let Stmt::Expr(StmtExpr { expr: qpu::Expr::UnitLiteral(_), .. }) = stmt {
-                continue;
-            }
-            writeln!(f, "    {stmt}")?;
-        }
-
-        write!(f, "}}\n")?;
-
-        if let Some(dbg) = &self.dbg {
-            writeln!(f, "dbg: {dbg}")?;
-        }
-        Ok(())
-    }
-}
-
-impl fmt::Display for FunctionDef<classical::Expr> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "fn {}(", self.name)?;
-        for (i, (ty, arg_name)) in self.args.iter().enumerate() {
-            write!(f, "{arg_name} {ty}")?;
-            if i + 1 != self.args.len() {
-                write!(f, ", ")?;
-            }
-        }
-        write!(f, ") -> {}", self.ret_type)?;
-        if self.is_rev {
-            write!(f, " rev")?;
-        }
-        writeln!(f, " {{")?;
+        writeln!(f, ":")?;
 
         // Print body, one stmt per line with indentation
         for stmt in &self.body {
             writeln!(f, "    {stmt}")?;
         }
 
-        write!(f, "}}\n")?;
+        // write!(f, "}}\n")?;
 
         if let Some(dbg) = &self.dbg {
-            writeln!(f, "dbg: {dbg}")?;
+            writeln!(f, "# dbg: {dbg}")?;
         }
         Ok(())
     }
@@ -556,8 +522,8 @@ impl Func {
 impl fmt::Display for Func {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Func::Qpu(def) => write!(f, "@qpu {def}"),
-            Func::Classical(def) => write!(f, "@classical {def}"),
+            Func::Qpu(def) => write!(f, "@qpu\n{def}"),
+            Func::Classical(def) => write!(f, "@classical\n{def}"),
         }
     }
 }
@@ -587,12 +553,12 @@ impl Program {
 }
       
 impl fmt::Display for Program {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for func in &self.funcs {
             writeln!(f, "{func}")?;
         }
         if let Some(dbg) = &self.dbg {
-            writeln!(f, "{dbg}")?;
+            writeln!(f, "# {dbg}")?;
         }
         Ok(())
     }

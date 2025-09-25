@@ -190,6 +190,7 @@ pub enum LowerErrorKind {
     CannotInstantiate {
         func_name: String,
     },
+    GenericFSError, // For capturing file sys errors post-lowering during debug outs
 }
 
 impl fmt::Display for LowerErrorKind {
@@ -268,6 +269,9 @@ impl fmt::Display for LowerErrorKind {
             LowerErrorKind::CannotInstantiate { func_name } => {
                 write!(f, "Cannot instantiate function {}", func_name)
             }
+            LowerErrorKind::GenericFSError => {
+                write!(f, "File system error while printing debug outputs for AST")
+            }
         }
     }
 }
@@ -285,6 +289,15 @@ impl From<TypeError> for LowerError {
         LowerError {
             kind: LowerErrorKind::TypeError { kind: err.kind },
             dbg: err.dbg,
+        }
+    }
+}
+
+impl From<std::io::Error> for LowerError {
+    fn from(_err: std::io::Error) -> Self {
+        LowerError {
+            kind: LowerErrorKind::GenericFSError,
+            dbg: None,
         }
     }
 }
