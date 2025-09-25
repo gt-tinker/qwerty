@@ -219,7 +219,17 @@ pub struct Return<E> {
 /// Allows creating a trivial version of a statement or expression.
 /// (That is, one that does nothing.)
 pub trait Trivializable {
+    /// Creates a trivial expression.
     fn trivial(dbg: Option<DebugLoc>) -> Self;
+
+    /// Returns `true` if this is a trivial expression.
+    fn is_trivial(&self) -> bool;
+}
+
+pub trait Canonicalizable {
+    /// Returns a canon form of this expression. This often involves some light
+    /// optimizations.
+    fn canonicalize(&self) -> Self;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -249,6 +259,59 @@ pub enum Stmt<E> {
     Return(Return<E>),
 }
 
+impl<E> Stmt<E>
+where
+    E: Trivializable + Canonicalizable + Clone,
+{
+    /// Returns a canon form of this statement. This involves some light
+    /// optimizations. Returns `None` if this statement should be deleted.
+    pub fn canonicalize(&self) -> Option<Self> {
+        match self {
+            // Remove expression statements containing only a trivial expression.
+            Stmt::Expr(StmtExpr { expr, dbg }) => {
+                let canon_expr = expr.canonicalize();
+                if canon_expr.is_trivial() {
+                    None
+                } else {
+                    Some(Stmt::Expr(StmtExpr {
+                        expr: canon_expr,
+                        dbg: dbg.clone(),
+                    }))
+                }
+            }
+
+            Stmt::Assign(Assign { lhs, rhs, dbg }) => Some(Stmt::Assign(Assign {
+                lhs: lhs.to_string(),
+                rhs: rhs.canonicalize(),
+                dbg: dbg.clone(),
+            })),
+
+            // Unpacking with only one name on the left-hand side is equivalent
+            // to assignment.
+            Stmt::UnpackAssign(UnpackAssign { lhs, rhs, dbg }) if lhs.len() == 1 => {
+                Some(Stmt::Assign(Assign {
+                    lhs: lhs[0].to_string(),
+                    rhs: rhs.canonicalize(),
+                    dbg: dbg.clone(),
+                }))
+            }
+
+            Stmt::UnpackAssign(UnpackAssign { lhs, rhs, dbg }) => {
+                Some(Stmt::UnpackAssign(UnpackAssign {
+                    lhs: lhs.clone(),
+                    rhs: rhs.canonicalize(),
+                    dbg: dbg.clone(),
+                }))
+            }
+
+            Stmt::Return(Return { val, dbg }) => Some(Stmt::Return(Return {
+                val: val.clone(),
+                dbg: dbg.clone(),
+            })),
+        }
+    }
+}
+
 impl<E: Trivializable> Trivializable for Stmt<E> {
     /// Trivial statement is an expression statement containing a trivial
     /// expression.
@@ -257,6 +320,17 @@ impl<E: Trivializable> Trivializable for Stmt<E> {
             expr: E::trivial(dbg.clone()),
             dbg,
         })
+    }
+
+    /// Returns true if this is a `StmtExpr` containing a trivial expression.
+    fn is_trivial(&self) -> bool {
+        if let Self::Expr(StmtExpr { expr, .. }) = self
+            && expr.is_trivial()
+        {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -299,7 +373,10 @@ pub struct FunctionDef<E> {
     pub dbg: Option<DebugLoc>,
 }
 
-impl<E> FunctionDef<E> {
+impl<E> FunctionDef<E>
+where
+    E: Trivializable + Canonicalizable + Clone,
+{
     pub fn new(
         name: String,
         args: Vec<(Type, String)>,
@@ -347,6 +424,28 @@ impl<E> FunctionDef<E> {
             }
         }
     }
+
+    /// Returns a canon form of this function. This involves some light
+    /// optimizations.
+    pub fn canonicalize(&self) -> Self {
+        let Self {
+            name,
+            args,
+            ret_type,
+            body,
+            is_rev,
+            dbg,
+        } = self;
+        let canon_body = body.iter().filter_map(Stmt::canonicalize).collect();
+        Self {
+            name: name.to_string(),
+            args: args.clone(),
+            ret_type: ret_type.clone(),
+            body: canon_body,
+            is_rev: *is_rev,
+            dbg: dbg.clone(),
+        }
+    }
 }
 
 // NOTE: Until there is a nice way to distinguish these, there
@@ -354,8 +453,8 @@ impl<E> FunctionDef<E> {
 // but you would have to modify it to return Option<Expr> and
 // this seemed antithetical to the purpose. I also didn't want
 // to create another trait just for this.
-impl std::fmt::Display for FunctionDef<qpu::Expr> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for FunctionDef<qpu::Expr> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {}(", self.name)?;
         for (i, (ty, arg_name)) in self.args.iter().enumerate() {
             write!(f, "{arg_name} {ty}")?;
@@ -388,8 +487,8 @@ impl std::fmt::Display for FunctionDef<qpu::Expr> {
     }
 }
 
-impl std::fmt::Display for FunctionDef<classical::Expr> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for FunctionDef<classical::Expr> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {}(", self.name)?;
         for (i, (ty, arg_name)) in self.args.iter().enumerate() {
             write!(f, "{arg_name} {ty}")?;
@@ -443,10 +542,19 @@ impl Func {
             Func::Classical(func_def) => func_def.get_type(),
         }
     }
+
+    /// Returns a canon form of this function. This involves some light
+    /// optimizations.
+    pub fn canonicalize(&self) -> Self {
+        match self {
+            Func::Qpu(func_def) => Func::Qpu(func_def.canonicalize()),
+            Func::Classical(func_def) => Func::Classical(func_def.canonicalize()),
+        }
+    }
 }
 
-impl std::fmt::Display for Func {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Func {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Func::Qpu(def) => write!(f, "@qpu {def}"),
             Func::Classical(def) => write!(f, "@classical {def}"),
@@ -464,7 +572,21 @@ pub struct Program {
     pub dbg: Option<DebugLoc>,
 }
 
-impl std::fmt::Display for Program {
+
+impl Program {
+    /// Returns a [canon][1] form of this program. This involves some light
+    /// optimizations.
+    /// [1]: https://sunfishcode.github.io/blog/2018/10/22/Canonicalization.html
+    pub fn canonicalize(&self) -> Self {
+        let Self { funcs, dbg } = self;
+        Self {
+            funcs: funcs.iter().map(Func::canonicalize).collect(),
+            dbg: dbg.clone(),
+        }
+    }
+}
+      
+impl fmt::Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for func in &self.funcs {
             writeln!(f, "{func}")?;
@@ -563,5 +685,7 @@ pub fn ubig_with_n_lower_bits_set(n: usize) -> UBig {
 
 #[cfg(test)]
 mod test_ast_basis;
+#[cfg(test)]
+mod test_ast_canonicalize;
 #[cfg(test)]
 mod test_ast_vec_qlit;

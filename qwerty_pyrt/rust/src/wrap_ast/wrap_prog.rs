@@ -5,8 +5,12 @@ use crate::wrap_ast::{
     wrap_type::DebugLoc,
 };
 use pyo3::{conversion::IntoPyObject, prelude::*};
-use qwerty_ast::meta;
-use qwerty_ast_to_mlir::run_ast;
+
+use qwerty_ast::{
+    error::{LowerError, LowerErrorKind},
+    meta,
+};
+use qwerty_ast_to_mlir::run_meta_ast;
 use std::{env, fs};
 
 #[pyclass]
@@ -47,36 +51,17 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let plain_ast = self
-            .program
-            .lower()
-            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
+        let shots =
+            run_meta_ast(&self.program, &func_name, num_shots, debug).map_err(|err| match err {
+                LowerError {
+                    kind: LowerErrorKind::TypeError { kind },
+                    dbg,
+                } => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
+                LowerError { kind, dbg } => get_err(py, ProgErrKind::Expand, kind.to_string(), dbg),
+            })?;
 
-        plain_ast
-            .typecheck()
-            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
 
-        if debug {
-            // actually, since plain_ast is a regular program (not a
-            // MetaProgram), we can just write it? no shenanegans required
-            println!("");
-            let dump_dir = env::current_dir().unwrap().join("qwerty-dump");
-            eprintln!(
-                "The Qwerty AST file will be dumped to directory `{}`",
-                dump_dir.display()
-            );
-
-            // make sure the directory exists
-            fs::create_dir_all(&dump_dir)?;
-
-            // build full path
-            let dump_path = dump_dir.join("ast.qwerty");
-
-            // write out using Display impl
-            fs::write(&dump_path, plain_ast.to_string())?;
-        }
-
-        run_ast(&plain_ast, &func_name, num_shots, debug)
+        shots
             .into_iter()
             .map(|shot_result| {
                 let as_int = UBigWrap(shot_result.bits).into_pyobject(py)?;

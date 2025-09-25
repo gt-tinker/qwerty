@@ -1,8 +1,8 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    BitLiteral, Trivializable, Variable, angle_approx_total_cmp, angle_is_approx_zero,
-    angles_are_approx_equal, canon_angle, equals_2_to_the_n,
+    BitLiteral, Canonicalizable, Trivializable, Variable, angle_approx_total_cmp,
+    angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
 use std::cmp::Ordering;
@@ -222,6 +222,119 @@ impl Trivializable for Expr {
     /// Trivial expression is a unit literal.
     fn trivial(dbg: Option<DebugLoc>) -> Self {
         Self::UnitLiteral(UnitLiteral { dbg })
+    }
+
+    /// Returns true if this is a unit literal.
+    fn is_trivial(&self) -> bool {
+        if let Expr::UnitLiteral(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Canonicalizable for Expr {
+    fn canonicalize(&self) -> Self {
+        match self {
+            Expr::Adjoint(Adjoint { func, dbg }) => Expr::Adjoint(Adjoint {
+                func: Box::new(func.canonicalize()),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::Pipe(Pipe { lhs, rhs, dbg }) => Expr::Pipe(Pipe {
+                lhs: Box::new(lhs.canonicalize()),
+                rhs: Box::new(rhs.canonicalize()),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::Measure(Measure { basis, dbg }) => Expr::Measure(Measure {
+                basis: basis.canonicalize(),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::Tensor(Tensor { vals, dbg }) => {
+                let canon_vals: Vec<_> = vals
+                    .iter()
+                    .filter_map(|val| {
+                        let canon_val = val.canonicalize();
+                        if let Expr::UnitLiteral(_) = canon_val {
+                            None
+                        } else {
+                            Some(canon_val)
+                        }
+                    })
+                    .collect();
+
+                if canon_vals.is_empty() {
+                    Expr::UnitLiteral(UnitLiteral { dbg: dbg.clone() })
+                } else {
+                    Expr::Tensor(Tensor {
+                        vals: canon_vals,
+                        dbg: dbg.clone(),
+                    })
+                }
+            }
+
+            Expr::BasisTranslation(BasisTranslation { bin, bout, dbg }) => {
+                Expr::BasisTranslation(BasisTranslation {
+                    bin: bin.canonicalize(),
+                    bout: bout.canonicalize(),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            Expr::Predicated(Predicated {
+                then_func,
+                else_func,
+                pred,
+                dbg,
+            }) => Expr::Predicated(Predicated {
+                then_func: Box::new(then_func.canonicalize()),
+                else_func: Box::new(else_func.canonicalize()),
+                pred: pred.canonicalize(),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::NonUniformSuperpos(NonUniformSuperpos { pairs, dbg }) => {
+                Expr::NonUniformSuperpos(NonUniformSuperpos {
+                    pairs: pairs
+                        .iter()
+                        .map(|(prob, qlit)| (*prob, qlit.canonicalize()))
+                        .collect(),
+                    dbg: dbg.clone(),
+                })
+            }
+
+            Expr::Ensemble(Ensemble { pairs, dbg }) => Expr::Ensemble(Ensemble {
+                pairs: pairs
+                    .iter()
+                    .map(|(prob, qlit)| (*prob, qlit.canonicalize()))
+                    .collect(),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::Conditional(Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                dbg,
+            }) => Expr::Conditional(Conditional {
+                then_expr: Box::new(then_expr.canonicalize()),
+                else_expr: Box::new(else_expr.canonicalize()),
+                cond: Box::new(cond.canonicalize()),
+                dbg: dbg.clone(),
+            }),
+
+            Expr::QLit(qlit) => Expr::QLit(qlit.canonicalize()),
+
+            Expr::Variable(_)
+            | Expr::UnitLiteral(_)
+            | Expr::EmbedClassical(_)
+            | Expr::Discard(_)
+            | Expr::BitLiteral(_)
+            | Expr::QubitRef(_) => self.clone(),
+        }
     }
 }
 
