@@ -10,6 +10,10 @@ use melior::{
 use qwerty_ast::{ast::Program, error::LowerError, meta::MetaProgram};
 use std::{collections::HashMap, env, fs};
 
+const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
+const MLIR_DUMP_SUBDIR: &str = "mlir";
+const QWERTY_AST_FILENAME: &str = "qwerty-ast.py";
+
 struct RunPassesConfig {
     decompose_multi_ctrl: bool,
     to_base_profile: bool,
@@ -19,7 +23,10 @@ struct RunPassesConfig {
 fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     let pm = PassManager::new(&MLIR_CTX);
     if cfg.dump {
-        let dump_dir = env::current_dir().unwrap().join("mlir-dumps");
+        let dump_dir = env::current_dir()
+            .unwrap()
+            .join(QWERTY_DEBUG_DIR)
+            .join(MLIR_DUMP_SUBDIR);
         eprintln!(
             "MLIR files will be dumped to directory `{}`",
             dump_dir.display()
@@ -232,25 +239,23 @@ pub fn run_meta_ast(
     let plain_ast = prog.lower()?;
     plain_ast.typecheck().map_err(Into::<LowerError>::into)?;
     let canon_ast = plain_ast.canonicalize();
+
     if debug {
         println!("");
-        let dump_dir = env::current_dir().unwrap().join("qwerty-dump");
-
-        // make sure the directory exists
+        let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
         fs::create_dir_all(&dump_dir)?;
 
         // build full path
-        let dump_path = dump_dir.join("ast.py");
+        let dump_path = dump_dir.join(QWERTY_AST_FILENAME);
         eprintln!(
             "The Qwerty AST file will be dumped to file `{}`",
             dump_path.display()
         );
 
         let dump_str = format!(
-            "{}\n\n{}\n\n{}",
-            "from qwerty import *",
+            concat!("from qwerty import *\n\n", "{}", "print({}())\n"),
             canon_ast.to_string(),
-            format!("print({}())", func_name)
+            func_name,
         );
 
         // write out using Display impl
