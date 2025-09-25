@@ -52,25 +52,6 @@ def Qwerty_BuiltinBasisAttr : Qwerty_Attr<"BuiltinBasis", "std"> {
     }];
 }
 
-// TODO: And fix descriptions, etc.
-// This is already on the RHS
-// def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGeneratorAttr", "revolve"> {
-//     let summary = "Pair of primitive basis and dimension";
-//     let description = [{
-//         A pair of primitive basis and dimension, like pm[3] or fourier[4]. See
-//         Section 2.2 of the CGO paper.
-//     }];
-//     // TODO: params should just take a basisattr (lhs), basisgeneratorattr (rhs)
-//     // foo // {bv1, bv2}.revolve
-//     // becomes foo: BasisAttr, bv1, bv2: BasisVectorAttr
-//     let parameters = (ins "PrimitiveBasis":$prim_basis, "uint64_t":$dim);
-//     let assemblyFormat = "$prim_basis `[` $dim `]`";
-//     let genVerifyDecl = 1;
-//     let extraClassDeclaration = [{
-//         qwerty::BasisVectorListAttr expandToVeclist() const;
-//     }];
-// }
-
 def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
     let summary = "A basis vector for a basis literal";
     let description = [{
@@ -179,7 +160,6 @@ def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
         A basis element as defined in Section 2.2 of the CGO paper: either a
         built-in basis (e.g., pm[5]) or a basis literal (e.g., {'0', '1'}).
     }];
-    // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
     let parameters = (ins OptionalParameter<"BuiltinBasisAttr">:$std, OptionalParameter<"BasisVectorListAttr">:$veclist);
     let hasCustomAssemblyFormat = 1;
     let builders = [
@@ -189,8 +169,6 @@ def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
         AttrBuilder<(ins "BasisVectorListAttr":$veclist), [{
             return $_get($_ctxt, nullptr, veclist);
         }]>
-        // TODO: Add another builder for ApplyRevolveGeneratorAttr
-        // Update CAPI to include new builder
     ];
     let extraClassDeclaration = [{
         uint64_t getDim() const;
