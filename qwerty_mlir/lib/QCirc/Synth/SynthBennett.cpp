@@ -12,11 +12,14 @@
 namespace {
 
 enum SynthFlags {
-    FLAG_NONE = 0,
-    // Intermediate computation. Forward and reverse computation, respectively.
-    // Used for Selinger's trick to reduce T counts.
-    FLAG_TMP_FWD = 1 << 0,
-    FLAG_TMP_REV = 1 << 1,
+    // Intermediate computation (targeting an ancilla) versus output
+    // computation (targeting an output qubit). Used to determine if we can
+    // safely use Selinger's Toffoli trick to reduce T counts.
+    FLAG_TMP = 0 << 0,
+    FLAG_OUT = 1 << 0,
+    // Forward and reverse computation, respectively.
+    FLAG_FWD = 0 << 1,
+    FLAG_REV = 1 << 1,
 };
 
 struct WireQubit {
@@ -87,8 +90,10 @@ struct Synthesizer {
         if (qubit.kind == WireQubit::Kind::AndAncilla) {
             if (!--qubit.refcount) {
                 // Undo computation on this ancilla now that we're done with it
-                xorWireInto(qubit.wire, qubit.qubit_idx, FLAG_TMP_REV);
-                builder.create<qcirc::QfreeZeroOp>(loc, qubits[qubit.qubit_idx]);
+                xorWireInto(qubit.wire, qubit.qubit_idx,
+                            static_cast<SynthFlags>(FLAG_TMP | FLAG_REV));
+                builder.create<qcirc::QfreeZeroOp>(
+                    loc, qubits[qubit.qubit_idx]);
                 // We don't delete this from the array because we may be
                 // freeing qubits out of order. But we can at least set it to a
                 // null pointer to cause a nuclear explosion if some code
@@ -136,8 +141,11 @@ struct Synthesizer {
                 builder.create<qcirc::QallocOp>(loc).getResult();
             qubits.push_back(ancilla);
 
-            xorWireInto(wire, ancilla_idx, FLAG_TMP_FWD);
+            xorWireInto(wire, ancilla_idx,
+                        static_cast<SynthFlags>(FLAG_TMP | FLAG_FWD));
 
+            // By definition of XAG, every user will use each of its operands
+            // exactly once. Thus, this is equivalent to the number of users.
             WireQubit qubit(wire, ancilla_idx, wire.getNumUses());
             wire_qubits.insert({wire, qubit});
             return qubit;
@@ -255,7 +263,8 @@ struct Synthesizer {
         }
     }
 
-    void xorAndWireInto(ccirc::AndOp and_op, size_t tgt_qubit_idx, SynthFlags flags) {
+    void xorAndWireInto(ccirc::AndOp and_op, size_t tgt_qubit_idx,
+                        SynthFlags flags) {
         mlir::Value left_wire = and_op.getLeft();
         mlir::Value right_wire = and_op.getRight();
 
@@ -267,25 +276,33 @@ struct Synthesizer {
         right_parity.sortedQubitIndices(right_qubit_indices);
 
         llvm::SmallVector<size_t> shared_indices;
-        std::set_intersection(left_qubit_indices.begin(), left_qubit_indices.end(),
-                              right_qubit_indices.begin(), right_qubit_indices.end(),
+        std::set_intersection(left_qubit_indices.begin(),
+                              left_qubit_indices.end(),
+                              right_qubit_indices.begin(),
+                              right_qubit_indices.end(),
                               std::back_inserter(shared_indices));
         llvm::SmallVector<size_t> only_left_indices;
-        std::set_difference(left_qubit_indices.begin(), left_qubit_indices.end(),
-                            right_qubit_indices.begin(), right_qubit_indices.end(),
+        std::set_difference(left_qubit_indices.begin(),
+                            left_qubit_indices.end(),
+                            right_qubit_indices.begin(),
+                            right_qubit_indices.end(),
                             std::back_inserter(only_left_indices));
         llvm::SmallVector<size_t> only_right_indices;
-        std::set_difference(right_qubit_indices.begin(), right_qubit_indices.end(),
-                            left_qubit_indices.begin(), left_qubit_indices.end(),
+        std::set_difference(right_qubit_indices.begin(),
+                            right_qubit_indices.end(),
+                            left_qubit_indices.begin(),
+                            left_qubit_indices.end(),
                             std::back_inserter(only_right_indices));
 
         size_t left_ctrl_idx, right_ctrl_idx;
         // Easy case: compute in-place parity on each set of operands
         if (shared_indices.empty()) {
             parityInPlace(only_left_indices[0],
-                          only_left_indices.begin()+1, only_left_indices.end());
+                          only_left_indices.begin()+1,
+                          only_left_indices.end());
             parityInPlace(only_right_indices[0],
-                          only_right_indices.begin()+1, only_right_indices.end());
+                          only_right_indices.begin()+1,
+                          only_right_indices.end());
             left_ctrl_idx = only_left_indices[0];
             right_ctrl_idx = only_right_indices[0];
         // Use Bruno Schmitt's trick for the trickier case: compute the
@@ -296,23 +313,29 @@ struct Synthesizer {
 
             if (!only_left_indices.empty() && !only_right_indices.empty()) {
                 parityInPlace(only_left_indices[0],
-                              only_left_indices.begin()+1, only_left_indices.end());
+                              only_left_indices.begin()+1,
+                              only_left_indices.end());
                 runCNOTGate(shared_indices[0], only_left_indices[0]);
                 parityInPlace(shared_indices[0],
-                              only_right_indices.begin(), only_right_indices.end());
+                              only_right_indices.begin(),
+                              only_right_indices.end());
 
                 left_ctrl_idx = only_left_indices[0];
                 right_ctrl_idx = shared_indices[0];
-            } else if (only_left_indices.empty() && !only_right_indices.empty()) {
+            } else if (only_left_indices.empty()
+                       && !only_right_indices.empty()) {
                 parityInPlace(only_right_indices[0],
-                              only_right_indices.begin()+1, only_right_indices.end());
+                              only_right_indices.begin()+1,
+                              only_right_indices.end());
                 runCNOTGate(shared_indices[0], only_right_indices[0]);
 
                 left_ctrl_idx = shared_indices[0];
                 right_ctrl_idx = only_right_indices[0];
-            } else if (!only_left_indices.empty() && only_right_indices.empty()) {
+            } else if (!only_left_indices.empty()
+                       && only_right_indices.empty()) {
                 parityInPlace(only_left_indices[0],
-                              only_left_indices.begin()+1, only_left_indices.end());
+                              only_left_indices.begin()+1,
+                              only_left_indices.end());
                 runCNOTGate(shared_indices[0], only_left_indices[0]);
 
                 left_ctrl_idx = only_left_indices[0];
@@ -332,14 +355,12 @@ struct Synthesizer {
             runXGate(right_ctrl_idx);
         }
 
-        if (flags & FLAG_TMP_FWD) {
-            runSelingerToffoliGate(left_ctrl_idx, right_ctrl_idx,
-                                   tgt_qubit_idx, /*rev=*/false);
-        } else if (flags & FLAG_TMP_REV) {
-            runSelingerToffoliGate(left_ctrl_idx, right_ctrl_idx,
-                                   tgt_qubit_idx, /*rev=*/true);
-        } else {
+        if ((flags & FLAG_OUT)) {
             runToffoliGate(left_ctrl_idx, right_ctrl_idx, tgt_qubit_idx);
+        } else { // FLAG_TMP
+            bool is_reverse = !!(flags & FLAG_REV);
+            runSelingerToffoliGate(left_ctrl_idx, right_ctrl_idx,
+                                   tgt_qubit_idx, is_reverse);
         }
 
         // Undo complements
@@ -354,24 +375,32 @@ struct Synthesizer {
         // code as above, just backwards.
         if (shared_indices.empty()) {
             parityInPlace(only_right_indices[0],
-                          only_right_indices.rbegin(), only_right_indices.rend()-1);
+                          only_right_indices.rbegin(),
+                          only_right_indices.rend()-1);
             parityInPlace(only_left_indices[0],
-                          only_left_indices.rbegin(), only_left_indices.rend()-1);
+                          only_left_indices.rbegin(),
+                          only_left_indices.rend()-1);
         } else {
             if (!only_left_indices.empty() && !only_right_indices.empty()) {
                 parityInPlace(shared_indices[0],
-                              only_right_indices.rbegin(), only_right_indices.rend());
+                              only_right_indices.rbegin(),
+                              only_right_indices.rend());
                 runCNOTGate(shared_indices[0], only_left_indices[0]);
                 parityInPlace(only_left_indices[0],
-                              only_left_indices.rbegin(), only_left_indices.rend()-1);
-            } else if (only_left_indices.empty() && !only_right_indices.empty()) {
+                              only_left_indices.rbegin(),
+                              only_left_indices.rend()-1);
+            } else if (only_left_indices.empty()
+                       && !only_right_indices.empty()) {
                 runCNOTGate(shared_indices[0], only_right_indices[0]);
                 parityInPlace(only_right_indices[0],
-                              only_right_indices.rbegin(), only_right_indices.rend()-1);
-            } else if (!only_left_indices.empty() && only_right_indices.empty()) {
+                              only_right_indices.rbegin(),
+                              only_right_indices.rend()-1);
+            } else if (!only_left_indices.empty()
+                       && only_right_indices.empty()) {
                 runCNOTGate(shared_indices[0], only_left_indices[0]);
                 parityInPlace(only_left_indices[0],
-                              only_left_indices.rbegin(), only_left_indices.rend()-1);
+                              only_left_indices.rbegin(),
+                              only_left_indices.rend()-1);
             } else {
                 // TODO: we can support this by just XORing all the shared
                 //       indices into the target qubit (maybe with an
@@ -393,7 +422,8 @@ struct Synthesizer {
         }
     }
 
-    void xorWireInto(mlir::Value wire, size_t tgt_qubit_start_idx, SynthFlags flags) {
+    void xorWireInto(mlir::Value wire, size_t tgt_qubit_start_idx,
+                     SynthFlags flags) {
         size_t wire_dim = llvm::cast<ccirc::WireType>(
             wire.getType()).getDim();
 
@@ -417,16 +447,27 @@ struct Synthesizer {
                    && "Expected every NOT in a XAG to have 1 result");
             xorWireInto(not_op.getOperand(), tgt_qubit_start_idx, flags);
             runXGate(tgt_qubit_start_idx);
-        // A parity operation is really easy: just compute everything in-place now
+        // A parity operation is really easy: just compute everything in-place
         } else if (ccirc::ParityOp parity =
                 wire.getDefiningOp<ccirc::ParityOp>()) {
             for (mlir::Value operand : parity.getOperands()) {
                 xorWireInto(operand, tgt_qubit_start_idx, flags);
             }
-        // An AND is complicated enough where it deserves its own function
+        // An AND is complicated enough where it deserves its own function,
+        // xorAndWireInto()`, but there is still one tricky case to handle
+        // here: what if this output wire is also used as an input to other
+        // logic (or perhaps another output)? If so, we should allocate an
+        // ancilla to store the AND result so that we can copy it to this
+        // output wire and then use it wherever else it is needed.
         } else if (ccirc::AndOp and_op =
                 wire.getDefiningOp<ccirc::AndOp>()) {
-            xorAndWireInto(and_op, tgt_qubit_start_idx, flags);
+            if ((flags & FLAG_OUT) && wire.getNumUses() > 1) {
+                WireQubit qubit = synthAndIfNeeded(and_op);
+                runCNOTGate(qubit.qubit_idx, tgt_qubit_start_idx);
+                freeAncillaForAnd(qubit);
+            } else {
+                xorAndWireInto(and_op, tgt_qubit_start_idx, flags);
+            }
         } else if (ccirc::ConstantOp const_op =
                 wire.getDefiningOp<ccirc::ConstantOp>()) {
             llvm::APInt val = const_op.getValue();
@@ -455,6 +496,8 @@ struct Synthesizer {
                 wire_qubits.insert({arg, WireQubit(arg, arg_wire_idx)});
             assert(res.second && "Duplicate block arg?");
 
+            // By definition of XAG, every user will use each of its operands
+            // exactly once
             for (mlir::Operation *user : arg.getUsers()) {
                 if (ccirc::WireUnpackOp unpack =
                         llvm::dyn_cast<ccirc::WireUnpackOp>(user)) {
@@ -469,7 +512,8 @@ struct Synthesizer {
                 }
             }
 
-            size_t arg_dim = llvm::cast<ccirc::WireType>(arg.getType()).getDim();
+            size_t arg_dim = llvm::cast<ccirc::WireType>(
+                arg.getType()).getDim();
             arg_wire_idx += arg_dim;
         }
 
@@ -484,13 +528,15 @@ struct Synthesizer {
             if (ccirc::WirePackOp pack =
                     ret_val.getDefiningOp<ccirc::WirePackOp>()) {
                 for (mlir::Value pack_arg : pack.getWires()) {
-                    xorWireInto(pack_arg, ret_qubit_idx, FLAG_NONE);
+                    xorWireInto(pack_arg, ret_qubit_idx,
+                                static_cast<SynthFlags>(FLAG_OUT | FLAG_FWD));
                     size_t pack_arg_dim = llvm::cast<ccirc::WireType>(
                         pack_arg.getType()).getDim();
                     ret_qubit_idx += pack_arg_dim;
                 }
             } else {
-                xorWireInto(ret_val, ret_qubit_idx, FLAG_NONE);
+                xorWireInto(ret_val, ret_qubit_idx,
+                            static_cast<SynthFlags>(FLAG_OUT | FLAG_FWD));
                 ret_qubit_idx += ret_dim;
             }
         }
