@@ -16,11 +16,9 @@ from fractions import Fraction
 from abc import ABC, abstractmethod
 from typing import List, Optional, Iterable
 
-#from ._qwerty_harness import Bits, Integer, Angle, Tuple, Amplitude
-
 class dimvar:
     """
-    A dimension variable, like the ``N`` in ``std[N]``. Programmers who want a
+    A dimension variable, like the ``N`` in ``std**N``. Programmers who want a
     new dimension variable ``FOO`` can instantiate this as follows::
 
         FOO = dimvar('FOO')
@@ -87,20 +85,6 @@ class dimvar:
 # generate this:
 #     print('; '.join("{a} = dimvar('{a}')".format(a=chr(ord('A')+i)) for i in range(26)))
 A = dimvar('A'); B = dimvar('B'); C = dimvar('C'); D = dimvar('D'); E = dimvar('E'); F = dimvar('F'); G = dimvar('G'); H = dimvar('H'); I = dimvar('I'); J = dimvar('J'); K = dimvar('K'); L = dimvar('L'); M = dimvar('M'); N = dimvar('N'); O = dimvar('O'); P = dimvar('P'); Q = dimvar('Q'); R = dimvar('R'); S = dimvar('S'); T = dimvar('T'); U = dimvar('U'); V = dimvar('V'); W = dimvar('W'); X = dimvar('X'); Y = dimvar('Y'); Z = dimvar('Z')
-
-#class HybridPythonQwertyType(ABC):
-#    """
-#    Abstract base class for Python objects that can be captured by a ``@qpu``
-#    or ``@classical`` kernel.
-#    """
-#
-#    @abstractmethod
-#    def as_qwerty_obj(self):
-#        """
-#        Return an instance of a type defined in ``_qwerty_harness.cpp`` that
-#        wraps an instance of the ``HybridObj`` C++ class.
-#        """
-#        ...
 
 class bit:
     """
@@ -277,18 +261,6 @@ class bit:
         """
         as_int = int(bits, 2)
         return cls(as_int, len(bits))
-
-    #def as_qwerty_obj(self) -> Bits:
-    #    # Round to next multiple of 8
-    #    # (https://stackoverflow.com/a/1766566/321301), then divide by 8
-    #    n_bytes = ((self.n_bits + 0b111) & ~0b111) >> 3
-    #    as_bytes = self._official_int().to_bytes(n_bytes, byteorder='big', signed=False)
-    #    return Bits(as_bytes, self.n_bits)
-
-    #@classmethod
-    #def from_qwerty_obj(cls, bits: Bits):
-    #    as_int = int.from_bytes(bits.as_bytes(), byteorder='big', signed=False)
-    #    return cls(as_int, bits.get_n_bits())
 
     def as_bin_frac(self):
         """
@@ -527,87 +499,6 @@ class cfrac:
         """
         partial_denoms = cls._get_frac_partial_denoms(frac)
         return cls(partial_denoms)
-
-#class _int(HybridPythonQwertyType):
-#    def __init__(self, int_: int):
-#        self.int_ = int_
-#
-#    def as_qwerty_obj(self) -> Integer:
-#        return Integer(self.int_)
-#
-#    @staticmethod
-#    def from_qwerty_obj(int_: Integer):
-#        # Weird special case here (compared to bit.from_qwery_obj()): we
-#        # actually do not want the user to see this _int wrapper class since
-#        # it's useless to them and annoying. So just return a Python int
-#        return int_.as_pyint()
-#
-## Similar to _int above except for tuples
-#class _tuple(HybridPythonQwertyType):
-#    def __init__(self, elts: Iterable[HybridPythonQwertyType]):
-#        self.elts = elts
-#
-#    def as_qwerty_obj(self) -> Tuple:
-#        return Tuple(elt.as_qwerty_obj() for elt in self.elts)
-#
-#    @staticmethod
-#    def from_qwerty_obj(int_: Integer):
-#        # TODO: Figure out if this is worth supporting
-#        raise NotImplementedError('Sorry, I do not know how to convert '
-#                                  'tuples returned by kernels back to '
-#                                  'Python yet')
-
-#class angle:
-#    """
-#    An angle (i.e., a ``float``) or an array of angles. This type is currently
-#    intended only for use in ``@qpu`` kernel type annotations.
-#    """
-#
-#    def __class_getitem__(cls, arg):
-#        return cls
-#
-#    def __init__(self, float_: float):
-#        self.float_ = float_
-#
-#    def __str__(self):
-#        return str(self.float_)
-#
-#    def __repr__(self):
-#        return 'angle({})'.format(self.float_)
-#
-#    def as_qwerty_obj(self) -> Angle:
-#        return Angle(self.float_)
-#
-#    @staticmethod
-#    def from_qwerty_obj(theta: Angle):
-#        # Same special case as _int.from_qwerty_obj() above
-#        return theta.as_pyfloat()
-
-#class ampl(HybridPythonQwertyType):
-#    """
-#    An amplitude, i.e., a complex number, or an array of amplitudes. This type
-#    is currently intended only for use in ``@qpu`` kernel type annotations.
-#    """
-#
-#    def __class_getitem__(cls, arg):
-#        return cls
-#
-#    def __init__(self, z: complex):
-#        self._z = z
-#
-#    def __str__(self):
-#        return str(self._z)
-#
-#    def __repr__(self):
-#        return 'ampl({})'.format(self._z)
-#
-#    def as_qwerty_obj(self) -> Amplitude:
-#        return Amplitude(self._z)
-#
-#    @staticmethod
-#    def from_qwerty_obj(amp: Amplitude):
-#        # Same special case as _int.from_qwerty_obj() above
-#        return amp.as_pycomplex()
 
 # TODO: how does this relate to a KernelHandle?
 class qfunc:
