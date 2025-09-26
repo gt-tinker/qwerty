@@ -383,10 +383,12 @@ struct Synthesizer {
                           shared_indices.rbegin(), shared_indices.rend()-1);
         }
 
-        for (WireQubit &qubit : left_parity.qubits) {
+        // Just an aesthetic tweak: uncompute in the opposite order that we
+        // compute. This makes the circuit symmetrical.
+        for (WireQubit &qubit : right_parity.qubits) {
             freeAncillaForAnd(qubit);
         }
-        for (WireQubit &qubit : right_parity.qubits) {
+        for (WireQubit &qubit : left_parity.qubits) {
             freeAncillaForAnd(qubit);
         }
     }
