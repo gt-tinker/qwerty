@@ -663,3 +663,42 @@ class ConvertAstClassicalTests(unittest.TestCase):
             ClassicalExpr.new_bit_literal(0b1101, 4, dbg))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_compare_neq(self):
+        actual_qw_ast = self.convert_expr("""
+            x != y
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 6)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_reduce_op(
+                BinaryOpKind.And,
+                ClassicalExpr.new_binary_op(
+                    BinaryOpKind.Xor,
+                    ClassicalExpr.new_variable("x", dbg_x),
+                    ClassicalExpr.new_variable("y", dbg_y),
+                    dbg_x),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_compare_eq(self):
+        actual_qw_ast = self.convert_expr("""
+            x == y
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 6)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_reduce_op(
+                BinaryOpKind.And,
+                ClassicalExpr.new_unary_op(
+                    UnaryOpKind.Not,
+                    ClassicalExpr.new_binary_op(
+                        BinaryOpKind.Xor,
+                        ClassicalExpr.new_variable("x", dbg_x),
+                        ClassicalExpr.new_variable("y", dbg_y),
+                        dbg_x),
+                    dbg_x),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

@@ -35,6 +35,26 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "positive"):
             bit[-1](0b0)
 
+    def test_bit_eq_and_eq(self):
+        x = bit[8](0b1101)
+        y = bit[8](0b1101)
+        self.assertEqual(x == y, bit[1](0b1))
+
+    def test_bit_eq_and_ne(self):
+        x = bit[8](0b1101)
+        y = bit[8](0b1110)
+        self.assertEqual(x == y, bit[1](0b0))
+
+    def test_bit_ne_and_eq(self):
+        x = bit[8](0b1101)
+        y = bit[8](0b1101)
+        self.assertEqual(x != y, bit[1](0b0))
+
+    def test_bit_ne_and_ne(self):
+        x = bit[8](0b1101)
+        y = bit[8](0b1110)
+        self.assertEqual(x != y, bit[1](0b1))
+
     def test_cfrac_from_fraction_nonmangle_input(self):
         frac = Fraction(2, 3) # 2/3
         cf = cfrac.from_fraction(frac)

@@ -396,6 +396,15 @@ class MetaInferIntegrationTests(unittest.TestCase):
                            (constant_out, {constant_out: shots})]
         self.assertEqual(expected_result, deutsch.test(shots))
 
+    def test_dj(self):
+        from .integ.meta import dj
+        shots = 1024
+        # Proof by Quirk that 0b1001 is expected for balanced:
+        # https://algassert.com/quirk#circuit={%22cols%22:[[%22H%22,%22H%22,%22H%22,%22H%22,%22H%22],[%22%E2%80%A2%22,1,1,1,%22X%22],[1,1,1,%22%E2%80%A2%22,%22X%22],[1,1,1,1,%22X%22],[%22H%22,%22H%22,%22H%22,%22H%22]],%22init%22:[0,0,0,0,1]}
+        expected_result = [('constant', {bit[4](0b0000): shots}),
+                           ('balanced', {bit[4](0b1001): shots})]
+        self.assertEqual(expected_result, dj.test(shots))
+
     # Tests that the Qwerty AST printed when $QWERTY_DEBUG==1 runs as a Python
     # module
     def test_bv_qwerty_debug_ast(self):
