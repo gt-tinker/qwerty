@@ -146,7 +146,7 @@ brackets.
 `qwerty_pyrt`: Python Runtime (Rust & Python)
 ---------------------------------------------
 
- * `python/`: The Python runtime
+ * `python/` (Python): The Python runtime
    * `runtime.py`: All the APIs for the Python runtime for Qwerty _except_
      anything directly related to JIT compilation or `@qpu`/`@classical`
      kernels. This includes:
@@ -174,8 +174,13 @@ brackets.
      reading input, calling into Rust for evaluation, and printing the result
    * `__main__.py`: Invokes `repl.py`, allowing you to launch the Qwerty REPL
      by running `python -m qwerty`
- * `rust/`: The `_qwerty_pyrt` Python module defined in Rust using PyO3
-   * TODO: FINISH ME
+ * `rust/`: The `_qwerty_pyrt` Python module defined in Rust using [PyO3][3]
+   * `wrap_ast.rs`: Wraps the Rust data structures that make up the metaQwerty
+     AST with Python classes, allowing Python code in `convert_ast` (see above)
+     to create metaQwerty ASTs
+   * `wrap_repl.rs`: Similar to above except for data structures for the Qwerty
+     REPL
+   * `lib.rs`: Registers all Python wrapper objects
 
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
