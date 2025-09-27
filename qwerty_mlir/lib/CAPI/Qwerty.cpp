@@ -39,6 +39,20 @@ bool mlirTypeIsAQwertyQBundle(MlirType type) {
 
 // Attributes
 
+MlirAttribute mlirQwertyApplyRevolveGeneratorAttrGet(
+        MlirContext ctx, MlirAttribute foo, MlirAttribute bv1,
+        MlirAttribute bv2) {
+
+    return wrap(qwerty::ApplyRevolveGeneratorAttr::get(unwrap(ctx),
+            llvm::cast<qwerty::BasisAttr>(unwrap(foo)),
+            llvm::cast<qwerty::BasisVectorAttr>(unwrap(bv1)),
+            llvm::cast<qwerty::BasisVectorAttr>(unwrap(bv2))));
+}
+
+bool mlirAttributeIsAQwertyApplyRevolveGenerator(MlirAttribute attr) {
+    return llvm::isa<qwerty::ApplyRevolveGeneratorAttr>(unwrap(attr));
+}
+
 MlirAttribute mlirQwertySuperposAttrGet(
         MlirContext ctx, intptr_t numElements, MlirAttribute const *elements) {
     llvm::SmallVector<mlir::Attribute> attrs;

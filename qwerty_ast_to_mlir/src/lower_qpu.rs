@@ -490,6 +490,7 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                 }
 
                 Basis::BasisLiteral { vecs, .. } => {
+                    dbg!(vecs);
                     let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
                         let (vec_attrs, phase) = ast_vec_to_mlir(vec);
                         // TODO: Fix this
@@ -509,6 +510,13 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                 Basis::BasisLiteral { vecs, .. } => {
                     // TODO: For the ApplyRevolveGeneratorAttribute, which we must create from
                     // revolve
+                    // how do we construct BasisAttr foo, BasisVectorAttrs bv1, bv2?
+                    let foo;
+                    let bv1;
+                    let bv2;
+                    let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
+                    (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![]) // no
+                    // phases
                 }
 
                 // TODO: Remove is_fourier, do codegen similar to SuperposAttr for

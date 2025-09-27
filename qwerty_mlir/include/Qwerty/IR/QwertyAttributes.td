@@ -184,7 +184,6 @@ def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
         AttrBuilder<(ins "ApplyRevolveGeneratorAttr":$revolve), [{
             return $_get($_ctxt, nullptr, nullptr, revolve);
         }]>
-        // TODO: Update CAPI to include new builder (?)
     ];
     let extraClassDeclaration = [{
         uint64_t getDim() const;
