@@ -17,8 +17,13 @@ any example. The examples are the following:
   Chuang
 * `bv.py`: [Bernstein–Vazirani][4], effectively a quantum "Hello World".
   Takes the secret bitstring $s$ as a command-line argument
+* `grover.py`: [Grover's Algorithm][5], aka unstructured search. The
+  oracle is pretty trivial, currently looking for all 1s. Based on Section
+  6.1 of Nielsen and Chuang. The (required) command line argument is the
+  number of qubits.
 
 [1]: https://en.wikipedia.org/wiki/Bell_state
 [2]: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state
 [3]: https://en.wikipedia.org/wiki/Deutsch%E2%80%93Jozsa_algorithm
 [4]: https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm
+[5]: https://en.wikipedia.org/wiki/Grover%27s_algorithm

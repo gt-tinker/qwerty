@@ -387,6 +387,14 @@ class MetaInferIntegrationTests(unittest.TestCase):
             actual_histos = megaperm.test(n_qubits, shots)
             self.assertEqual(expected_histos, actual_histos)
 
+    def test_qft(self):
+        from .integ.meta import qft
+        shots = 1024
+        expected_histos = ({bit[3](0b000): shots},
+                           {bit[3](0b000): shots})
+        actual_histos = qft.test(shots)
+        self.assertEqual(expected_histos, actual_histos)
+
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):
     """
@@ -471,13 +479,17 @@ class ExampleIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_histo, actual_histo_normal)
         self.assertEqual(expected_histo, actual_histo_gen_ast)
 
-    def test_qft(self):
-        from .integ.meta import qft
+    def test_grover(self):
+        from .integ.examples import grover
+        num_qubits = 5
         shots = 1024
-        expected_histos = ({bit[3](0b000): shots},
-                           {bit[3](0b000): shots})
-        actual_histos = qft.test(shots)
-        self.assertEqual(expected_histos, actual_histos)
+        answer = bit[5](0b11111)
+        expected_histo = {answer: shots}
+        expected_answers = [answer]
+        actual_histo, actual_answers = grover.test(num_qubits, shots)
+        self.assertEqual(expected_answers, actual_answers)
+        self.assertGreater(actual_histo.get(answer, 0), 9*shots//10,
+                           "Too few correct answers")
 
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):

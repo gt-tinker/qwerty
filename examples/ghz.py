@@ -25,8 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--shots', '-s',
                         type=int,
                         default=1024,
-                        help='Number of shots'
-                             'only when Qwerty was built with QIR-EE support.')
+                        help='Number of shots. Default: %(default)s')
     args = parser.parse_args()
 
     histogram(ghz(args.num_qubits, args.shots))
