@@ -14,7 +14,11 @@ def kernel():
 
 if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)
+    parser.add_argument('--shots', '-s',
+                        type=int,
+                        default=1024,
+                        help='Number of shots. Default: %(default)s')
     args = parser.parse_args()
 
     print('Results:')
-    histogram(kernel(shots=1024))
+    histogram(kernel(shots=args.shots))

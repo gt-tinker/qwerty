@@ -377,7 +377,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
         from .integ.meta import megaperm
         shots = 1024
 
-        # The 16-qubit case is handled by tweedledum-based synthesis, but the
+        # The 10-qubit case is handled by tweedledum-based synthesis, but the
         # 18-qubit case is handled by our custom synthesis.
         for n_qubits in (10, 18):
             all_ones = bit.from_str('1'*n_qubits)
@@ -387,8 +387,46 @@ class MetaInferIntegrationTests(unittest.TestCase):
             actual_histos = megaperm.test(n_qubits, shots)
             self.assertEqual(expected_histos, actual_histos)
 
+@unittest.skipIf(should_skip, skip_msg)
+class ExampleIntegrationTests(unittest.TestCase):
+    """
+    The example programs from the ``examples/`` directory as integration
+    tests. Useful for avoiding embarassment caused by our own examples being
+    broken.
+    """
+
+    def setUp(self):
+        qwerty.kernel._reset_compiler_state()
+
+    def test_coin_flip(self):
+        from .integ.examples import coin_flip
+        shots = 1024
+        actual_histo = coin_flip.test(shots)
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
+    def test_bell(self):
+        from .integ.examples import bell
+        shots = 1024
+        actual_histo = bell.test(shots)
+        zero, one = bit[2](0b00), bit[2](0b11)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
+    def test_ghz(self):
+        from .integ.examples import ghz
+        shots = 1024
+        actual_histo = ghz.test(7, shots)
+        zero, one = bit[7](0b0000000), bit[7](0b1111111)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
     def test_deutsch(self):
-        from .integ.meta import deutsch
+        from .integ.examples import deutsch
         shots = 1024
         balanced_out = bit[1](0b1)
         constant_out = bit[1](0b0)
@@ -397,7 +435,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_result, deutsch.test(shots))
 
     def test_dj(self):
-        from .integ.meta import dj
+        from .integ.examples import dj
         shots = 1024
         # Proof by Quirk that 0b1001 is expected for balanced:
         # https://algassert.com/quirk#circuit={%22cols%22:[[%22H%22,%22H%22,%22H%22,%22H%22,%22H%22],[%22%E2%80%A2%22,1,1,1,%22X%22],[1,1,1,%22%E2%80%A2%22,%22X%22],[1,1,1,1,%22X%22],[%22H%22,%22H%22,%22H%22,%22H%22]],%22init%22:[0,0,0,0,1]}
@@ -408,7 +446,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
     # Tests that the Qwerty AST printed when $QWERTY_DEBUG==1 runs as a Python
     # module
     def test_bv_qwerty_debug_ast(self):
-        from .integ.meta import bv
+        from .integ.examples import bv
         shots = 1024
         expected_histo = {bit[4](0b1101): shots}
 
