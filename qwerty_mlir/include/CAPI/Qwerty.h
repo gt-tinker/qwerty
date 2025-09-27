@@ -94,6 +94,11 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromStd(
         MlirContext ctx, MlirAttribute std);
 
+/// Creates an qwerty::BasisElemAttr from the qwerty::ApplyRevolveGeneratorAttr
+/// provided.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
+        MlirContext ctx, MlirAttribute revolve);
+
 /// Returns true if this is a qwerty::BasisElemAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr);
 

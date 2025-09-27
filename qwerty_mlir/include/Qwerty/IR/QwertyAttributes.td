@@ -52,6 +52,17 @@ def Qwerty_BuiltinBasisAttr : Qwerty_Attr<"BuiltinBasis", "std"> {
     }];
 }
 
+def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "revolve"> {
+    let summary = "Represents a revolve basis generator";
+    let description = [{
+    Represents the revolve basis generator of the form 
+    foo // {bv1, bv2}.revolve, for use in synthesis of basis generator circuits
+    }];
+    let parameters = (ins "BasisAttr":$foo, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
+    let assemblyFormat = "$foo `:` `revolve` `{`$bv1` ``,`$bv2`}`";
+    let genVerifyDecl = 1;
+}
+
 def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
     let summary = "A basis vector for a basis literal";
     let description = [{
@@ -155,20 +166,25 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
 }
 
 def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
-    let summary = "Union of BuiltinBasisAttr and BasisVectorListAttr";
+    let summary = "Union of BuiltinBasisAttr, BasisVectorListAttr, and ApplyRevolveGeneratorAttr";
     let description = [{
         A basis element as defined in Section 2.2 of the CGO paper: either a
-        built-in basis (e.g., pm[5]) or a basis literal (e.g., {'0', '1'}).
+        built-in basis (e.g., pm[5]), a basis literal (e.g., {'0', '1'}),
+        or (not in CGO paper) a revolve construct (foo // {bv1, bv2}.revolve).
     }];
-    let parameters = (ins OptionalParameter<"BuiltinBasisAttr">:$std, OptionalParameter<"BasisVectorListAttr">:$veclist);
+    let parameters = (ins OptionalParameter<"BuiltinBasisAttr">:$std, OptionalParameter<"BasisVectorListAttr">:$veclist, OptionalParameter<"ApplyRevolveGeneratorAttr">:$revolve);
     let hasCustomAssemblyFormat = 1;
     let builders = [
         AttrBuilder<(ins "BuiltinBasisAttr":$std), [{
-            return $_get($_ctxt, std, nullptr);
+            return $_get($_ctxt, std, nullptr, nullptr);
         }]>,
         AttrBuilder<(ins "BasisVectorListAttr":$veclist), [{
-            return $_get($_ctxt, nullptr, veclist);
+            return $_get($_ctxt, nullptr, veclist, nullptr);
+        }]>,
+        AttrBuilder<(ins "ApplyRevolveGeneratorAttr":$revolve), [{
+            return $_get($_ctxt, nullptr, nullptr, revolve);
         }]>
+        // TODO: Update CAPI to include new builder (?)
     ];
     let extraClassDeclaration = [{
         uint64_t getDim() const;

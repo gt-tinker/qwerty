@@ -134,6 +134,12 @@ MlirAttribute mlirQwertyBasisElemAttrGetFromStd(
         unwrap(ctx), llvm::cast<qwerty::BuiltinBasisAttr>(unwrap(std))));
 }
 
+MlirAttribute mlirQwertyBasisElemAttrGetFromRevolve(
+        MlirContext ctx, MlirAttribute revolve) {
+    return wrap(qwerty::BasisElemAttr::get(
+        unwrap(ctx), llvm::cast<qwerty::ApplyRevolveGeneratorAttr>(unwrap(revolve))));
+}
+
 bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr) {
     return llvm::isa<qwerty::BasisElemAttr>(unwrap(attr));
 }

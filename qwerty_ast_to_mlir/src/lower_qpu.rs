@@ -506,13 +506,28 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                     (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
                 },
 
+                Basis::BasisLiteral { vecs, .. } => {
+                    // TODO: For the ApplyRevolveGeneratorAttribute, which we must create from
+                    // revolve
+                }
+
+                // TODO: Remove is_fourier, do codegen similar to SuperposAttr for
+                // ApplyRevolveGeneratorAttr
+                // No special casing!
+                // Check if the basis generator is the revolve generator
                 Basis::ApplyBasisGenerator { .. } if is_fourier(elem) => {
                     let dim = elem.get_dim().expect("valid fourier basis").try_into().unwrap();
                     let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Fourier, dim);
                     (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
                 }
 
-                Basis::ApplyBasisGenerator { .. } => todo!("nontrivial basis generator"),
+                Basis::ApplyBasisGenerator { basis, generator, .. } => {
+                    match generator {
+                        BasisGenerator::Revolve {v1, v2, ..} => {},
+                        _ => unreachable!("Currently no other basis generators!"),
+                    };
+                    todo!("nontrivial basis generator");
+                }
 
                 Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
             }
