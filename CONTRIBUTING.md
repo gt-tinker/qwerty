@@ -10,6 +10,8 @@ Questions
 If you have questions about the code, you can ask questions in this repository's [Github Issue](https://github.com/gt-tinker/qwerty/issues). 
 Please label your Github issue as a question so we know it is a question not a bug.
 
+For more detail on working with/around `qwerty_melior` and the MLIR backend, consult [CONTRIBUTING_MLIR.md](CONTRIBUTING_MLIR.md)
+
 Bugs/Issues
 -------------
 
