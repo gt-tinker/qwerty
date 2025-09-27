@@ -5,4 +5,5 @@ from .integration_tests import NoMetaIntegrationTests, \
                                MetaNoPreludeNoInferIntegrationTests, \
                                MetaNoInferIntegrationTests, \
                                MetaInferIntegrationTests, \
+                               ExampleIntegrationTests, \
                                QCE25FigureIntegrationTests

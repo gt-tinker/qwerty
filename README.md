@@ -8,21 +8,22 @@ or have issues, you can check out [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Documentation
 -------------
 
-The `dev/docs/` directory contains more documentation that does not fit in this
+The `docs/` directory contains more documentation that does not fit in this
 README:
 
-* [`dev/docs/project-structure.md`](dev/docs/project-structure.md): An overview
+* [`docs/project-structure.md`](docs/project-structure.md): An overview
   of the contents of this project (i.e., which files do what) and how the
   sections in the paper submission map to source files.
-* [`dev/docs/examples.md`](dev/docs/examples.md): A list of the example
-  programs found in the `examples/` directory in this directory.
-* [`dev/docs/testing.md`](dev/docs/testing.md): Details on our multi-faceted
-  testing framework.
-* [`dev/docs/debugging.md`](dev/docs/debugging.md): Guide for debugging the
-  Qwerty compiler when it misbehaves.
-* [`dev/docs/upgrading-llvm.md`](dev/docs/upgrading-llvm.md): Describes the
+* [`docs/examples.md`](docs/examples.md): A list of the example
+  programs found in the `examples/` directory.
+   **TODO: finish me**
+* [`docs/testing.md`](docs/testing.md): Details on our multi-faceted
+  testing framework. **TODO: recreate me**
+* [`docs/debugging.md`](docs/debugging.md): Guide for debugging the
+  Qwerty compiler when it misbehaves. **TODO: recreate me**
+* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
   semi-automated process for upgrading the version of LLVM used by the Qwerty
-  compiler.
+  compiler. **TODO: recreate me**
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
