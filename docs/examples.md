@@ -21,6 +21,8 @@ any example. The examples are the following:
   oracle is pretty trivial, currently looking for all 1s. Based on Section
   6.1 of Nielsen and Chuang. The (required) command line argument is the
   number of qubits.
+* `period.py`: A fun example of finding the period of a function based on
+  Section 5.4.1 of Nielsen and Chuang.
 
 [1]: https://en.wikipedia.org/wiki/Bell_state
 [2]: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state

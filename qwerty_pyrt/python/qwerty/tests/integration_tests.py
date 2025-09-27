@@ -491,6 +491,14 @@ class ExampleIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(answer, 0), 9*shots//10,
                            "Too few correct answers")
 
+    def test_period(self):
+        from .integ.examples import period
+        num_qubits = 7
+        mod = 16
+        attempts = 16
+        self.assertIn(mod, set(period.test(num_qubits, mod, attempts)),
+                      "Did not find correct period")
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
