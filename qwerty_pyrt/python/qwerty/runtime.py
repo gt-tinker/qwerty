@@ -165,10 +165,15 @@ class bit:
     def __len__(self):
         return self.n_bits
 
+    # This returns a bit in the classical DSL, so we do too
     def __eq__(self, other):
-        return isinstance(other, bit) \
-               and other._official_int() == self._official_int() \
-               and other.n_bits == self.n_bits
+        ret = isinstance(other, bit) \
+              and other._official_int() == self._official_int() \
+              and other.n_bits == self.n_bits
+        return bit(int(ret), 1)
+
+    def __ne__(self, other):
+        return ~(self == other)
 
     def __str__(self):
         return '{:0{n}b}'.format(self._official_int(), n=self.n_bits)

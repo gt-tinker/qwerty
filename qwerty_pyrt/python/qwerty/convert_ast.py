@@ -2223,6 +2223,45 @@ class ClassicalVisitor(BaseVisitor):
 
         return ClassicalExpr.new_slice(val, lower, upper, dbg)
 
+    def visit_Compare(self, cmp: ast.Compare):
+        """
+        Convert `a != b` and `a == b` into `(a ^ b).and_reduce()` or
+        `(~(a ^ b)).and_reduce()`, respectively.
+        """
+        dbg = self.get_debug_loc(cmp)
+
+        if (n_ops := len(cmp.ops)) != 1:
+            raise QwertySyntaxError('At most 1 comparison operators are '
+                                    f'supported, but found {n_ops}', dbg)
+
+        if (n_comparators := len(cmp.comparators)) != 1:
+            raise QwertySyntaxError('Only two values can be compared, but '
+                                    'found {n_comparators+1}', dbg)
+
+        left = cmp.left
+        op, = cmp.ops
+        right, = cmp.comparators
+
+        left_expr = self.visit(left)
+        right_expr = self.visit(right)
+        left_xor_right = ClassicalExpr.new_binary_op(BinaryOpKind.Xor,
+                                                     left_expr,
+                                                     right_expr, dbg)
+
+        if isinstance(op, ast.Eq):
+            # a = b  <-->  ~(a ^ b)
+            cmp_bits = ClassicalExpr.new_unary_op(UnaryOpKind.Not,
+                                                  left_xor_right, dbg)
+        elif isinstance(op, ast.NotEq):
+            # a != b  <-->  a ^ b
+            cmp_bits = left_xor_right
+        else:
+            op_name = type(op).__name__
+            raise QwertySyntaxError('Unknown comparison operator '
+                                    f'{op_name}', dbg)
+
+        return ClassicalExpr.new_reduce_op(BinaryOpKind.And, cmp_bits, dbg)
+
     def visit(self, node: ast.AST):
         if isinstance(node, ast.UnaryOp):
             return self.visit_UnaryOp(node)
@@ -2234,6 +2273,8 @@ class ClassicalVisitor(BaseVisitor):
         #    return self.visit_Tuple(node)
         elif isinstance(node, ast.Subscript):
             return self.visit_Subscript(node)
+        elif isinstance(node, ast.Compare):
+            return self.visit_Compare(node)
         else:
             return self.base_visit(node)
 

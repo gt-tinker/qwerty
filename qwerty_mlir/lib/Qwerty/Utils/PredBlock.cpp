@@ -290,7 +290,12 @@ mlir::Value rewriteWithSwaps(mlir::RewriterBase &rewriter,
     llvm::SmallVector<mlir::Value> qubits(unpacked);
     llvm::SmallVector<mlir::Value> pred_qubits(pred_unpack.getQubits());
 
-    for (auto [i, j] : swaps) {
+    for (std::pair<size_t, size_t> swap_indices : swaps) {
+        // Why not write `auto [i, j] : swaps` above? Because of this:
+        // https://stackoverflow.com/a/46115028/321301
+        size_t i = swap_indices.first;
+        size_t j = swap_indices.second;
+
         qcirc::Gate2QOp swap =
             rewriter.create<qcirc::Gate2QOp>(
                 loc, qcirc::Gate2Q::Swap,
