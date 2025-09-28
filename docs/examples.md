@@ -26,6 +26,13 @@ any example. The examples are the following:
 * `simon.py`: Simon's algorithm ([1][6], [2][7]), the first quantum algorithm
   to promise exponential speedup
   * `simon_postprocess.py`: Full [classical post-processing][8] for Simon's
+* `teleport.py`: Quantum teleportation, a procedure for transmitting a qubit by
+  consuming an entangled pair of qubits, as described in Section 1.3.7 of
+  Nielsen and Chuang
+* `abbrev/`: These are abbreviated examples originally from the QCE '25 paper
+  but intended to be shown the Qwerty website. Unlike examples in the parent
+  directory, these do not contain `argparse` command line argument handling,
+  for example.
 
 [1]: https://en.wikipedia.org/wiki/Bell_state
 [2]: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state

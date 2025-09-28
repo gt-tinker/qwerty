@@ -531,6 +531,14 @@ class ExampleIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_classical, actual_classical)
         self.assertEqual(expected_quantum, actual_quantum)
 
+    def test_teleport(self):
+        from .integ.examples import teleport
+        shots = 1024
+        expected_histos = ({bit[1](0b1): shots},
+                           {bit[1](0b0): shots})
+        actual_histos = teleport.test(shots)
+        self.assertEqual(expected_histos, actual_histos)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
