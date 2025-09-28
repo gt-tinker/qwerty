@@ -28,6 +28,7 @@ bool mlirAttributeIsAQwerty<your_attribute>(MlirAttribute attr) {
 }
 ```
 We use `qwerty_melior` as the interface between Rust and MLIR; earlier, we were creating C bindings for MLIR, and now Melior will use those to hook the MLIR up to Rust. Technically, there is a middle step but we don't need to worry about this for now.
+
 4. In `qwerty_melior` (not `qwerty_mlir`), find `qwerty_melior/melior/src/ir/attribute/attribute_like.rs` and in the `attribute_check_functions!` macro call, add your `mlirAttributeIsAQwerty<your_attribute>` to the list.
 5. In `qwerty_melior/melior/src/ir/dialect/qwerty.rs`, we now want to add the Rust structs and `impl`s that correspond to our C/MLIR functions. We do this as follows:
 ```rust
@@ -62,4 +63,5 @@ attribute_traits!(
 );
 ```
 Remember to follow the naming conventions of the `qwerty.rs` file, as they are different to `Qwerty.h/cpp` (Attr vs Attribute in Rust, for example)
+
 6. Smile, for if you run `maturin develop -vv`, the powers at be should smile upon ye.
