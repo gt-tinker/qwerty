@@ -32,6 +32,10 @@ any example. The examples are the following:
 * `superdense.py`: Superdense coding, a technique for transmitting two
   classical bits using one qubit, as described in Section 2.3 of Nielsen and
   Chuang
+* `qpe.py`: [Quantum phase estimation][9], a technique for estimating how
+  much a quantum function tilts a state. This a crucial ingredient for some
+  formulations of Shor's factoring algorihtm. Based on Section 5.2 of Nielsen
+  and Chuang.
 * `abbrev/`: These are abbreviated examples originally from the QCE '25 paper
   but intended to be shown the Qwerty website. Unlike examples in the parent
   directory, these do not contain `argparse` command line argument handling,
@@ -45,3 +49,4 @@ any example. The examples are the following:
 [6]: https://en.wikipedia.org/wiki/Simon%27s_problem
 [7]: https://www.cs.cmu.edu/~odonnell/quantum15/lecture06.pdf
 [8]: https://quantumcomputing.stackexchange.com/a/29407/13156
+[9]: https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm

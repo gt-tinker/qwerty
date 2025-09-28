@@ -549,6 +549,16 @@ class ExampleIntegrationTests(unittest.TestCase):
         actual_histos = list(superdense.test(shots))
         self.assertEqual(expected_histos, actual_histos)
 
+    def test_qpe(self):
+        from .integ.examples import qpe
+        shots = 1024
+        angle_deg = 292.5
+        prec = 4
+        actual_histo = qpe.test(angle_deg, prec, shots)
+        self.assertGreater(actual_histo.get(angle_deg, 0), shots*15//16,
+                           "Too few correct answers")
+        self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
