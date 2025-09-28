@@ -402,6 +402,13 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_result = repeat.test(shots)
         self.assertEqual(expected_result, actual_result)
 
+    def test_concat(self):
+        from .integ.meta import concat
+        shots = 1024
+        expected_result = (bit[5](0b010_01), {bit[10](0b010_01_010_01): shots})
+        actual_result = concat.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):
     """

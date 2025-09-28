@@ -413,6 +413,16 @@ class bit:
             result = result | (x << (i * self.n_bits))
         return bit(result, self.n_bits * amt)
 
+    def concat(self, other):
+        """
+        Concatenate this bit array with ``other``. For example,
+        ``bit[2](0b11).concat(bit[3](0b000)) == bit[5](0b11000)``.
+        """
+        left = self._official_int()
+        right = other._official_int()
+        result = left << other.n_bits | right
+        return bit(result, self.n_bits + other.n_bits)
+
 class cfrac:
     """
     A representation of a continued fraction (specifically a "simple continued

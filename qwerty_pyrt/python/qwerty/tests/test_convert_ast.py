@@ -717,3 +717,17 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_concat(self):
+        actual_qw_ast = self.convert_expr("""
+            x.concat(y)
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_y = self.dbg(1, 10)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_concat(
+                ClassicalExpr.new_variable("x", dbg_x),
+                ClassicalExpr.new_variable("y", dbg_y),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

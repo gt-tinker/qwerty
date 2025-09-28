@@ -196,7 +196,35 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::RotateOp(_) => todo!("@classical rotate op"),
 
-        classical::Expr::Concat(_) => todo!("@classical concat op"),
+        classical::Expr::Concat(concat @ classical::Concat { left, right, dbg }) => {
+            let (left_ty, left_compute_kind, left_vals) =
+                ast_classical_expr_to_mlir(&**left, ctx, block);
+            assert_eq!(left_vals.len(), 1, "wire should have 1 mlir value");
+            let left_val = left_vals[0];
+
+            let (right_ty, right_compute_kind, right_vals) =
+                ast_classical_expr_to_mlir(&**right, ctx, block);
+            assert_eq!(right_vals.len(), 1, "wire should have 1 mlir value");
+            let right_val = right_vals[0];
+
+            let (ty, compute_kind) = concat
+                .calc_type(
+                    &(left_ty, left_compute_kind),
+                    &(right_ty, right_compute_kind),
+                )
+                .expect("Concat to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let wires_to_pack = vec![left_val, right_val];
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::wirepack(&wires_to_pack, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::Repeat(repeat @ classical::Repeat { val, amt, dbg }) => {
             let (val_ty, val_compute_kind, val_vals) =

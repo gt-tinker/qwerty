@@ -198,7 +198,7 @@ impl fmt::Display for Expr {
                 write!(f, "{}({}, {})", kind_str, *val, *amt)
             }
             Expr::Concat(Concat { left, right, .. }) => {
-                write!(f, "({}) ++ ({})", *left, *right)
+                write!(f, "({}).concat({})", *left, *right)
             }
             Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}).repeat({})", *val, amt),
             Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {

@@ -171,6 +171,20 @@ impl MetaExpr {
                 ))
             }
 
+            MetaExpr::Concat { left, right, dbg } => {
+                let (expanded_left, left_prog) = left.expand(env)?;
+                let (expanded_right, right_prog) = right.expand(env)?;
+                let progress = left_prog.join(right_prog);
+                Ok((
+                    MetaExpr::Concat {
+                        left: Box::new(expanded_left),
+                        right: Box::new(expanded_right),
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                ))
+            }
+
             MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 n_bits.expand(env).map(|(expanded_n_bits, n_bits_prog)| {
                     (

@@ -1396,6 +1396,57 @@ impl ExprConstrainable for classical::MetaExpr {
                 }
             }
 
+            classical::MetaExpr::Concat { left, right, dbg } => {
+                let left_ty =
+                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let right_ty = right.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+
+                match (left_ty, right_ty) {
+                    (
+                        InferType::RegType {
+                            elem_ty: RegKind::Bit,
+                            dim: left_dim,
+                        },
+                        InferType::RegType {
+                            elem_ty: RegKind::Bit,
+                            dim: right_dim,
+                        },
+                    ) => Ok(InferType::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: DimExpr::DimSum {
+                            left: Box::new(left_dim),
+                            right: Box::new(right_dim),
+                            dbg: dbg.clone(),
+                        },
+                    }),
+
+                    // TODO: do the following:
+                    //       1. alloc a new dv N
+                    //       2. set a type constraint that left_ty=bit[N]
+                    //       3. alloc a new dv M
+                    //       4. set a type constraint that right_ty=bit[M]
+                    //       5. return bit[M+N]
+                    (InferType::TypeVar { .. }, InferType::TypeVar { .. }) => {
+                        Ok(tv_allocator.alloc_type_var())
+                    }
+
+                    (wrong_left_ty, wrong_right_ty) => Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::InvalidType(format!(
+                                "Can only concate bit[N] with bit[M], but found {} and {}",
+                                wrong_left_ty, wrong_right_ty
+                            )),
+                        },
+                        dbg: dbg.clone(),
+                    }),
+                }
+            }
+
             classical::MetaExpr::BitLiteral { n_bits, .. } => {
                 let ty = InferType::RegType {
                     elem_ty: RegKind::Bit,

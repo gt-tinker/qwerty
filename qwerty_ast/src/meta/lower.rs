@@ -149,6 +149,12 @@ impl classical::MetaExpr {
                 dbg: dbg.clone(),
             },
 
+            classical::MetaExpr::Concat { left, right, dbg } => classical::MetaExpr::Concat {
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                dbg: dbg.clone(),
+            },
+
             classical::MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 classical::MetaExpr::BitLiteral {
                     val: val.clone(),

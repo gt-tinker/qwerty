@@ -103,6 +103,16 @@ pub enum MetaExpr {
         amt: DimExpr,
         dbg: Option<DebugLoc>,
     },
+
+    /// Concatenate two bit registers. Example syntax:
+    /// ```text
+    /// x.repeat(y)
+    /// ```
+    Concat {
+        left: Box<MetaExpr>,
+        right: Box<MetaExpr>,
+        dbg: Option<DebugLoc>,
+    },
 }
 
 impl MetaExpr {
@@ -117,7 +127,8 @@ impl MetaExpr {
             | MetaExpr::ReduceOp { dbg, .. }
             | MetaExpr::ModMul { dbg, .. }
             | MetaExpr::BitLiteral { dbg, .. }
-            | MetaExpr::Repeat { dbg, .. } => dbg.clone(),
+            | MetaExpr::Repeat { dbg, .. }
+            | MetaExpr::Concat { dbg, .. } => dbg.clone(),
         }
     }
 
@@ -217,6 +228,15 @@ impl MetaExpr {
                     })
                 })
             }),
+            MetaExpr::Concat { left, right, dbg } => left.extract().and_then(|ast_left| {
+                right.extract().map(|ast_right| {
+                    ast::classical::Expr::Concat(ast::classical::Concat {
+                        left: Box::new(ast_left),
+                        right: Box::new(ast_right),
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
         }
     }
 }
@@ -261,6 +281,9 @@ impl fmt::Display for MetaExpr {
             }
             MetaExpr::Repeat { val, amt, .. } => {
                 write!(f, "({}).repeat({})", val, amt)
+            }
+            MetaExpr::Concat { left, right, .. } => {
+                write!(f, "({}).concat({})", left, right)
             }
             MetaExpr::BitLiteral { val, n_bits, .. } => {
                 write!(f, "bit[{}](0b{:b})", n_bits, val)

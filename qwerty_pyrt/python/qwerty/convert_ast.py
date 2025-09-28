@@ -2105,7 +2105,7 @@ class ClassicalVisitor(BaseVisitor):
             divisor = self.extract_dimvar_expr(binOp.right)
 
             return ClassicalExpr.new_mod(dividend, divisor, dbg)
-#
+
     def visit_Call(self, call: ast.Call):
         """
         Convert a Python call expression into either a ``BitLiteral`` Qwerty
@@ -2133,8 +2133,12 @@ class ClassicalVisitor(BaseVisitor):
             reduce_pseudo_funcs = {'xor_reduce': BinaryOpKind.Xor,
                                    'and_reduce': BinaryOpKind.And,
                                    'or_reduce': BinaryOpKind.Or}
-            #binary_pseudo_funcs = {'rotr': BIT_ROTR,
-            #                       'rotl': BIT_ROTL}
+            binary_pseudo_funcs = {'repeat': ('the amount of times to repeat',
+                                              self.extract_dimvar_expr,
+                                              ClassicalExpr.new_repeat),
+                                   'concat': ('the other value to concatenate',
+                                              self.visit,
+                                              ClassicalExpr.new_concat)}
             if func_name in reduce_pseudo_funcs:
                 if call.args or call.keywords:
                     raise QwertySyntaxError('Arguments cannot be passed to a '
@@ -2144,24 +2148,9 @@ class ClassicalVisitor(BaseVisitor):
                 kind = reduce_pseudo_funcs[func_name]
                 val = self.visit(operand)
                 return ClassicalExpr.new_reduce_op(kind, val, dbg)
-            #elif func_name in binary_pseudo_funcs:
-            #    if call.keywords:
-            #        raise QwertySyntaxError('Keywords arguments not '
-            #                                'supported to {}()'
-            #                                .format(func_name),
-            #                                self.get_debug_loc(call))
-            #    if len(call.args) != 1:
-            #        raise QwertySyntaxError('{}() expects one positional '
-            #                                'argument: the rotation amount'
-            #                                .format(func_name),
-            #                                self.get_debug_loc(call))
-            #    val = self.visit(operand)
-            #    amount_node = call.args[0]
-            #    amount = self.visit(amount_node)
-            #    dbg = self.get_debug_loc(call)
-            #    return BitBinaryOp(dbg, binary_pseudo_funcs[func_name], val,
-            #                       amount)
-            elif func_name == 'repeat':
+            elif func_name in binary_pseudo_funcs:
+                arg_help, extract_arg_func, build_node_func = \
+                    binary_pseudo_funcs[func_name]
                 dbg = self.get_debug_loc(call)
 
                 if call.keywords:
@@ -2169,13 +2158,12 @@ class ClassicalVisitor(BaseVisitor):
                                             'supported to .{}()'
                                             .format(func_name), dbg)
                 if len(call.args) != 1:
-                    raise QwertySyntaxError('{}() expects one argument: the '
-                                            'amount of times to repeat'
-                                            .format(func_name), dbg)
-                val = self.visit(operand)
-                amount_node = call.args[0]
-                amount = self.extract_dimvar_expr(amount_node)
-                return ClassicalExpr.new_repeat(val, amount, dbg)
+                    raise QwertySyntaxError('{}() expects one argument: {}'
+                                            .format(func_name, arg_help), dbg)
+                extracted_operand = self.visit(operand)
+                arg, = call.args
+                extracted_arg = extract_arg_func(arg)
+                return build_node_func(extracted_operand, extracted_arg, dbg)
             else:
                 raise QwertySyntaxError('Unknown pseudo-function {}'
                                         .format(func_name),
