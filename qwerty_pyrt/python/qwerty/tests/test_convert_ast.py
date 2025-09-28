@@ -11,7 +11,8 @@ from qwerty.convert_ast import convert_qpu_repl_input, \
                                CapturedBitReg
 from qwerty._qwerty_pyrt import QpuExpr, ClassicalExpr, UnaryOpKind, \
                                 BinaryOpKind, DebugLoc, Basis, Vector, \
-                                QpuStmt, ClassicalStmt, EmbedKind, FloatExpr
+                                QpuStmt, ClassicalStmt, EmbedKind, FloatExpr, \
+                                DimExpr
 
 class SingleVarCapturer(Capturer):
     def __init__(self, name: str, captured: CapturedValue):
@@ -699,6 +700,20 @@ class ConvertAstClassicalTests(unittest.TestCase):
                         ClassicalExpr.new_variable("y", dbg_y),
                         dbg_x),
                     dbg_x),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_repeat(self):
+        actual_qw_ast = self.convert_expr("""
+            x.repeat(3)
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_N = self.dbg(1, 10)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_repeat(
+                ClassicalExpr.new_variable("x", dbg_x),
+                DimExpr.new_const(3, dbg_N),
                 dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)

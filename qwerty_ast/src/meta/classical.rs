@@ -93,6 +93,16 @@ pub enum MetaExpr {
         n_bits: DimExpr,
         dbg: Option<DebugLoc>,
     },
+
+    /// Repeat a bit. Example syntax:
+    /// ```text
+    /// val.repeat(amt)
+    /// ```
+    Repeat {
+        val: Box<MetaExpr>,
+        amt: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
 }
 
 impl MetaExpr {
@@ -106,7 +116,8 @@ impl MetaExpr {
             | MetaExpr::BinaryOp { dbg, .. }
             | MetaExpr::ReduceOp { dbg, .. }
             | MetaExpr::ModMul { dbg, .. }
-            | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
+            | MetaExpr::BitLiteral { dbg, .. }
+            | MetaExpr::Repeat { dbg, .. } => dbg.clone(),
         }
     }
 
@@ -197,6 +208,15 @@ impl MetaExpr {
                     dbg: dbg.clone(),
                 })
             }),
+            MetaExpr::Repeat { val, amt, dbg } => val.extract().and_then(|ast_val| {
+                amt.extract().map(|amount_int| {
+                    ast::classical::Expr::Repeat(ast::classical::Repeat {
+                        val: Box::new(ast_val),
+                        amt: amount_int,
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
         }
     }
 }
@@ -238,6 +258,9 @@ impl fmt::Display for MetaExpr {
             }
             MetaExpr::ModMul { x, j, y, mod_n, .. } => {
                 write!(f, "({})**2**({}) * ({}) % ({})", x, j, y, mod_n)
+            }
+            MetaExpr::Repeat { val, amt, .. } => {
+                write!(f, "({}).repeat({})", val, amt)
             }
             MetaExpr::BitLiteral { val, n_bits, .. } => {
                 write!(f, "bit[{}](0b{:b})", n_bits, val)

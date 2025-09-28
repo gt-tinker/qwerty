@@ -157,6 +157,20 @@ impl MetaExpr {
                 ))
             }
 
+            MetaExpr::Repeat { val, amt, dbg } => {
+                let (expanded_val, val_prog) = val.expand(env)?;
+                let (expanded_amt, amt_prog) = amt.expand(env)?;
+                let progress = val_prog.join(amt_prog);
+                Ok((
+                    MetaExpr::Repeat {
+                        val: Box::new(expanded_val),
+                        amt: expanded_amt,
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                ))
+            }
+
             MetaExpr::BitLiteral { val, n_bits, dbg } => {
                 n_bits.expand(env).map(|(expanded_n_bits, n_bits_prog)| {
                     (

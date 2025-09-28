@@ -2161,23 +2161,21 @@ class ClassicalVisitor(BaseVisitor):
             #    dbg = self.get_debug_loc(call)
             #    return BitBinaryOp(dbg, binary_pseudo_funcs[func_name], val,
             #                       amount)
-            #elif func_name == 'repeat':
-            #    if call.keywords:
-            #        raise QwertySyntaxError('Keywords arguments not '
-            #                                'supported to {}()'
-            #                                .format(func_name),
-            #                                self.get_debug_loc(call))
-            #    if len(call.args) != 1:
-            #        raise QwertySyntaxError('{}() expects one positional '
-            #                                'argument: the amount of times to '
-            #                                'repeat'
-            #                                .format(func_name),
-            #                                self.get_debug_loc(call))
-            #    bits = self.visit(operand)
-            #    amount_node = call.args[0]
-            #    amount = self.extract_dimvar_expr(amount_node)
-            #    dbg = self.get_debug_loc(call)
-            #    return BitRepeat(dbg, bits, amount)
+            elif func_name == 'repeat':
+                dbg = self.get_debug_loc(call)
+
+                if call.keywords:
+                    raise QwertySyntaxError('Keywords arguments not '
+                                            'supported to .{}()'
+                                            .format(func_name), dbg)
+                if len(call.args) != 1:
+                    raise QwertySyntaxError('{}() expects one argument: the '
+                                            'amount of times to repeat'
+                                            .format(func_name), dbg)
+                val = self.visit(operand)
+                amount_node = call.args[0]
+                amount = self.extract_dimvar_expr(amount_node)
+                return ClassicalExpr.new_repeat(val, amount, dbg)
             else:
                 raise QwertySyntaxError('Unknown pseudo-function {}'
                                         .format(func_name),

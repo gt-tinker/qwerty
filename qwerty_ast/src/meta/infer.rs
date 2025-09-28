@@ -1274,8 +1274,9 @@ impl ExprConstrainable for classical::MetaExpr {
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
         match self {
-            // TODO: implement this
-            classical::MetaExpr::Mod { .. } => Ok(tv_allocator.alloc_type_var()),
+            classical::MetaExpr::Mod { dividend, .. } => {
+                dividend.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
+            }
 
             classical::MetaExpr::Variable { name, dbg } => {
                 if let Some(ty) = env.get_type(name) {
@@ -1360,6 +1361,39 @@ impl ExprConstrainable for classical::MetaExpr {
                 let y_ty =
                     y.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
                 Ok(y_ty)
+            }
+
+            classical::MetaExpr::Repeat { val, amt, dbg } => {
+                let val_ty =
+                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+
+                match val_ty {
+                    InferType::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim,
+                    } => Ok(InferType::RegType {
+                        elem_ty: RegKind::Bit,
+                        dim: DimExpr::DimProd {
+                            left: Box::new(dim),
+                            right: Box::new(amt.clone()),
+                            dbg: dbg.clone(),
+                        },
+                    }),
+
+                    // TODO: alloc a new dv N, set a type constraint that
+                    //       val_ty=bit[N], and then return bit[N*amt]
+                    InferType::TypeVar { .. } => Ok(tv_allocator.alloc_type_var()),
+
+                    wrong_ty => Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::InvalidType(format!(
+                                "Can only repeat bit[N], found: {}",
+                                wrong_ty
+                            )),
+                        },
+                        dbg: dbg.clone(),
+                    }),
+                }
             }
 
             classical::MetaExpr::BitLiteral { n_bits, .. } => {

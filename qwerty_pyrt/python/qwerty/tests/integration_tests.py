@@ -395,6 +395,13 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_histos = qft.test(shots)
         self.assertEqual(expected_histos, actual_histos)
 
+    def test_repeat(self):
+        from .integ.meta import repeat
+        shots = 1024
+        expected_result = (bit[4](0b1111), {bit[5](0b11111): shots})
+        actual_result = repeat.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):
     """

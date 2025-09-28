@@ -195,6 +195,22 @@ impl ClassicalExpr {
         }
     }
 
+    #[classmethod]
+    fn new_repeat(
+        _cls: &Bound<'_, PyType>,
+        val: ClassicalExpr,
+        amt: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::Repeat {
+                val: Box::new(val.expr),
+                amt: amt.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
     /// Return the Debug form of this Expr from __repr__(). By contrast,
     /// __str__() returns the Display form.
     pub fn __repr__(&self) -> String {

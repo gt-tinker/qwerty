@@ -20,6 +20,7 @@ use qwerty_ast::{
     },
     typecheck::{ComputeKind, FuncsAvailable},
 };
+use std::iter;
 
 impl Lowerable for classical::Expr {
     fn lower_to_mlir(
@@ -197,7 +198,27 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::Concat(_) => todo!("@classical concat op"),
 
-        classical::Expr::Repeat(_) => todo!("@classical repeat op"),
+        classical::Expr::Repeat(repeat @ classical::Repeat { val, amt, dbg }) => {
+            let (val_ty, val_compute_kind, val_vals) =
+                ast_classical_expr_to_mlir(&**val, ctx, block);
+            assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
+            let val_val = val_vals[0];
+
+            let (ty, compute_kind) = repeat
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("Repeat to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let wires_to_pack: Vec<_> = iter::repeat(val_val).take(*amt).collect();
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::wirepack(&wires_to_pack, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::ModMul(
             modmul @ ModMul {
