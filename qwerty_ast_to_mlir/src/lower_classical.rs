@@ -15,7 +15,7 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, BitLiteral, FunctionDef, Variable,
+        self, BitLiteral, FunctionDef, RegKind, Type, Variable,
         classical::{self, BinaryOp, BinaryOpKind, ModMul, ReduceOp, Slice, UnaryOp, UnaryOpKind},
     },
     typecheck::{ComputeKind, FuncsAvailable},
@@ -81,7 +81,7 @@ fn ast_classical_expr_to_mlir(
             slice @ Slice {
                 val,
                 lower,
-                upper,
+                upper: upper_opt,
                 dbg,
             },
         ) => {
@@ -90,18 +90,30 @@ fn ast_classical_expr_to_mlir(
             assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
             let val_val = val_vals[0];
 
+            let upper = upper_opt.clone().unwrap_or_else(|| {
+                if let Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } = &val_ty
+                {
+                    *dim
+                } else {
+                    unreachable!("Type checking should catch slicing on non-bits")
+                }
+            });
+
             let (ty, compute_kind) = slice
                 .calc_type(&(val_ty, val_compute_kind))
                 .expect("Slice to pass type checking");
             let loc = dbg_to_loc(dbg.clone());
 
-            assert!(*upper >= *lower);
+            assert!(upper >= *lower);
             let sliced_vals: Vec<_> = block
                 .append_operation(ccirc::wireunpack(val_val, loc))
                 .results()
                 .map(OperationResult::into)
                 .skip(*lower)
-                .take(*upper - *lower)
+                .take(upper - *lower)
                 .collect();
             let mlir_vals = vec![
                 block

@@ -2168,20 +2168,6 @@ class ClassicalVisitor(BaseVisitor):
                 raise QwertySyntaxError('Unknown pseudo-function {}'
                                         .format(func_name),
                                         self.get_debug_loc(call))
-#
-#    def visit_Tuple(self, tup: ast.Tuple):
-#        """
-#        Convert a Python tuple literal to a nest of Qwerty ``BitConcat`` AST
-#        nodes.
-#        """
-#        if not tup.elts:
-#            raise QwertySyntaxError('Empty tuple not supported',
-#                                    self.get_debug_loc(tup))
-#        cur = self.visit(tup.elts[0])
-#        for elt in tup.elts[1:]:
-#            dbg = self.get_debug_loc(tup)
-#            cur = BitConcat(dbg, cur, self.visit(elt))
-#        return cur
 
     def visit_Subscript(self, sub: ast.Subscript):
         """
@@ -2194,12 +2180,12 @@ class ClassicalVisitor(BaseVisitor):
                 raise QwertySyntaxError('[:::] syntax not supported', dbg)
 
             if sub.slice.lower is None:
-                raise QwertySyntaxError('Start index of slice required', dbg)
+                lower = DimExpr.new_const(0, dbg)
             else:
                 lower = self.extract_dimvar_expr(sub.slice.lower)
 
             if sub.slice.upper is None:
-                raise QwertySyntaxError('End index of slice required', dbg)
+                upper = None
             else:
                 upper = self.extract_dimvar_expr(sub.slice.upper)
         else:

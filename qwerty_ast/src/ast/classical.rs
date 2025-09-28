@@ -32,7 +32,7 @@ pub enum RotateOpKind {
 pub struct Slice {
     pub val: Box<Expr>,
     pub lower: usize,
-    pub upper: usize,
+    pub upper: Option<usize>,
     pub dbg: Option<DebugLoc>,
 }
 
@@ -165,7 +165,13 @@ impl fmt::Display for Expr {
             Expr::Variable(var) => write!(f, "{}", var),
             Expr::Slice(Slice {
                 val, lower, upper, ..
-            }) => write!(f, "{}[{}..{}]", *val, lower, upper),
+            }) => {
+                write!(f, "{}[{}:", *val, lower)?;
+                if let Some(upper_val) = upper {
+                    write!(f, "{}", upper_val)?;
+                }
+                write!(f, "]")
+            }
             Expr::UnaryOp(UnaryOp { kind, val, .. }) => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",

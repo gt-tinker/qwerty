@@ -731,3 +731,67 @@ class ConvertAstClassicalTests(unittest.TestCase):
                 dbg_x))
 
         self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_slice_index(self):
+        actual_qw_ast = self.convert_expr("""
+            x[2]
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_2 = self.dbg(1, 3)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_slice(
+                ClassicalExpr.new_variable("x", dbg_x),
+                DimExpr.new_const(2, dbg_2),
+                DimExpr.new_sum(
+                    DimExpr.new_const(2, dbg_2),
+                    DimExpr.new_const(1, dbg_x),
+                    dbg_x),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_slice_slice(self):
+        actual_qw_ast = self.convert_expr("""
+            x[2:4]
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_2 = self.dbg(1, 3)
+        dbg_4 = self.dbg(1, 5)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_slice(
+                ClassicalExpr.new_variable("x", dbg_x),
+                DimExpr.new_const(2, dbg_2),
+                DimExpr.new_const(4, dbg_4),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_slice_omit_start(self):
+        actual_qw_ast = self.convert_expr("""
+            x[:4]
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_4 = self.dbg(1, 4)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_slice(
+                ClassicalExpr.new_variable("x", dbg_x),
+                DimExpr.new_const(0, dbg_x),
+                DimExpr.new_const(4, dbg_4),
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)
+
+    def test_slice_omit_end(self):
+        actual_qw_ast = self.convert_expr("""
+            x[4:]
+        """)
+        dbg_x = self.dbg(1, 1)
+        dbg_4 = self.dbg(1, 3)
+        expected_qw_ast = ClassicalStmt.new_expr(
+            ClassicalExpr.new_slice(
+                ClassicalExpr.new_variable("x", dbg_x),
+                DimExpr.new_const(4, dbg_4),
+                None,
+                dbg_x))
+
+        self.assertEqual(actual_qw_ast, expected_qw_ast)

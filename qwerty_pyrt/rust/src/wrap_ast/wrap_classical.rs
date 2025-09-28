@@ -92,14 +92,14 @@ impl ClassicalExpr {
         _cls: &Bound<'_, PyType>,
         val: ClassicalExpr,
         lower: DimExpr,
-        upper: DimExpr,
+        upper: Option<DimExpr>,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
             expr: meta::classical::MetaExpr::Slice {
                 val: Box::new(val.expr),
                 lower: lower.dim_expr,
-                upper: upper.dim_expr,
+                upper: upper.map(|upper_dim_expr| upper_dim_expr.dim_expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }

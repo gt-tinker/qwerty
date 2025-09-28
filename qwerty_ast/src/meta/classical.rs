@@ -37,7 +37,7 @@ pub enum MetaExpr {
     Slice {
         val: Box<MetaExpr>,
         lower: DimExpr,
-        upper: DimExpr,
+        upper: Option<DimExpr>,
         dbg: Option<DebugLoc>,
     },
 
@@ -152,14 +152,18 @@ impl MetaExpr {
                 dbg,
             } => val.extract().and_then(|ast_val| {
                 lower.extract().and_then(|lower_int| {
-                    upper.extract().map(|upper_int| {
-                        ast::classical::Expr::Slice(ast::classical::Slice {
-                            val: Box::new(ast_val),
-                            lower: lower_int,
-                            upper: upper_int,
-                            dbg: dbg.clone(),
+                    upper
+                        .as_ref()
+                        .map(DimExpr::extract)
+                        .transpose()
+                        .map(|upper_int_opt| {
+                            ast::classical::Expr::Slice(ast::classical::Slice {
+                                val: Box::new(ast_val),
+                                lower: lower_int,
+                                upper: upper_int_opt,
+                                dbg: dbg.clone(),
+                            })
                         })
-                    })
                 })
             }),
             MetaExpr::UnaryOp { kind, val, dbg } => val.extract().map(|ast_val| {
@@ -251,7 +255,13 @@ impl fmt::Display for MetaExpr {
             MetaExpr::Variable { name, .. } => write!(f, "{}", name),
             MetaExpr::Slice {
                 val, lower, upper, ..
-            } => write!(f, "({})[{}:{}]", val, lower, upper),
+            } => {
+                write!(f, "({})[{}:", val, lower)?;
+                if let Some(upper_dimexpr) = upper {
+                    write!(f, "{}", upper_dimexpr)?;
+                }
+                write!(f, "]")
+            }
             MetaExpr::UnaryOp { kind, val, .. } => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",

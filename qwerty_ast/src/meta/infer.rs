@@ -1294,31 +1294,72 @@ impl ExprConstrainable for classical::MetaExpr {
             classical::MetaExpr::Slice {
                 val,
                 lower,
-                upper,
+                upper: upper_opt,
                 dbg,
             } => {
-                let _val_ty =
+                let val_ty =
                     val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
 
-                // TODO: add a type constraint that this is bit[N] for a new dv N
-
-                let ty = if let (
-                    DimExpr::DimConst { val: lower_val, .. },
-                    DimExpr::DimConst { val: upper_val, .. },
-                ) = (lower, upper)
-                    && upper_val >= lower_val
+                let dim_val_opt = if let InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } = &val_ty
                 {
-                    InferType::RegType {
-                        elem_ty: RegKind::Bit,
-                        dim: DimExpr::DimConst {
-                            val: upper_val - lower_val,
-                            dbg: dbg.clone(),
+                    Ok(if let DimExpr::DimConst { val, .. } = dim {
+                        Some(val)
+                    } else {
+                        None
+                    })
+                } else {
+                    Err(LowerError {
+                        kind: LowerErrorKind::TypeError {
+                            kind: TypeErrorKind::InvalidType(format!(
+                                "slicing requires bit register, found {}",
+                                val_ty
+                            )),
                         },
+                        dbg: dbg.clone(),
+                    })
+                }?;
+
+                let upper_val_opt = if let Some(upper) = upper_opt.as_ref() {
+                    if let DimExpr::DimConst { val, .. } = upper {
+                        Some(val)
+                    } else {
+                        None
                     }
                 } else {
-                    tv_allocator.alloc_type_var()
+                    dim_val_opt
                 };
-                Ok(ty)
+
+                if let (DimExpr::DimConst { val: lower_val, .. }, Some(upper_val)) =
+                    (lower, upper_val_opt)
+                {
+                    if lower_val < upper_val {
+                        Ok(InferType::RegType {
+                            elem_ty: RegKind::Bit,
+                            dim: DimExpr::DimConst {
+                                val: upper_val - lower_val,
+                                dbg: dbg.clone(),
+                            },
+                        })
+                    } else {
+                        Err(LowerError {
+                            kind: LowerErrorKind::TypeError {
+                                kind: TypeErrorKind::InvalidOperation {
+                                    op: format!("[{}:{}]", lower_val, upper_val),
+                                    ty: format!(
+                                        "slice lower bound larger than upper bound: {} >= {}",
+                                        lower_val, upper_val
+                                    ),
+                                },
+                            },
+                            dbg: dbg.clone(),
+                        })
+                    }
+                } else {
+                    Ok(tv_allocator.alloc_type_var())
+                }
             }
 
             classical::MetaExpr::UnaryOp { val, .. } => {

@@ -96,12 +96,14 @@ impl classical::MetaExpr {
             classical::MetaExpr::Slice {
                 val,
                 lower,
-                upper,
+                upper: upper_opt,
                 dbg,
             } => classical::MetaExpr::Slice {
                 val: Box::new(val.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
                 lower: lower.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
-                upper: upper.substitute_dim_var(dim_var, new_dim_expr),
+                upper: upper_opt
+                    .as_ref()
+                    .map(|upper| upper.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
