@@ -105,7 +105,7 @@ To generate the Python extension, run the following:
     $ python3 -m venv venv
     $ . venv/bin/activate
     $ cd qwerty_pyrt
-    $ pip install maturin
+    $ pip install maturin numpy
     $ maturin develop
 
 This will (re)build _everything_. Passing `-vv` to `maturin develop` can give

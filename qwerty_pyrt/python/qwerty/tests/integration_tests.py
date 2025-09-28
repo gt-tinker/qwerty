@@ -521,6 +521,16 @@ class ExampleIntegrationTests(unittest.TestCase):
         self.assertIn(mod, set(period.test(num_qubits, mod, attempts)),
                       "Did not find correct period")
 
+    def test_simon(self):
+        from .integ.examples import simon
+        num_qubits = 8
+        secret_str = bit[8](~(-1 << (num_qubits >> 1)))
+        expected_classical, expected_quantum = secret_str, secret_str
+        actual_classical, actual_quantum = simon.test(num_qubits,
+                                                      num_attempts=16)
+        self.assertEqual(expected_classical, actual_classical)
+        self.assertEqual(expected_quantum, actual_quantum)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""

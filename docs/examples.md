@@ -23,9 +23,15 @@ any example. The examples are the following:
   number of qubits.
 * `period.py`: A fun example of finding the period of a function based on
   Section 5.4.1 of Nielsen and Chuang.
+* `simon.py`: Simon's algorithm ([1][6], [2][7]), the first quantum algorithm
+  to promise exponential speedup
+  * `simon_postprocess.py`: Full [classical post-processing][8] for Simon's
 
 [1]: https://en.wikipedia.org/wiki/Bell_state
 [2]: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state
 [3]: https://en.wikipedia.org/wiki/Deutsch%E2%80%93Jozsa_algorithm
 [4]: https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm
 [5]: https://en.wikipedia.org/wiki/Grover%27s_algorithm
+[6]: https://en.wikipedia.org/wiki/Simon%27s_problem
+[7]: https://www.cs.cmu.edu/~odonnell/quantum15/lecture06.pdf
+[8]: https://quantumcomputing.stackexchange.com/a/29407/13156
