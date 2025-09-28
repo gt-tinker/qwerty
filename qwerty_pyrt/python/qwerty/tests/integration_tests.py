@@ -539,6 +539,16 @@ class ExampleIntegrationTests(unittest.TestCase):
         actual_histos = teleport.test(shots)
         self.assertEqual(expected_histos, actual_histos)
 
+    def test_superdense(self):
+        from .integ.examples import superdense
+        shots = 1024
+        expected_histos = [{bit[2](0b00): shots},
+                           {bit[2](0b01): shots},
+                           {bit[2](0b10): shots},
+                           {bit[2](0b11): shots}]
+        actual_histos = list(superdense.test(shots))
+        self.assertEqual(expected_histos, actual_histos)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""

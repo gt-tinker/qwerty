@@ -29,6 +29,9 @@ any example. The examples are the following:
 * `teleport.py`: Quantum teleportation, a procedure for transmitting a qubit by
   consuming an entangled pair of qubits, as described in Section 1.3.7 of
   Nielsen and Chuang
+* `superdense.py`: Superdense coding, a technique for transmitting two
+  classical bits using one qubit, as described in Section 2.3 of Nielsen and
+  Chuang
 * `abbrev/`: These are abbreviated examples originally from the QCE '25 paper
   but intended to be shown the Qwerty website. Unlike examples in the parent
   directory, these do not contain `argparse` command line argument handling,
