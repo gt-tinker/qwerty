@@ -2356,8 +2356,7 @@ fn factor_basis(small: &Basis, small_dim: usize, big: &Basis, big_dim: usize) ->
                 vecs: remainder_vecs,
                 dbg: dbg.clone(),
             };
-            let canon_remainder = remainder.canonicalize();
-            Some(canon_remainder)
+            Some(remainder)
         } else {
             // TODO: support many more cases
             None
@@ -2398,7 +2397,8 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
                         } else if be1_dim < be2_dim {
                             match factor_basis(&be1, be1_dim, &be2, be2_dim) {
                                 Some(remainder) => {
-                                    b2_stack.push(remainder);
+                                    let mut rem_stack = remainder.canonicalize().to_stack();
+                                    b2_stack.append(&mut rem_stack);
                                 }
                                 None => {
                                     // Couldn't factor
@@ -2409,7 +2409,8 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
                             // be1_dim > be2_dim
                             match factor_basis(&be2, be2_dim, &be1, be1_dim) {
                                 Some(remainder) => {
-                                    b1_stack.push(remainder);
+                                    let mut rem_stack = remainder.canonicalize().to_stack();
+                                    b1_stack.append(&mut rem_stack);
                                 }
                                 None => {
                                     // Couldn't factor

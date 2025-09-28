@@ -433,6 +433,14 @@ class MetaInferIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_histo, actual_histo_normal)
         self.assertEqual(expected_histo, actual_histo_gen_ast)
 
+    def test_qft(self):
+        from .integ.meta import qft
+        shots = 1024
+        expected_histos = ({bit[3](0b000): shots},
+                           {bit[3](0b000): shots})
+        actual_histos = qft.test(shots)
+        self.assertEqual(expected_histos, actual_histos)
+
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):
     """The figures from the QCE '25 paper as integration tests."""
