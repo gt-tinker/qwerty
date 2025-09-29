@@ -16,14 +16,6 @@ README:
   sections in the paper submission map to source files.
 * [`docs/examples.md`](docs/examples.md): A list of the example
   programs found in the `examples/` directory.
-   **TODO: finish me**
-* [`docs/testing.md`](docs/testing.md): Details on our multi-faceted
-  testing framework. **TODO: recreate me**
-* [`docs/debugging.md`](docs/debugging.md): Guide for debugging the
-  Qwerty compiler when it misbehaves. **TODO: recreate me**
-* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
-  semi-automated process for upgrading the version of LLVM used by the Qwerty
-  compiler. **TODO: recreate me**
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.

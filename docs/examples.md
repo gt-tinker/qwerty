@@ -36,6 +36,10 @@ any example. The examples are the following:
   much a quantum function tilts a state. This a crucial ingredient for some
   formulations of Shor's factoring algorihtm. Based on Section 5.2 of Nielsen
   and Chuang.
+* `shor.py`: an implementation of [Shor's algorithm][10] with the classical
+  portion written in Python and the quantum part written in Qwerty.
+  Currently set up to factor 15, because larger numbers cannot be simulated
+  feasibly. Based on Sections 5.3.1-5.3.2 of Nielsen and Chuang
 * `abbrev/`: These are abbreviated examples originally from the QCE '25 paper
   but intended to be shown the Qwerty website. Unlike examples in the parent
   directory, these do not contain `argparse` command line argument handling,
@@ -50,3 +54,4 @@ any example. The examples are the following:
 [7]: https://www.cs.cmu.edu/~odonnell/quantum15/lecture06.pdf
 [8]: https://quantumcomputing.stackexchange.com/a/29407/13156
 [9]: https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm
+[10]: https://en.wikipedia.org/wiki/Shor%27s_algorithm

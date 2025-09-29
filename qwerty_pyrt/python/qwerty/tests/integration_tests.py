@@ -527,7 +527,7 @@ class ExampleIntegrationTests(unittest.TestCase):
         secret_str = bit[8](~(-1 << (num_qubits >> 1)))
         expected_classical, expected_quantum = secret_str, secret_str
         actual_classical, actual_quantum = simon.test(num_qubits,
-                                                      num_attempts=16)
+                                                      num_attempts=32)
         self.assertEqual(expected_classical, actual_classical)
         self.assertEqual(expected_quantum, actual_quantum)
 
@@ -558,6 +558,13 @@ class ExampleIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(angle_deg, 0), shots*15//16,
                            "Too few correct answers")
         self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
+
+    def test_shor(self):
+        from .integ.examples import shor
+        number = 15
+        actual_factor = shor.test(number, num_attempts=32)
+        self.assertIn(actual_factor, [3, 5],
+                      "Did not find correct factor")
 
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):

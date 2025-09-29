@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Qwerty demo of superdense coding, a technique for transmitting two classical
 bits using one qubit, as described in Section 2.3 of Nielsen and Chuang.

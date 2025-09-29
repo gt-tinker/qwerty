@@ -19,13 +19,12 @@ def qpe(prec, get_init_state, op, shots):
                 | fourier[prec].measure
                   * discard**M)
 
-    def bits_to_angle(bits):
-        frac = Fraction(int(bits),
+    def bits_to_angle_frac(bits):
+        return Fraction(int(bits),
                         2**len(bits))
-        return float(360*frac)
 
     bits_histo = kernel(shots=shots)
-    angle_histo = {bits_to_angle(bits): count
+    angle_histo = {bits_to_angle_frac(bits): count
                    for bits, count in bits_histo.items()}
     return angle_histo
 
@@ -39,4 +38,6 @@ def test(angle_deg, precision, shots):
     def tilt_op(q):
         return q | '1' >> '1'@(angle_deg*2**J)
 
-    return qpe(precision, init1, tilt_op, shots)
+    angle_frac_histo = qpe(precision, init1, tilt_op, shots)
+    return {float(360*angle_frac): count
+            for angle_frac, count in angle_frac_histo.items()}

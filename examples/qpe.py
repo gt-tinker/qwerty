@@ -27,13 +27,12 @@ def qpe(prec, get_init_state, op, shots):
                 | fourier[prec].measure
                   * discard**M)
 
-    def bits_to_angle(bits):
-        frac = Fraction(int(bits),
+    def bits_to_angle_frac(bits):
+        return Fraction(int(bits),
                         2**len(bits))
-        return float(360*frac)
 
     bits_histo = kernel(shots=shots)
-    angle_histo = {bits_to_angle(bits): count
+    angle_histo = {bits_to_angle_frac(bits): count
                    for bits, count in bits_histo.items()}
     return angle_histo
 
@@ -69,4 +68,6 @@ if __name__ == '__main__':
 
     print('Expected:', angle_deg)
     print('Actual:')
-    histogram(qpe(precision, init1, tilt_op, shots))
+    angle_histo = qpe(precision, init1, tilt_op, shots)
+    for angle_frac, count in angle_histo.items():
+        print('{}° -> {:.02f}%'.format(float(360*angle_frac), count/shots*100))

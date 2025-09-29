@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Qwerty demo of quantum teleportation as described in Section 1.3.7 of Nielsen
 and Chuang. Intended to be run from the command line.
