@@ -49,6 +49,9 @@ any example. The examples are the following:
   examples in the parent directory, these do not contain `argparse` command
   line argument handling, for example.
 
+All of these examples are integration tests in [the class
+`ExampleIntegrationTests`](../qwerty_pyrt/python/qwerty/tests/integration_tests.py).
+
 [1]: https://en.wikipedia.org/wiki/Bell_state
 [2]: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state
 [3]: https://en.wikipedia.org/wiki/Deutsch%E2%80%93Jozsa_algorithm
