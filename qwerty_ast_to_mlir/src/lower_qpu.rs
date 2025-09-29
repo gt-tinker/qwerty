@@ -490,7 +490,6 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                 }
 
                 Basis::BasisLiteral { vecs, .. } => {
-                    dbg!(vecs);
                     let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
                         let (vec_attrs, phase) = ast_vec_to_mlir(vec);
                         // TODO: Fix this
@@ -507,22 +506,10 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                     (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
                 },
 
-                Basis::BasisLiteral { vecs, .. } => {
-                    // TODO: For the ApplyRevolveGeneratorAttribute, which we must create from
-                    // revolve
-                    // how do we construct BasisAttr foo, BasisVectorAttrs bv1, bv2?
-                    let foo;
-                    let bv1;
-                    let bv2;
-                    let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
-                    (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![]) // no
-                    // phases
-                }
-
                 // TODO: Remove is_fourier, do codegen similar to SuperposAttr for
-                // ApplyRevolveGeneratorAttr
                 // No special casing!
                 // Check if the basis generator is the revolve generator
+                // FIXME: Delete this
                 Basis::ApplyBasisGenerator { .. } if is_fourier(elem) => {
                     let dim = elem.get_dim().expect("valid fourier basis").try_into().unwrap();
                     let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Fourier, dim);
@@ -531,10 +518,16 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
 
                 Basis::ApplyBasisGenerator { basis, generator, .. } => {
                     match generator {
-                        BasisGenerator::Revolve {v1, v2, ..} => {},
-                        _ => unreachable!("Currently no other basis generators!"),
-                    };
-                    todo!("nontrivial basis generator");
+                        BasisGenerator::Revolve {v1, v2, ..} => {
+                            let foo = ast_basis_to_mlir(&basis).basis_attr;
+                            let (mut bv1_vec, _) = ast_vec_to_mlir(v1);
+                            let bv1 = bv1_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                            let (mut bv2_vec, _) = ast_vec_to_mlir(v2);
+                            let bv2 = bv2_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                            let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
+                            (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![])
+                        },
+                    }
                 }
 
                 Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),

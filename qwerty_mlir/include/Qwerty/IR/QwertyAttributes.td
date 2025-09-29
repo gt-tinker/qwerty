@@ -61,6 +61,14 @@ def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "rev
     let parameters = (ins "BasisAttr":$foo, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
     let assemblyFormat = "$foo `:` `revolve` `{`$bv1` ``,`$bv2`}`";
     let genVerifyDecl = 1;
+    let extraClassDeclaration = [{
+        uint64_t getDim() const;
+        qwerty::PrimitiveBasis getPrimBasis() const;
+        bool isPredicate() const;
+        // bool hasPhases() const;
+        uint64_t getNumPhases() const;
+        // qwerty::BasisAttr deletePhases() const;
+    }];
 }
 
 def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
@@ -122,6 +130,10 @@ def Qwerty_SuperposElemAttr : Qwerty_Attr<"SuperposElem", "superposelem"> {
     let extraClassDeclaration = [{
         llvm::APInt getEigenbits() const;
         uint64_t getDim() const;
+        bool isPredicate() const;
+        bool hasPhases() const;
+        uint64_t getNumPhases() const;
+        qwerty::BasisElemAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }

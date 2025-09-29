@@ -487,7 +487,7 @@ where
     }
 }
 
-impl<E: ToPythonCode> ToPythonCode for FunctionDef<E> {
+impl<E: ToPythonCode + fmt::Debug> ToPythonCode for FunctionDef<E> {
     fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_rev {
             write!(f, "@reversible\n")?;

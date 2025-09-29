@@ -156,36 +156,100 @@ void BasisElemAttr::print(mlir::AsmPrinter &printer) const {
     } else if (getVeclist()) {
         printer << "list:";
         printer.printStrippedAttrOrType(getVeclist());
+    } else if (getRevolve()) {
+        auto revolve = getRevolve();
+        printer.printStrippedAttrOrType(revolve.getFoo());
+        printer << ":revolve{";
+        printer.printStrippedAttrOrType(revolve.getBv1());
+        printer << ", ";
+        printer.printStrippedAttrOrType(revolve.getBv2());
+        printer << "}";
     } else {
         assert(0 && "Invalid basis element state. How did the validator not "
                     "catch this?");
     }
 }
 
-mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser, mlir::Type odsType) {
+mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser,
+                                     mlir::Type odsType) {
     llvm::StringRef kw;
-    if (parser.parseKeyword(&kw)
-        || parser.parseColon()) {
+
+    if (parser.parseOptionalKeyword(&kw) || parser.parseColon()) {
         return {};
     }
 
     if (kw == "std") {
         BuiltinBasisAttr std;
-        if (parser.parseCustomAttributeWithFallback<BuiltinBasisAttr>(std)) {
+        if (parser.parseCustomAttributeWithFallback<BuiltinBasisAttr>(std))
             return {};
-        }
         return BasisElemAttr::get(parser.getContext(), std);
     } else if (kw == "list") {
         BasisVectorListAttr list;
-        if (parser.parseCustomAttributeWithFallback<BasisVectorListAttr>(list)) {
+        if (parser.parseCustomAttributeWithFallback<BasisVectorListAttr>(list))
             return {};
-        }
         return BasisElemAttr::get(parser.getContext(), list);
-    } else {
-        // TODO: Update this for ApplyRevolveGeneratorAttr
-        return {};
     }
+
+    // else try revolve form: <foo> : revolve { bv1 , bv2 }
+    BasisAttr foo;
+    if (parser.parseCustomAttributeWithFallback<BasisAttr>(foo))
+        return {};
+
+    if (parser.parseColon())
+        return {};
+
+    if (parser.parseKeyword("revolve"))
+        return {};
+
+    if (parser.parseLBrace())
+        return {};
+
+    BasisVectorAttr bv1, bv2;
+    if (parser.parseCustomAttributeWithFallback<BasisVectorAttr>(bv1))
+        return {};
+    if (parser.parseComma())
+        return {};
+    if (parser.parseCustomAttributeWithFallback<BasisVectorAttr>(bv2))
+        return {};
+    if (parser.parseRBrace())
+        return {};
+
+    auto revolve = ApplyRevolveGeneratorAttr::get(parser.getContext(), foo, bv1, bv2);
+    return BasisElemAttr::get(parser.getContext(), revolve);
 }
+
+uint64_t ApplyRevolveGeneratorAttr::getDim() const {
+    // foo is a BasisAttr
+    uint64_t fooDim = getFoo().getDim();
+    return fooDim + 1;
+}
+
+PrimitiveBasis ApplyRevolveGeneratorAttr::getPrimBasis() const {
+    // Inherit the primitive basis from foo
+    return getBv1().getPrimBasis(); // TODO: Is this correct?
+}
+
+// TODO: Does this make sense?
+bool ApplyRevolveGeneratorAttr::isPredicate() const {
+  return getFoo().hasPredicate();
+}
+
+// TODO: Does this make sense? Or do we need to consider the phases introduced potentially by
+// the actual revolve construct?
+// bool ApplyRevolveGeneratorAttr::hasPhases() const {
+//   return getFoo().hasPhases();
+// }
+
+// TODO: Does this make sens as well (similar to above)
+uint64_t ApplyRevolveGeneratorAttr::getNumPhases() const {
+  return getFoo().getNumPhases();
+}
+
+// TODO: Similar question
+// qwerty::BasisAttr qwerty::ApplyRevolveGeneratorAttr::deletePhases() const {
+//     auto newFoo = getFoo().deletePhases();
+//     return qwerty::ApplyRevolveGeneratorAttr::get(getContext(), newFoo, getBv1(), getBv2());
+// }
 
 uint64_t BasisVectorListAttr::getDim() const {
     llvm::ArrayRef<BasisVectorAttr> vectors = getVectors();
@@ -239,9 +303,10 @@ uint64_t BasisElemAttr::getDim() const {
         return getStd().getDim();
     } else if (getVeclist()) {
         return getVeclist().getDim();
+    } else if (getRevolve()) {
+        return getRevolve().getDim();
     } else {
-        // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
@@ -252,9 +317,10 @@ PrimitiveBasis BasisElemAttr::getPrimBasis() const {
         return getStd().getPrimBasis();
     } else if (getVeclist()) {
         return getVeclist().getPrimBasis();
+    } else if (getRevolve()) {
+        return getRevolve().getPrimBasis();
     } else {
-        // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return (PrimitiveBasis)-1;
     }
@@ -278,9 +344,10 @@ uint64_t BasisElemAttr::getNumPhases() const {
         return 0;
     } else if (getVeclist()) {
         return getVeclist().getNumPhases();
+    } else if (getRevolve()) {
+        return getRevolve().getNumPhases();
     } else {
-        // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
