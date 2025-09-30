@@ -335,6 +335,9 @@ class MetaInferIntegrationTests(unittest.TestCase):
     """
     Integration tests that use full metaQwerty features, including type
     inference.
+
+    For more information on each test, see the docstring on the module
+    containing Qwerty code imported in each test.
     """
 
     def setUp(self):
@@ -412,7 +415,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
     def test_slice(self):
         from .integ.meta import slice
         shots = 1024
-        x = bit[5](0b011_10)
+        x = bit[5](0b01_110)
         expected_result = (x, {x.repeat(2): shots})
         actual_result = slice.test(shots)
         self.assertEqual(expected_result, actual_result)
@@ -524,7 +527,7 @@ class ExampleIntegrationTests(unittest.TestCase):
     def test_simon(self):
         from .integ.examples import simon
         num_qubits = 8
-        secret_str = bit[8](~(-1 << (num_qubits >> 1)))
+        secret_str = bit[8](1 << (num_qubits-1))
         expected_classical, expected_quantum = secret_str, secret_str
         actual_classical, actual_quantum = simon.test(num_qubits,
                                                       num_attempts=32)

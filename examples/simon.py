@@ -6,7 +6,7 @@ promise exponential speedup.
 
 When run directly, this module also acts as a tester for the Qwerty
 implementation of Simon's. The number of qubits passed on the command line and
-the secret string is printed out. The black box is a custom construction to
+the secret string is printed out. The black box is a simple construction to
 guarantee a particular 2-to-1 mapping as required by Simon's with a nonzero
 secret string.
 """
@@ -38,14 +38,19 @@ def simon(f):
             continue
 
 def get_black_box(num_bits):
-    if num_bits % 2 != 0:
-        raise ValueError(f'Number of bits {num_bits} must be even')
+    """
+    Returns a simple function that meets the requirements of Simon's algorithm.
+    Specifically, the function must be 2-to-1 such that ``f(x) == f(y)`` if and
+    only if `x == y` or ``x == y ^ s`` where ``s`` is a nonzero secret
+    bitstring.
 
-    k = num_bits//2
-
+    The function defined here is ``f(xy) = 0y`` where ``x` is 1 bit and ``y``
+    is ``num_bits-1`` bits. This is 2-to-1 because ``f(1y) == f(0y)``, and
+    the secret string ``s`` is ``100...0`` since ``1y == 0y ^ s`` as needed.
+    """
     @classical
-    def black_box(x: bit[2*k]) -> bit[2*k]:
-        return x[:k].concat(bit[1](0b0)).concat(x[k].repeat(k-1) ^ x[k+1:])
+    def black_box(x: bit[num_bits]) -> bit[num_bits]:
+        return bit[1](0b0).concat(x[1:])
 
     return black_box
 
@@ -62,7 +67,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('num_bits',
                         type=int,
-                        help='The length of the secret string. Must be even.')
+                        help='The length of the secret string')
     args = parser.parse_args()
 
     num_bits = args.num_bits

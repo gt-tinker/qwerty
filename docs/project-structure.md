@@ -6,7 +6,8 @@ This repository consists of the following five top-level subprojects:
 1. `qwerty_ast` (Rust): Defines the Qwerty AST and typechecking/optimizations on it
 2. `qwerty_mlir` (C++/Tablegen): MLIR dialects/passes for optimizing Qwerty
    programs and producing OpenQASM 3 or QIR
-3. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR and JITs and runs it
+3. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR, JITs the MLIR,
+   and then runs it
 4. `qwerty_util` (C++): C++ utility code, presently just a wrapper around
    [`tweedledum`][4]
 5. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that

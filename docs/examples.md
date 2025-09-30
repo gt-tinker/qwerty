@@ -45,7 +45,7 @@ any example. The examples are the following:
   Qwerty. Currently set up to factor 15, because larger numbers cannot be
   simulated feasibly. Based on Sections 5.3.1-5.3.2 of Nielsen and Chuang
 * [`abbrev/`](../examples/abbrev/): These are abbreviated examples originally
-  from the QCE '25 paper but intended to be shown the Qwerty website. Unlike
+  from the QCE '25 paper but intended to be on shown the Qwerty website. Unlike
   examples in the parent directory, these do not contain `argparse` command
   line argument handling, for example.
 
