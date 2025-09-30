@@ -65,9 +65,9 @@ def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "rev
         uint64_t getDim() const;
         qwerty::PrimitiveBasis getPrimBasis() const;
         bool isPredicate() const;
-        // bool hasPhases() const;
+        bool hasPhases() const;
         uint64_t getNumPhases() const;
-        // qwerty::BasisAttr deletePhases() const;
+        qwerty::BasisAttr deletePhases() const;
     }];
 }
 

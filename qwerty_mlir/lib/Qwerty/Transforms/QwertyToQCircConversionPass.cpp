@@ -2509,6 +2509,7 @@ rebuildAligned(mlir::Operation *offender, mlir::RewriterBase &rewriter,
           }
         }
       } else { // bigvl && smallvl
+        assert(bigvl && smallvl);
         if (qwerty::BasisVectorListAttr factored =
                 factorVeclist(rewriter, big_queue, bigvl, smallvl)) {
           big_rebuilt.push_back(rebuildZ(rewriter, factored));
@@ -3041,6 +3042,94 @@ void shootdownStandardizations(
 // AND the backward synthesis
 // which is std**(N-1) // std.revolve >> std**N
 
+
+void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
+                llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+                llvm::SmallVectorImpl<mlir::Value> &qubits,
+                size_t start_idx, size_t n, bool inverse) {
+  assert(n <= qubits.size() && start_idx < qubits.size() &&
+           start_idx + n <= qubits.size() && "Revolve indices out of range");
+  if !(inverse) {
+    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+      loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
+
+    qubits[start_idx + i] = h.getResult();
+    control_qubits.clear();
+    control_qubits.append(h.getControlResults().begin(),
+                          h.getControlResults().end());
+
+    for (i = 1; i < n; i++) {
+      // TODO: this precision is not enough for very large circuits. Need
+      // to use llvm::APFloat or something
+
+      double phase = 2.0 * M_PI / std::pow(2, i + 1);
+      mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
+      llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
+                                                control_qubits.end());
+      p_controls.push_back(qubits[start_idx + i]); // controlled on later qubits
+      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+          loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
+          qubits[start_idx]); // 0th qubit apply
+      control_qubits.clear();
+      // Exclude last control qubit
+      control_qubits.append(cp.getControlResults().begin(),
+                            cp.getControlResults().begin() +
+                                (cp.getControlResults().size() - 1));
+      // ...since we need it here
+      qubits[start_idx + i] =
+          cp.getControlResults()[cp.getControlResults().size() - 1];
+      qubits[start_idx] = cp.getResult();
+    }
+
+    // Do RotL(n) via qubits list
+    mlir::Value first = qubits[0];
+    for (size_t i = 0; i < n - 1; i++) {
+        qubits[i] = qubits[i + 1];
+    }
+    qubits[n - 1] = first;
+  } else { // inverse
+    // Do RotR(n) via qubits list
+    mlir::Value last = qubits[n - 1];
+    for (size_t i = n-1; i > 0; i--) {
+        qubits[i] = qubits[i - 1];
+    }
+    qubits[0] = last;
+
+
+  // Apply controlled phases in reverse order, with negative angles.
+  for (size_t ii = 1; ii < n; ii++) {
+    size_t i = n - ii; // go from n-1 down to 1
+    double phase = -2.0 * M_PI / std::pow(2, i + 1); // negative angle
+    mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
+
+    llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
+                                              control_qubits.end());
+    p_controls.push_back(qubits[start_idx + i]); // controlled on later qubits
+
+    qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+        loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx]);
+
+    control_qubits.clear();
+    control_qubits.append(cp.getControlResults().begin(),
+                          cp.getControlResults().begin() +
+                              (cp.getControlResults().size() - 1));
+
+    qubits[start_idx + i] =
+        cp.getControlResults()[cp.getControlResults().size() - 1];
+    qubits[start_idx] = cp.getResult();
+  }
+
+  // final H on q<start_idx>
+  qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+      loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
+
+  qubits[start_idx] = h.getResult();
+  control_qubits.clear();
+  control_qubits.append(h.getControlResults().begin(),
+                        h.getControlResults().end());
+  }
+}
+
 // NOTE: If we have something like ij**3 >> fourier(3),
 // then we want to get ij**3 >> std**3 | std**3 >> fourier(3)
 // If the RHS has revolve AND then LHS isn't std**N for some N,
@@ -3050,52 +3139,56 @@ void shootdownStandardizations(
 // for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 // NOTE: This requires a separate synthesis for std[N-1] // std.revolve >>
 // std**N
-// struct SplitRevolveBasisGenTranslation
-//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-//   using mlir::OpConversionPattern<
-//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-//
-//   mlir::LogicalResult
-//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-//                   mlir::ConversionPatternRewriter &rewriter) const final {
-//     // NOTE: In this pattern, see above discussion, we are splitting and
-//     // creating two basis translations from one for "canonicalization"
-//     // purposes
-//   }
-// }
-//
-// // TODO: Fix this
-// // match this pattern only when there is an applyrevolvegeneratorattr
-// // and it is the only basis element (this stops us from having predicated
-// // revolve statements) (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
-// // should not exist, ever, we hate it (for now)
-// struct SplitRevolveBasisGeneratorPass
-//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-//   using mlir::OpConversionPattern<
-//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-//
-//   mlir::LogicalResult
-//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-//                   mlir::ConversionPatternRewriter &rewriter) const final {
-//     // NOTE: This ends up being the recursive step, we only match on
-//     // NOTE: We DON'T want to match on the "base case", which takes the
-//     // form std**N >> std**(N-1) // std.revolve
-//   }
-// }
-//
-// struct LowerRevolveBasisGeneratorPass
-//     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-//   using mlir::OpConversionPattern<
-//       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-//
-//   mlir::LogicalResult
-//   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-//                   mlir::ConversionPatternRewriter &rewriter) const final {
-//     // NOTE: In this pattern, we explicitly lower the base case, which is
-//     // std**N >> std**(N-1) // std.revolve
-//     // Just apply the hepler function here
-//   }
-// }
+struct SplitRevolveBasisGenTranslation
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    // NOTE: In this pattern, see above discussion, we are splitting and
+    // creating two basis translations from one for "canonicalization"
+    // purposes
+  }
+}
+
+// TODO: Fix this
+// match this pattern only when there is an applyrevolvegeneratorattr
+// and it is the only basis element (this stops us from having predicated
+// revolve statements) (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
+// should not exist, ever, we hate it (for now)
+struct SplitRevolveBasisGeneratorPass
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    // NOTE: This ends up being the recursive step, we only match on
+    // NOTE: We DON'T want to match on the "base case", which takes the
+    // form std**N >> std**(N-1) // std.revolve
+  }
+}
+
+struct LowerRevolveBasisGeneratorPass
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    // NOTE: In this pattern, we explicitly lower the base case, which is
+    // std**N >> std**(N-1) // std.revolve
+    // Just apply the hepler function here that creates the circuit (or its inverse)
+    // NOTE: This requires a separate synthesis for std[N-1] // std.revolve >>
+    // std**N
+    // Verify that we indeed see the base case here
+    // then call the runRevolveCircuit here if we match
+  }
+}
 
 // This pattern does most of the work for synthesizing a basis translation
 // besides synthesis of classical logic. Please see Section 6.3 of the CGO
@@ -3116,6 +3209,8 @@ struct AlignBasisTranslations
     // basis, we can skip this pattern entirely and let
     // SynthesizePermutations (below) continue with synthesis
     if (isAligned(basis_in, basis_out)) {
+      // TODO: Add check to see if we have a revolve before we do this
+      // (we shouldn't)
       return mlir::failure();
     }
 
@@ -3302,6 +3397,8 @@ struct SynthesizePermutations
 
     if (!isAligned(basis_in, basis_out)) {
       // AlignBasisTranslations needs to run first
+      // TODO: Add check to see if we have a revolve before we do this
+      // (we shouldn't)
       return mlir::failure();
     }
 
