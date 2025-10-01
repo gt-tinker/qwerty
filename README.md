@@ -18,6 +18,9 @@ README:
   programs found in the `examples/` directory.
 * [`docs/build.md`](docs/build.md): Instructions for building subsets of the
   Qwerty compiler when working on particular components.
+* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
+  semi-automated process for upgrading the version of LLVM used by the Qwerty
+  compiler.
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
