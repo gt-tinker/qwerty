@@ -112,7 +112,7 @@ the above parameters.
 Citation
 --------
 
-To cite the Qwerty compiler, can cite our CGO '25 paper:
+To cite the Qwerty compiler, please cite our CGO '25 paper:
 
 Austin J. Adams, Sharjeel Khan, Arjun S. Bhamra, Ryan R. Abusaada, Anthony M.
 Cabrera, Cameron C. Hoechst, Travis S. Humble, Jeffrey S. Young, and Thomas M.

@@ -73,13 +73,14 @@ process is broadly as follows:
     }
 
     // We need this macro call to implement a series of helper functions
-    // This is why we registered our "IsA" function in the previous step; take a peek in
-    // `qwerty_melior/src/ir/attribute/macro.rs` to learn more!
-    // The formatting of the "is_qwerty" statement should reflect the lowercase snakecase
-    // version of your struct's name, without the "Attribute"
+    // This is why we registered our "mlirAttributeIsA" function in the
+    // previous step; take a peek in `qwerty_melior/src/ir/attribute/macro.rs`
+    // to learn more! The formatting of the "is_qwerty" statement should
+    // reflect the lowercase snakecase version of your struct's name, without
+    // the "Attribute".
     attribute_traits!(
         YourAttribute,
-        is_qwerty_<your_attribute_snakecase>,
+        is_qwerty_your_attribute_snake_case,
         "qwerty some description of your attribute"
     );
     ```
