@@ -106,7 +106,7 @@ pub enum MetaExpr {
 
     /// Concatenate two bit registers. Example syntax:
     /// ```text
-    /// x.repeat(y)
+    /// x.concat(y)
     /// ```
     Concat {
         left: Box<MetaExpr>,
