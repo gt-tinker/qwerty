@@ -21,6 +21,9 @@ README:
 * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
   semi-automated process for upgrading the version of LLVM used by the Qwerty
   compiler.
+* [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
+  interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
+  one of our MLIR dialects.
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
