@@ -37,7 +37,7 @@ pub enum MetaExpr {
     Slice {
         val: Box<MetaExpr>,
         lower: DimExpr,
-        upper: DimExpr,
+        upper: Option<DimExpr>,
         dbg: Option<DebugLoc>,
     },
 
@@ -93,6 +93,26 @@ pub enum MetaExpr {
         n_bits: DimExpr,
         dbg: Option<DebugLoc>,
     },
+
+    /// Repeat a bit. Example syntax:
+    /// ```text
+    /// val.repeat(amt)
+    /// ```
+    Repeat {
+        val: Box<MetaExpr>,
+        amt: DimExpr,
+        dbg: Option<DebugLoc>,
+    },
+
+    /// Concatenate two bit registers. Example syntax:
+    /// ```text
+    /// x.concat(y)
+    /// ```
+    Concat {
+        left: Box<MetaExpr>,
+        right: Box<MetaExpr>,
+        dbg: Option<DebugLoc>,
+    },
 }
 
 impl MetaExpr {
@@ -106,7 +126,9 @@ impl MetaExpr {
             | MetaExpr::BinaryOp { dbg, .. }
             | MetaExpr::ReduceOp { dbg, .. }
             | MetaExpr::ModMul { dbg, .. }
-            | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
+            | MetaExpr::BitLiteral { dbg, .. }
+            | MetaExpr::Repeat { dbg, .. }
+            | MetaExpr::Concat { dbg, .. } => dbg.clone(),
         }
     }
 
@@ -130,14 +152,18 @@ impl MetaExpr {
                 dbg,
             } => val.extract().and_then(|ast_val| {
                 lower.extract().and_then(|lower_int| {
-                    upper.extract().map(|upper_int| {
-                        ast::classical::Expr::Slice(ast::classical::Slice {
-                            val: Box::new(ast_val),
-                            lower: lower_int,
-                            upper: upper_int,
-                            dbg: dbg.clone(),
+                    upper
+                        .as_ref()
+                        .map(DimExpr::extract)
+                        .transpose()
+                        .map(|upper_int_opt| {
+                            ast::classical::Expr::Slice(ast::classical::Slice {
+                                val: Box::new(ast_val),
+                                lower: lower_int,
+                                upper: upper_int_opt,
+                                dbg: dbg.clone(),
+                            })
                         })
-                    })
                 })
             }),
             MetaExpr::UnaryOp { kind, val, dbg } => val.extract().map(|ast_val| {
@@ -197,6 +223,24 @@ impl MetaExpr {
                     dbg: dbg.clone(),
                 })
             }),
+            MetaExpr::Repeat { val, amt, dbg } => val.extract().and_then(|ast_val| {
+                amt.extract().map(|amount_int| {
+                    ast::classical::Expr::Repeat(ast::classical::Repeat {
+                        val: Box::new(ast_val),
+                        amt: amount_int,
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
+            MetaExpr::Concat { left, right, dbg } => left.extract().and_then(|ast_left| {
+                right.extract().map(|ast_right| {
+                    ast::classical::Expr::Concat(ast::classical::Concat {
+                        left: Box::new(ast_left),
+                        right: Box::new(ast_right),
+                        dbg: dbg.clone(),
+                    })
+                })
+            }),
         }
     }
 }
@@ -211,7 +255,13 @@ impl fmt::Display for MetaExpr {
             MetaExpr::Variable { name, .. } => write!(f, "{}", name),
             MetaExpr::Slice {
                 val, lower, upper, ..
-            } => write!(f, "({})[{}:{}]", val, lower, upper),
+            } => {
+                write!(f, "({})[{}:", val, lower)?;
+                if let Some(upper_dimexpr) = upper {
+                    write!(f, "{}", upper_dimexpr)?;
+                }
+                write!(f, "]")
+            }
             MetaExpr::UnaryOp { kind, val, .. } => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",
@@ -238,6 +288,12 @@ impl fmt::Display for MetaExpr {
             }
             MetaExpr::ModMul { x, j, y, mod_n, .. } => {
                 write!(f, "({})**2**({}) * ({}) % ({})", x, j, y, mod_n)
+            }
+            MetaExpr::Repeat { val, amt, .. } => {
+                write!(f, "({}).repeat({})", val, amt)
+            }
+            MetaExpr::Concat { left, right, .. } => {
+                write!(f, "({}).concat({})", left, right)
             }
             MetaExpr::BitLiteral { val, n_bits, .. } => {
                 write!(f, "bit[{}](0b{:b})", n_bits, val)

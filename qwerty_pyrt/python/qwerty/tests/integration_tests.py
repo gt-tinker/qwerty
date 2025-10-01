@@ -335,6 +335,9 @@ class MetaInferIntegrationTests(unittest.TestCase):
     """
     Integration tests that use full metaQwerty features, including type
     inference.
+
+    For more information on each test, see the docstring on the module
+    containing Qwerty code imported in each test.
     """
 
     def setUp(self):
@@ -377,7 +380,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
         from .integ.meta import megaperm
         shots = 1024
 
-        # The 16-qubit case is handled by tweedledum-based synthesis, but the
+        # The 10-qubit case is handled by tweedledum-based synthesis, but the
         # 18-qubit case is handled by our custom synthesis.
         for n_qubits in (10, 18):
             all_ones = bit.from_str('1'*n_qubits)
@@ -387,8 +390,76 @@ class MetaInferIntegrationTests(unittest.TestCase):
             actual_histos = megaperm.test(n_qubits, shots)
             self.assertEqual(expected_histos, actual_histos)
 
+    def test_qft(self):
+        from .integ.meta import qft
+        shots = 1024
+        expected_histos = ({bit[3](0b000): shots},
+                           {bit[3](0b000): shots})
+        actual_histos = qft.test(shots)
+        self.assertEqual(expected_histos, actual_histos)
+
+    def test_repeat(self):
+        from .integ.meta import repeat
+        shots = 1024
+        expected_result = (bit[4](0b1111), {bit[5](0b11111): shots})
+        actual_result = repeat.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
+    def test_concat(self):
+        from .integ.meta import concat
+        shots = 1024
+        expected_result = (bit[5](0b010_01), {bit[10](0b010_01_010_01): shots})
+        actual_result = concat.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
+    def test_slice(self):
+        from .integ.meta import slice
+        shots = 1024
+        x = bit[5](0b01_110)
+        expected_result = (x, {x.repeat(2): shots})
+        actual_result = slice.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
+@unittest.skipIf(should_skip, skip_msg)
+class ExampleIntegrationTests(unittest.TestCase):
+    """
+    The example programs from the ``examples/`` directory as integration
+    tests. Useful for avoiding embarassment caused by our own examples being
+    broken.
+    """
+
+    def setUp(self):
+        qwerty.kernel._reset_compiler_state()
+
+    def test_coin_flip(self):
+        from .integ.examples import coin_flip
+        shots = 1024
+        actual_histo = coin_flip.test(shots)
+        zero, one = bit[1](0b0), bit[1](0b1)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
+    def test_bell(self):
+        from .integ.examples import bell
+        shots = 1024
+        actual_histo = bell.test(shots)
+        zero, one = bit[2](0b00), bit[2](0b11)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
+    def test_ghz(self):
+        from .integ.examples import ghz
+        shots = 1024
+        actual_histo = ghz.test(7, shots)
+        zero, one = bit[7](0b0000000), bit[7](0b1111111)
+        self.assertGreater(actual_histo.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
+        self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
+
     def test_deutsch(self):
-        from .integ.meta import deutsch
+        from .integ.examples import deutsch
         shots = 1024
         balanced_out = bit[1](0b1)
         constant_out = bit[1](0b0)
@@ -397,7 +468,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_result, deutsch.test(shots))
 
     def test_dj(self):
-        from .integ.meta import dj
+        from .integ.examples import dj
         shots = 1024
         # Proof by Quirk that 0b1001 is expected for balanced:
         # https://algassert.com/quirk#circuit={%22cols%22:[[%22H%22,%22H%22,%22H%22,%22H%22,%22H%22],[%22%E2%80%A2%22,1,1,1,%22X%22],[1,1,1,%22%E2%80%A2%22,%22X%22],[1,1,1,1,%22X%22],[%22H%22,%22H%22,%22H%22,%22H%22]],%22init%22:[0,0,0,0,1]}
@@ -408,7 +479,7 @@ class MetaInferIntegrationTests(unittest.TestCase):
     # Tests that the Qwerty AST printed when $QWERTY_DEBUG==1 runs as a Python
     # module
     def test_bv_qwerty_debug_ast(self):
-        from .integ.meta import bv
+        from .integ.examples import bv
         shots = 1024
         expected_histo = {bit[4](0b1101): shots}
 
@@ -433,13 +504,70 @@ class MetaInferIntegrationTests(unittest.TestCase):
         self.assertEqual(expected_histo, actual_histo_normal)
         self.assertEqual(expected_histo, actual_histo_gen_ast)
 
-    def test_qft(self):
-        from .integ.meta import qft
+    def test_grover(self):
+        from .integ.examples import grover
+        num_qubits = 5
         shots = 1024
-        expected_histos = ({bit[3](0b000): shots},
-                           {bit[3](0b000): shots})
-        actual_histos = qft.test(shots)
+        answer = bit[5](0b11111)
+        expected_histo = {answer: shots}
+        expected_answers = [answer]
+        actual_histo, actual_answers = grover.test(num_qubits, shots)
+        self.assertEqual(expected_answers, actual_answers)
+        self.assertGreater(actual_histo.get(answer, 0), 9*shots//10,
+                           "Too few correct answers")
+
+    def test_period(self):
+        from .integ.examples import period
+        num_qubits = 7
+        mod = 16
+        attempts = 16
+        self.assertIn(mod, set(period.test(num_qubits, mod, attempts)),
+                      "Did not find correct period")
+
+    def test_simon(self):
+        from .integ.examples import simon
+        num_qubits = 8
+        secret_str = bit[8](1 << (num_qubits-1))
+        expected_classical, expected_quantum = secret_str, secret_str
+        actual_classical, actual_quantum = simon.test(num_qubits,
+                                                      num_attempts=32)
+        self.assertEqual(expected_classical, actual_classical)
+        self.assertEqual(expected_quantum, actual_quantum)
+
+    def test_teleport(self):
+        from .integ.examples import teleport
+        shots = 1024
+        expected_histos = ({bit[1](0b1): shots},
+                           {bit[1](0b0): shots})
+        actual_histos = teleport.test(shots)
         self.assertEqual(expected_histos, actual_histos)
+
+    def test_superdense(self):
+        from .integ.examples import superdense
+        shots = 1024
+        expected_histos = [{bit[2](0b00): shots},
+                           {bit[2](0b01): shots},
+                           {bit[2](0b10): shots},
+                           {bit[2](0b11): shots}]
+        actual_histos = list(superdense.test(shots))
+        self.assertEqual(expected_histos, actual_histos)
+
+    def test_qpe(self):
+        from .integ.examples import qpe
+        shots = 1024
+        angle_deg = 292.5
+        prec = 4
+        actual_histo = qpe.test(angle_deg, prec, shots)
+        self.assertGreater(actual_histo.get(angle_deg, 0), shots*15//16,
+                           "Too few correct answers")
+        self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
+
+    def test_shor(self):
+        from .integ.examples import shor
+        number = 15
+        actual_factor = shor.test(number, num_attempts=32)
+        self.assertIn(actual_factor, [3, 5],
+                      "Did not find correct factor")
 
 @unittest.skipIf(should_skip, skip_msg)
 class QCE25FigureIntegrationTests(unittest.TestCase):

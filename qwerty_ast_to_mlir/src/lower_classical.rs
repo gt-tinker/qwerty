@@ -15,11 +15,12 @@ use melior::{
 };
 use qwerty_ast::{
     ast::{
-        self, BitLiteral, FunctionDef, Variable,
+        self, BitLiteral, FunctionDef, RegKind, Type, Variable,
         classical::{self, BinaryOp, BinaryOpKind, ModMul, ReduceOp, Slice, UnaryOp, UnaryOpKind},
     },
     typecheck::{ComputeKind, FuncsAvailable},
 };
+use std::iter;
 
 impl Lowerable for classical::Expr {
     fn lower_to_mlir(
@@ -80,7 +81,7 @@ fn ast_classical_expr_to_mlir(
             slice @ Slice {
                 val,
                 lower,
-                upper,
+                upper: upper_opt,
                 dbg,
             },
         ) => {
@@ -89,18 +90,30 @@ fn ast_classical_expr_to_mlir(
             assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
             let val_val = val_vals[0];
 
+            let upper = upper_opt.clone().unwrap_or_else(|| {
+                if let Type::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim,
+                } = &val_ty
+                {
+                    *dim
+                } else {
+                    unreachable!("Type checking should catch slicing on non-bits")
+                }
+            });
+
             let (ty, compute_kind) = slice
                 .calc_type(&(val_ty, val_compute_kind))
                 .expect("Slice to pass type checking");
             let loc = dbg_to_loc(dbg.clone());
 
-            assert!(*upper >= *lower);
+            assert!(upper >= *lower);
             let sliced_vals: Vec<_> = block
                 .append_operation(ccirc::wireunpack(val_val, loc))
                 .results()
                 .map(OperationResult::into)
                 .skip(*lower)
-                .take(*upper - *lower)
+                .take(upper - *lower)
                 .collect();
             let mlir_vals = vec![
                 block
@@ -195,9 +208,57 @@ fn ast_classical_expr_to_mlir(
 
         classical::Expr::RotateOp(_) => todo!("@classical rotate op"),
 
-        classical::Expr::Concat(_) => todo!("@classical concat op"),
+        classical::Expr::Concat(concat @ classical::Concat { left, right, dbg }) => {
+            let (left_ty, left_compute_kind, left_vals) =
+                ast_classical_expr_to_mlir(&**left, ctx, block);
+            assert_eq!(left_vals.len(), 1, "wire should have 1 mlir value");
+            let left_val = left_vals[0];
 
-        classical::Expr::Repeat(_) => todo!("@classical repeat op"),
+            let (right_ty, right_compute_kind, right_vals) =
+                ast_classical_expr_to_mlir(&**right, ctx, block);
+            assert_eq!(right_vals.len(), 1, "wire should have 1 mlir value");
+            let right_val = right_vals[0];
+
+            let (ty, compute_kind) = concat
+                .calc_type(
+                    &(left_ty, left_compute_kind),
+                    &(right_ty, right_compute_kind),
+                )
+                .expect("Concat to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let wires_to_pack = vec![left_val, right_val];
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::wirepack(&wires_to_pack, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, mlir_vals)
+        }
+
+        classical::Expr::Repeat(repeat @ classical::Repeat { val, amt, dbg }) => {
+            let (val_ty, val_compute_kind, val_vals) =
+                ast_classical_expr_to_mlir(&**val, ctx, block);
+            assert_eq!(val_vals.len(), 1, "wire should have 1 mlir value");
+            let val_val = val_vals[0];
+
+            let (ty, compute_kind) = repeat
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("Repeat to pass type checking");
+
+            let loc = dbg_to_loc(dbg.clone());
+            let wires_to_pack: Vec<_> = iter::repeat(val_val).take(*amt).collect();
+            let mlir_vals = vec![
+                block
+                    .append_operation(ccirc::wirepack(&wires_to_pack, loc))
+                    .result(0)
+                    .unwrap()
+                    .into(),
+            ];
+            (ty, compute_kind, mlir_vals)
+        }
 
         classical::Expr::ModMul(
             modmul @ ModMul {

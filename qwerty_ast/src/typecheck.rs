@@ -1529,7 +1529,7 @@ impl Slice {
         let Slice {
             val: _,
             lower,
-            upper,
+            upper: upper_opt,
             dbg,
         } = self;
         let (val_ty, _val_compute_kind) = val_result;
@@ -1540,11 +1540,15 @@ impl Slice {
             dim,
         } = val_ty
         {
+            // If x : bit[N], then x[i:] is syntactic sugar for x[i:N]. (Here,
+            // None represents the upper bound not being specified.)
+            let upper = upper_opt.as_ref().unwrap_or(dim);
+
             // Check bounds
             if *lower >= *upper {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("[{}..{}]", lower, upper),
+                        op: format!("[{}:{}]", lower, upper),
                         ty: format!(
                             "slice lower bound larger than upper bound: {} >= {}",
                             lower, upper
@@ -1557,7 +1561,7 @@ impl Slice {
             if *upper > *dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("[{}..{}]", lower, upper),
+                        op: format!("[{}:{}]", lower, upper),
                         ty: format!("slice index out of bounds: {} > {}", upper, dim),
                     },
                     dbg: dbg.clone(),
@@ -1567,7 +1571,7 @@ impl Slice {
             if *lower >= *dim {
                 return Err(TypeError {
                     kind: TypeErrorKind::InvalidOperation {
-                        op: format!("[{}..{}]", lower, upper),
+                        op: format!("[{}:{}]", lower, upper),
                         ty: format!("slice lower bound out of bounds: {} >= {}", lower, dim),
                     },
                     dbg: dbg.clone(),

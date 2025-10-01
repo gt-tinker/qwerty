@@ -1,103 +1,62 @@
-# The (New) Qwerty Compiler
+The Compiler for Qwerty, a Basis-Oriented Quantum Programming Language
+======================================================================
 
-## Project Structure
+This is the compiler (and examples) for Qwerty, a quantum programming language
+embedded in Python. It is licensed under the MIT license. If you want to contribute
+or have issues, you can check out [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-This repository consists of the following four top-level projects:
+Documentation
+-------------
 
-1. `qwerty_ast` (Rust): Defines the Qwerty AST and typechecking/optimizations on it
-2. `qwerty_mlir` (C++/Tablegen): MLIR dialects/passes for optimizing Qwerty
-   programs and producing OpenQASM 3 or QIR
-3. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR and JITs and runs it
-4. `qwerty_util` (C++): C++ utility code, presently just a wrapper around
-   [`tweedledum`][7]
-5. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
-   interfaces with the Rust code above via [PyO3][6]
+The `docs/` directory contains more documentation that does not fit in this
+README:
 
-There are also the following forks of third-party libraries that referenced as
-git submodules:
+* [`docs/project-structure.md`](docs/project-structure.md): An overview
+  of the contents of this project (i.e., which files do what) and how the
+  sections in the paper submission map to source files.
+* [`docs/examples.md`](docs/examples.md): A list of the example
+  programs found in the `examples/` directory.
+* [`docs/build.md`](docs/build.md): Instructions for building subsets of the
+  Qwerty compiler when working on particular components.
+* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
+  semi-automated process for upgrading the version of LLVM used by the Qwerty
+  compiler.
+* [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
+  interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
+  one of our MLIR dialects.
 
-1. [`qir_runner`][8] (Rust): Used for its implementation of the QIR runtime, which
-   includes a good quantum simulator
-2. [`tweedledum`][7] (C++): Used for synthesizes classical circuits (or classical
-   permutations) as quantum circuits
-3. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
-   bindings for the C API for MLIR dialects (both for our dialects and for
-   upstream dialects)
-4. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
-   using MLIR APIs in Rust
-5. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][9], Rust bindings for
-   [Tablegen][10] required by `melior` with no changes except upgrading LLVM.
+The rest of this README is dedicated to installation, basic testing, and
+troubleshooting.
 
-## Getting Started
+Getting Started
+---------------
+
+This guide describes the common case of building the full Qwerty
+compiler/runtime. (For instructions on building some portions of the compiler
+independently, see [`docs/build.md`](docs/build.md).)
 
 ### Dependencies
 
-If you are working only on the AST, you need to install only [Rust][3].
-
-Otherwise (e.g., to build the full compiler/runtime), you need to install
-[Rust][3] _and_ the following:
+You need to install [Rust][1] _and_ the following:
 
 1. LLVM 21.1.1 (with MLIR). First, download the LLVM build archive that is
-   appropriate for your OS [from our repository][4]. Then you need to set both
-   of the following environment variables (assuming `$HOME/bin` is where you
-   extracted the LLVM archive, for example):
+   appropriate for your OS and architecture [from our repository][2]. Then you
+   need to set both of the following environment variables (assuming
+   `$HOME/bin` is where you extracted the LLVM archive, for example):
    ```
    $ export PATH=$PATH:$HOME/bin/llvm21/bin/
    $ export MLIR_DIR=$HOME/bin/llvm21/lib/cmake/mlir/
    ```
-   You should set these persistently, e.g. in your `~/.bashrc` or `~/.zshrc`.
+   You should set these persistently, e.g., in your `~/.bashrc` or `~/.zshrc`.
 
 2. The following Debian/Ubuntu packages are also needed to build:
    ```
    $ sudo apt install build-essential cmake ninja-build zlib1g-dev libclang-dev
    ```
-   If you are not a Debian/Ubuntu user, you can interpret `build-essential`
-   above as "a C++ compiler."
+   If you are on macOS, installing the XCode developer tools is enough and the
+   command above is not needed.
 
-The remaining steps on getting started depend on what portion of the compiler
-you want to work on.
-
-### Building Just the AST
-
-If you just want to work on the AST, you can work on it in isolation as
-follows:
-
-    $ git submodule update --init qir_runner
-    $ cd qwerty_ast
-    $ cargo build
-
-#### Coverage
-
-To get coverage for the AST code, run:
-
-    $ cargo llvm-cov --html
-
-Then you can open `qwerty_ast/target/llvm-cov/html/index.html` (relative to the
-repo root) in your browser.
-
-You may need to install `cargo-llvm-cov` first with:
-
-    $ cargo +stable install cargo-llvm-cov --locked
-
-### Fiddling with MLIR
-
-If you only want to work on MLIR (or the other C++ code in `qwerty_util`, or
-even `tweedledum`):
-
-    $ git submodule update --init tweedledum
-    $ mkdir build && cd build
-    $ cmake -G Ninja ..
-    $ ninja
-
-Note that the build you just created will not be used by Rust at all. It is
-strictly for your separate personal enjoyment.
-
-You can run the [FileCheck][5] tests by running the following command from the
-root of the repository:
-
-    $ python3 qwerty_mlir/tests/filecheck_tests.py
-
-### Building the Python Extension
+### Building
 
 To generate the Python extension, run the following:
 
@@ -105,34 +64,83 @@ To generate the Python extension, run the following:
     $ python3 -m venv venv
     $ . venv/bin/activate
     $ cd qwerty_pyrt
-    $ pip install maturin
-    $ maturin develop
+    $ pip install maturin numpy
+    $ maturin develop -vvv
 
-This will (re)build _everything_. Passing `-vv` to `maturin develop` can give
-you an idea of what is going on.
+The last command will (re)build _everything_. Passing `-vvv` to
+`maturin develop` helps to give you an idea of what is going on.
 
-To run the Python unit tests, say:
+### Testing
 
-    $ python -m unittest qwerty.tests -v
+As a quick smoke test, you can run a single Qwerty program from `examples/` as
+follows:
 
-To run _all_ tests across the compiler, run the following at the root of the
-repository:
+    $ python ../examples/deutsch.py
+    Balanced f:
+    Classical: f(0) xor f(1) = 1
+    Quantum:   f(0) xor f(1) = 1
 
-    $ dev/run-tests.sh
+    Constant f:
+    Classical: f(0) xor f(1) = 0
+    Quantum:   f(0) xor f(1) = 0
 
-#### Tricks
+To run _all_ tests across the compiler, run the following:
 
-To run a particular integration test in `gdb` (e.g., `bv_nometa`):
+    $ ../dev/run-tests.sh
 
-    $ gdb --args python3 -c 'import qwerty.tests.integ.nometa.bv; qwerty.tests.integ.nometa.bv.test(1)'
+Troubleshooting
+---------------
 
-[1]: https://github.com/mlir-rs/mlir-sys/
-[2]: https://github.com/mlir-rs/melior/
-[3]: https://www.rust-lang.org/tools/install
-[4]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
-[5]: https://llvm.org/docs/CommandGuide/FileCheck.html
-[6]: https://pyo3.rs/
-[7]: https://github.com/boschmitt/tweedledum
-[8]: https://github.com/qir-alliance/qir-runner/
-[9]: https://github.com/mlir-rs/tblgen-rs/
-[10]: https://llvm.org/docs/TableGen/
+If your compilation process keeps getting sniped by the OOM killer, as seen
+below:
+
+    c++: fatal error: Killed signal terminated program cc1plus
+      compilation terminated.
+
+Then a potential fix is to add the following code near the top of your
+`CMakeLists.txt` both in `/` and  `/tweedledum`:
+
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=1)
+    set(CMAKE_JOB_POOL_LINK link_job_pool)
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS compile_job_pool=1)
+    set(CMAKE_JOB_POOL_COMPILE compile_job_pool)
+
+This tells CMake to tell Ninja to limit the number of linking and compilation
+jobs done in parallel to just 1 each, although this can be changed by changing
+the above parameters.
+
+Citation
+--------
+
+To cite the Qwerty compiler, please cite our CGO '25 paper:
+
+Austin J. Adams, Sharjeel Khan, Arjun S. Bhamra, Ryan R. Abusaada, Anthony M.
+Cabrera, Cameron C. Hoechst, Travis S. Humble, Jeffrey S. Young, and Thomas M.
+Conte. March 2025. **"ASDF: A Compiler for Qwerty, a Basis-Oriented Quantum
+Programming Language."** In _Proceedings of the 23rd ACM/IEEE International
+Symposium on Code Generation and Optimization (CGO '25)_.
+https://doi.org/10.1145/3696443.3708966
+
+BibTeX citation:
+
+    @inproceedings{adams_asdf_2025,
+        author = {Adams, Austin J. and Khan, Sharjeel and Bhamra, Arjun S. and Abusaada, Ryan R. and Cabrera, Anthony M. and Hoechst, Cameron C. and Humble, Travis S. and Young, Jeffrey S. and Conte, Thomas M.},
+        title = {ASDF: A Compiler for Qwerty, a Basis-Oriented Quantum Programming Language},
+        year = {2025},
+        isbn = {9798400712753},
+        url = {https://doi.org/10.1145/3696443.3708966},
+        doi = {10.1145/3696443.3708966},
+        booktitle = {Proceedings of the 23rd ACM/IEEE International Symposium on Code Generation and Optimization},
+        series = {CGO '25}
+        pages = {444–458},
+        numpages = {15},
+    }
+
+
+The evaluation for the CGO '25 paper uses additional code not on the `main`
+branch of this repository. You can find that evaluation code in [the Zenodo
+artifact][3] or on the `cgo25-artifact` branch.
+
+[1]: https://www.rust-lang.org/tools/install
+[2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
+[3]: https://doi.org/10.5281/zenodo.14080494
