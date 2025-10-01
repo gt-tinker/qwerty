@@ -12,25 +12,29 @@ The `docs/` directory contains more documentation that does not fit in this
 README:
 
  * Useful for newcomers:
+   * [`docs/examples.md`](docs/examples.md): A list of the Qwerty example
+     programs available in the `examples/` directory
    * [`docs/project-structure.md`](docs/project-structure.md): An overview
      of the contents of this project (i.e., which files do what) and how the
-     sections in the paper submission map to source files.
-   * [`docs/examples.md`](docs/examples.md): A list of the example
-     programs found in the `examples/` directory.
- * Development/maintenance guides:
+     sections in the paper submission map to source files
+ * Compiler development/maintenance guides:
    * [`docs/build.md`](docs/build.md): Instructions for building subsets of the
-     Qwerty compiler when working on particular components.
+     Qwerty compiler when working on particular components
+   * [`docs/testing.md`](docs/testing.md): Details on our multi-faceted testing
+     framework
+   * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
+     compiler
    * [`docs/build-llvm.md`](docs/build.md): How to build LLVM yourself
    * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
      semi-automated process for upgrading the version of LLVM used by the Qwerty
-     compiler.
- * Code documentation:
+     compiler
+ * Compiler code documentation:
    * [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
      interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
-     one of our MLIR dialects.
+     one of our MLIR dialects
    * [`docs/state-prep.md`](docs/state-prep.md): Describes the arbitrary state
      preparation technique by Shende et al. that we use to synthesize circuits for
-     superposition literals.
+     superposition literals
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
