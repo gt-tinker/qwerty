@@ -24,7 +24,7 @@ README:
      framework
    * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
      compiler
-   * [`docs/build-llvm.md`](docs/build.md): How to build LLVM yourself
+   * [`docs/build-llvm.md`](docs/build-llvm.md): Steps to build LLVM yourself
    * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
      semi-automated process for upgrading the version of LLVM used by the Qwerty
      compiler
