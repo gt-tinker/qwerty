@@ -11,19 +11,30 @@ Documentation
 The `docs/` directory contains more documentation that does not fit in this
 README:
 
-* [`docs/project-structure.md`](docs/project-structure.md): An overview
-  of the contents of this project (i.e., which files do what) and how the
-  sections in the paper submission map to source files.
-* [`docs/examples.md`](docs/examples.md): A list of the example
-  programs found in the `examples/` directory.
-* [`docs/build.md`](docs/build.md): Instructions for building subsets of the
-  Qwerty compiler when working on particular components.
-* [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
-  semi-automated process for upgrading the version of LLVM used by the Qwerty
-  compiler.
-* [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
-  interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
-  one of our MLIR dialects.
+ * Useful for newcomers:
+   * [`docs/examples.md`](docs/examples.md): A list of the Qwerty example
+     programs available in the `examples/` directory
+   * [`docs/project-structure.md`](docs/project-structure.md): An overview
+     of the contents of this project (i.e., which files do what) and how the
+     sections in the paper submission map to source files
+ * Compiler development/maintenance guides:
+   * [`docs/build.md`](docs/build.md): Instructions for building subsets of the
+     Qwerty compiler when working on particular components
+   * [`docs/testing.md`](docs/testing.md): Details on our multi-faceted testing
+     framework
+   * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
+     compiler
+   * [`docs/build-llvm.md`](docs/build-llvm.md): Steps to build LLVM yourself
+   * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
+     semi-automated process for upgrading the version of LLVM used by the Qwerty
+     compiler
+ * Compiler code documentation:
+   * [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
+     interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
+     one of our MLIR dialects
+   * [`docs/state-prep.md`](docs/state-prep.md): Describes the arbitrary state
+     preparation technique by Shende et al. that we use to synthesize circuits for
+     superposition literals
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
@@ -40,7 +51,8 @@ independently, see [`docs/build.md`](docs/build.md).)
 You need to install [Rust][1] _and_ the following:
 
 1. LLVM 21.1.1 (with MLIR). First, download the LLVM build archive that is
-   appropriate for your OS and architecture [from our repository][2]. Then you
+   appropriate for your OS and architecture [from our repository][2]. (If you
+   want to build LLVM yourself, see [this guide](docs/build-llvm.md).) Then you
    need to set both of the following environment variables (assuming
    `$HOME/bin` is where you extracted the LLVM archive, for example):
    ```
