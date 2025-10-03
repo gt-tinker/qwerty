@@ -14,9 +14,21 @@ const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
 const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
 
+#[derive(Debug, Clone, Copy)]
+enum QirProfile {
+    Unrestricted,
+    Base,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Target {
+    Qir(QirProfile),
+    OpenQasm,
+}
+
+#[derive(Debug, Clone, Copy)]
 struct RunPassesConfig {
-    decompose_multi_ctrl: bool,
-    to_base_profile: bool,
+    target: Target,
     dump: bool,
 }
 
@@ -42,8 +54,9 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
         });
     }
 
-    // Stage 1: Optimize Qwerty dialect
+    const INLINER_OPTIONS: &str = "max-iterations=2048";
 
+    // Stage 1: Optimize Qwerty dialect
     // Running the canonicalizer may introduce lambdas, so run it once first
     // before the lambda lifter. Also will optimize ccirc
     pm.add_pass(transform::create_canonicalizer());
@@ -51,7 +64,7 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     pm.add_pass(qwerty::create_lift_lambdas());
     // Will turn qwerty.call_indirects into qwerty.calls
     pm.add_pass(transform::create_canonicalizer());
-    pm.add_pass(transform::create_inliner());
+    pm.add_pass(transform::create_inliner_with_options(INLINER_OPTIONS));
     // It seems the inliner may not run a final round of canonicalization
     // sometimes, so do it ourselves
     pm.add_pass(transform::create_canonicalizer());
@@ -65,7 +78,7 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
     pm.add_pass(qwerty::create_lift_lambdas());
     // Will turn qwerty.call_indirects into qwerty.calls
     pm.add_pass(transform::create_canonicalizer());
-    pm.add_pass(transform::create_inliner());
+    pm.add_pass(transform::create_inliner_with_options(INLINER_OPTIONS));
     pm.add_pass(qwerty::create_qwerty_to_q_circ_conversion());
     // Add canonicalizer pass to prune unused "builtin.unrealized_conversion_cast" ops
     pm.add_pass(transform::create_canonicalizer());
@@ -74,21 +87,32 @@ fn run_passes(module: &mut Module, cfg: RunPassesConfig) -> Result<(), Error> {
 
     let func_pm = pm.nested_under("func.func");
     func_pm.add_pass(qcirc::create_peephole_optimization());
-    if cfg.decompose_multi_ctrl {
-        func_pm.add_pass(qcirc::create_decompose_multi_control());
-        func_pm.add_pass(qcirc::create_peephole_optimization());
-        func_pm.add_pass(qcirc::create_replace_non_qasm_gates());
+    match cfg.target {
+        Target::Qir(QirProfile::Base) | Target::OpenQasm => {
+            func_pm.add_pass(qcirc::create_decompose_multi_control());
+            func_pm.add_pass(qcirc::create_peephole_optimization());
+            func_pm.add_pass(qcirc::create_barenco_decompose());
+        }
+        Target::Qir(QirProfile::Unrestricted) => {
+            // Maintaining controls (and lowering to __ctl in QIR) makes
+            // simulation in qir-runner dramatically faster. So if we are just
+            // directly simulating, do only the minimum needed to make the
+            // gates valid QIR.
+            func_pm.add_pass(qcirc::create_replace_unusual_gates());
+        }
     }
+    func_pm.add_pass(qcirc::create_peephole_optimization());
 
     // Stage 4: Convert to QIR
-    pm.add_pass(qcirc::create_replace_non_qir_gates());
-    if cfg.to_base_profile {
+    if matches!(cfg.target, Target::Qir(QirProfile::Base)) {
         pm.add_pass(qcirc::create_base_profile_module_prep());
         let func_pm = pm.nested_under("func.func");
         func_pm.add_pass(qcirc::create_base_profile_func_prep());
     }
-    pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
-    pm.add_pass(transform::create_canonicalizer());
+    if matches!(cfg.target, Target::Qir(_)) {
+        pm.add_pass(qcirc::create_q_circ_to_qir_conversion());
+        pm.add_pass(transform::create_canonicalizer());
+    }
 
     pm.run(module)?;
 
@@ -116,8 +140,7 @@ fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -> Ve
 
     let mut module = ast_program_to_mlir(prog);
     let cfg = RunPassesConfig {
-        decompose_multi_ctrl: false,
-        to_base_profile: false,
+        target: Target::Qir(QirProfile::Unrestricted),
         dump: debug,
     };
     run_passes(&mut module, cfg).unwrap();

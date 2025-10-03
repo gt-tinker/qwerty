@@ -1,7 +1,6 @@
 add_mlir_dialect_library(MLIRQCircTransforms
   DecomposeMultiControlPass.cpp
-  ReplaceNonQIRGatesPass.cpp
-  ReplaceNonQasmGatesPass.cpp
+  BarencoDecomposePass.cpp
   InlineAdjPass.cpp
   PeepholeOptimizationPass.cpp
   BaseProfilePrepPasses.cpp

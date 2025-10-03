@@ -381,8 +381,8 @@ class MetaInferIntegrationTests(unittest.TestCase):
         shots = 1024
 
         # The 10-qubit case is handled by tweedledum-based synthesis, but the
-        # 18-qubit case is handled by our custom synthesis.
-        for n_qubits in (10, 18):
+        # 11-qubit case is handled by our custom synthesis.
+        for n_qubits in (10, 11):
             all_ones = bit.from_str('1'*n_qubits)
             all_ones_except_upper3 = bit.from_str('000' + '1'*(n_qubits-3))
             expected_histos = ({all_ones: shots},

@@ -627,81 +627,27 @@ class ReplaceRxWithX :
         if (!mlir::matchPattern(gate.getParam(), qcirc::m_CalcConstant(&float_attr))) {
             return mlir::failure();
         }
+        if (!gate.getControls().empty()) {
+            return mlir::failure();
+        }
 
         double theta = float_attr.getValueAsDouble();
 
-        if (gate.getControls().empty()) {
-            if (std::abs(theta - M_PI) <= ATOL
-                    || std::abs(theta - (-M_PI)) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::X, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(theta - M_PI_2) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::Sx, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else if (std::abs(theta - (-M_PI_2)) <= ATOL) {
-                rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::Sxdg, mlir::ValueRange(), gate.getQubit());
-                return mlir::success();
-            } else {
-                return mlir::failure();
-            }
-        } else {
-            mlir::Location loc = gate.getLoc();
-            qcirc::Gate1QOp ccx, cs;
-
-            if (std::abs(theta - M_PI) <= ATOL) {
-                ccx = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::X, gate.getControls(), gate.getQubit());
-                cs = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Sdg,
-                    llvm::iterator_range(
-                        ccx.getControlResults().begin(),
-                        ccx.getControlResults().begin() +
-                            (ccx.getControlResults().size()-1)),
-                    ccx.getControlResults()[ccx.getControlResults().size()-1]);
-            } else if (std::abs(theta - (-M_PI)) <= ATOL) {
-                ccx = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::X, gate.getControls(), gate.getQubit());
-                cs = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::S,
-                    llvm::iterator_range(
-                        ccx.getControlResults().begin(),
-                        ccx.getControlResults().begin() +
-                            (ccx.getControlResults().size()-1)),
-                    ccx.getControlResults()[ccx.getControlResults().size()-1]);
-            } else if (std::abs(theta - M_PI_2) <= ATOL) {
-                ccx = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Sx, gate.getControls(), gate.getQubit());
-                cs = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Tdg,
-                    llvm::iterator_range(
-                        ccx.getControlResults().begin(),
-                        ccx.getControlResults().begin() +
-                            (ccx.getControlResults().size()-1)),
-                    ccx.getControlResults()[ccx.getControlResults().size()-1]);
-            } else if (std::abs(theta - (-M_PI_2)) <= ATOL) {
-                ccx = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Sxdg, gate.getControls(), gate.getQubit());
-                cs = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::T,
-                    llvm::iterator_range(
-                        ccx.getControlResults().begin(),
-                        ccx.getControlResults().begin() +
-                            (ccx.getControlResults().size()-1)),
-                    ccx.getControlResults()[ccx.getControlResults().size()-1]);
-            } else {
-                return mlir::failure();
-            }
-
-            llvm::SmallVector<mlir::Value> replace_with(
-                cs.getControlResults());
-            replace_with.push_back(cs.getResult());
-            replace_with.push_back(ccx.getResult());
-
-            rewriter.replaceOp(gate, replace_with);
+        if (std::abs(theta - M_PI) <= ATOL
+                || std::abs(theta - (-M_PI)) <= ATOL) {
+            rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
+                gate, qcirc::Gate1Q::X, mlir::ValueRange(), gate.getQubit());
             return mlir::success();
+        } else if (std::abs(theta - M_PI_2) <= ATOL) {
+            rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
+                gate, qcirc::Gate1Q::Sx, mlir::ValueRange(), gate.getQubit());
+            return mlir::success();
+        } else if (std::abs(theta - (-M_PI_2)) <= ATOL) {
+            rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
+                gate, qcirc::Gate1Q::Sxdg, mlir::ValueRange(), gate.getQubit());
+            return mlir::success();
+        } else {
+            return mlir::failure();
         }
     }
 };
