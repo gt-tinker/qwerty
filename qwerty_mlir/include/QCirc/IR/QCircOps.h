@@ -33,6 +33,14 @@ mlir::Value stationaryF64Const(mlir::OpBuilder &builder, mlir::Location loc, dou
 // Qwerty dialects. Wraps an arith.negf inside a qcirc.calc op.
 mlir::Value stationaryF64Negate(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value theta);
 
+// Wrap some ops created by a callback in a qcirc.calc op with stationary
+// operands.
+mlir::Value wrapStationaryF64Ops(
+    mlir::OpBuilder &builder,
+    mlir::Location loc,
+    mlir::ValueRange args,
+    std::function<mlir::Value(mlir::ValueRange)> build_body);
+
 // Heavily, heavily inspired by the implementation of mlir::m_Constant() in the
 // MLIR source tree. The difference here is that the ConstantLike trait
 // requires having (always) having no operands. That is not true of
