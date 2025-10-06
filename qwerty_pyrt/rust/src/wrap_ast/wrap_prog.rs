@@ -10,7 +10,21 @@ use qwerty_ast::{
     error::{LowerError, LowerErrorKind},
     meta,
 };
-use qwerty_ast_to_mlir::{CompileError, run_meta_ast};
+use qwerty_ast_to_mlir::{CompileError, meta_ast_to_qasm, run_meta_ast};
+
+fn compile_err_to_py_err<'py>(py: Python<'py>, err: CompileError) -> PyErr {
+    match err {
+        CompileError::AST(LowerError {
+            kind: LowerErrorKind::TypeError { kind },
+            dbg,
+        }) => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
+        CompileError::AST(LowerError { kind, dbg }) => {
+            get_err(py, ProgErrKind::Expand, kind.to_string(), dbg)
+        }
+        CompileError::MLIR(err, dbg) => get_err(py, ProgErrKind::Internal, err.to_string(), dbg),
+        CompileError::Message(msg, dbg) => get_err(py, ProgErrKind::Internal, msg, dbg),
+    }
+}
 
 #[pyclass]
 pub struct Program {
@@ -50,19 +64,8 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let shots =
-            run_meta_ast(&self.program, &func_name, num_shots, debug).map_err(|err| match err {
-                CompileError::AST(LowerError {
-                    kind: LowerErrorKind::TypeError { kind },
-                    dbg,
-                }) => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
-                CompileError::AST(LowerError { kind, dbg }) => {
-                    get_err(py, ProgErrKind::Expand, kind.to_string(), dbg)
-                }
-                CompileError::MLIR(err, dbg) => {
-                    get_err(py, ProgErrKind::Internal, err.to_string(), dbg)
-                }
-            })?;
+        let shots = run_meta_ast(&self.program, &func_name, num_shots, debug)
+            .map_err(|err| compile_err_to_py_err(py, err))?;
 
         shots
             .into_iter()
@@ -72,6 +75,11 @@ impl Program {
                     .map(|bit_reg| (bit_reg, shot_result.count))
             })
             .collect()
+    }
+
+    fn qasm<'py>(&mut self, py: Python<'py>, func_name: String, debug: bool) -> PyResult<String> {
+        meta_ast_to_qasm(&self.program, &func_name, debug)
+            .map_err(|err| compile_err_to_py_err(py, err))
     }
 
     /// Return the Debug form of this Expr from __repr__(). By contrast,

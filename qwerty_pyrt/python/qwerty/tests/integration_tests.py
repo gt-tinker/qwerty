@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import textwrap
 import unittest
 import qwerty.kernel
 from qwerty.runtime import bit
@@ -419,6 +420,30 @@ class MetaInferIntegrationTests(unittest.TestCase):
         expected_result = (x, {x.repeat(2): shots})
         actual_result = slice.test(shots)
         self.assertEqual(expected_result, actual_result)
+
+    def test_qasm_ghz(self):
+        from .integ.meta import qasm_ghz
+
+        num_qubits = 5
+        expected_qasm = textwrap.dedent("""
+        OPENQASM 3.0;
+        include "stdgates.inc";
+        qreg q[5];
+        creg c[5];
+        h q[0];
+        ctrl(1) @ x q[0], q[1];
+        ctrl(1) @ x q[1], q[2];
+        ctrl(1) @ x q[2], q[3];
+        ctrl(1) @ x q[3], q[4];
+        measure q[0] -> c[0];
+        measure q[1] -> c[1];
+        measure q[2] -> c[2];
+        measure q[3] -> c[3];
+        measure q[4] -> c[4];
+        """).lstrip()
+
+        actual_qasm = qasm_ghz.test(num_qubits)
+        self.assertEqual(expected_qasm, actual_qasm)
 
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):

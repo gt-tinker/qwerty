@@ -2,7 +2,7 @@ use crate::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
 use melior::{
     Error,
     dialect::{qcirc, qwerty},
-    ir::{Module, operation::OperationPrintingFlags},
+    ir::{Module, operation::OperationPrintingFlags, symbol_table::SymbolTable},
     pass::{PassIrPrintingOptions, PassManager, transform},
 };
 use qwerty_ast::{
@@ -125,6 +125,7 @@ fn run_passes(module: &mut Module, cfg: &CompileConfig) -> Result<(), Error> {
 pub enum CompileError {
     AST(LowerError),
     MLIR(Error, Option<DebugLoc>),
+    Message(String, Option<DebugLoc>),
 }
 
 impl From<LowerError> for CompileError {
@@ -179,4 +180,33 @@ pub fn compile_meta_ast(
     let mut module = ast_program_to_mlir(&canon_ast);
     run_passes(&mut module, cfg).map_err(|e| CompileError::MLIR(e, canon_ast.dbg.clone()))?;
     Ok(module)
+}
+
+pub fn meta_ast_to_qasm(
+    prog: &MetaProgram,
+    func_name: &str,
+    debug: bool,
+) -> Result<String, CompileError> {
+    let cfg = CompileConfig {
+        target: Target::OpenQasm,
+        dump: debug,
+    };
+    let module = compile_meta_ast(prog, func_name, &cfg)?;
+    let sym_table = SymbolTable::new(module.as_operation()).ok_or_else(|| {
+        CompileError::Message(
+            "Every ModuleOp should have a symbol table".to_string(),
+            prog.dbg.clone(),
+        )
+    })?;
+    let func_op = sym_table.lookup(func_name).ok_or_else(|| {
+        CompileError::Message(
+            format!("Could not find symbol @{}", func_name),
+            prog.dbg.clone(),
+        )
+    })?;
+
+    let print_locs = debug;
+    qcirc::generate_qasm((&func_op).into(), print_locs).ok_or_else(|| {
+        CompileError::Message("QASM generation failed".to_string(), prog.dbg.clone())
+    })
 }

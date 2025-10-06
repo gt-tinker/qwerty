@@ -117,6 +117,10 @@ class KernelHandle:
                 bits, = histo.keys()
                 return bits
 
+    @_cook_programmer_traceback
+    def qasm(self):
+        return program.qasm(self.func_name, QWERTY_DEBUG)
+
 class PyCapturer(Capturer):
     """
     A ``Capturer`` (see ``convert_ast.py``) that grabs Python variables from
