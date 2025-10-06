@@ -44,9 +44,11 @@ MlirAttribute mlirIntegerAttrBigIntGet(MlirContext ctx,
 
 MlirPass mlirCreateTransformsInlinerWithOptions(const char *options) {
     std::unique_ptr<mlir::Pass> pass = mlir::createInlinerPass();
-    pass->initializeOptions(options, [](const llvm::Twine &msg) {
+    mlir::LogicalResult res = pass->initializeOptions(options, [](const llvm::Twine &msg) {
         llvm::errs() << "ERROR initializing inliner: " << msg << "\n";
         return mlir::failure();
     });
+    // TODO: better error handling... somehow
+    assert(res.succeeded() && "Initializing pass options failed");
     return wrap(pass.release());
 }

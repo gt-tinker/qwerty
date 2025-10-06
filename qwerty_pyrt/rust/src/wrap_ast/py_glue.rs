@@ -15,6 +15,7 @@ use qwerty_ast::dbg;
 static BIT_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_TYPE_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 static QWERTY_EXPAND_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static QWERTY_INTERNAL_ERROR_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
 
 pub fn get_bit_reg<'py>(
     py: Python<'py>,
@@ -111,6 +112,7 @@ impl<'py> FromPyObject<'py> for IBigWrap {
 pub enum ProgErrKind {
     Type,
     Expand,
+    Internal,
 }
 
 fn get_err_ty<'py>(py: Python<'py>, kind: ProgErrKind) -> PyResult<Bound<'py, PyType>> {
@@ -118,6 +120,9 @@ fn get_err_ty<'py>(py: Python<'py>, kind: ProgErrKind) -> PyResult<Bound<'py, Py
         ProgErrKind::Type => QWERTY_TYPE_ERROR_TYPE.import(py, "qwerty.err", "QwertyTypeError"),
         ProgErrKind::Expand => {
             QWERTY_EXPAND_ERROR_TYPE.import(py, "qwerty.err", "QwertyExpandError")
+        }
+        ProgErrKind::Internal => {
+            QWERTY_INTERNAL_ERROR_TYPE.import(py, "qwerty.err", "QwertyInternalError")
         }
     }
     .cloned()

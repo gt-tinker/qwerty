@@ -10,7 +10,7 @@ use qwerty_ast::{
     error::{LowerError, LowerErrorKind},
     meta,
 };
-use qwerty_ast_to_mlir::run_meta_ast;
+use qwerty_ast_to_mlir::{CompileError, run_meta_ast};
 
 #[pyclass]
 pub struct Program {
@@ -52,11 +52,16 @@ impl Program {
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
         let shots =
             run_meta_ast(&self.program, &func_name, num_shots, debug).map_err(|err| match err {
-                LowerError {
+                CompileError::AST(LowerError {
                     kind: LowerErrorKind::TypeError { kind },
                     dbg,
-                } => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
-                LowerError { kind, dbg } => get_err(py, ProgErrKind::Expand, kind.to_string(), dbg),
+                }) => get_err(py, ProgErrKind::Type, kind.to_string(), dbg),
+                CompileError::AST(LowerError { kind, dbg }) => {
+                    get_err(py, ProgErrKind::Expand, kind.to_string(), dbg)
+                }
+                CompileError::MLIR(err, dbg) => {
+                    get_err(py, ProgErrKind::Internal, err.to_string(), dbg)
+                }
             })?;
 
         shots
