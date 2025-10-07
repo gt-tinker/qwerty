@@ -10,7 +10,7 @@ use qwerty_ast::{
     error::{LowerError, LowerErrorKind},
     meta,
 };
-use qwerty_ast_to_mlir::{CompileError, meta_ast_to_qasm, run_meta_ast};
+use qwerty_ast_to_mlir::{Backend, CompileError, meta_ast_to_qasm, run_meta_ast};
 
 fn compile_err_to_py_err<'py>(py: Python<'py>, err: CompileError) -> PyErr {
     match err {
@@ -64,7 +64,7 @@ impl Program {
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let shots = run_meta_ast(&self.program, &func_name, num_shots, debug)
+        let shots = run_meta_ast(&self.program, &func_name, Backend::Qiree, num_shots, debug)
             .map_err(|err| compile_err_to_py_err(py, err))?;
 
         shots

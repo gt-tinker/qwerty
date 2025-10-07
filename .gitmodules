@@ -15,3 +15,6 @@
 [submodule "tblgen_rs"]
 	path = tblgen_rs
 	url = https://github.com/gt-tinker/tblgen-rs.git
+[submodule "qiree"]
+	path = qiree
+	url = https://github.com/gt-tinker/qiree.git

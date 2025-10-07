@@ -1,0 +1,10 @@
+[package]
+name = "qiree_sys"
+version = "0.1.0"
+edition = "2024"
+categories = ["external-ffi-bindings"]
+description = "Rust bindings to the QIR-EE C API."
+
+[build-dependencies]
+bindgen = "0.72.1"
+cmake = "0.1.54"
