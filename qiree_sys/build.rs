@@ -45,9 +45,7 @@ struct BuiltQiree {
 fn build_qiree() -> BuiltQiree {
     let qiree_dir = PathBuf::from("..").join("qiree");
 
-    let rerun_if_changed = vec![
-        qiree_dir.join("qiree"),
-    ];
+    let rerun_if_changed = vec![qiree_dir.clone()];
 
     let install_dir = cmake::Config::new(qiree_dir)
         .generator("Ninja")
@@ -115,10 +113,7 @@ fn run_bindgen(built_qiree: BuiltQiree) -> Result<(), Box<dyn Error>> {
 
     println!("cargo:rerun-if-changed=wrapper.h");
 
-    println!(
-        "cargo:rustc-link-search={}",
-        built_qiree.lib_dir.display()
-    );
+    println!("cargo:rustc-link-search={}", built_qiree.lib_dir.display());
     for static_lib_name in built_qiree.static_lib_names {
         if let Some(name) = parse_archive_name(&static_lib_name) {
             println!("cargo:rustc-link-lib=static={name}");
@@ -127,7 +122,10 @@ fn run_bindgen(built_qiree: BuiltQiree) -> Result<(), Box<dyn Error>> {
 
     println!("cargo:rustc-link-search={}", llvm_config("--libdir")?);
 
-    for name in llvm_config(&format!("--libnames {}", LLVM_COMPONENTS))?.trim().split(' ') {
+    for name in llvm_config(&format!("--libnames {}", LLVM_COMPONENTS))?
+        .trim()
+        .split(' ')
+    {
         if let Some(name) = parse_archive_name(name) {
             println!("cargo:rustc-link-lib={name}");
         }
