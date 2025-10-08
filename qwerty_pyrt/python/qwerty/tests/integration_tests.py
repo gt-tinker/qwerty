@@ -445,6 +445,14 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_qasm = qasm_ghz.test(num_qubits)
         self.assertEqual(expected_qasm, actual_qasm)
 
+    def test_qpe_on_qiree(self):
+        from .integ.meta import qpe
+        angle_deg, precision, shots, acc = 225.0, 3, 1024, 'qsim'
+        actual_histo = qpe.test(angle_deg, precision, shots, acc)
+        self.assertGreater(actual_histo.get(angle_deg, 0), shots*15//16,
+                           "Too few correct answers")
+        self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
+
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):
     """
