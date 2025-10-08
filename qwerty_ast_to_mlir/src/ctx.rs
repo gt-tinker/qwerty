@@ -3,6 +3,7 @@ use melior::{
     dialect::{DialectHandle, DialectRegistry, qwerty},
     ir::{Block, Value},
     pass::transform,
+    target::llvm_ir::LLVMContext,
     utility::{register_inliner_extensions, register_llvm_ir_translations},
 };
 use qwerty_ast::typecheck::TypeEnv;
@@ -42,6 +43,8 @@ pub static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
 
     ctx
 });
+
+pub static LLVM_CTX: LazyLock<LLVMContext> = LazyLock::new(LLVMContext::new);
 
 /// Something that is bound to a name and can be (or has been) materialized to
 /// MLIR values.

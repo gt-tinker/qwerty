@@ -13,7 +13,11 @@ macro_rules! qir_symbol {
     };
 }
 
-pub fn run_mlir_module(module: Module, func_name: &str, num_shots: usize) -> Vec<ShotResult> {
+pub fn run_mlir_module(
+    module: Module<'static>,
+    func_name: &str,
+    num_shots: usize,
+) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
 
     let exec = ExecutionEngine::new(&module, 3, &[], false);

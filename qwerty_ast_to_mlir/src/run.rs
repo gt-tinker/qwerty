@@ -1,4 +1,6 @@
-use crate::compile::{CompileConfig, CompileError, QirProfile, Target, compile_meta_ast};
+use crate::compile::{
+    CompileConfig, CompileError, QirProfile, Target, compile_meta_ast, translate_to_llvm_ir,
+};
 use dashu::integer::UBig;
 use qwerty_ast::meta::MetaProgram;
 
@@ -38,9 +40,12 @@ pub fn run_meta_ast(
                 target: Target::Qir(QirProfile::Base),
                 dump: debug,
             };
-            let module = compile_meta_ast(prog, func_name, &cfg)?;
-            Ok(backend::qiree::run_mlir_module(
-                module, func_name, num_shots,
+            let mlir_module = compile_meta_ast(prog, func_name, &cfg)?;
+            let llvm_module = translate_to_llvm_ir(mlir_module, debug)?;
+            Ok(backend::qiree::run_llvm_module(
+                llvm_module,
+                func_name,
+                num_shots,
             ))
         }
     }

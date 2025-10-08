@@ -1,9 +1,6 @@
 use super::super::ShotResult;
 use dashu::integer::UBig;
-use melior::{
-    ir::Module,
-    target::llvm_ir::{LLVMContext, translate_module},
-};
+use melior::target::llvm_ir::LLVMModule;
 use qiree_sys::{
     CQireeResultRecord, qiree_create, qiree_destroy, qiree_execute,
     qiree_load_module_from_llvm_module, qiree_max_result_items, qiree_save_result_items,
@@ -11,12 +8,12 @@ use qiree_sys::{
 };
 use std::ffi::{CString, c_int};
 
-pub fn run_mlir_module(module: Module, func_name: &str, num_shots: usize) -> Vec<ShotResult> {
+pub fn run_llvm_module(
+    llvm_module: LLVMModule<'static>,
+    func_name: &str,
+    num_shots: usize,
+) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
-
-    let llvm_ctx = LLVMContext::new();
-    let llvm_module =
-        translate_module(module.as_operation(), &llvm_ctx).expect("translation to llvm ir failed");
 
     let (num_bits, results) = unsafe {
         let qiree = qiree_create();
