@@ -58,7 +58,7 @@ fn build_qiree() -> BuiltQiree {
         // No need to pull in gtest
         .define("QIREE_BUILD_TESTS", "OFF")
         // Statically link
-        .define("BUILD_SHARED_LIBS", "OFF")
+        .define("QIREE_SHARED_LIBS", "OFF")
         // ...yet do -fPIC so that we can link all this into the Python
         // extension module (a shared library)
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")

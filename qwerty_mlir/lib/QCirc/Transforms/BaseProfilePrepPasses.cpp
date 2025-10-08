@@ -56,13 +56,13 @@ struct BaseProfileModulePrepPass
             // then let mlir_handle.cpp copy them over into the llvm::Module.
             // TODO: Consider contributing robust support for module flags
             // upstream
-            mod->setDiscardableAttr("qcirc.flag.qir_major_version",
+            mod->setDiscardableAttr("llvm.flag.qir_major_version",
                                     rewriter.getI32IntegerAttr(1));
-            mod->setDiscardableAttr("qcirc.flag.qir_minor_version",
+            mod->setDiscardableAttr("llvm.flag.qir_minor_version",
                                     rewriter.getI32IntegerAttr(0));
-            mod->setDiscardableAttr("qcirc.flag.dynamic_qubit_management",
+            mod->setDiscardableAttr("llvm.flag.dynamic_qubit_management",
                                     rewriter.getBoolAttr(false));
-            mod->setDiscardableAttr("qcirc.flag.dynamic_result_management",
+            mod->setDiscardableAttr("llvm.flag.dynamic_result_management",
                                     rewriter.getBoolAttr(false));
         });
     }
@@ -268,10 +268,10 @@ struct BaseProfileFuncPrepPass
         rewriter.create<qcirc::UglyMeasureOp>(rewriter.getUnknownLoc(),
             qubits_to_measure.size(), qubits_to_discard);
 
-        rewriter.create<qcirc::UglyRecordOp>(bitpack.getLoc(),
-            TAG_RET, 0, qubits_to_measure.size());
         rewriter.create<qcirc::UglyRecordOp>(rewriter.getUnknownLoc(),
             TAG_DISCARDED, qubits_to_measure.size(), qubits_to_discard.size());
+        rewriter.create<qcirc::UglyRecordOp>(bitpack.getLoc(),
+            TAG_RET, 0, qubits_to_measure.size());
 
         mlir::Value success = rewriter.create<mlir::arith::ConstantOp>(
             rewriter.getUnknownLoc(),
