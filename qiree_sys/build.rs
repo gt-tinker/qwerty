@@ -58,7 +58,7 @@ fn build_qiree() -> BuiltQiree {
         // No need to pull in gtest
         .define("QIREE_BUILD_TESTS", "OFF")
         // Statically link
-        .define("QIREE_SHARED_LIBS", "OFF")
+        .define("BUILD_SHARED_LIBS", "OFF")
         // Don't command-line programms since we do not use them (this avoids
         // downloading CLI11 unnecessarily)
         .define("QIREE_BUILD_APPS", "OFF")
