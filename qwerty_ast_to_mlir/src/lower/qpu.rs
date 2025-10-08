@@ -1782,11 +1782,17 @@ pub fn ast_qpu_func_def_to_mlir(
     let func_region = Region::new();
     func_region.append_block(func_block);
 
+    let visibility = if func_def.is_classically_callable() {
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+
     let func_op = qwerty::func(
         &MLIR_CTX,
         sym_name,
         func_ty_attr,
-        Visibility::Public,
+        visibility,
         func_region,
         func_loc,
     );

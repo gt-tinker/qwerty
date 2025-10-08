@@ -516,6 +516,14 @@ impl<E: ToPythonCode> ToPythonCode for FunctionDef<E> {
     }
 }
 
+impl FunctionDef<qpu::Expr> {
+    /// Returns true if and only if this function may be called from classical
+    /// code. (Currently, this means the quantum function takes no arguments.)
+    pub fn is_classically_callable(&self) -> bool {
+        self.args.is_empty()
+    }
+}
+
 // ----- Program (Top-Level Function Container) -----
 
 #[derive(Debug, Clone, PartialEq)]
