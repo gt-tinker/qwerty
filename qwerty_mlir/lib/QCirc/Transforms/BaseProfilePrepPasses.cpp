@@ -101,10 +101,13 @@ struct BaseProfileFuncPrepPass
         size_t n_qubits_freed = 0;
         std::vector<bool> measured;
         llvm::DenseMap<mlir::Value, size_t> value_indices;
-        // Delay modifying the IR to avoid iterator invalidation pain
+        // Delay deleting ops to avoid iterator invalidation pain. (size_t)-1
+        // is a sentinel that means the op should be deleted entirely
         llvm::SmallVector<std::pair<mlir::Operation *, size_t>> pending_replacement;
-        // The bool is true if it was measured beforehand, false otherwise
+        // The bool is true if the qubit should be measured (usually, if it was
+        // not measured before being freed), false otherwise
         llvm::SmallVector<std::pair<qcirc::QfreeOp, bool>> qfrees;
+        llvm::SmallVector<mlir::Value> freed_ancillas;
 
         #define THREAD_QUBIT_IDX(gate, arg_name, result_name) \
             auto arg_name ## it = value_indices.find(gate.get ## arg_name()); \
@@ -128,11 +131,19 @@ struct BaseProfileFuncPrepPass
             mlir::Operation *op = &*it;
 
             if (qcirc::QallocOp qalloc = llvm::dyn_cast<qcirc::QallocOp>(op)) {
-                size_t qubit_idx = n_qubits++;
-                measured.push_back(false);
+                if (freed_ancillas.empty()) {
+                    size_t qubit_idx = n_qubits++;
+                    measured.push_back(false);
 
-                value_indices[qalloc.getResult()] = qubit_idx;
-                pending_replacement.emplace_back(qalloc, qubit_idx);
+                    value_indices[qalloc.getResult()] = qubit_idx;
+                    pending_replacement.emplace_back(qalloc, qubit_idx);
+                } else {
+                    mlir::Value ancilla = freed_ancillas.pop_back_val();
+                    // We can safely replace uses with an existing Value
+                    // without invalidating the iterator, so do it
+                    qalloc.getResult().replaceAllUsesWith(ancilla);
+                    pending_replacement.emplace_back(qalloc, (size_t)-1);
+                }
             } else if (qcirc::QfreeOp qfree = llvm::dyn_cast<qcirc::QfreeOp>(op)) {
                 auto it = value_indices.find(qfree.getQubit());
                 assert(it != value_indices.end()
@@ -140,15 +151,11 @@ struct BaseProfileFuncPrepPass
                 size_t qubit_idx = it->getSecond();
                 n_qubits_freed++;
                 value_indices.erase(it);
-                qfrees.emplace_back(qfree, measured[qubit_idx]);
+                qfrees.emplace_back(qfree, !measured[qubit_idx]);
             } else if (qcirc::QfreeZeroOp qfreez = llvm::dyn_cast<qcirc::QfreeZeroOp>(op)) {
-                auto it = value_indices.find(qfreez.getQubit());
-                assert(it != value_indices.end()
-                       && "malformed IR: freeing unknown SSA edge");
-                size_t qubit_idx = it->getSecond();
-                n_qubits_freed++;
-                value_indices.erase(it);
-                qfrees.emplace_back(qfreez, measured[qubit_idx]);
+                freed_ancillas.push_back(qfreez.getQubit());
+                // Don't measure this qubit (it maybe used later). Just erase it
+                qfrees.emplace_back(qfreez, false);
             } else if (qcirc::MeasureOp meas = llvm::dyn_cast<qcirc::MeasureOp>(op)) {
                 THREAD_QUBIT_IDX(meas, Qubit, QubitResult)
                 if (measured[Qubit_idx]) {
@@ -194,13 +201,14 @@ struct BaseProfileFuncPrepPass
         #undef THREAD_QUBIT_IDX
         #undef THREAD_CONTROL_IDXS
 
-        if (n_qubits_freed != n_qubits) {
+        if (n_qubits_freed + freed_ancillas.size() != n_qubits) {
             llvm::errs() << "Not all qubits freed\n";
             signalPassFailure();
             return;
         }
 
-        // Now that we have no iterator to blow up, modify the IR
+        // Now that we have no iterator to blow up, we can erase
+        // qalloc/qfree(z) ops
 
         mlir::IRRewriter rewriter(&getContext());
 
@@ -209,17 +217,23 @@ struct BaseProfileFuncPrepPass
         rewriter.create<qcirc::InitOp>(rewriter.getUnknownLoc());
 
         for (auto [op, qubit_idx] : pending_replacement) {
-            rewriter.setInsertionPoint(op);
-            rewriter.replaceOpWithNewOp<qcirc::QubitIndexOp>(
-                op, qubit_idx);
+            if (qubit_idx == (size_t)-1) {
+                rewriter.eraseOp(op);
+            } else {
+                rewriter.setInsertionPoint(op);
+                rewriter.replaceOpWithNewOp<qcirc::QubitIndexOp>(
+                    op, qubit_idx);
+            }
         }
         llvm::SmallVector<mlir::Value> qubits_to_discard;
-        for (auto &[qfree, was_measured] : qfrees) {
-            if (!was_measured) {
+        for (auto &[qfree, should_measure] : qfrees) {
+            if (should_measure) {
                 qubits_to_discard.push_back(qfree.getQubit());
             }
             rewriter.eraseOp(qfree);
         }
+        // Measure all qubits that were qfreez'd and not reused
+        qubits_to_discard.append(freed_ancillas);
 
         mlir::func::ReturnOp ret;
         if (!(ret = llvm::dyn_cast<mlir::func::ReturnOp>(
