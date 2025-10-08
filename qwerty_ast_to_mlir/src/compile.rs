@@ -1,4 +1,7 @@
-use crate::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
+use crate::{
+    ctx::MLIR_CTX,
+    lower::ast_program_to_mlir,
+};
 use melior::{
     Error,
     dialect::{qcirc, qwerty},

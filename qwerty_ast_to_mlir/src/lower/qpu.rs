@@ -1,7 +1,7 @@
 use crate::{
     ctx::{BoundVals, Ctx, MLIR_CTX},
-    lower_prog_stmt::{Lowerable, ast_stmt_to_mlir},
-    lower_type::{ast_func_mlir_ty, ast_ty_to_mlir_tys, dbg_to_loc},
+    lower::prog_stmt::{Lowerable, ast_stmt_to_mlir},
+    lower::ty::{ast_func_mlir_ty, ast_ty_to_mlir_tys, dbg_to_loc},
 };
 use dashu::{base::BitTest, integer::UBig};
 use melior::{
