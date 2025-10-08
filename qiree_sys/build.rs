@@ -59,6 +59,9 @@ fn build_qiree() -> BuiltQiree {
         .define("QIREE_BUILD_TESTS", "OFF")
         // Statically link
         .define("QIREE_SHARED_LIBS", "OFF")
+        // Don't command-line programms since we do not use them (this avoids
+        // downloading CLI11 unnecessarily)
+        .define("QIREE_BUILD_APPS", "OFF")
         // ...yet do -fPIC so that we can link all this into the Python
         // extension module (a shared library)
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")
