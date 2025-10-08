@@ -6,9 +6,12 @@ use qwerty_ast::meta::MetaProgram;
 
 mod backend;
 
+#[derive(Debug, Clone)]
 pub enum Backend {
+    /// JIT and run locally against qir-runner's QIR backend
     QirRunner,
-    Qiree,
+    /// A particular accelerator on QIR-EE
+    Qiree(String),
 }
 
 pub struct ShotResult {
@@ -35,18 +38,16 @@ pub fn run_meta_ast(
                 module, func_name, num_shots,
             ))
         }
-        Backend::Qiree => {
+        Backend::Qiree(acc) => {
             let cfg = CompileConfig {
                 target: Target::Qir(QirProfile::Base),
                 dump: debug,
             };
             let mlir_module = compile_meta_ast(prog, func_name, &cfg)?;
             let llvm_module = translate_to_llvm_ir(mlir_module, debug)?;
-            Ok(backend::qiree::run_llvm_module(
-                llvm_module,
-                func_name,
-                num_shots,
-            ))
+            backend::qiree::run_llvm_module(llvm_module, func_name, acc, num_shots).map_err(
+                |qiree_err| CompileError::Message(format!("QIR-EE error: {}", qiree_err), None),
+            )
         }
     }
 }
