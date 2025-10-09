@@ -11,6 +11,8 @@ set(CMAKE_CXX_FLAGS_COVERAGE "-g -O0 --coverage")
 set(CMAKE_EXE_LINKER_FLAGS_COVERAGE --coverage)
 set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE --coverage)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Fyi, a debug build causes linker errors on Windows:
 # https://stackoverflow.com/a/48952485/321301
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
