@@ -1852,6 +1852,18 @@ void runInverseQft(mlir::Location loc, mlir::OpBuilder &builder,
   }
 }
 
+// We want to check for the presence of basis generators
+// for use in the AlignBasisTranslations and SynthesizePermutations
+// checks
+bool hasGenerators(qwerty::BasisAttr basis) {
+  for (qwerty::BasisElemAttr elem : basis.getElems()) {
+    if (elem.getRevolve()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // In the code here, we happen to use a stricter definition of "aligned" that
 // means "aligned" (from the CGO paper) and the primitive basis is std.
 bool isAligned(qwerty::BasisAttr lhs, qwerty::BasisAttr rhs) {
@@ -2612,6 +2624,7 @@ void standardizeCompressed(
 
     size_t dim = stdize.end - stdize.start;
 
+    // FIXME: Remove this once Revolve works!
     if (stdize.prim_basis == qwerty::PrimitiveBasis::FOURIER) {
       if (left) {
         runInverseQft(loc, rewriter, control_qubits, qubits, qubit_idx, dim);
@@ -3049,16 +3062,16 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
                 size_t start_idx, size_t n, bool inverse) {
   assert(n <= qubits.size() && start_idx < qubits.size() &&
            start_idx + n <= qubits.size() && "Revolve indices out of range");
-  if !(inverse) {
+  if (!inverse) {
     qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
       loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
 
-    qubits[start_idx + i] = h.getResult();
+    qubits[start_idx] = h.getResult();
     control_qubits.clear();
     control_qubits.append(h.getControlResults().begin(),
                           h.getControlResults().end());
 
-    for (i = 1; i < n; i++) {
+    for (size_t i = 1; i < n; i++) {
       // TODO: this precision is not enough for very large circuits. Need
       // to use llvm::APFloat or something
 
@@ -3130,16 +3143,25 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
   }
 }
 
+// TODO: Add an additional pass that admits the fully generalized
+// expression baz >> foo // baz.revolve, and converts this into several btrans ops
+// chained together, as well as correct lowering.
+// Aka we convert baz >> foo // bar.revolve into
+// baz >> std**N | foo // std.revolve | (id**(N-1) * (std >> bar)
+
+
 // NOTE: If we have something like ij**3 >> fourier(3),
 // then we want to get ij**3 >> std**3 | std**3 >> fourier(3)
 // If the RHS has revolve AND then LHS isn't std**N for some N,
 // then we want to apply this pattern
 //
+// TODO: Add inputs/outputs for every single pass, for clarity
+//
 // This should also work for std // std.revolve >> ij // std.revolve
 // for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 // NOTE: This requires a separate synthesis for std[N-1] // std.revolve >>
 // std**N
-struct SplitRevolveBasisGenTranslation
+struct SplitRevolveBasisGeneratorTranslation
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
@@ -3150,15 +3172,16 @@ struct SplitRevolveBasisGenTranslation
     // NOTE: In this pattern, see above discussion, we are splitting and
     // creating two basis translations from one for "canonicalization"
     // purposes
+    return mlir::failure();
   }
-}
+};
 
 // TODO: Fix this
 // match this pattern only when there is an applyrevolvegeneratorattr
 // and it is the only basis element (this stops us from having predicated
 // revolve statements) (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
 // should not exist, ever, we hate it (for now)
-struct SplitRevolveBasisGeneratorPass
+struct RecurseRevolveBasisGeneratorPattern
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
@@ -3169,10 +3192,11 @@ struct SplitRevolveBasisGeneratorPass
     // NOTE: This ends up being the recursive step, we only match on
     // NOTE: We DON'T want to match on the "base case", which takes the
     // form std**N >> std**(N-1) // std.revolve
+    return mlir::failure();
   }
-}
+};
 
-struct LowerRevolveBasisGeneratorPass
+struct LowerRevolveBasisGenerator
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
@@ -3187,8 +3211,92 @@ struct LowerRevolveBasisGeneratorPass
     // std**N
     // Verify that we indeed see the base case here
     // then call the runRevolveCircuit here if we match
+    mlir::Location loc = trans.getLoc();
+    qwerty::BasisAttr basis_in = trans.getBasisIn();
+    qwerty::BasisAttr basis_out = trans.getBasisOut();
+
+    auto elts_in = basis_in.getElems();
+    auto elts_out = basis_out.getElems();
+    // Must have one element each, either BuiltinBasisAttr or ApplyRevolveGeneratorAttr
+    if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_in = elts_in.front();
+    auto elt_out = elts_out.front();
+
+    // a series of IsA checks for all cases
+    bool inIsBuiltin = llvm::isa<qwerty::BuiltinBasisAttr>(elt_in);
+    bool inIsRevolve = llvm::isa<qwerty::ApplyRevolveGeneratorAttr>(elt_in);
+    bool outIsBuiltin = llvm::isa<qwerty::BuiltinBasisAttr>(elt_out);
+    bool outIsRevolve = llvm::isa<qwerty::ApplyRevolveGeneratorAttr>(elt_out);
+
+    // One side must have BuiltinBasisAttr, other must have ApplyRevolveGeneratorAttr
+    if (!((inIsBuiltin && outIsRevolve) || (inIsRevolve && outIsBuiltin))) {
+      return mlir::failure();
+    }
+
+    // Now we can populate the bases and do more checking
+    qwerty::BuiltinBasisAttr builtin;
+    qwerty::ApplyRevolveGeneratorAttr revolve;
+
+    bool inverse = false;
+
+    if (inIsBuiltin && outIsRevolve) {
+      builtin = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_in);
+      revolve = llvm::dyn_cast<qwerty::ApplyRevolveGeneratorAttr>(elt_out);
+      inverse = false;
+    } else {
+      builtin = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_out);
+      revolve = llvm::dyn_cast<qwerty::ApplyRevolveGeneratorAttr>(elt_in);
+      inverse = true;
+    }
+
+    // the aforementioned checks for prim-basis correctness
+    // First, check that revolve's bv1, bv2 are prim basis Z
+    // and eigenbits 0, 1 (in that order)
+    auto bv1 = revolve.getBv1();
+    auto bv2 = revolve.getBv2();
+    if (!(bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv1.getEigenbits()[0] == 0) && (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv2.getEigenbits()[0] == 1)) {
+      return mlir::failure();
+    }
+    
+    // Then, check that revolve's foo and builtinbasis are both
+    // std, where revolve's dim is one less than builtinbasis' dim
+    // NOTE: Revolve's foo is a BasisAttr so we need to verify that
+    
+    // we need to extract revolve's foo's basis here, for prim_basis and dim
+    qwerty::BasisAttr foo = revolve.getFoo();
+    auto elts_foo = foo.getElems();
+    if (elts_foo.size() != 1) {
+      return mlir::failure();
+    }
+    auto elt_foo = elts_foo.front();
+    if (!llvm::isa<qwerty::BuiltinBasisAttr>(elt_foo)) {
+      return mlir::failure();
+    }
+
+    qwerty::BuiltinBasisAttr foo_basis = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_foo);
+    if (!(foo_basis.getPrimBasis() == qwerty::PrimitiveBasis::Z
+      && builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z
+      && builtin.getDim() == (foo.getDim() - 1))) {
+      return mlir::failure();
+    }
+
+    // Now we know we've matched on the correct thing, and can make a circuit for it!
+    mlir::ValueRange unpacked =
+        rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+            .getQubits();
+    llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
+    llvm::SmallVector<mlir::Value> controls;
+    // TODO: Is the 0 correct? not necessarily, understand how to generalize
+    runRevolveCircuit(loc, rewriter, controls, qubits, 0, builtin.getDim(), inverse);
+
+    rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, qubits);
+
+    return mlir::success();
   }
-}
+};
 
 // This pattern does most of the work for synthesizing a basis translation
 // besides synthesis of classical logic. Please see Section 6.3 of the CGO
@@ -3208,9 +3316,7 @@ struct AlignBasisTranslations
     // If this basis translation is already aligned and in the standard
     // basis, we can skip this pattern entirely and let
     // SynthesizePermutations (below) continue with synthesis
-    if (isAligned(basis_in, basis_out)) {
-      // TODO: Add check to see if we have a revolve before we do this
-      // (we shouldn't)
+    if (isAligned(basis_in, basis_out) || hasGenerators(basis_in)) {
       return mlir::failure();
     }
 
@@ -3395,10 +3501,8 @@ struct SynthesizePermutations
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
 
-    if (!isAligned(basis_in, basis_out)) {
+    if (!isAligned(basis_in, basis_out) || hasGenerators(basis_in)) {
       // AlignBasisTranslations needs to run first
-      // TODO: Add check to see if we have a revolve before we do this
-      // (we shouldn't)
       return mlir::failure();
     }
 
@@ -3771,6 +3875,7 @@ struct QwertyToQCircConversionPass
                                  qcirc::CalcYieldOp>(
         [&](mlir::Operation *op) { return type_converter.isLegal(op); });
 
+    // TODO: Add revolve passes before align basis translations
     mlir::RewritePatternSet patterns(&getContext());
     patterns.add<
         SCFIfOpTypeFix, SCFYieldOpTypeFix, ArithSelectOpTypeFix, CalcOpTypeFix,
@@ -3781,7 +3886,7 @@ struct QwertyToQCircConversionPass
         BitInitOpLowering, QBundleInitOpLowering, QBundleDeinitOpLowering,
         TrivialQBundlePrepOpLowering, NontrivialQBundlePrepOpLowering,
         QBundleDiscardOpLowering, QBundleDiscardZeroOpLowering,
-        QBundlePhaseOpLowering, QBundleIdentityOpLowering,
+        QBundlePhaseOpLowering, QBundleIdentityOpLowering, LowerRevolveBasisGenerator,
         AlignBasisTranslations, SynthesizePermutations, QBundleMeasureNonStd,
         QBundleMeasureOpLowering, QBundleProjectNonStd,
         QBundleProjectOpLowering, QBundleFlipOpLowering,
