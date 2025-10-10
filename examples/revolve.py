@@ -4,4 +4,4 @@ from qwerty import *
 def kernel() -> bit[3]:
     return '0'**3 | std**3 >> std**2 // std.revolve | std.measure**3
 
-kernel(shots=1024)
+histogram(kernel(shots=1024))

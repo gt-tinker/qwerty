@@ -3225,14 +3225,7 @@ struct LowerRevolveBasisGenerator
     auto elt_in = elts_in.front();
     auto elt_out = elts_out.front();
 
-    // a series of IsA checks for all cases
-    bool inIsBuiltin = llvm::isa<qwerty::BuiltinBasisAttr>(elt_in);
-    bool inIsRevolve = llvm::isa<qwerty::ApplyRevolveGeneratorAttr>(elt_in);
-    bool outIsBuiltin = llvm::isa<qwerty::BuiltinBasisAttr>(elt_out);
-    bool outIsRevolve = llvm::isa<qwerty::ApplyRevolveGeneratorAttr>(elt_out);
-
-    // One side must have BuiltinBasisAttr, other must have ApplyRevolveGeneratorAttr
-    if (!((inIsBuiltin && outIsRevolve) || (inIsRevolve && outIsBuiltin))) {
+    if (!((elt_in.getStd() && elt_out.getRevolve()) || (elt_in.getRevolve() && elt_out.getStd()))) {
       return mlir::failure();
     }
 
@@ -3242,22 +3235,24 @@ struct LowerRevolveBasisGenerator
 
     bool inverse = false;
 
-    if (inIsBuiltin && outIsRevolve) {
-      builtin = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_in);
-      revolve = llvm::dyn_cast<qwerty::ApplyRevolveGeneratorAttr>(elt_out);
+    if (elt_in.getStd() && elt_out.getRevolve()) {
+      builtin = elt_in.getStd();
+      revolve = elt_out.getRevolve();
       inverse = false;
     } else {
-      builtin = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_out);
-      revolve = llvm::dyn_cast<qwerty::ApplyRevolveGeneratorAttr>(elt_in);
+      builtin = elt_out.getStd();
+      revolve = elt_in.getRevolve();
       inverse = true;
     }
 
     // the aforementioned checks for prim-basis correctness
     // First, check that revolve's bv1, bv2 are prim basis Z
     // and eigenbits 0, 1 (in that order)
+
+    // FIXME: These functions do exist, but I guess they are returning null values
     auto bv1 = revolve.getBv1();
     auto bv2 = revolve.getBv2();
-    if (!(bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv1.getEigenbits()[0] == 0) && (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv2.getEigenbits()[0] == 1)) {
+    if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv1.getEigenbits()[0] == 0) && (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv2.getEigenbits()[0] == 1))) {
       return mlir::failure();
     }
     
@@ -3272,14 +3267,14 @@ struct LowerRevolveBasisGenerator
       return mlir::failure();
     }
     auto elt_foo = elts_foo.front();
-    if (!llvm::isa<qwerty::BuiltinBasisAttr>(elt_foo)) {
+    if (!elt_foo.getStd()) {
       return mlir::failure();
     }
 
-    qwerty::BuiltinBasisAttr foo_basis = llvm::dyn_cast<qwerty::BuiltinBasisAttr>(elt_foo);
+    qwerty::BuiltinBasisAttr foo_basis = elt_foo.getStd();
     if (!(foo_basis.getPrimBasis() == qwerty::PrimitiveBasis::Z
       && builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z
-      && builtin.getDim() == (foo.getDim() - 1))) {
+      && (builtin.getDim() - 1) == foo.getDim())) {
       return mlir::failure();
     }
 
@@ -3290,6 +3285,7 @@ struct LowerRevolveBasisGenerator
     llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
     llvm::SmallVector<mlir::Value> controls;
     // TODO: Is the 0 correct? not necessarily, understand how to generalize
+    // FIXME: This gotta be wrong dawg
     runRevolveCircuit(loc, rewriter, controls, qubits, 0, builtin.getDim(), inverse);
 
     rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, qubits);
@@ -3316,7 +3312,7 @@ struct AlignBasisTranslations
     // If this basis translation is already aligned and in the standard
     // basis, we can skip this pattern entirely and let
     // SynthesizePermutations (below) continue with synthesis
-    if (isAligned(basis_in, basis_out) || hasGenerators(basis_in)) {
+    if (isAligned(basis_in, basis_out) || hasGenerators(basis_out)) {
       return mlir::failure();
     }
 

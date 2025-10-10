@@ -434,56 +434,94 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
+// If the Vec of Bases is a vector of basis literals {0, 1}, then
+// we want to find this!
+fn is_vec_basis_literal_equiv_builtin(basis_elems: &Vec<Basis>) -> bool {
+    basis_elems.iter().all(|elem| {
+        match elem {
+            Basis::BasisLiteral { vecs, .. } => {
+                vecs.len() == 2
+                && matches!(vecs[0], Vector::ZeroVector { .. })
+                && matches!(vecs[1], Vector::OneVector { .. })
+            }
+            _ => false
+        }
+    }) && basis_elems.len() >= 1
+}
+
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
     let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
-    let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
-        .iter()
-        .map(|elem| {
-            match elem {
-                Basis::BasisLiteral { vecs, .. } if is_bell_basis(vecs) => {
-                    let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Bell, 2);
-                    (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
-                }
+    // TODO: Create a function that takes in &basis_elements and discerns whether or not
+    // it matches the following pattern
+    // This pattern finds a list of N {0, 1}s and converts them into std**N
+    // (goes from a BasisAttr with N BasisElemAttrs, each of which is a
+    // BasisVectorListAttr, which stores two BasisVectorAttrs {0, 1}, and
+    // converts it into a BasisAttr with one (1) BasisElemAttr, which is
+    // a BuiltinBasisAttr for std**N
+    //
+    // If the function returns true, then directly create elems as one
+    // BasisElemAttribute of a BuiltinBasisAttribute with primbasis std, dim = elems.len()
+    // OTHERWISE we just do the iter map solution as before
 
-                Basis::BasisLiteral { vecs, .. } => {
-                    let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
-                        let (vec_attrs, phase) = ast_vec_to_mlir(vec);
-                        // TODO: Fix this
-                        assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
-                        let vec_attr = vec_attrs[0];
-                        let phase_opt = if vec_attr.has_phase() {
-                            Some(phase)
-                        } else {
-                            None
-                        };
-                        (vec_attr, phase_opt)
-                    }).unzip();
-                    let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
-                    (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
-                },
+    let (elems, phases) = if is_vec_basis_literal_equiv_builtin(&basis_elements) {
+        // TODO: need to make elems and phases!
 
-                Basis::ApplyBasisGenerator { basis, generator, .. } => {
-                    match generator {
-                        BasisGenerator::Revolve {v1, v2, ..} => {
-                            let foo = ast_basis_to_mlir(&basis).basis_attr;
-                            let (mut bv1_vec, _) = ast_vec_to_mlir(v1);
-                            let bv1 = bv1_vec.pop().expect("In revolve, basis vectors must be a single vector");
-                            let (mut bv2_vec, _) = ast_vec_to_mlir(v2);
-                            let bv2 = bv2_vec.pop().expect("In revolve, basis vectors must be a single vector");
-                            let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
-                            (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![])
-                        },
+        let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Z, basis_elements.len() as u64);
+        let basis_elem = qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std);
+        let elems = vec![basis_elem];
+        let phases = vec![];
+        (elems, phases)
+    } else {
+        let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
+            .iter()
+            .map(|elem| {
+                match elem {
+                    Basis::BasisLiteral { vecs, .. } if is_bell_basis(vecs) => {
+                        let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Bell, 2);
+                        (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
                     }
-                }
 
-                Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
-            }
-        })
-        .unzip();
+                    Basis::BasisLiteral { vecs, .. } => {
+                        let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
+                            let (vec_attrs, phase) = ast_vec_to_mlir(vec);
+                            // TODO: Fix this
+                            assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
+                            let vec_attr = vec_attrs[0];
+                            let phase_opt = if vec_attr.has_phase() {
+                                Some(phase)
+                            } else {
+                                None
+                            };
+                            (vec_attr, phase_opt)
+                        }).unzip();
+                        let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
+                        (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
+                    },
+
+                    Basis::ApplyBasisGenerator { basis, generator, .. } => {
+                        match generator {
+                            BasisGenerator::Revolve {v1, v2, ..} => {
+                                let foo = ast_basis_to_mlir(&basis).basis_attr;
+                                let (mut bv1_vec, _) = ast_vec_to_mlir(v1);
+                                let bv1 = bv1_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                                let (mut bv2_vec, _) = ast_vec_to_mlir(v2);
+                                let bv2 = bv2_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                                let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
+                                (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![])
+                            },
+                        }
+                    }
+
+                    Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
+                }
+            })
+            .unzip();
+        (elems, phases)
+    };
 
     let basis_attr = qwerty::BasisAttribute::new(&MLIR_CTX, &elems);
     let phases = phases.iter().flatten().filter_map(|opt| *opt).collect();
