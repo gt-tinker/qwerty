@@ -1,10 +1,7 @@
 mod compile;
 mod ctx;
-mod jit;
-mod lower_classical;
-mod lower_prog_stmt;
-mod lower_qpu;
-mod lower_type;
+mod lower;
+mod run;
 
-pub use compile::{CompileError, meta_ast_to_qasm};
-pub use jit::run_meta_ast;
+pub use compile::{CompileError, Target, meta_ast_to_qasm, translate_to_llvm_ir};
+pub use run::{Backend, run_meta_ast};

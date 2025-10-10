@@ -1,8 +1,8 @@
 use crate::{
     ctx::{BoundVals, Ctx},
-    lower_classical::ast_classical_func_def_to_mlir,
-    lower_qpu::ast_qpu_func_def_to_mlir,
-    lower_type::dbg_to_loc,
+    lower::classical::ast_classical_func_def_to_mlir,
+    lower::qpu::ast_qpu_func_def_to_mlir,
+    lower::ty::dbg_to_loc,
 };
 use melior::{
     dialect::qwerty,

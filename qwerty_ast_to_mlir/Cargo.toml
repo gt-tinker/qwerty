@@ -8,3 +8,7 @@ dashu = "0.4.2"
 qwerty_ast = { version = "0.1.0", path = "../qwerty_ast" }
 melior = { version = "0.25.0", path = "../qwerty_melior/melior" }
 qir-backend = { version = "0.8.3", path = "../qir_runner/backend" }
+qiree_sys = { version = "0.1.0", path = "../qiree_sys", optional = true }
+
+[features]
+qiree = ["dep:qiree_sys"]

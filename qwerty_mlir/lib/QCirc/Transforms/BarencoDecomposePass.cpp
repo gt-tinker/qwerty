@@ -504,7 +504,116 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         case qcirc::Gate1Q::X:
             // -decompose-multi-control already dealt with any gates that
             // have more than 2 controls, so this must be a CX or CCX.
-            return mlir::failure();
+            // Let's decompose the CCX and leave the CX alone.
+            if (gate.getControls().size() == 2) {
+                // Equation (3) of Selinger (2013):
+                // https://doi.org/10.1103/PhysRevA.87.042302
+
+                // First layer: I ⊗ I ⊗ H
+                mlir::Value h1 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::H, mlir::ValueRange(),
+                        gate.getQubit()
+                    ).getResult();
+
+                // Second layer: Tdg ⊗ T ⊗ T
+                mlir::Value tdg1 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(),
+                        gate.getControls()[0]
+                    ).getResult();
+                mlir::Value t1 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::T, mlir::ValueRange(),
+                        gate.getControls()[1]
+                    ).getResult();
+                mlir::Value t2 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::T, mlir::ValueRange(), h1
+                    ).getResult();
+
+                // Second layer: (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I) ⊗ I
+                qcirc::Gate1QOp cx1 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, tdg1, t1);
+                assert(cx1.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx1_ctrl = cx1.getControlResults()[0];
+                mlir::Value cx1_tgt = cx1.getResult();
+
+                // Second layer: ((X ⊗ I) ⊗ |1⟩⟨1| + (I ⊗ I) ⊗ |0⟩⟨0|)
+                qcirc::Gate1QOp cx2 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, t2, cx1_ctrl);
+                assert(cx2.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx2_ctrl = cx2.getControlResults()[0];
+                mlir::Value cx2_tgt = cx2.getResult();
+
+                // Third layer: Tdg ⊗ (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I)
+                mlir::Value tdg2 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx2_tgt
+                    ).getResult();
+
+                qcirc::Gate1QOp cx3 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, cx1_tgt, cx2_ctrl);
+                assert(cx3.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx3_ctrl = cx3.getControlResults()[0];
+                mlir::Value cx3_tgt = cx3.getResult();
+
+                // Fourth layer: (X ⊗ |1⟩⟨1| + I ⊗ |0⟩⟨0|) ⊗ I
+                qcirc::Gate1QOp cx4 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, cx3_ctrl, tdg2);
+                assert(cx4.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx4_ctrl = cx4.getControlResults()[0];
+                mlir::Value cx4_tgt = cx4.getResult();
+
+                // Fifth layer: Tdg ⊗ Tdg ⊗ T
+                mlir::Value tdg3 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx4_tgt
+                    ).getResult();
+                mlir::Value tdg4 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx4_ctrl
+                    ).getResult();
+                mlir::Value t3 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::T, mlir::ValueRange(), cx3_tgt
+                    ).getResult();
+
+                // Sixth layer: ((X ⊗ I) ⊗ |1⟩⟨1| + (I ⊗ I) ⊗ |0⟩⟨0|)
+                qcirc::Gate1QOp cx5 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, t3, tdg3);
+                assert(cx5.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx5_ctrl = cx5.getControlResults()[0];
+                mlir::Value cx5_tgt = cx5.getResult();
+
+                // Seventh layer: S ⊗ (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I)
+                mlir::Value s = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::S, mlir::ValueRange(), cx5_tgt
+                    ).getResult();
+
+                qcirc::Gate1QOp cx6 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, tdg4, cx5_ctrl);
+                assert(cx6.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx6_ctrl = cx6.getControlResults()[0];
+                mlir::Value cx6_tgt = cx6.getResult();
+
+                // Eighth layer: (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I) ⊗ H
+                qcirc::Gate1QOp cx7 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::X, s, cx6_ctrl);
+                assert(cx7.getControlResults().size() == 1
+                       && "Wrong number of controls");
+                mlir::Value cx7_ctrl = cx7.getControlResults()[0];
+                mlir::Value cx7_tgt = cx7.getResult();
+
+                mlir::Value h2 = rewriter.create<qcirc::Gate1QOp>(
+                        loc, qcirc::Gate1Q::H, mlir::ValueRange(), cx6_tgt
+                    ).getResult();
+
+                rewriter.replaceOp(gate, std::initializer_list<mlir::Value>{
+                    cx7_ctrl, cx7_tgt, h2});
+                return mlir::success();
+            } else {
+                // Preserve CXs
+                return mlir::failure();
+            }
 
         case qcirc::Gate1Q::Y: {
             mlir::Value y_to_x = rewriter.create<qcirc::Gate1QOp>(

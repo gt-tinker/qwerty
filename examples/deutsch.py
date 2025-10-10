@@ -8,12 +8,12 @@ again on a "constant" one.
 from argparse import ArgumentParser
 from qwerty import *
 
-def deutsch(f):
+def deutsch(f, acc=None):
     @qpu
     def kernel():
         return 'p' | f.sign | pm.measure
 
-    return kernel()
+    return kernel(acc=acc)
 
 @classical
 def balanced(x: bit) -> bit:
@@ -28,12 +28,16 @@ def naive_classical(f):
 
 if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     print('Balanced f:')
     print('Classical: f(0) xor f(1) =', naive_classical(balanced))
-    print('Quantum:   f(0) xor f(1) =', deutsch(balanced))
+    print('Quantum:   f(0) xor f(1) =', deutsch(balanced, acc=args.acc))
 
     print('\nConstant f:')
     print('Classical: f(0) xor f(1) =', naive_classical(constant))
-    print('Quantum:   f(0) xor f(1) =', deutsch(constant))
+    print('Quantum:   f(0) xor f(1) =', deutsch(constant, acc=args.acc))

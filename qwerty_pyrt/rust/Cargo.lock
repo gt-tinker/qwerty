@@ -578,6 +578,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "qiree_sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen 0.72.1",
+ "cmake",
+]
+
+[[package]]
 name = "quantum-sparse-sim"
 version = "0.8.3"
 dependencies = [
@@ -622,6 +630,7 @@ dependencies = [
  "dashu",
  "melior",
  "qir-backend",
+ "qiree_sys",
  "qwerty_ast",
 ]
 

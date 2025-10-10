@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from qwerty import *
 from qpe import qpe
 
-def order_finding(err_tol, x, modN):
+def order_finding(err_tol, x, modN, acc=None):
     m = math.ceil(math.log2(modN))
     prec = 2*m + 1 + math.ceil(
         math.log2(2+1/(2*err_tol)))
@@ -32,7 +32,7 @@ def order_finding(err_tol, x, modN):
     op = mult.inplace
 
     def run_qpe():
-        angle_frac, = qpe(prec, one, op, shots=1).keys()
+        angle_frac, = qpe(prec, one, op, shots=1, acc=acc).keys()
         return angle_frac
 
     frac1 = run_qpe()
@@ -47,7 +47,7 @@ def order_finding(err_tol, x, modN):
     return math.lcm(get_denom(frac1),
                     get_denom(frac2))
 
-def shor(epsilon, num):
+def shor(epsilon, num, acc=None):
     if num % 2 == 0:
         return 2
 
@@ -57,7 +57,7 @@ def shor(epsilon, num):
             print('Got lucky! Skipping order subroutine')
             return y
 
-        r = order_finding(epsilon, x, num)
+        r = order_finding(epsilon, x, num, acc=acc)
 
         if r % 2 == 0 and pow(x, r//2, num) != -1:
             if (gcd := math.gcd(x**(r//2)-1, num)) > 1 \
@@ -80,8 +80,12 @@ if __name__ == '__main__':
                         type=float,
                         default=0.2,
                         help='Error tolerance factor. Default: %(default)s')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     num, epsilon = args.number, args.epsilon
-    factor = shor(epsilon, num)
+    factor = shor(epsilon, num, acc=args.acc)
     print(f'Found factor of {num}: {factor}')

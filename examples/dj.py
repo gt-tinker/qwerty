@@ -11,13 +11,13 @@ other half.
 from argparse import ArgumentParser
 from qwerty import *
 
-def deutsch_jozsa(f):
+def deutsch_jozsa(f, acc=None):
     @qpu[[N]]
     def kernel():
         return ('p'**N | f.sign
                        | pm.measure**N)
 
-    if int(kernel()) == 0:
+    if int(kernel(acc=acc)) == 0:
         return 'constant'
     else:
         return 'balanced'
@@ -46,12 +46,16 @@ def naive_classical(f, n_bits):
 
 if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     print('Constant test:')
     print('Classical:', naive_classical(constant, 4))
-    print('Quantum:  ', deutsch_jozsa(constant))
+    print('Quantum:  ', deutsch_jozsa(constant, acc=args.acc))
 
     print('\nBalanced test:')
     print('Classical:', naive_classical(balanced, 4))
-    print('Quantum:  ', deutsch_jozsa(balanced))
+    print('Quantum:  ', deutsch_jozsa(balanced, acc=args.acc))

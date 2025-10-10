@@ -17,7 +17,7 @@ from .err import EXCLUDE_ME_FROM_STACK_TRACE_PLEASE, \
                  _cook_programmer_traceback, get_python_vars, \
                  QwertyProgrammerError, QwertySyntaxError
 from ._qwerty_pyrt import Program, QpuFunctionDef, QpuStmt, QpuExpr, \
-                          EmbedKind, DimExpr, DimVar
+                          EmbedKind, DimExpr, DimVar, Backend
 from .runtime import dimvar, bit
 from .pyast_utils import get_func_pyast
 from .convert_ast import AstKind, convert_func_ast, Capturer, CaptureError, \
@@ -39,7 +39,7 @@ def _reset_compiler_state():
     Used by unit tests to start over with a fresh program.
     """
     global program, _global_func_counter
-    # TODO: also wipe _FRAME_MAP err.py
+    # TODO: also wipe _FRAME_MAP in err.py
     program = Program(program_dbg)
     _global_func_counter = 0
 
@@ -89,7 +89,7 @@ class KernelHandle:
         return KernelHandle(func_name)
 
     @_cook_programmer_traceback
-    def __call__(self, *args, shots=None):
+    def __call__(self, *args, shots=None, acc=None):
         """
         Call a ``@classical`` kernel by just calling the actual Python
         function, and call a ``@qpu`` kernel by jumping into the JIT'd code.
@@ -105,15 +105,18 @@ class KernelHandle:
             if args:
                 raise ValueError('Cannot pass arguments to quantum code')
 
-            # TODO: return an instance of a new Histogram class that iterates over
-            #       each observation instead of keys
+            # TODO: return an instance of a new Histogram class that iterates
+            #       over each observation instead of keys
             num_shots = 1 if shots is None else shots
-            histo = dict(program.call(self.func_name, num_shots, QWERTY_DEBUG))
+            backend = Backend.from_str(acc)
+            histo = dict(program.call(self.func_name, backend, num_shots,
+                                      QWERTY_DEBUG))
 
             if shots is not None:
                 return histo
             else:
-                # We passed shots=1. So return the only bitstring in the histogram
+                # We passed shots=1. So return the only bitstring in the
+                # histogram
                 bits, = histo.keys()
                 return bits
 

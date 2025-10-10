@@ -16,7 +16,7 @@ from qwerty import *
 
 from simon_postprocess import simon_post, Retry
 
-def simon(f):
+def simon(f, acc=None):
     @qpu[[N]]
     def kernel():
         return ('p'**N * '0'**N | f.xor
@@ -26,7 +26,7 @@ def simon(f):
     while True:
         rows = []
         while True:
-            row = kernel()
+            row = kernel(acc=acc)
             if int(row) != 0:
                 rows.append(row)
                 if len(rows) >= row.n_bits-1:
@@ -68,10 +68,14 @@ if __name__ == '__main__':
     parser.add_argument('num_bits',
                         type=int,
                         help='The length of the secret string')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     num_bits = args.num_bits
     f = get_black_box(num_bits)
 
     print('Classical:', naive_classical(f, num_bits))
-    print('Quantum:  ', simon(f))
+    print('Quantum:  ', simon(f, acc=args.acc))

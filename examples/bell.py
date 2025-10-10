@@ -18,6 +18,10 @@ if __name__ == '__main__':
                         type=int,
                         default=1024,
                         help='Number of shots. Default: %(default)s')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
-    histogram(kernel(shots=args.shots))
+    histogram(kernel(shots=args.shots, acc=args.acc))

@@ -17,7 +17,7 @@ from fractions import Fraction
 from argparse import ArgumentParser
 from qwerty import *
 
-def qpe(prec, get_init_state, op, shots):
+def qpe(prec, get_init_state, op, shots, acc=None):
     @qpu[[M]]
     def kernel():
         return ('p'**prec * get_init_state()
@@ -31,7 +31,7 @@ def qpe(prec, get_init_state, op, shots):
         return Fraction(int(bits),
                         2**len(bits))
 
-    bits_histo = kernel(shots=shots)
+    bits_histo = kernel(shots=shots, acc=acc)
     angle_histo = {bits_to_angle_frac(bits): count
                    for bits, count in bits_histo.items()}
     return angle_histo
@@ -54,6 +54,10 @@ if __name__ == '__main__':
                         type=int,
                         default=1024,
                         help='Number of shots. Default: %(default)s')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
     angle_deg, precision, shots = args.angle_deg, args.precision, args.shots
 
@@ -68,6 +72,6 @@ if __name__ == '__main__':
 
     print('Expected:', angle_deg)
     print('Actual:')
-    angle_histo = qpe(precision, init1, tilt_op, shots)
+    angle_histo = qpe(precision, init1, tilt_op, shots, acc=args.acc)
     for angle_frac, count in angle_histo.items():
         print('{}° -> {:.02f}%'.format(float(360*angle_frac), count/shots*100))

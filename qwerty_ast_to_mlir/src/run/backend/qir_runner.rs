@@ -1,14 +1,7 @@
-use crate::compile::{CompileConfig, CompileError, QirProfile, Target, compile_meta_ast};
+use super::super::ShotResult;
 use dashu::integer::UBig;
 use melior::{ExecutionEngine, execution_engine::SymbolFlags, ir::Module};
-use qwerty_ast::meta::MetaProgram;
 use std::collections::HashMap;
-
-pub struct ShotResult {
-    pub bits: UBig,
-    pub num_bits: usize,
-    pub count: usize,
-}
 
 macro_rules! qir_symbol {
     ($func_name:ident) => {
@@ -20,7 +13,11 @@ macro_rules! qir_symbol {
     };
 }
 
-fn run_ast(module: Module, func_name: &str, num_shots: usize) -> Vec<ShotResult> {
+pub fn run_mlir_module(
+    module: Module<'static>,
+    func_name: &str,
+    num_shots: usize,
+) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
 
     let exec = ExecutionEngine::new(&module, 3, &[], false);
@@ -129,18 +126,4 @@ fn run_ast(module: Module, func_name: &str, num_shots: usize) -> Vec<ShotResult>
             count: *count,
         })
         .collect()
-}
-
-pub fn run_meta_ast(
-    prog: &MetaProgram,
-    func_name: &str,
-    num_shots: usize,
-    debug: bool,
-) -> Result<Vec<ShotResult>, CompileError> {
-    let cfg = CompileConfig {
-        target: Target::Qir(QirProfile::Unrestricted),
-        dump: debug,
-    };
-    let module = compile_meta_ast(prog, func_name, &cfg)?;
-    Ok(run_ast(module, func_name, num_shots))
 }

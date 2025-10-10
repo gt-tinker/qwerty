@@ -12,6 +12,8 @@ extern "C" {
 
 MLIR_CAPI_EXPORTED void mlirRegisterInlinerExtensions(MlirDialectRegistry registry);
 
+MLIR_CAPI_EXPORTED void mlirRegisterLLVMIRTranslations(MlirDialectRegistry registry);
+
 typedef struct {
     MlirStringRef symbolName;
     void *addr;
@@ -34,6 +36,9 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirIntegerAttrBigIntGet(
 
 MLIR_CAPI_EXPORTED MlirPass mlirCreateTransformsInlinerWithOptions(
     const char *options);
+
+MLIR_CAPI_EXPORTED void mlirTransferModuleFlags(
+    MlirOperation mlir_mod, LLVMModuleRef llvm_mod);
 
 #ifdef __cplusplus
 }

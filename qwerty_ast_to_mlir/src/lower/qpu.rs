@@ -1,7 +1,7 @@
 use crate::{
     ctx::{BoundVals, Ctx, MLIR_CTX},
-    lower_prog_stmt::{Lowerable, ast_stmt_to_mlir},
-    lower_type::{ast_func_mlir_ty, ast_ty_to_mlir_tys, dbg_to_loc},
+    lower::prog_stmt::{Lowerable, ast_stmt_to_mlir},
+    lower::ty::{ast_func_mlir_ty, ast_ty_to_mlir_tys, dbg_to_loc},
 };
 use dashu::{base::BitTest, integer::UBig};
 use melior::{
@@ -1782,11 +1782,17 @@ pub fn ast_qpu_func_def_to_mlir(
     let func_region = Region::new();
     func_region.append_block(func_block);
 
+    let visibility = if func_def.is_classically_callable() {
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+
     let func_op = qwerty::func(
         &MLIR_CTX,
         sym_name,
         func_ty_attr,
-        Visibility::Public,
+        visibility,
         func_region,
         func_loc,
     );

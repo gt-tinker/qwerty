@@ -15,7 +15,7 @@ import math
 from argparse import ArgumentParser
 from qwerty import *
 
-def grover(oracle, num_iter, shots=None):
+def grover(oracle, num_iter, shots=None, acc=None):
     @qpu[[N]]
     def grover_iter(q):
         return (q | oracle.sign
@@ -26,7 +26,7 @@ def grover(oracle, num_iter, shots=None):
         return ('p'**N | (grover_iter for i in range(num_iter))
                        | measure**N)
 
-    results = kernel(shots=shots)
+    results = kernel(shots=shots, acc=acc)
     return list(sorted(x for x in set(results) if oracle(x)))
 
 def calc_num_iter(num_qubits, num_answers):
@@ -47,19 +47,22 @@ if __name__ == '__main__':
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('num_qubits',
                         type=int,
-                        help='The number of qubits N on which to run '
-                             'fixed-point search.')
+                        help='The number of qubits N')
     parser.add_argument('--shots', '-s',
                         type=int,
                         default=1024,
                         help='Number of shots. Default: %(default)s')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     num_answers = 1
     num_qubits = args.num_qubits
     oracle = get_black_box(num_qubits)
     num_iter = calc_num_iter(num_qubits, num_answers)
-    answers = grover(oracle, num_iter, args.shots)
+    answers = grover(oracle, num_iter, shots=args.shots, acc=args.acc)
 
     for answer in answers:
         print(answer)

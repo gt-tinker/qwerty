@@ -102,58 +102,192 @@ std::tuple<mlir::Value, mlir::Value, mlir::Value> ccxphase_adj(
     return {x, y, z};
 }
 
-class ReplaceManyControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1QOp> {
+void ccxphaseLadder(
+        mlir::RewriterBase &rewriter,
+        mlir::Location loc,
+        mlir::ValueRange original_controls,
+        llvm::SmallVectorImpl<mlir::Value> &result_out,
+        std::function<std::pair<mlir::Value, mlir::Value>(
+            mlir::Value, mlir::Value)> callback) {
+    llvm::SmallVector<mlir::Value> controls(
+        original_controls.begin(),
+        original_controls.end());
+    size_t n_ancilla = controls.size()-2;
+    llvm::SmallVector<mlir::Value> ancillas;
+    for (size_t i = 0; i < n_ancilla; i++) {
+        ancillas.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
+    }
+
+    std::tie(controls[0], controls[1], ancillas[0]) =
+        ccxphase(rewriter, loc, controls[0], controls[1], ancillas[0]);
+
+    for (size_t i = 1; i < ancillas.size(); i++) {
+        std::tie(ancillas[i-1], controls[i+1], ancillas[i]) =
+            ccxphase(rewriter, loc, ancillas[i-1], controls[i+1], ancillas[i]);
+    }
+
+    std::tie(ancillas[ancillas.size()-1], controls[controls.size()-1]) =
+        callback(ancillas[ancillas.size()-1], controls[controls.size()-1]);
+
+    for (size_t ii = 1; ii < ancillas.size(); ii++) {
+        size_t i = ancillas.size()-1-(ii-1);
+        std::tie(ancillas[i-1], controls[i+1], ancillas[i]) =
+            ccxphase_adj(rewriter, loc, ancillas[i-1], controls[i+1], ancillas[i]);
+    }
+
+    std::tie(controls[0], controls[1], ancillas[0]) =
+        ccxphase_adj(rewriter, loc, controls[0], controls[1], ancillas[0]);
+
+    for (mlir::Value ancilla : ancillas) {
+        rewriter.create<qcirc::QfreeZeroOp>(loc, ancilla);
+    }
+
+    result_out = controls;
+    //result_out.append(ccu_targets.begin(), ccu_targets.end());
+}
+
+class ReplaceGate1QManyControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1QOp> {
     using mlir::OpRewritePattern<qcirc::Gate1QOp>::OpRewritePattern;
 
     mlir::LogicalResult matchAndRewrite(qcirc::Gate1QOp gate, mlir::PatternRewriter &rewriter) const override {
-        if (gate.getControls().size() < 3) {
+        if (gate.getControls().size() <= 2) {
             // We'll let someone downstream deal with this controlled-U (or
             // quasi-Toffoli) gate
             return mlir::failure();
         }
 
         mlir::Location loc = gate.getLoc();
-        llvm::SmallVector<mlir::Value> controls(gate.getControls());
+        llvm::SmallVector<mlir::Value> replace_with;
 
-        size_t n_ancilla = controls.size()-2;
-        llvm::SmallVector<mlir::Value> ancillas;
-        for (size_t i = 0; i < n_ancilla; i++) {
-            ancillas.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
+        mlir::Value ccu_tgt;
+        ccxphaseLadder(rewriter, loc, gate.getControls(), replace_with,
+            [&](mlir::Value ctrl1, mlir::Value ctrl2) {
+                mlir::Value tgt = gate.getQubit();
+                qcirc::Gate1QOp ccu =
+                    rewriter.create<qcirc::Gate1QOp>(loc,
+                        gate.getGate(),
+                        std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
+                assert(ccu.getControlResults().size() == 2
+                       && "wrong number of control results");
+                mlir::Value ctrl1_out = ccu.getControlResults()[0];
+                mlir::Value ctrl2_out = ccu.getControlResults()[1];
+                ccu_tgt = ccu.getResult();
+                return std::make_pair(ctrl1_out, ctrl2_out);
+            });
+        replace_with.push_back(ccu_tgt);
+
+        rewriter.replaceOp(gate, replace_with);
+
+        return mlir::success();
+    }
+};
+
+class ReplaceGate1Q1PManyControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q1POp> {
+    using mlir::OpRewritePattern<qcirc::Gate1Q1POp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(qcirc::Gate1Q1POp gate, mlir::PatternRewriter &rewriter) const override {
+        if (gate.getControls().size() <= 2) {
+            // We'll let someone downstream deal with this controlled-U (or
+            // quasi-Toffoli) gate
+            return mlir::failure();
         }
 
-        std::tie(controls[0], controls[1], ancillas[0]) =
-            ccxphase(rewriter, loc, controls[0], controls[1], ancillas[0]);
+        mlir::Location loc = gate.getLoc();
+        llvm::SmallVector<mlir::Value> replace_with;
 
-        for (size_t i = 1; i < ancillas.size(); i++) {
-            std::tie(ancillas[i-1], controls[i+1], ancillas[i]) =
-                ccxphase(rewriter, loc, ancillas[i-1], controls[i+1], ancillas[i]);
+        mlir::Value ccu_tgt;
+        ccxphaseLadder(rewriter, loc, gate.getControls(), replace_with,
+            [&](mlir::Value ctrl1, mlir::Value ctrl2) {
+                mlir::Value tgt = gate.getQubit();
+                qcirc::Gate1Q1POp ccu =
+                    rewriter.create<qcirc::Gate1Q1POp>(loc,
+                        gate.getGate(), gate.getParam(),
+                        std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
+                assert(ccu.getControlResults().size() == 2
+                       && "wrong number of control results");
+                mlir::Value ctrl1_out = ccu.getControlResults()[0];
+                mlir::Value ctrl2_out = ccu.getControlResults()[1];
+                ccu_tgt = ccu.getResult();
+                return std::make_pair(ctrl1_out, ctrl2_out);
+            });
+        replace_with.push_back(ccu_tgt);
+
+        rewriter.replaceOp(gate, replace_with);
+
+        return mlir::success();
+    }
+};
+
+class ReplaceGate1Q3PManyControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q3POp> {
+    using mlir::OpRewritePattern<qcirc::Gate1Q3POp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(qcirc::Gate1Q3POp gate, mlir::PatternRewriter &rewriter) const override {
+        if (gate.getControls().size() <= 2) {
+            // We'll let someone downstream deal with this controlled-U (or
+            // quasi-Toffoli) gate
+            return mlir::failure();
         }
 
-        llvm::SmallVector<mlir::Value> ccu_controls{ancillas[ancillas.size()-1],
-                                                    controls[controls.size()-1]};
-        qcirc::Gate1QOp ccu =
-            rewriter.create<qcirc::Gate1QOp>(loc,
-                gate.getGate(), ccu_controls, gate.getQubit());
-        ancillas[ancillas.size()-1] = ccu.getControlResults()[0];
-        controls[controls.size()-1] = ccu.getControlResults()[1];
-        mlir::Value ccu_tgt = ccu.getResult();
+        mlir::Location loc = gate.getLoc();
+        llvm::SmallVector<mlir::Value> replace_with;
 
-        for (size_t ii = 1; ii < ancillas.size(); ii++) {
-            size_t i = ancillas.size()-1-(ii-1);
-            std::tie(ancillas[i-1], controls[i+1], ancillas[i]) =
-                ccxphase_adj(rewriter, loc, ancillas[i-1], controls[i+1], ancillas[i]);
+        mlir::Value ccu_tgt;
+        ccxphaseLadder(rewriter, loc, gate.getControls(), replace_with,
+            [&](mlir::Value ctrl1, mlir::Value ctrl2) {
+                mlir::Value tgt = gate.getQubit();
+                qcirc::Gate1Q3POp ccu =
+                    rewriter.create<qcirc::Gate1Q3POp>(loc,
+                        gate.getGate(), gate.getFirstParam(),
+                        gate.getSecondParam(), gate.getThirdParam(),
+                        std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
+                assert(ccu.getControlResults().size() == 2
+                       && "wrong number of control results");
+                mlir::Value ctrl1_out = ccu.getControlResults()[0];
+                mlir::Value ctrl2_out = ccu.getControlResults()[1];
+                ccu_tgt = ccu.getResult();
+                return std::make_pair(ctrl1_out, ctrl2_out);
+            });
+        replace_with.push_back(ccu_tgt);
+
+        rewriter.replaceOp(gate, replace_with);
+
+        return mlir::success();
+    }
+};
+
+class ReplaceGate2QManyControlsPattern : public mlir::OpRewritePattern<qcirc::Gate2QOp> {
+    using mlir::OpRewritePattern<qcirc::Gate2QOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(qcirc::Gate2QOp gate, mlir::PatternRewriter &rewriter) const override {
+        if (gate.getControls().size() <= 2) {
+            // We'll let someone downstream deal with this controlled-U (or
+            // quasi-Toffoli) gate
+            return mlir::failure();
         }
 
-        std::tie(controls[0], controls[1], ancillas[0]) =
-            ccxphase_adj(rewriter, loc, controls[0], controls[1], ancillas[0]);
+        mlir::Location loc = gate.getLoc();
+        llvm::SmallVector<mlir::Value> replace_with;
 
-        for (mlir::Value ancilla : ancillas) {
-            rewriter.create<qcirc::QfreeZeroOp>(loc, ancilla);
-        }
+        mlir::Value ccu_tgt1, ccu_tgt2;
+        ccxphaseLadder(rewriter, loc, gate.getControls(), replace_with,
+            [&](mlir::Value ctrl1, mlir::Value ctrl2) {
+                qcirc::Gate2QOp ccu =
+                    rewriter.create<qcirc::Gate2QOp>(loc,
+                        gate.getGate(),
+                        std::initializer_list<mlir::Value>{ctrl1, ctrl2},
+                        gate.getLeftQubit(), gate.getRightQubit());
+                assert(ccu.getControlResults().size() == 2
+                       && "wrong number of control results");
+                mlir::Value ctrl1_out = ccu.getControlResults()[0];
+                mlir::Value ctrl2_out = ccu.getControlResults()[1];
+                ccu_tgt1 = ccu.getLeftResult();
+                ccu_tgt2 = ccu.getRightResult();
+                return std::make_pair(ctrl1_out, ctrl2_out);
+            });
+        replace_with.push_back(ccu_tgt1);
+        replace_with.push_back(ccu_tgt2);
 
-        llvm::SmallVector<mlir::Value> replaceWith(controls);
-        replaceWith.push_back(ccu_tgt);
-        rewriter.replaceOp(gate, replaceWith);
+        rewriter.replaceOp(gate, replace_with);
 
         return mlir::success();
     }
@@ -203,7 +337,10 @@ struct DecomposeMultiControlPass : public qcirc::DecomposeMultiControlBase<Decom
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<
-            ReplaceManyControlsPattern,
+            ReplaceGate1QManyControlsPattern,
+            ReplaceGate1Q1PManyControlsPattern,
+            ReplaceGate1Q3PManyControlsPattern,
+            ReplaceGate2QManyControlsPattern,
             ReplaceTweedledumCCXPhasePattern
         >(&getContext());
 

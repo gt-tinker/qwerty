@@ -4,13 +4,13 @@ use crate::wrap_ast::{
     wrap_qpu::QpuFunctionDef,
     wrap_type::DebugLoc,
 };
-use pyo3::{conversion::IntoPyObject, prelude::*};
+use pyo3::{conversion::IntoPyObject, prelude::*, types::PyType};
 
 use qwerty_ast::{
     error::{LowerError, LowerErrorKind},
     meta,
 };
-use qwerty_ast_to_mlir::{CompileError, meta_ast_to_qasm, run_meta_ast};
+use qwerty_ast_to_mlir::{self, CompileError, meta_ast_to_qasm, run_meta_ast};
 
 fn compile_err_to_py_err<'py>(py: Python<'py>, err: CompileError) -> PyErr {
     match err {
@@ -23,6 +23,24 @@ fn compile_err_to_py_err<'py>(py: Python<'py>, err: CompileError) -> PyErr {
         }
         CompileError::MLIR(err, dbg) => get_err(py, ProgErrKind::Internal, err.to_string(), dbg),
         CompileError::Message(msg, dbg) => get_err(py, ProgErrKind::Internal, msg, dbg),
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone)]
+pub struct Backend {
+    backend: qwerty_ast_to_mlir::Backend,
+}
+
+#[pymethods]
+impl Backend {
+    #[classmethod]
+    fn from_str(_cls: &Bound<'_, PyType>, name: Option<String>) -> Self {
+        let backend = match name {
+            None => qwerty_ast_to_mlir::Backend::QirRunner,
+            Some(acc) => qwerty_ast_to_mlir::Backend::Qiree(acc),
+        };
+        Self { backend }
     }
 }
 
@@ -61,10 +79,11 @@ impl Program {
         &mut self,
         py: Python<'py>,
         func_name: String,
+        backend: Backend,
         num_shots: usize,
         debug: bool,
     ) -> PyResult<Vec<(Bound<'py, PyAny>, usize)>> {
-        let shots = run_meta_ast(&self.program, &func_name, num_shots, debug)
+        let shots = run_meta_ast(&self.program, &func_name, backend.backend, num_shots, debug)
             .map_err(|err| compile_err_to_py_err(py, err))?;
 
         shots
