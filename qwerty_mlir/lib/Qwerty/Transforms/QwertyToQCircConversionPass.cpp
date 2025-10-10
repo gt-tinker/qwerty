@@ -3079,10 +3079,10 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
       mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
       llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                                 control_qubits.end());
-      p_controls.push_back(qubits[start_idx]); // controlled on 0th qubit
+      p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
       qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
           loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
-          qubits[start_idx + i]); // applied on ith qubit
+          qubits[start_idx]); // applied on 0th qubit
       control_qubits.clear();
       // Exclude last control qubit
       control_qubits.append(cp.getControlResults().begin(),
@@ -3117,10 +3117,10 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
 
     llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                               control_qubits.end());
-    p_controls.push_back(qubits[start_idx]); // controlled on 0th qubit
+    p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
 
     qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-        loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx + i]);
+        loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx]);
 
     control_qubits.clear();
     control_qubits.append(cp.getControlResults().begin(),
@@ -3282,7 +3282,7 @@ struct LowerRevolveBasisGenerator
     llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
     llvm::SmallVector<mlir::Value> controls;
     // TODO: Is the 0 correct? not necessarily, understand how to generalize
-    // FIXME: This gotta be wrong dawg
+    // FIXME: This gotta be wrong dawg, but it's done like this in the runQft
     runRevolveCircuit(loc, rewriter, controls, qubits, 0, builtin.getDim(), inverse);
 
     rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, qubits);
