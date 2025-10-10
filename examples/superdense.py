@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from typing import Optional
 from qwerty import *
 
-def superdense_coding(payload: bit[2], acc: Optional[String] = None):
+def superdense_coding(payload: bit[2], acc: Optional[str] = None):
     bit0, bit1 = payload
 
     @qpu
