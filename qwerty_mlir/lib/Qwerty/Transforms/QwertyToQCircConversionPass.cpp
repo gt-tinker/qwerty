@@ -3079,10 +3079,10 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
       mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
       llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                                 control_qubits.end());
-      p_controls.push_back(qubits[start_idx + i]); // controlled on later qubits
+      p_controls.push_back(qubits[start_idx]); // controlled on 0th qubit
       qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
           loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
-          qubits[start_idx]); // 0th qubit apply
+          qubits[start_idx + i]); // applied on ith qubit
       control_qubits.clear();
       // Exclude last control qubit
       control_qubits.append(cp.getControlResults().begin(),
@@ -3117,10 +3117,10 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
 
     llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                               control_qubits.end());
-    p_controls.push_back(qubits[start_idx + i]); // controlled on later qubits
+    p_controls.push_back(qubits[start_idx]); // controlled on 0th qubit
 
     qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-        loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx]);
+        loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx + i]);
 
     control_qubits.clear();
     control_qubits.append(cp.getControlResults().begin(),
