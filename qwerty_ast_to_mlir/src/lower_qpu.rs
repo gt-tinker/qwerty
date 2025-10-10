@@ -455,18 +455,6 @@ fn is_vec_basis_literal_equiv_builtin(basis_elems: &Vec<Basis>) -> bool {
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
     let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
-    // TODO: Create a function that takes in &basis_elements and discerns whether or not
-    // it matches the following pattern
-    // This pattern finds a list of N {0, 1}s and converts them into std**N
-    // (goes from a BasisAttr with N BasisElemAttrs, each of which is a
-    // BasisVectorListAttr, which stores two BasisVectorAttrs {0, 1}, and
-    // converts it into a BasisAttr with one (1) BasisElemAttr, which is
-    // a BuiltinBasisAttr for std**N
-    //
-    // If the function returns true, then directly create elems as one
-    // BasisElemAttribute of a BuiltinBasisAttribute with primbasis std, dim = elems.len()
-    // OTHERWISE we just do the iter map solution as before
-
     let (elems, phases) = if is_vec_basis_literal_equiv_builtin(&basis_elements) {
         // TODO: need to make elems and phases!
 
