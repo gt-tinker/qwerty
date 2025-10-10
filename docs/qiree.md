@@ -32,7 +32,7 @@ using the following `maturin` command instead:
 
 When invoking a Qwerty `@qpu` function, say `kernel`, pass an accelerator
 supported by QIR-EE as the `acc` keyword argument as in `kernel(acc='qsim')`.
-The example Qwerty programs in [`examples/`](../examples/) also allow specifing 
+The example Qwerty programs in [`examples/`](../examples/) also allow specifing
 an accelerator on the command line as follows:
 
     $ cd examples
