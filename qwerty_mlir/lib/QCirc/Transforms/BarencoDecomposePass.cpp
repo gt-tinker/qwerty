@@ -385,31 +385,11 @@ class ReplaceGate1QOpNoControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
         case qcirc::Gate1Q::Z:
         case qcirc::Gate1Q::H:
         case qcirc::Gate1Q::S:
+        case qcirc::Gate1Q::Sdg:
         case qcirc::Gate1Q::T:
+        case qcirc::Gate1Q::Tdg:
             // These guys are fine
             return mlir::failure();
-
-        // Rotate by -π around the Z axis and then rotate by π/2. This achieves
-        // a rotation by -π/2. That is, SZ = Sdg.
-        case qcirc::Gate1Q::Sdg: {
-            mlir::Value z = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Z, mlir::ValueRange(), gate.getQubit()
-                ).getResult();
-            rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::S, mlir::ValueRange(), z);
-            return mlir::success();
-        }
-
-        // Rotate by -π/2 around the Z axis and then rotate by π/4. This achieves
-        // a rotation by -π/4. That is, TSdg = Tdg.
-        case qcirc::Gate1Q::Tdg: {
-            mlir::Value sdg = rewriter.create<qcirc::Gate1QOp>(
-                    loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(), gate.getQubit()
-                ).getResult();
-            rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
-                    gate, qcirc::Gate1Q::T, mlir::ValueRange(), sdg);
-            return mlir::success();
-        }
 
         case qcirc::Gate1Q::Sx: {
             // HSH = Sx
@@ -524,8 +504,10 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         case qcirc::Gate1Q::X:
             // -decompose-multi-control already dealt with any gates that
             // have more than 2 controls, so this must be a CX or CCX.
+            // Let's decompose the CCX and leave the CX alone.
             if (gate.getControls().size() == 2) {
-                // Equation (3) of Selinger (2013): https://doi.org/10.1103/PhysRevA.87.042302
+                // Equation (3) of Selinger (2013):
+                // https://doi.org/10.1103/PhysRevA.87.042302
 
                 // First layer: I ⊗ I ⊗ H
                 mlir::Value h1 = rewriter.create<qcirc::Gate1QOp>(
@@ -629,7 +611,7 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                     cx7_ctrl, cx7_tgt, h2});
                 return mlir::success();
             } else {
-                // Preserve CXs and (if they somehow slipped through) CCCCCXs
+                // Preserve CXs
                 return mlir::failure();
             }
 
