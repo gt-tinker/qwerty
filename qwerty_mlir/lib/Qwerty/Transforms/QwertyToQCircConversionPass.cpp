@@ -3238,7 +3238,6 @@ struct LowerRevolveBasisGenerator
     if (elt_in.getStd() && elt_out.getRevolve()) {
       builtin = elt_in.getStd();
       revolve = elt_out.getRevolve();
-      inverse = false;
     } else {
       builtin = elt_out.getStd();
       revolve = elt_in.getRevolve();
@@ -3248,8 +3247,6 @@ struct LowerRevolveBasisGenerator
     // the aforementioned checks for prim-basis correctness
     // First, check that revolve's bv1, bv2 are prim basis Z
     // and eigenbits 0, 1 (in that order)
-
-    // FIXME: These functions do exist, but I guess they are returning null values
     auto bv1 = revolve.getBv1();
     auto bv2 = revolve.getBv2();
     if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv1.getEigenbits()[0] == 0) && (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z && bv2.getEigenbits()[0] == 1))) {
@@ -3312,7 +3309,7 @@ struct AlignBasisTranslations
     // If this basis translation is already aligned and in the standard
     // basis, we can skip this pattern entirely and let
     // SynthesizePermutations (below) continue with synthesis
-    if (isAligned(basis_in, basis_out) || hasGenerators(basis_out)) {
+    if (isAligned(basis_in, basis_out) || hasGenerators(basis_in) || hasGenerators(basis_out)) {
       return mlir::failure();
     }
 
@@ -3327,6 +3324,7 @@ struct AlignBasisTranslations
                      basis_in.getNumPhases());
 
     llvm::SmallVector<qwerty::BasisElemAttr> left_rebuilt, right_rebuilt;
+    // FIXME: Error here!
     mlir::LogicalResult ret = rebuildAligned(
         trans, rewriter, basis_in, basis_out, left_rebuilt, right_rebuilt);
     if (ret.failed()) {
@@ -3497,7 +3495,7 @@ struct SynthesizePermutations
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
 
-    if (!isAligned(basis_in, basis_out) || hasGenerators(basis_in)) {
+    if (!isAligned(basis_in, basis_out) || hasGenerators(basis_in) || hasGenerators(basis_out)) {
       // AlignBasisTranslations needs to run first
       return mlir::failure();
     }
