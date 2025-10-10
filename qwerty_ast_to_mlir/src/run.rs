@@ -1,6 +1,6 @@
-use crate::compile::{
-    CompileConfig, CompileError, QirProfile, Target, compile_meta_ast, translate_to_llvm_ir,
-};
+#[cfg(feature = "qiree")]
+use crate::compile::translate_to_llvm_ir;
+use crate::compile::{CompileConfig, CompileError, QirProfile, Target, compile_meta_ast};
 use dashu::integer::UBig;
 use qwerty_ast::meta::MetaProgram;
 
@@ -18,6 +18,38 @@ pub struct ShotResult {
     pub bits: UBig,
     pub num_bits: usize,
     pub count: usize,
+}
+
+#[cfg(feature = "qiree")]
+fn run_qiree(
+    acc: &str,
+    prog: &MetaProgram,
+    func_name: &str,
+    num_shots: usize,
+    debug: bool,
+) -> Result<Vec<ShotResult>, CompileError> {
+    let cfg = CompileConfig {
+        target: Target::Qir(QirProfile::Base),
+        dump: debug,
+    };
+    let mlir_module = compile_meta_ast(prog, func_name, &cfg)?;
+    let llvm_module = translate_to_llvm_ir(mlir_module, debug)?;
+    backend::qiree::run_llvm_module(llvm_module, func_name, acc, num_shots)
+        .map_err(|qiree_err| CompileError::Message(format!("QIR-EE error: {}", qiree_err), None))
+}
+
+#[cfg(not(feature = "qiree"))]
+fn run_qiree(
+    _acc: &str,
+    prog: &MetaProgram,
+    _func_name: &str,
+    _num_shots: usize,
+    _debug: bool,
+) -> Result<Vec<ShotResult>, CompileError> {
+    Err(CompileError::Message(
+        "Not compiled with QIR-EE support".to_string(),
+        prog.dbg.clone(),
+    ))
 }
 
 pub fn run_meta_ast(
@@ -38,16 +70,6 @@ pub fn run_meta_ast(
                 module, func_name, num_shots,
             ))
         }
-        Backend::Qiree(acc) => {
-            let cfg = CompileConfig {
-                target: Target::Qir(QirProfile::Base),
-                dump: debug,
-            };
-            let mlir_module = compile_meta_ast(prog, func_name, &cfg)?;
-            let llvm_module = translate_to_llvm_ir(mlir_module, debug)?;
-            backend::qiree::run_llvm_module(llvm_module, func_name, acc, num_shots).map_err(
-                |qiree_err| CompileError::Message(format!("QIR-EE error: {}", qiree_err), None),
-            )
-        }
+        Backend::Qiree(acc) => run_qiree(&acc, prog, func_name, num_shots, debug),
     }
 }

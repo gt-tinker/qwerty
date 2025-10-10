@@ -189,7 +189,7 @@ static QIREE: LazyLock<Mutex<Result<Qiree, QireeError>>> =
 pub fn run_llvm_module(
     llvm_module: LLVMModule<'static>,
     func_name: &str,
-    acc: String,
+    acc: &str,
     num_shots: usize,
 ) -> Result<Vec<ShotResult>, QireeError> {
     assert_ne!(num_shots, 0);
