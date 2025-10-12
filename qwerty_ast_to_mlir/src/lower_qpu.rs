@@ -434,19 +434,59 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
-// If the Vec of Bases is a vector of basis literals {0, 1}, then
-// we want to find this!
-fn is_vec_basis_literal_equiv_builtin(basis_elems: &Vec<Basis>) -> bool {
-    basis_elems.iter().all(|elem| {
-        match elem {
-            Basis::BasisLiteral { vecs, .. } => {
-                vecs.len() == 2
-                && matches!(vecs[0], Vector::ZeroVector { .. })
-                && matches!(vecs[1], Vector::OneVector { .. })
+// If the Vec of Bases is a vector of only basis literals {0, 1},
+// or only {p, m}, or only {i, j}, then we want to find this!
+fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::PrimitiveBasis) {
+    if basis_elems.is_empty() {
+        return (false, qwerty::PrimitiveBasis::Z); // dummy, not used
+    }
+
+    // Determine candidate primitive basis from first element
+    let first_elem = &basis_elems[0];
+    let candidate_basis = match first_elem {
+        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+            let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
+            let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
+
+            // TODO: Do we need to match both the Plus and Minus variants?
+            // I'd imagine it's safer/more reliable (in theory we could have
+            // {p, p}, and I don't know if that gets caught by canonicalization
+            // before reaching here.
+            match ((prim1, eigenstate1), (prim2, eigenstate2)) {
+                (
+                    (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus),
+                    (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Minus),
+                )
+                | (
+                    (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Plus),
+                    (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Minus),
+                )
+                | (
+                    (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Plus),
+                    (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Minus),
+                ) => ((prim1, eigenstate1), (prim2, eigenstate2)),
+                _ => return (false, qwerty::PrimitiveBasis::Z),
             }
-            _ => false
         }
-    }) && basis_elems.len() >= 1
+        _ => return (false, qwerty::PrimitiveBasis::Z),
+    };
+
+    // Check that all elements conform to candidate_basis
+    for elem in basis_elems {
+        match elem {
+            Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+                let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
+                let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
+                let curr_basis = ((prim1, eigenstate1), (prim2, eigenstate2));
+                if candidate_basis != curr_basis {
+                    return (false, qwerty::PrimitiveBasis::Z);
+                }
+            }
+            _ => return (false, qwerty::PrimitiveBasis::Z),
+        }
+    }
+
+    (true, candidate_basis.0.0)
 }
 
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
@@ -455,10 +495,10 @@ fn is_vec_basis_literal_equiv_builtin(basis_elems: &Vec<Basis>) -> bool {
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
     let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
-    let (elems, phases) = if is_vec_basis_literal_equiv_builtin(&basis_elements) {
-        // TODO: need to make elems and phases!
-
-        let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Z, basis_elements.len() as u64);
+    let (vec_basis_equiv_prim, prim_basis) = is_vec_basis_equiv_primitive(&basis_elements);
+    let (elems, phases) = if vec_basis_equiv_prim {
+        let std =
+            qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, prim_basis, basis_elements.len() as u64);
         let basis_elem = qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std);
         let elems = vec![basis_elem];
         let phases = vec![];
