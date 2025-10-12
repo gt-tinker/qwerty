@@ -431,3 +431,51 @@ qwerty.func @big_perm_multi_mask[]() irrev-> !qwerty<bitbundle[11]> {
   %2 = qwerty.qbmeas %1 by {std: Z[11]} : !qwerty<qbundle[11]> -> !qwerty<bitbundle[11]>
   qwerty.return %2 : !qwerty<bitbundle[11]>
 }
+
+// CHECK-LABEL: func.func @revolve_3q_canonical() -> !qcirc<array<i1>[3]> {
+// CHECK-NEXT:    %0 = qcirc.qalloc : () -> !qcirc.qubit
+// CHECK-NEXT:    %1 = qcirc.qalloc : () -> !qcirc.qubit
+// CHECK-NEXT:    %2 = qcirc.qalloc : () -> !qcirc.qubit
+// CHECK-NEXT:    %result = qcirc.gate1q[]:H %0 : (!qcirc.qubit) -> !qcirc.qubit
+// CHECK-NEXT:    %3 = qcirc.calc() : () -> f64 {
+// CHECK-NEXT:      %cst = arith.constant 1.5707963267948966 : f64
+// CHECK-NEXT:      qcirc.calc_yield(%cst) : f64
+// CHECK-NEXT:    }
+// CHECK-NEXT:    %controlResults, %result_0 = qcirc.gate1q1p[%1]:P(%3) %result : (f64, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+// CHECK-NEXT:    %4 = qcirc.calc() : () -> f64 {
+// CHECK-NEXT:      %cst = arith.constant 0.78539816339744828 : f64
+// CHECK-NEXT:      qcirc.calc_yield(%cst) : f64
+// CHECK-NEXT:    }
+// CHECK-NEXT:    %controlResults_1, %result_2 = qcirc.gate1q1p[%2]:P(%4) %result_0 : (f64, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit)
+// CHECK-NEXT:    %qubitResult, %measResult = qcirc.measure(%controlResults) : (!qcirc.qubit) -> (!qcirc.qubit, i1)
+// CHECK-NEXT:    qcirc.qfree %qubitResult : (!qcirc.qubit) -> ()
+// CHECK-NEXT:    %qubitResult_3, %measResult_4 = qcirc.measure(%controlResults_1) : (!qcirc.qubit) -> (!qcirc.qubit, i1)
+// CHECK-NEXT:    qcirc.qfree %qubitResult_3 : (!qcirc.qubit) -> ()
+// CHECK-NEXT:    %qubitResult_5, %measResult_6 = qcirc.measure(%result_2) : (!qcirc.qubit) -> (!qcirc.qubit, i1)
+// CHECK-NEXT:    qcirc.qfree %qubitResult_5 : (!qcirc.qubit) -> ()
+// CHECK-NEXT:    %5 = qcirc.arrpack(%measResult, %measResult_4, %measResult_6) : (i1, i1, i1) -> !qcirc<array<i1>[3]>
+// CHECK-NEXT:    return %5 : !qcirc<array<i1>[3]>
+// CHECK-NEXT:  }
+
+qwerty.func @revolve_3q_canonical[]() irrev-> !qwerty<bitbundle[3]> {
+  %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+  %1 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+  %2 = qwerty.qbunpack %0 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
+  %3 = qwerty.qbunpack %1 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
+  %4 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+  %5 = qwerty.qbunpack %4 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
+  %6 = qwerty.qbpack(%2, %3, %5) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[3]>
+  %7 = qwerty.qbtrans %6 by {std: Z[3]} >> {{std: Z[2]}:revolve{"|0>", "|1>"}} : (!qwerty<qbundle[3]>) -> !qwerty<qbundle[3]>
+  %8:3 = qwerty.qbunpack %7 : (!qwerty<qbundle[3]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+  %9 = qwerty.qbpack(%8#0) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
+  %10 = qwerty.qbmeas %9 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  %11 = qwerty.bitunpack %10 : (!qwerty<bitbundle[1]>) -> i1
+  %12 = qwerty.qbpack(%8#1) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
+  %13 = qwerty.qbmeas %12 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  %14 = qwerty.bitunpack %13 : (!qwerty<bitbundle[1]>) -> i1
+  %15 = qwerty.qbpack(%8#2) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
+  %16 = qwerty.qbmeas %15 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
+  %17 = qwerty.bitunpack %16 : (!qwerty<bitbundle[1]>) -> i1
+  %18 = qwerty.bitpack(%11, %14, %17) : (i1, i1, i1) -> !qwerty<bitbundle[3]>
+  qwerty.return %18 : !qwerty<bitbundle[3]>
+}

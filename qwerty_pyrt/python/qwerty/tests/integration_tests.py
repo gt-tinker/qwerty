@@ -199,6 +199,20 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
+    def test_revolve(self):
+        from .integ.meta_noinfer import revolve
+        shots = 1024
+        expected_histos = (
+            {bit[3](0b001): shots//2},
+            {bit[3](0b000): shots//2},
+        )
+        actual_histos = revolve.test(shots)
+
+        # FIXME: allow small statistical deviation?
+        tol = int(0.05 * shots)  # 5% of total shots
+        self.assertTrue(abs(expected_histos[0][bit[3](0b001)] - actual_histos[bit[3](0b001)]) <= tol)
+        self.assertTrue(abs(expected_histos[1][bit[3](0b000)] - actual_histos[bit[3](0b000)]) <= tol)
+
     def test_interproc(self):
         # Like randbit above except involves a call from one kernel to another
         from .integ.meta_noinfer import interproc
