@@ -306,9 +306,11 @@ bool BasisElemAttr::isPredicate() const {
         return false;
     } else if (getVeclist()) {
         return getVeclist().isPredicate();
+    } else if (getRevolve()) {
+        return false; // NOTE: For the moment, we don't want revolve to be predicated!
+        // return getRevolve().isPredicate();
     } else {
-        // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return false;
     }
