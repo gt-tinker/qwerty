@@ -613,6 +613,11 @@ BINARY_OP_VERIFY_AND_INFER(And)
 BINARY_OP_VERIFY_AND_INFER(Or)
 BINARY_OP_VERIFY_AND_INFER(Xor)
 
+void AndOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
+                                        mlir::MLIRContext *context) {
+    results.add<AndWithZeroPattern, AndWithOnePattern, DoubleAndPattern, AndWithNegationPattern>(context);
+}
+
 #define UNARY_OP_VERIFY_AND_INFER(name) \
     mlir::LogicalResult name##Op::verify() { \
         if (getOperand().getType() != getResult().getType()) { \
@@ -633,7 +638,7 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
-    results.add<DoubleNegationPattern>(context);
+    results.add<DoubleNegationPattern, NegateZeroPattern>(context);
 }
 
 mlir::LogicalResult ParityOp::verify() {

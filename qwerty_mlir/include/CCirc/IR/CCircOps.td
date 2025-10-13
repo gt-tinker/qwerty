@@ -81,6 +81,7 @@ def CCirc_AndOp : CCirc_Op<"and", [Pure, InferTypeOpAdaptor]> {
     let results = (outs CCirc_Wire:$result);
     let assemblyFormat = "`(` $left `,` $right `)` attr-dict `:` functional-type(operands, results)";
     let hasVerifier = 1;
+    let hasCanonicalizer = 1;
 }
 
 def CCirc_OrOp : CCirc_Op<"or", [Pure, InferTypeOpAdaptor]> {

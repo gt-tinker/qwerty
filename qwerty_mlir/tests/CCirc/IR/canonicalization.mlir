@@ -9,6 +9,16 @@ ccirc.circuit @double_negation(%arg0: !ccirc<wire[3]>) irrev {
   ccirc.return %1 : !ccirc<wire[3]>
 }
 
+// CHECK-LABEL: ccirc.circuit @negate_zero(%arg0: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:    %0 = ccirc.constant true : !ccirc<wire[1]>
+//  CHECK-NEXT:    ccirc.return %0 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @negate_zero(%arg0: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.constant false : !ccirc<wire[1]>
+  %1 = ccirc.not(%0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %1 : !ccirc<wire[1]>
+}
+
 // CHECK-LABEL: ccirc.circuit @pack_unpack(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
 //  CHECK-NEXT:   ccirc.return %arg0, %arg1, %arg2 : !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>
 //  CHECK-NEXT: }
