@@ -3280,19 +3280,20 @@ struct RecurseRevolveBasisGenerator
     auto elt_foo = elts_foo.front();
 
     // get foo's dim
+    qwerty::BasisVectorListAttr veclistAttr;
+    qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+    qwerty::BuiltinBasisAttr builtinAttr;
     uint64_t elt_foo_dim = 0;
-    if (auto veclist = elt_foo.getVeclist()) {
-      elt_foo_dim = veclist.getDim();
-    } else if (auto nested_revolve = elt_foo.getRevolve()) {
-      elt_foo_dim = nested_revolve.getDim();
-    } else if (auto builtinbasis = elt_foo.getStd()) {
-      // we want to exclude PrimitiveBasis::Z, because that's base case
-      if (builtinbasis.getPrimBasis() == qwerty::PrimitiveBasis::Z) {
-        return mlir::failure();
-      } else {
-        // otherwise we're fine
-        elt_foo_dim = builtinbasis.getDim();
-      }
+
+    // Match the concrete attribute type and store it
+    if (veclistAttr = elt_foo.getVeclist()) {
+        elt_foo_dim = veclistAttr.getDim();
+    } else if (revolveAttr = elt_foo.getRevolve()) {
+        elt_foo_dim = revolveAttr.getDim();
+    } else if (builtinAttr = elt_foo.getStd()) {
+        if (builtinAttr.getPrimBasis() == qwerty::PrimitiveBasis::Z)
+            return mlir::failure();
+        elt_foo_dim = builtinAttr.getDim();
     }
 
     if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
@@ -3356,8 +3357,19 @@ struct RecurseRevolveBasisGenerator
           rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
 
       // 3. (new qbtrans) apply std**(N-1) >> foo to the first N-1 qubits
+      qwerty::BasisElemAttr foo_elem;
+      if (veclistAttr) {
+          foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+      } else if (revolveAttr) {
+          foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+      } else if (builtinAttr) {
+          foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+      }
+      qwerty::BasisAttr foo_basis =
+          qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+
       auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
-          loc, std_N_minus_1, revolve_basis, mlir::ValueRange(),
+          loc, std_N_minus_1, foo_basis, mlir::ValueRange(),
           packed_N_minus_1);
 
       // 4. qbunpack qubits from new qbtrans
@@ -3375,9 +3387,6 @@ struct RecurseRevolveBasisGenerator
       // 6. replace og trans with this final qbpack
       rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
 
-      // FIXME: We get here and yet the recursion does not seem to take effect
-      // i.e. when we get to the base case LowerRevolveBasisGenerator,
-      // we still have the qwerty::PrimitiveBasis::X!
     } else { // foo // std.revolve >> std**N
       // TODO: Finish reverse case!
       qwerty::QBundleBasisTranslationOp base_case_rev =
