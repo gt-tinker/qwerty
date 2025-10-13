@@ -3143,40 +3143,19 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
   }
 }
 
-// TODO: Add an additional pass that admits the fully generalized
-// expression baz >> foo // baz.revolve, and converts this into several btrans
-// ops chained together, as well as correct lowering. Aka we convert baz >> foo
-// // bar.revolve into baz >> std**N | foo // std.revolve | (id**(N-1) * (std >>
-// bar)
-struct LowerGeneralRevolveBasisGenerator
-    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
-  using mlir::OpConversionPattern<
-      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const final {
-    // NOTE: In this pattern, see above discussion, we are splitting and
-    // creating two basis translations from one for "canonicalization"
-    // purposes
-    // Aka we convert baz >> foo // bar.revolve into
-    // baz >> std**N | foo // std.revolve | (id**(N-1) * (std >> bar)
-    return mlir::failure();
-  }
-};
 
 // NOTE: If we have something like ij**3 >> fourier(3),
 // then we want to get ij**3 >> std**3 | std**3 >> fourier(3)
 // If the RHS has revolve AND then LHS isn't std**N for some N,
 // then we want to apply this pattern
 //
-// TODO: Add inputs/outputs for every single pass, for clarity
-//
 // This should also work for std // std.revolve >> ij // std.revolve
 // for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 
-//
-struct SplitRevolveBasisGeneratorTranslation
+// This pass admits the qbtrans baz >> foo // std.revolve (or reverse)
+// and generates baz >> std**N | foo // std.revolve OR
+// foo // std.revolve >> std**N | std**N >> baz (reverse)
+struct ArbitraryBasisRevolveGenerator
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
@@ -3184,12 +3163,242 @@ struct SplitRevolveBasisGeneratorTranslation
   mlir::LogicalResult
   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const final {
-    // NOTE: In this pattern, see above discussion, we are splitting and
-    // creating two basis translations from one for "canonicalization"
-    // purposes
+    mlir::Location loc = trans.getLoc();
+    qwerty::BasisAttr basis_in = trans.getBasisIn();
+    qwerty::BasisAttr basis_out = trans.getBasisOut();
+
+    auto elts_in = basis_in.getElems();
+    auto elts_out = basis_out.getElems();
+    // Must have one element each, either BuiltinBasisAttr or
+    // ApplyRevolveGeneratorAttr
+    if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_in = elts_in.front();
+    auto elt_out = elts_out.front();
+
+    if (!((elt_in.getStd() && elt_out.getRevolve()) ||
+          (elt_in.getRevolve() && elt_out.getStd()))) {
+      return mlir::failure();
+    }
+
+    // Now we can populate the bases and do more checking
+    qwerty::BuiltinBasisAttr builtin;
+    qwerty::ApplyRevolveGeneratorAttr revolve;
+
+    bool inverse = false;
+
+    if (elt_in.getStd() && elt_out.getRevolve()) {
+      builtin = elt_in.getStd();
+      revolve = elt_out.getRevolve();
+    } else {
+      builtin = elt_out.getStd();
+      revolve = elt_in.getRevolve();
+      inverse = true;
+    }
+
     return mlir::failure();
   }
 };
+
+// This pass admits the qbtrans std**N >> foo // bar.revolve (for arbitrary bar)
+// and generates std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
+// or id**(N-1) * (bar >> std) | foo // std.revolve >> std**N (reverse case)
+struct ArbitraryRevolveBasisRevolveGenerator
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    mlir::Location loc = trans.getLoc();
+    qwerty::BasisAttr basis_in = trans.getBasisIn();
+    qwerty::BasisAttr basis_out = trans.getBasisOut();
+
+    auto elts_in = basis_in.getElems();
+    auto elts_out = basis_out.getElems();
+    // Must have one element each, either BuiltinBasisAttr or
+    // ApplyRevolveGeneratorAttr
+    if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_in = elts_in.front();
+    auto elt_out = elts_out.front();
+
+    if (!((elt_in.getStd() && elt_out.getRevolve()) ||
+          (elt_in.getRevolve() && elt_out.getStd()))) {
+      return mlir::failure();
+    }
+
+    // Now we can populate the bases and do more checking
+    qwerty::BuiltinBasisAttr builtin;
+    qwerty::ApplyRevolveGeneratorAttr revolve;
+
+    bool inverse = false;
+
+    if (elt_in.getStd() && elt_out.getRevolve()) {
+      builtin = elt_in.getStd();
+      revolve = elt_out.getRevolve();
+    } else {
+      builtin = elt_out.getStd();
+      revolve = elt_in.getRevolve();
+      inverse = true;
+    }
+
+    // check whether revolve's bv1 and bv2 are 0, 1
+    // if they are, we ignore (should go to base case)
+    auto bv1 = revolve.getBv1();
+    auto bv2 = revolve.getBv2();
+    // NOTE: bv1 and bv2 should still span, I don't think we have
+    // a good way of checking that for now
+    if (((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+           bv1.getEigenbits()[0] == 0) &&
+          (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+           bv2.getEigenbits()[0] == 1))) {
+      return mlir::failure();
+    }
+
+    // We need builtinbasis to be std, but foo can be any basis as long
+    // as the dimensions are compatible (similar to RecurseRevolveBasisGenerator)
+    qwerty::BasisAttr foo = revolve.getFoo();
+    auto elts_foo = foo.getElems();
+    if (elts_foo.size() != 1) {
+      return mlir::failure();
+    }
+    // If foo's elt is std at this point, then we reject, since it
+    // should be handled by the recursive case
+    auto elt_foo = elts_foo.front();
+
+    // get foo's dim
+    qwerty::BasisVectorListAttr veclistAttr;
+    qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+    qwerty::BuiltinBasisAttr builtinAttr;
+    uint64_t elt_foo_dim = 0;
+
+    // Match the concrete attribute type and store it
+    if ((veclistAttr = elt_foo.getVeclist())) {
+        elt_foo_dim = veclistAttr.getDim();
+    } else if ((revolveAttr = elt_foo.getRevolve())) {
+        elt_foo_dim = revolveAttr.getDim();
+    } else if ((builtinAttr = elt_foo.getStd())) {
+        if (builtinAttr.getPrimBasis() == qwerty::PrimitiveBasis::Z)
+            return mlir::failure();
+        elt_foo_dim = builtinAttr.getDim();
+    }
+
+
+    if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+          (builtin.getDim() - 1) == elt_foo_dim)) {
+      return mlir::failure();
+    }
+
+    // code for creating bases that are reused in both fwd and rev directions
+
+    qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim + 1))});
+
+    qwerty::BasisElemAttr foo_elem;
+    if (veclistAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+    } else if (revolveAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+    } else if (builtinAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+    }
+
+    qwerty::BasisAttr foo_N_minus_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{foo_elem});
+
+    // for use in std >> bar, or reverse
+    qwerty::BasisAttr std_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, 1))});
+
+
+    auto bv1_bv2_vec = rewriter.getAttr<qwerty::BasisVectorListAttr>(
+        llvm::ArrayRef<qwerty::BasisVectorAttr>{bv1, bv2});
+
+    auto bv1_bv2_elem = rewriter.getAttr<qwerty::BasisElemAttr>(bv1_bv2_vec);
+
+    // for use in std >> bar, or reverse
+    auto bar_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{bv1_bv2_elem});
+
+    // create bv1 = |0>, bv2 = |1>
+    auto ctx = rewriter.getContext();
+    auto attr_zero = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 0);
+    auto attr_one = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 1);
+
+    auto bv1_vec = qwerty::BasisVectorAttr::get(
+        rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_zero, 1, false);
+    auto bv2_vec = qwerty::BasisVectorAttr::get(
+        rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_one, 1, false);
+
+    auto revolve_attr = rewriter.getAttr<qwerty::ApplyRevolveGeneratorAttr>(
+        foo_N_minus_1, bv1_vec, bv2_vec);
+
+    // foo // std.revolve basis
+    qwerty::BasisElemAttr revolve_elem =
+        qwerty::BasisElemAttr::get(rewriter.getContext(), revolve_attr);
+    qwerty::BasisAttr revolve_basis =
+        qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
+
+    // Now we can create two basis translations to create
+    // std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
+    if (!inverse) {
+      // Steps:
+      // 1. create qbtrans std**N >> foo // std.revolve
+      qwerty::QBundleBasisTranslationOp recurse_case_fwd =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_N, revolve_basis, mlir::ValueRange(),
+              trans.getQbundleIn());
+
+      // 2. qbunpack and get last qubit
+      mlir::ValueRange fwd_unpacked =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc,
+                                               recurse_case_fwd.getQbundleOut())
+              .getQubits();
+      
+      llvm::SmallVector<mlir::Value> last_qubit(
+          std::prev(fwd_unpacked.end()), fwd_unpacked.end());
+      auto packed_last_qubit =
+          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+
+      // 3. create std >> bar qbtrans on last qubit
+      qwerty::QBundleBasisTranslationOp std_to_bar =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_1, bar_1, mlir::ValueRange(),
+              packed_last_qubit);
+      
+      // 4. qbpack resulting qubits with first N-1 qubits
+      llvm::SmallVector<mlir::Value> final_qubits(
+        fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
+
+      mlir::ValueRange bar_qubit =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc, std_to_bar.getQbundleOut())
+              .getQubits();
+      final_qubits.push_back(bar_qubit.front());
+
+      // 5. replace op
+      rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
+    } else { // foo // bar.revolve >> std**N
+      // other hi
+    }
+
+    return mlir::success();
+  }
+};
+
 
 // TODO: Figure out how to do predicated RevolveGenerators like
 // (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
@@ -3282,7 +3491,6 @@ struct RecurseRevolveBasisGenerator
     }
     // If foo's elt is std at this point, then we reject, since it
     // should be handled by the recursive case
-    // NOTE: Is this safe/fine?
     auto elt_foo = elts_foo.front();
 
     // get foo's dim
@@ -4143,10 +4351,10 @@ struct QwertyToQCircConversionPass
         BitInitOpLowering, QBundleInitOpLowering, QBundleDeinitOpLowering,
         TrivialQBundlePrepOpLowering, NontrivialQBundlePrepOpLowering,
         QBundleDiscardOpLowering, QBundleDiscardZeroOpLowering,
-        QBundlePhaseOpLowering, QBundleIdentityOpLowering,
-        RecurseRevolveBasisGenerator, LowerRevolveBasisGenerator,
-        AlignBasisTranslations, SynthesizePermutations, QBundleMeasureNonStd,
-        QBundleMeasureOpLowering, QBundleProjectNonStd,
+        QBundlePhaseOpLowering, QBundleIdentityOpLowering, ArbitraryBasisRevolveGenerator,
+        ArbitraryRevolveBasisRevolveGenerator, RecurseRevolveBasisGenerator,
+        LowerRevolveBasisGenerator, AlignBasisTranslations, SynthesizePermutations,
+        QBundleMeasureNonStd, QBundleMeasureOpLowering, QBundleProjectNonStd,
         QBundleProjectOpLowering, QBundleFlipOpLowering,
         QBundleRotateOpLowering, SuperposOpLowering, EnsembleOpLowering>(
         type_converter, &getContext());

@@ -254,13 +254,7 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     };
     let mut phase = root_phase;
 
-    let vecs = if let Vector::VectorTensor { qs, .. } = root_vec {
-        qs.clone()
-    } else if let Vector::VectorUnit { .. } = root_vec {
-        vec![]
-    } else {
-        vec![root_vec]
-    };
+    let vecs = root_vec.to_vec();
 
     for v in &vecs {
         let (v_prim_basis, v_eigenstate, v_phase) = ast_vec_to_mlir_helper(v);
@@ -445,13 +439,10 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
     let first_elem = &basis_elems[0];
     let candidate_basis = match first_elem {
         Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+            let vecs = vecs.iter().flat_map(Vector::to_vec).collect::<Vec<Vector>>();
             let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
             let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
 
-            // TODO: Do we need to match both the Plus and Minus variants?
-            // I'd imagine it's safer/more reliable (in theory we could have
-            // {p, p}, and I don't know if that gets caught by canonicalization
-            // before reaching here.
             match ((prim1, eigenstate1), (prim2, eigenstate2)) {
                 (
                     (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus),
@@ -475,6 +466,7 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
     for elem in basis_elems {
         match elem {
             Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+                let vecs = vecs.iter().flat_map(Vector::to_vec).collect::<Vec<Vector>>();
                 let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
                 let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
                 let curr_basis = ((prim1, eigenstate1), (prim2, eigenstate2));

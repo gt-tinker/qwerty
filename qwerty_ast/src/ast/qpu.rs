@@ -1239,6 +1239,14 @@ impl Vector {
             None
         }
     }
+
+    pub fn to_vec(&self) -> Vec<Vector> {
+        match self {
+            Vector::VectorTensor { qs, .. } => qs.clone(),
+            Vector::VectorUnit { .. } => vec![],
+            _ => vec![self.clone()],
+        }
+    }
 }
 
 impl Ord for Vector {
