@@ -3521,7 +3521,49 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // 5. replace op
       rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
     } else { // foo // bar.revolve >> std**N
-      // TODO: The reverse direction
+      // id**(N-1) * (bar >> std) | foo // std.revolve >> std**N (reverse case)
+      // 1. unpack input bundle to get individual qubits
+      mlir::ValueRange in_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+              .getQubits();
+
+      // 2. take the last qubit, apply inverse std >> bar translation
+      llvm::SmallVector<mlir::Value> last_qubit(
+          std::prev(in_unpacked.end()), in_unpacked.end());
+      mlir::Value packed_last_qubit =
+          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+
+      // create inverse std >> bar
+      qwerty::QBundleBasisTranslationOp bar_to_std =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, bar_1, std_1, mlir::ValueRange(), packed_last_qubit);
+
+      // 3. unpack the result
+      mlir::ValueRange bar_std_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, bar_to_std.getQbundleOut())
+              .getQubits();
+
+      // 4. combine with first N-1 qubits
+      llvm::SmallVector<mlir::Value> combined_qubits(
+          in_unpacked.begin(), std::prev(in_unpacked.end()));
+
+      combined_qubits.push_back(bar_std_unpacked.front());
+
+      auto combined_packed =
+          rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+
+      // 5. apply inverse std**N >> foo // std.revolve
+      qwerty::QBundleBasisTranslationOp recurse_case_rev = 
+        rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          loc, revolve_basis, std_N, mlir::ValueRange(), combined_packed);
+
+      mlir::ValueRange recurse_case_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, recurse_case_rev.getQbundleOut()).getQubits();
+
+      llvm::SmallVector<mlir::Value> final_qubits(recurse_case_unpacked.begin(),
+                                                  recurse_case_unpacked.end());
+
+      rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
     }
 
     return mlir::success();
