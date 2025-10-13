@@ -59,7 +59,7 @@ def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "rev
     foo // {bv1, bv2}.revolve, for use in synthesis of basis generator circuits
     }];
     let parameters = (ins "BasisAttr":$foo, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
-    let assemblyFormat = "$foo `:` `revolve` `{`$bv1` ``,`$bv2`}`";
+    let assemblyFormat = "$foo `by` ` ` `{` $bv1 `,` $bv2 `}`";
     let genVerifyDecl = 1;
     let extraClassDeclaration = [{
         uint64_t getDim() const;

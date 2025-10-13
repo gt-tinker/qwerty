@@ -150,20 +150,15 @@ mlir::Attribute BasisVectorAttr::parse(mlir::AsmParser &parser, mlir::Type odsTy
 }
 
 void BasisElemAttr::print(mlir::AsmPrinter &printer) const {
-    if (getStd()) {
+    if (BuiltinBasisAttr std = getStd()) {
         printer << "std:";
-        printer.printStrippedAttrOrType(getStd());
-    } else if (getVeclist()) {
+        printer.printStrippedAttrOrType(std);
+    } else if (BasisVectorListAttr list = getVeclist()) {
         printer << "list:";
-        printer.printStrippedAttrOrType(getVeclist());
-    } else if (getRevolve()) {
-        auto revolve = getRevolve();
-        printer.printStrippedAttrOrType(revolve.getFoo());
-        printer << ":revolve{";
-        printer.printStrippedAttrOrType(revolve.getBv1());
-        printer << ", ";
-        printer.printStrippedAttrOrType(revolve.getBv2());
-        printer << "}";
+        printer.printStrippedAttrOrType(list);
+    } else if (ApplyRevolveGeneratorAttr revolve = getRevolve()) {
+        printer << "revolve:";
+        printer.printStrippedAttrOrType(revolve);
     } else {
         assert(0 && "Invalid basis element state. How did the validator not "
                     "catch this?");
@@ -188,34 +183,14 @@ mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser,
         if (parser.parseCustomAttributeWithFallback<BasisVectorListAttr>(list))
             return {};
         return BasisElemAttr::get(parser.getContext(), list);
+    } else if (kw == "revolve") {
+        ApplyRevolveGeneratorAttr revolve;
+        if (parser.parseCustomAttributeWithFallback<ApplyRevolveGeneratorAttr>(revolve))
+            return {};
+        return BasisElemAttr::get(parser.getContext(), revolve);
+    } else {
+        return {};
     }
-
-    // else try revolve form: <foo> : revolve { bv1 , bv2 }
-    BasisAttr foo;
-    if (parser.parseCustomAttributeWithFallback<BasisAttr>(foo))
-        return {};
-
-    if (parser.parseColon())
-        return {};
-
-    if (parser.parseKeyword("revolve"))
-        return {};
-
-    if (parser.parseLBrace())
-        return {};
-
-    BasisVectorAttr bv1, bv2;
-    if (parser.parseCustomAttributeWithFallback<BasisVectorAttr>(bv1))
-        return {};
-    if (parser.parseComma())
-        return {};
-    if (parser.parseCustomAttributeWithFallback<BasisVectorAttr>(bv2))
-        return {};
-    if (parser.parseRBrace())
-        return {};
-
-    auto revolve = ApplyRevolveGeneratorAttr::get(parser.getContext(), foo, bv1, bv2);
-    return BasisElemAttr::get(parser.getContext(), revolve);
 }
 
 uint64_t ApplyRevolveGeneratorAttr::getDim() const {
