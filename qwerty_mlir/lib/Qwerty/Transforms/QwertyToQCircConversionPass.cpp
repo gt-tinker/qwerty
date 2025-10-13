@@ -3286,11 +3286,11 @@ struct RecurseRevolveBasisGenerator
     uint64_t elt_foo_dim = 0;
 
     // Match the concrete attribute type and store it
-    if (veclistAttr = elt_foo.getVeclist()) {
+    if ((veclistAttr = elt_foo.getVeclist())) {
         elt_foo_dim = veclistAttr.getDim();
-    } else if (revolveAttr = elt_foo.getRevolve()) {
+    } else if ((revolveAttr = elt_foo.getRevolve())) {
         elt_foo_dim = revolveAttr.getDim();
-    } else if (builtinAttr = elt_foo.getStd()) {
+    } else if ((builtinAttr = elt_foo.getStd())) {
         if (builtinAttr.getPrimBasis() == qwerty::PrimitiveBasis::Z)
             return mlir::failure();
         elt_foo_dim = builtinAttr.getDim();
@@ -3388,12 +3388,57 @@ struct RecurseRevolveBasisGenerator
       rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
 
     } else { // foo // std.revolve >> std**N
+      // (foo >> std**(N-1)) * id | RotR | std**(N-1) // std.revolve >> std**N
       // TODO: Finish reverse case!
+
+    qwerty::BasisElemAttr foo_elem;
+      if (veclistAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+      } else if (revolveAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+      } else if (builtinAttr) {
+        foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+      }
+      qwerty::BasisAttr foo_basis =
+          qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+
+      // 1. unpack the original input (N qubits)
+      mlir::ValueRange rev_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn()).getQubits();
+
+      // 2. pack first N-1 qubits, apply sub-translation foo -> std**(N-1)
+      llvm::SmallVector<mlir::Value> first_N_minus_1(rev_unpacked.begin(),
+                                                     std::prev(rev_unpacked.end()));
+      auto packed_N_minus_1 =
+          rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
+
+      auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          loc, foo_basis, std_N_minus_1, mlir::ValueRange(), packed_N_minus_1);
+
+      // 3. unpack outputs of subtrans (N-1 qubits in std)
+      mlir::ValueRange subtrans_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, subtrans.getQbundleOut()).getQubits();
+
+      // 4. now repack the N-1 outputs together with the original Nth qubit
+      llvm::SmallVector<mlir::Value> combined_qubits(subtrans_unpacked.begin(),
+                                                    subtrans_unpacked.end());
+      combined_qubits.push_back(rev_unpacked.back()); // original last qubit
+
+      auto combined_packed =
+          rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+
+      // 5. apply the base-case rev: (std**(N-1) // revolve) >> std**N
       qwerty::QBundleBasisTranslationOp base_case_rev =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, revolve_basis, std_N, mlir::ValueRange(),
-              trans.getQbundleIn());
-    }
+              loc, revolve_basis, std_N, mlir::ValueRange(), combined_packed);
+
+      mlir::ValueRange base_case_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, base_case_rev.getQbundleOut()).getQubits();
+
+      llvm::SmallVector<mlir::Value> final_qubits(base_case_unpacked.begin(),
+                                                  base_case_unpacked.end());
+
+      rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);}
 
     return mlir::success();
   }
