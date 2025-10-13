@@ -3209,9 +3209,15 @@ struct RecurseRevolveBasisGenerator
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
 
+  void initialize() {
+    /// Signal that this pattern safely handles recursive application.
+    setHasBoundedRewriteRecursion();
+  }
+
   mlir::LogicalResult
   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const final {
+
     mlir::Location loc = trans.getLoc();
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
