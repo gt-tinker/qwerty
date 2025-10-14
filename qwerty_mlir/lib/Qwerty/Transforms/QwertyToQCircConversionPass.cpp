@@ -3239,7 +3239,6 @@ struct ArbitraryBasisRevolveGenerator
         elt_foo_dim = builtinAttr.getDim();
     }
 
-
     if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
           (builtin.getDim() - 1) == elt_foo_dim)) {
       return mlir::failure();
@@ -3350,8 +3349,8 @@ struct ArbitraryBasisRevolveGenerator
 };
 
 // This pass admits the qbtrans std**N >> std**(N-1) // bar.revolve (for arbitrary bar)
-// and generates std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
-// or id**(N-1) * (bar >> std) | foo // std.revolve >> std**N (reverse case)
+// and generates std**N >> std**(N-1) // std.revolve | id**(N-1) * (std >> bar)
+// or id**(N-1) * (bar >> std) | std**(N-1) // std.revolve >> std**N (reverse case)
 struct ArbitraryRevolveBasisRevolveGenerator
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
@@ -3408,25 +3407,35 @@ struct ArbitraryRevolveBasisRevolveGenerator
       return mlir::failure();
     }
 
-    // Then, check that revolve's foo and builtinbasis are both
-    // std, where revolve's dim is one less than builtinbasis' dim
-    // NOTE: Revolve's foo is a BasisAttr so we need to verify that
-
-    // we need to extract revolve's foo's basis here, for prim_basis and dim
+    // We need builtinbasis to be std, but foo can be any basis as long
+    // as the dimensions are compatible (similar to RecurseRevolveBasisGenerator,
+    // but without the restriction that we care about it not being std)
     qwerty::BasisAttr foo = revolve.getFoo();
     auto elts_foo = foo.getElems();
     if (elts_foo.size() != 1) {
       return mlir::failure();
     }
+    // If foo's elt is std at this point, then we reject, since it
+    // should be handled by the recursive case
     auto elt_foo = elts_foo.front();
-    if (!elt_foo.getStd()) {
-      return mlir::failure();
+
+    // get foo's dim
+    qwerty::BasisVectorListAttr veclistAttr;
+    qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+    qwerty::BuiltinBasisAttr builtinAttr;
+    uint64_t elt_foo_dim = 0;
+
+    // Match the concrete attribute type and store it
+    if ((veclistAttr = elt_foo.getVeclist())) {
+        elt_foo_dim = veclistAttr.getDim();
+    } else if ((revolveAttr = elt_foo.getRevolve())) {
+        elt_foo_dim = revolveAttr.getDim();
+    } else if ((builtinAttr = elt_foo.getStd())) {
+        elt_foo_dim = builtinAttr.getDim();
     }
 
-    qwerty::BuiltinBasisAttr foo_basis = elt_foo.getStd();
-    if (!(foo_basis.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-          builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-          (builtin.getDim() - 1) == foo_basis.getDim())) {
+    if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+          (builtin.getDim() - 1) == elt_foo_dim)) {
       return mlir::failure();
     }
 
@@ -3436,13 +3445,13 @@ struct ArbitraryRevolveBasisRevolveGenerator
         std::initializer_list<qwerty::BasisElemAttr>{
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(
-                    qwerty::PrimitiveBasis::Z, foo_basis.getDim() + 1))});
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim + 1))});
 
-    qwerty::BasisAttr std_N_minus_1 = rewriter.getAttr<qwerty::BasisAttr>(
+    qwerty::BasisAttr foo_N_minus_1 = rewriter.getAttr<qwerty::BasisAttr>(
         std::initializer_list<qwerty::BasisElemAttr>{
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(
-                    qwerty::PrimitiveBasis::Z, foo_basis.getDim()))});
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim))});
 
     // for use in std >> bar, or reverse
     qwerty::BasisAttr std_1 = rewriter.getAttr<qwerty::BasisAttr>(
@@ -3472,7 +3481,7 @@ struct ArbitraryRevolveBasisRevolveGenerator
         rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_one, 1, false);
 
     auto revolve_attr = rewriter.getAttr<qwerty::ApplyRevolveGeneratorAttr>(
-        std_N_minus_1, bv1_vec, bv2_vec);
+        foo_N_minus_1, bv1_vec, bv2_vec);
 
     // foo // std.revolve basis
     qwerty::BasisElemAttr revolve_elem =
@@ -3569,7 +3578,6 @@ struct ArbitraryRevolveBasisRevolveGenerator
     return mlir::success();
   }
 };
-
 
 // TODO: Figure out how to do predicated RevolveGenerators like
 // (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
