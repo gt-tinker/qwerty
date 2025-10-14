@@ -3144,11 +3144,6 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
 }
 
 
-// NOTE: If we have something like ij**3 >> fourier(3),
-// then we want to get ij**3 >> std**3 | std**3 >> fourier(3)
-// If the RHS has revolve AND then LHS isn't std**N for some N,
-// then we want to apply this pattern
-//
 // This should also work for std // std.revolve >> ij // std.revolve
 // for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 
