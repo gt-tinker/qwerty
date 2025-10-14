@@ -1751,109 +1751,6 @@ struct EnsembleOpLowering
   }
 };
 
-// As specified in Section 5.1 of Mike & Ike
-void runQft(mlir::Location loc, mlir::OpBuilder &builder,
-            llvm::SmallVectorImpl<mlir::Value> &control_qubits,
-            llvm::SmallVectorImpl<mlir::Value> &qubits, size_t start_idx,
-            size_t n) {
-  assert(n <= qubits.size() && start_idx < qubits.size() &&
-         start_idx + n <= qubits.size() && "QFT indices out of range");
-  for (size_t i = 0; i < n; i++) {
-    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
-        loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx + i]);
-    qubits[start_idx + i] = h.getResult();
-    control_qubits.clear();
-    control_qubits.append(h.getControlResults().begin(),
-                          h.getControlResults().end());
-
-    for (size_t j = i + 1; j < n; j++) {
-      // TODO: this precision is not enough for very large circuits. Need
-      // to use llvm::APFloat or something
-      double phase = 2.0 * M_PI / std::pow(2, j - i + 1);
-      mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
-      llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
-                                                control_qubits.end());
-      p_controls.push_back(qubits[start_idx + j]);
-      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-          loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
-          qubits[start_idx + i]);
-      control_qubits.clear();
-      // Exclude last control qubit
-      control_qubits.append(cp.getControlResults().begin(),
-                            cp.getControlResults().begin() +
-                                (cp.getControlResults().size() - 1));
-      // ...since we need it here
-      qubits[start_idx + j] =
-          cp.getControlResults()[cp.getControlResults().size() - 1];
-      qubits[start_idx + i] = cp.getResult();
-    }
-  }
-
-  for (size_t i = 0; i < n / 2; i++) {
-    qcirc::Gate2QOp swap = builder.create<qcirc::Gate2QOp>(
-        loc, qcirc::Gate2Q::Swap, control_qubits, qubits[start_idx + i],
-        qubits[start_idx + n - 1 - i]);
-    qubits[start_idx + i] = swap.getLeftResult();
-    qubits[start_idx + n - 1 - i] = swap.getRightResult();
-    control_qubits.clear();
-    control_qubits.append(swap.getControlResults().begin(),
-                          swap.getControlResults().end());
-  }
-}
-
-// The above but written backwards (and the phases flipped), basically
-void runInverseQft(mlir::Location loc, mlir::OpBuilder &builder,
-                   llvm::SmallVectorImpl<mlir::Value> &control_qubits,
-                   llvm::SmallVectorImpl<mlir::Value> &qubits, size_t start_idx,
-                   size_t n) {
-  assert(n <= qubits.size() && start_idx < qubits.size() &&
-         start_idx + n <= qubits.size() && "IQFT indices out of range");
-
-  for (size_t ii = 0; ii < n / 2; ii++) {
-    size_t i = n / 2 - 1 - ii;
-    qcirc::Gate2QOp swap = builder.create<qcirc::Gate2QOp>(
-        loc, qcirc::Gate2Q::Swap, control_qubits, qubits[start_idx + i],
-        qubits[start_idx + n - 1 - i]);
-    qubits[start_idx + i] = swap.getLeftResult();
-    qubits[start_idx + n - 1 - i] = swap.getRightResult();
-    control_qubits.clear();
-    control_qubits.append(swap.getControlResults().begin(),
-                          swap.getControlResults().end());
-  }
-
-  for (size_t ii = 0; ii < n; ii++) {
-    size_t i = n - 1 - ii;
-    for (size_t jj = i + 1; jj < n; jj++) {
-      size_t j = n + i - jj;
-      // TODO: this precision is not enough for very large circuits. Need
-      // to use llvm::APFloat or something
-      double phase = -2.0 * M_PI / std::pow(2, j - i + 1);
-      mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
-      llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
-                                                control_qubits.end());
-      p_controls.push_back(qubits[start_idx + j]);
-      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-          loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
-          qubits[start_idx + i]);
-      // Exclude last control qubit
-      control_qubits.clear();
-      control_qubits.append(cp.getControlResults().begin(),
-                            cp.getControlResults().begin() +
-                                (cp.getControlResults().size() - 1));
-      // ...since we need it here
-      qubits[start_idx + j] =
-          cp.getControlResults()[cp.getControlResults().size() - 1];
-      qubits[start_idx + i] = cp.getResult();
-    }
-    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
-        loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx + i]);
-    qubits[start_idx + i] = h.getResult();
-    control_qubits.clear();
-    control_qubits.append(h.getControlResults().begin(),
-                          h.getControlResults().end());
-  }
-}
-
 // We want to check for the presence of basis generators
 // for use in the AlignBasisTranslations and SynthesizePermutations
 // checks
@@ -2626,14 +2523,7 @@ void standardizeCompressed(
 
     size_t dim = stdize.end - stdize.start;
 
-    // FIXME: Remove this once Revolve works!
-    if (stdize.prim_basis == qwerty::PrimitiveBasis::FOURIER) {
-      if (left) {
-        runInverseQft(loc, rewriter, control_qubits, qubits, qubit_idx, dim);
-      } else { // right
-        runQft(loc, rewriter, control_qubits, qubits, qubit_idx, dim);
-      }
-    } else if (stdize.prim_basis == qwerty::PrimitiveBasis::BELL) {
+    if (stdize.prim_basis == qwerty::PrimitiveBasis::BELL) {
       assert(dim == 2 && "I only know the Bell basis on two qubits");
       if (left) {
         one_qubit_gate(qcirc::Gate1Q::X, 1, 0);
