@@ -428,7 +428,6 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
-
 /// If the Vec of Bases is a vector of only basis literals {0, 1},
 /// or only {p, m}, or only {i, j}, then we want to find this!
 fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::PrimitiveBasis) {
@@ -492,9 +491,7 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
     };
 
     let candidate_basis = match &basis_elems[0] {
-        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
-            classify(&vecs[0], &vecs[1])
-        }
+        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => classify(&vecs[0], &vecs[1]),
         _ => None,
     };
 
