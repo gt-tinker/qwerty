@@ -465,7 +465,8 @@ qwerty.func @revolve_3q_canonical[]() irrev-> !qwerty<bitbundle[3]> {
   %4 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
   %5 = qwerty.qbunpack %4 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
   %6 = qwerty.qbpack(%2, %3, %5) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[3]>
-  %7 = qwerty.qbtrans %6 by {std: Z[3]} >> {{std: Z[2]}:revolve{"|0>", "|1>"}} : (!qwerty<qbundle[3]>) -> !qwerty<qbundle[3]>
+  // %7 = qwerty.qbtrans %6 by {std: Z[3]} >> {{std: Z[2]}:revolve{"|0>", "|1>"}} : (!qwerty<qbundle[3]>) -> !qwerty<qbundle[3]>
+  %7 = qwerty.qbtrans %6 by {std: Z[3]} >> {revolve: {std: Z[2]} by {"|0>", "|1>"}} : (!qwerty<qbundle[3]>) -> !qwerty<qbundle[3]>
   %8:3 = qwerty.qbunpack %7 : (!qwerty<qbundle[3]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
   %9 = qwerty.qbpack(%8#0) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
   %10 = qwerty.qbmeas %9 by {std: Z[1]} : !qwerty<qbundle[1]> -> !qwerty<bitbundle[1]>
