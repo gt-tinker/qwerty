@@ -4,7 +4,7 @@ use melior::{
     Error, ExecutionEngine,
     dialect::{qcirc, qwerty},
     execution_engine::SymbolFlags,
-    ir::{Module, operation::OperationPrintingFlags},
+    ir::{Module, OperationLike, operation::OperationPrintingFlags},
     pass::{PassIrPrintingOptions, PassManager, transform},
 };
 use qwerty_ast::{ast::Program, error::LowerError, meta::MetaProgram};
@@ -12,6 +12,7 @@ use std::{collections::HashMap, env, fs};
 
 const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
+const INIT_MLIR_FILENAME: &str = "initial.mlir";
 const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
 
 struct RunPassesConfig {
@@ -115,6 +116,23 @@ fn run_ast(prog: &Program, func_name: &str, num_shots: usize, debug: bool) -> Ve
     assert_ne!(num_shots, 0);
 
     let mut module = ast_program_to_mlir(prog);
+
+    if debug {
+        let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
+        fs::create_dir_all(&dump_dir).unwrap();
+        let dump_path = dump_dir.join(INIT_MLIR_FILENAME);
+        eprintln!(
+            "Initial (pre-verification) MLIR be dumped to `{}`",
+            dump_path.display()
+        );
+        module
+            .as_operation()
+            .print_to_file_with_flags(dump_path, OperationPrintingFlags::new())
+            .unwrap();
+    }
+
+    assert!(module.as_operation().verify());
+
     let cfg = RunPassesConfig {
         decompose_multi_ctrl: false,
         to_base_profile: false,
