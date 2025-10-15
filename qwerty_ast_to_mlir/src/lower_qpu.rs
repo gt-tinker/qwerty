@@ -428,49 +428,85 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
-// If the Vec of Bases is a vector of only basis literals {0, 1},
-// or only {p, m}, or only {i, j}, then we want to find this!
+
+/// If the Vec of Bases is a vector of only basis literals {0, 1},
+/// or only {p, m}, or only {i, j}, then we want to find this!
 fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::PrimitiveBasis) {
     if basis_elems.is_empty() {
-        return (false, qwerty::PrimitiveBasis::Z); // dummy, not used
+        return (false, qwerty::PrimitiveBasis::Z);
     }
 
-    // Determine candidate primitive basis from first element
-    let first_elem = &basis_elems[0];
-    let candidate_basis = match first_elem {
-        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
-            let vecs = vecs.iter().flat_map(Vector::to_vec).collect::<Vec<Vector>>();
-            let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
-            let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
+    // Define the canonical primitive bases
+    let std = (
+        Vector::ZeroVector { dbg: None },
+        Vector::OneVector { dbg: None },
+    );
 
-            match ((prim1, eigenstate1), (prim2, eigenstate2)) {
-                (
-                    (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Plus),
-                    (qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::Minus),
-                )
-                | (
-                    (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Plus),
-                    (qwerty::PrimitiveBasis::Y, qwerty::Eigenstate::Minus),
-                )
-                | (
-                    (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Plus),
-                    (qwerty::PrimitiveBasis::X, qwerty::Eigenstate::Minus),
-                ) => ((prim1, eigenstate1), (prim2, eigenstate2)),
-                _ => return (false, qwerty::PrimitiveBasis::Z),
-            }
+    let p = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let m = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let pm = (p, m);
+
+    let i = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 90.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let j = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 270.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let ij = (i, j);
+
+    // helper for classifying
+    let classify = |v1: &Vector, v2: &Vector| -> Option<qwerty::PrimitiveBasis> {
+        if v1.strip_dbg() == std.0 && v2.strip_dbg() == std.1 {
+            Some(qwerty::PrimitiveBasis::Z)
+        } else if v1.strip_dbg() == pm.0 && v2.strip_dbg() == pm.1 {
+            Some(qwerty::PrimitiveBasis::X)
+        } else if v1.strip_dbg() == ij.0 && v2.strip_dbg() == ij.1 {
+            Some(qwerty::PrimitiveBasis::Y)
+        } else {
+            None
         }
-        _ => return (false, qwerty::PrimitiveBasis::Z),
     };
 
-    // Check that all elements conform to candidate_basis
-    for elem in basis_elems {
+    let candidate_basis = match &basis_elems[0] {
+        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+            classify(&vecs[0], &vecs[1])
+        }
+        _ => None,
+    };
+
+    let Some(candidate) = candidate_basis else {
+        return (false, qwerty::PrimitiveBasis::Z);
+    };
+
+    // verify all other elements match the same primitive basis pattern
+    for elem in basis_elems.iter().skip(1) {
         match elem {
             Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
-                let vecs = vecs.iter().flat_map(Vector::to_vec).collect::<Vec<Vector>>();
-                let (prim1, eigenstate1, _) = ast_vec_to_mlir_helper(&vecs[0]);
-                let (prim2, eigenstate2, _) = ast_vec_to_mlir_helper(&vecs[1]);
-                let curr_basis = ((prim1, eigenstate1), (prim2, eigenstate2));
-                if candidate_basis != curr_basis {
+                if classify(&vecs[0], &vecs[1]) != Some(candidate) {
                     return (false, qwerty::PrimitiveBasis::Z);
                 }
             }
@@ -478,7 +514,7 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
         }
     }
 
-    (true, candidate_basis.0.0)
+    (true, candidate)
 }
 
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
