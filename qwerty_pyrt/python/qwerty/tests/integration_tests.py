@@ -199,19 +199,50 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         self.assertGreater(actual_histo.get(one, 0), shots//8, "Too few ones")
         self.assertEqual(shots, actual_histo.get(zero, 0) + actual_histo.get(one, 0), "missing shots")
 
-    def test_revolve(self):
+    def test_revolve_simple(self):
         from .integ.meta_noinfer import revolve
         shots = 1024
         expected_histos = (
             {bit[3](0b001): shots//2},
             {bit[3](0b000): shots//2},
         )
+        zero, one = bit[3](0b000), bit[3](0b001)
         actual_histos = revolve.test(shots)
+        self.assertGreater(actual_histos.get(zero, 0), shots//8, "Too few zeros")
+        self.assertGreater(actual_histos.get(one, 0), shots//8, "Too few zeros")
+        self.assertEqual(shots, actual_histos.get(zero, 0) + actual_histos.get(one, 0), "missing shots")
 
-        # FIXME: allow small statistical deviation?
-        tol = int(0.05 * shots)  # 5% of total shots
-        self.assertTrue(abs(expected_histos[0][bit[3](0b001)] - actual_histos[bit[3](0b001)]) <= tol)
-        self.assertTrue(abs(expected_histos[1][bit[3](0b000)] - actual_histos[bit[3](0b000)]) <= tol)
+    def test_revolve_general(self):
+        from .integ.meta_noinfer import revolve_gen_rev
+        shots = 1024
+        expected_histos = (
+            {bit[3](0b001): shots//2},
+            {bit[3](0b000): shots//2},
+        )
+
+        expected_histos = (
+            bit[3](0b000),
+            bit[3](0b001),
+            bit[3](0b010),
+            bit[3](0b011),
+            bit[3](0b100),
+            bit[3](0b101),
+            bit[3](0b110),
+            bit[3](0b111),
+        )
+
+        actual_histos = revolve_gen_rev.test(shots)
+        self.assertGreater(actual_histos.get(expected_histos[0], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[1], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[2], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[3], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[4], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[5], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[6], 0), shots//16, "Too few zeros")
+        self.assertGreater(actual_histos.get(expected_histos[7], 0), shots//16, "Too few zeros")
+
+        tot = sum([actual_histos.get(expected_histos[i], 0) for i in range(8)])
+        self.assertEqual(shots, tot, "missing shots")
 
     def test_interproc(self):
         # Like randbit above except involves a call from one kernel to another
