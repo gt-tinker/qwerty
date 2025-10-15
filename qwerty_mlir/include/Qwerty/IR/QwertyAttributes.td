@@ -32,8 +32,7 @@ def Qwerty_PrimitiveBasisAttr : I64EnumAttr<
             I64EnumAttrCase<"X", 0>,
             I64EnumAttrCase<"Y", 1>,
             I64EnumAttrCase<"Z", 2>,
-            I64EnumAttrCase<"FOURIER", 3>,
-            I64EnumAttrCase<"BELL", 4>,
+            I64EnumAttrCase<"BELL", 3>,
         ]> {
     let cppNamespace = "::qwerty";
 }

@@ -2174,11 +2174,7 @@ void findStandardizations(llvm::SmallVectorImpl<Standardization> &stdize,
   for (qwerty::BasisElemAttr elem : elems) {
     // Little optimization: treat fourier[1] as pm. This will hopefully
     // help find more unconditional standardizations below
-    qwerty::PrimitiveBasis prim_basis =
-        elem.getPrimBasis() == qwerty::PrimitiveBasis::FOURIER &&
-                elem.getDim() == 1
-            ? qwerty::PrimitiveBasis::X
-            : elem.getPrimBasis();
+    qwerty::PrimitiveBasis prim_basis = elem.getPrimBasis();
     stdize.emplace_back(prim_basis, qubit_idx, qubit_idx + elem.getDim());
     qubit_idx += elem.getDim();
   }
@@ -2191,7 +2187,6 @@ bool primBasisIsSeparable(qwerty::PrimitiveBasis prim) {
   case qwerty::PrimitiveBasis::Z:
     return true;
 
-  case qwerty::PrimitiveBasis::FOURIER:
   case qwerty::PrimitiveBasis::BELL:
     return false;
 
