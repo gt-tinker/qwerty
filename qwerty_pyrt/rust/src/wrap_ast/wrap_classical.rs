@@ -92,14 +92,14 @@ impl ClassicalExpr {
         _cls: &Bound<'_, PyType>,
         val: ClassicalExpr,
         lower: DimExpr,
-        upper: DimExpr,
+        upper: Option<DimExpr>,
         dbg: Option<DebugLoc>,
     ) -> Self {
         Self {
             expr: meta::classical::MetaExpr::Slice {
                 val: Box::new(val.expr),
                 lower: lower.dim_expr,
-                upper: upper.dim_expr,
+                upper: upper.map(|upper_dim_expr| upper_dim_expr.dim_expr),
                 dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
@@ -191,6 +191,38 @@ impl ClassicalExpr {
                     dbg: dbg.clone(),
                 },
                 dbg,
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_repeat(
+        _cls: &Bound<'_, PyType>,
+        val: ClassicalExpr,
+        amt: DimExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::Repeat {
+                val: Box::new(val.expr),
+                amt: amt.dim_expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
+    fn new_concat(
+        _cls: &Bound<'_, PyType>,
+        left: ClassicalExpr,
+        right: ClassicalExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::classical::MetaExpr::Concat {
+                left: Box::new(left.expr),
+                right: Box::new(right.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
             },
         }
     }

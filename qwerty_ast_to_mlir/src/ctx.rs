@@ -2,6 +2,7 @@ use melior::{
     Context,
     dialect::{DialectHandle, DialectRegistry, qwerty},
     ir::{Block, Value},
+    pass::transform,
     utility::register_inliner_extensions,
 };
 use qwerty_ast::typecheck::TypeEnv;
@@ -32,6 +33,11 @@ pub static MLIR_CTX: LazyLock<Context> = LazyLock::new(|| {
     for dialect in dialects {
         dialect.load_dialect(&ctx);
     }
+
+    // Register the canonicalizer pass so that the pass pipeline consisting of
+    // just "canonicalize" can be parsed when the inliner starts up. We could
+    // register more passes but we don't need them
+    transform::register_canonicalizer();
 
     ctx
 });

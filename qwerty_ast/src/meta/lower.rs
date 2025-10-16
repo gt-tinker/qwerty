@@ -96,12 +96,14 @@ impl classical::MetaExpr {
             classical::MetaExpr::Slice {
                 val,
                 lower,
-                upper,
+                upper: upper_opt,
                 dbg,
             } => classical::MetaExpr::Slice {
                 val: Box::new(val.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
                 lower: lower.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
-                upper: upper.substitute_dim_var(dim_var, new_dim_expr),
+                upper: upper_opt
+                    .as_ref()
+                    .map(|upper| upper.substitute_dim_var(dim_var, new_dim_expr)),
                 dbg: dbg.clone(),
             },
 
@@ -140,6 +142,18 @@ impl classical::MetaExpr {
                 j: j.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
                 y: Box::new(y.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
                 mod_n: mod_n.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
+            classical::MetaExpr::Repeat { val, amt, dbg } => classical::MetaExpr::Repeat {
+                val: Box::new(val.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                amt: amt.substitute_dim_var(dim_var.clone(), new_dim_expr.clone()),
+                dbg: dbg.clone(),
+            },
+
+            classical::MetaExpr::Concat { left, right, dbg } => classical::MetaExpr::Concat {
+                left: Box::new(left.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
+                right: Box::new(right.substitute_dim_var(dim_var.clone(), new_dim_expr.clone())),
                 dbg: dbg.clone(),
             },
 

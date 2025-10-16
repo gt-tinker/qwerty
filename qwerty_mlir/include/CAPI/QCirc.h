@@ -9,6 +9,11 @@ extern "C" {
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(QCirc, qcirc);
 
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirQCircGenerateQasm(
+    MlirOperation func_op, bool print_locs, char **result_out);
+
+MLIR_CAPI_EXPORTED void mlirQCircGenerateQasmDestroyBuf(char *result_buf);
+
 #ifdef __cplusplus
 }
 #endif

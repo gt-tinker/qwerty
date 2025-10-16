@@ -74,17 +74,28 @@ impl MetaExpr {
                 dbg,
             } => val.expand(env).and_then(|(expanded_val, val_prog)| {
                 lower.expand(env).and_then(|(expanded_lower, lower_prog)| {
-                    upper.expand(env).map(|(expanded_upper, upper_prog)| {
-                        (
-                            MetaExpr::Slice {
-                                val: Box::new(expanded_val),
-                                lower: expanded_lower,
-                                upper: expanded_upper,
-                                dbg: dbg.clone(),
-                            },
-                            val_prog.join(lower_prog).join(upper_prog),
-                        )
-                    })
+                    upper
+                        .as_ref()
+                        .map(|upper_dimexpr| upper_dimexpr.expand(env))
+                        .transpose()
+                        .map(|expand_opt| {
+                            let (expanded_upper, upper_prog) = match expand_opt {
+                                Some((expanded_upper, upper_prog)) => {
+                                    (Some(expanded_upper), upper_prog)
+                                }
+                                None => (None, Progress::identity()),
+                            };
+
+                            (
+                                MetaExpr::Slice {
+                                    val: Box::new(expanded_val),
+                                    lower: expanded_lower,
+                                    upper: expanded_upper,
+                                    dbg: dbg.clone(),
+                                },
+                                val_prog.join(lower_prog).join(upper_prog),
+                            )
+                        })
                 })
             }),
 
@@ -151,6 +162,34 @@ impl MetaExpr {
                         j: expanded_j,
                         y: Box::new(expanded_y),
                         mod_n: expanded_mod_n,
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                ))
+            }
+
+            MetaExpr::Repeat { val, amt, dbg } => {
+                let (expanded_val, val_prog) = val.expand(env)?;
+                let (expanded_amt, amt_prog) = amt.expand(env)?;
+                let progress = val_prog.join(amt_prog);
+                Ok((
+                    MetaExpr::Repeat {
+                        val: Box::new(expanded_val),
+                        amt: expanded_amt,
+                        dbg: dbg.clone(),
+                    },
+                    progress,
+                ))
+            }
+
+            MetaExpr::Concat { left, right, dbg } => {
+                let (expanded_left, left_prog) = left.expand(env)?;
+                let (expanded_right, right_prog) = right.expand(env)?;
+                let progress = left_prog.join(right_prog);
+                Ok((
+                    MetaExpr::Concat {
+                        left: Box::new(expanded_left),
+                        right: Box::new(expanded_right),
                         dbg: dbg.clone(),
                     },
                     progress,

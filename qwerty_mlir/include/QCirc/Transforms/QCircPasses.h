@@ -25,9 +25,9 @@ std::unique_ptr<mlir::Pass> createInlineAdjPass();
 
 std::unique_ptr<mlir::Pass> createDecomposeMultiControlPass();
 
-std::unique_ptr<mlir::Pass> createReplaceNonQIRGatesPass();
+std::unique_ptr<mlir::Pass> createReplaceUnusualGatesPass();
 
-std::unique_ptr<mlir::Pass> createReplaceNonQasmGatesPass();
+std::unique_ptr<mlir::Pass> createBarencoDecomposePass();
 
 std::unique_ptr<mlir::Pass> createPeepholeOptimizationPass();
 

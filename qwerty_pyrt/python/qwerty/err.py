@@ -65,6 +65,16 @@ class QwertyExpandError(QwertyProgrammerError):
     def kind(self) -> str:
         return 'metaQwerty Error'
 
+class QwertyInternalError(QwertyProgrammerError):
+    """
+    An error thrown by MLIR. This almost always indicates a compiler bug.
+    """
+    def __init__(self, msg, dbg=None):
+        super().__init__(msg, dbg)
+
+    def kind(self) -> str:
+        return 'Internal Error'
+
 class QwertySyntaxError(QwertyProgrammerError):
     """
     A syntax mistake or unsupported Python syntax (practically, a problem

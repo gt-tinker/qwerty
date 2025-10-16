@@ -208,35 +208,43 @@ struct ChainedCalcs : public mlir::OpRewritePattern<qcirc::CalcOp> {
 };
 } // namespace
 
-
 namespace qcirc {
 
 mlir::Value stationaryF64Const(mlir::OpBuilder &builder, mlir::Location loc, double theta) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), mlir::ValueRange());
-    {
-        mlir::OpBuilder::InsertionGuard guard(builder);
-        // Sets insertion point to end of this block
-        mlir::Block *calc_block = builder.createBlock(&calc.getRegion(), {}, {}, {});
-        assert(!calc_block->getNumArguments());
-        mlir::Value theta_val = builder.create<mlir::arith::ConstantOp>(
-            loc, builder.getF64FloatAttr(theta)).getResult();
-        builder.create<qcirc::CalcYieldOp>(loc, theta_val);
-    }
-    mlir::ValueRange calc_results = calc.getResults();
-    assert(calc_results.size() == 1);
-    return calc_results[0];
+    return wrapStationaryF64Ops(builder, loc, mlir::ValueRange(),
+        [&](mlir::ValueRange args) {
+            assert(args.empty());
+            return builder.create<mlir::arith::ConstantOp>(
+                loc, builder.getF64FloatAttr(theta)).getResult();
+        });
 }
 
 mlir::Value stationaryF64Negate(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value theta) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), theta);
+    return wrapStationaryF64Ops(builder, loc, theta,
+        [&](mlir::ValueRange args) {
+            assert(args.size() == 1);
+            mlir::Value theta_arg = args[0];
+            return builder.create<mlir::arith::NegFOp>(loc, theta_arg).getResult();
+        });
+}
+
+mlir::Value wrapStationaryF64Ops(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        mlir::ValueRange args,
+        std::function<mlir::Value(mlir::ValueRange)> build_body) {
+    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(
+        loc, builder.getF64Type(), args);
+
     {
         mlir::OpBuilder::InsertionGuard guard(builder);
+        llvm::SmallVector arg_locs(args.size(), loc);
         // Sets insertion point to end of this block
-        mlir::Block *calc_block = builder.createBlock(&calc.getRegion(), {}, builder.getF64Type(), {loc});
-        assert(calc_block->getNumArguments() == 1);
-        mlir::Value old_theta = calc_block->getArgument(0);
-        mlir::Value neg_theta = builder.create<mlir::arith::NegFOp>(loc, old_theta).getResult();
-        builder.create<qcirc::CalcYieldOp>(loc, neg_theta);
+        mlir::Block *calc_block = builder.createBlock(
+            &calc.getRegion(), {}, args.getTypes(), arg_locs);
+        assert(calc_block->getNumArguments() == args.size());
+        mlir::Value body_ret = build_body(calc_block->getArguments());
+        builder.create<qcirc::CalcYieldOp>(loc, body_ret);
     }
     mlir::ValueRange calc_results = calc.getResults();
     assert(calc_results.size() == 1);

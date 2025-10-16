@@ -42,7 +42,7 @@ jobs:
           python3 -m venv venv
           . venv/bin/activate
           cd qwerty_pyrt
-          pip install maturin
+          pip install maturin numpy
           maturin build --release --out dist
           pip install dist/*.whl
           ../dev/run-tests.sh

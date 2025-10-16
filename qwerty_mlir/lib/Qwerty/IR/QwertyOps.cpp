@@ -51,26 +51,6 @@ bool linearCheckForManyUses(mlir::Value &value) {
     return true;
 }
 
-mlir::Value wrapStationaryFloatOps(mlir::RewriterBase &rewriter,
-                                   mlir::Location loc,
-                                   mlir::Value arg,
-                                   std::function<mlir::Value(mlir::Value)> build_body) {
-    qcirc::CalcOp calc = rewriter.create<qcirc::CalcOp>(loc, rewriter.getF64Type(), arg);
-    {
-        mlir::OpBuilder::InsertionGuard guard(rewriter);
-        // Sets insertion point to end of this block
-        mlir::Block *calc_block = rewriter.createBlock(
-            &calc.getRegion(), {}, arg.getType(),
-            std::initializer_list<mlir::Location>{loc});
-        assert(calc_block->getNumArguments() == 1);
-        mlir::Value body_ret = build_body(calc_block->getArgument(0));
-        rewriter.create<qcirc::CalcYieldOp>(loc, body_ret);
-    }
-    mlir::ValueRange calc_results = calc.getResults();
-    assert(calc_results.size() == 1);
-    return calc_results[0];
-}
-
 void buildPredicatedInit(
         // Parts of a QBundle{De,}InitOp
         mlir::Location loc,
@@ -2804,17 +2784,21 @@ void QBundleRotateOp::buildPredicated(
                 rewriter.getAttr<BasisVectorAttr>(
                     v2.getPrimBasis(), v2.getEigenbits(), v2.getDim(), /*hasPhase=*/true)})));
 
-    mlir::Value theta_by_2 = wrapStationaryFloatOps(
+    mlir::Value theta_by_2 = qcirc::wrapStationaryF64Ops(
         rewriter, loc, adaptor.getTheta(),
-        [&](mlir::Value theta_arg) {
+        [&](mlir::ValueRange args) {
+            assert(args.size() == 1);
+            mlir::Value theta_arg = args[0];
             mlir::Value const_2 = rewriter.create<mlir::arith::ConstantOp>(
                     loc, rewriter.getF64FloatAttr(2.0)).getResult();
             return rewriter.create<mlir::arith::DivFOp>(
                 loc, theta_arg, const_2).getResult();
         });
-    mlir::Value neg_theta_by_2 = wrapStationaryFloatOps(
+    mlir::Value neg_theta_by_2 = qcirc::wrapStationaryF64Ops(
         rewriter, loc, theta_by_2,
-        [&](mlir::Value theta_by_2_arg) {
+        [&](mlir::ValueRange args) {
+            assert(args.size() == 1);
+            mlir::Value theta_by_2_arg = args[0];
             return rewriter.create<mlir::arith::NegFOp>(
                 loc, theta_by_2_arg).getResult();
         });

@@ -10,14 +10,14 @@ def DecomposeMultiControl : Pass<"decompose-multi-control"> {
   let constructor = "qcirc::createDecomposeMultiControlPass()";
 }
 
-def ReplaceNonQIRGates : Pass<"replace-non-qir-gates"> {
-  let summary = "Replace Tweedledum IR gates with equivalents in QIR";
-  let constructor = "qcirc::createReplaceNonQIRGatesPass()";
+def BarencoDecompose : Pass<"barenco-decompose"> {
+  let summary = "Ensure circuit contains only Toffoli+CNOT+Pauli+H+S+T gates. `-decompose-multi-control` should run first";
+  let constructor = "qcirc::createBarencoDecomposePass()";
 }
 
-def ReplaceNonQasmGates : Pass<"replace-non-qasm-gates"> {
-  let summary = "Replace P(theta) with Rz(theta)";
-  let constructor = "qcirc::createReplaceNonQasmGatesPass()";
+def ReplaceUnusualGates : Pass<"replace-unusual-gates"> {
+  let summary = "Ensure circuit contains only multi-controlled Pauli+H+S+T+Rxyz gates";
+  let constructor = "qcirc::createReplaceUnusualGatesPass()";
 }
 
 def PeepholeOptimization : Pass<"peephole-optimization"> {

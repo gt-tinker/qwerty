@@ -1,6 +1,8 @@
 #include "mlir/CAPI/Support.h"
 #include "mlir/CAPI/IR.h"
+#include "mlir/CAPI/Pass.h"
 #include "mlir/CAPI/ExecutionEngine.h"
+#include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
 #include "CAPI/Utils.h"
@@ -38,4 +40,15 @@ MlirAttribute mlirIntegerAttrBigIntGet(MlirContext ctx,
     llvm::APInt val(bitWidth, chunks);
     mlir::Type int_ty = mlir::IntegerType::get(unwrap(ctx), bitWidth);
     return wrap(mlir::IntegerAttr::get(int_ty, val));
+}
+
+MlirPass mlirCreateTransformsInlinerWithOptions(const char *options) {
+    std::unique_ptr<mlir::Pass> pass = mlir::createInlinerPass();
+    mlir::LogicalResult res = pass->initializeOptions(options, [](const llvm::Twine &msg) {
+        llvm::errs() << "ERROR initializing inliner: " << msg << "\n";
+        return mlir::failure();
+    });
+    // TODO: better error handling... somehow
+    assert(res.succeeded() && "Initializing pass options failed");
+    return wrap(pass.release());
 }
