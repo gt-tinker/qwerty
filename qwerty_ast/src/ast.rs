@@ -66,7 +66,20 @@ impl Type {
 
     /// Returns true if this is a linear type, i.e., must be used exactly once.
     pub fn is_linear(&self) -> bool {
-        matches!(self, Type::RegType { elem_ty: RegKind::Qubit, dim } if *dim > 0)
+        match self {
+            Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim,
+            } if *dim > 0 => true,
+
+            Type::TupleType { tys } => tys.iter().any(Type::is_linear),
+
+            // Otherwise, not linear
+            Type::FuncType { .. }
+            | Type::RevFuncType { .. }
+            | Type::RegType { .. }
+            | Type::UnitType => false,
+        }
     }
 
     /// Helper for creating a BitRegType (classical bit register)
@@ -513,6 +526,15 @@ impl<E: ToPythonCode + fmt::Debug> ToPythonCode for FunctionDef<E> {
             writeln!(f, "# dbg: {dbg}")?;
         }
         Ok(())
+    }
+}
+
+impl FunctionDef<qpu::Expr> {
+    /// Returns true if and only if this function may be called from classical
+    /// code. (Currently, this means the quantum function takes no arguments
+    /// and does not return qubits.)
+    pub fn is_classically_callable(&self) -> bool {
+        self.args.is_empty() && !self.ret_type.is_linear()
     }
 }
 

@@ -8,14 +8,14 @@ bitstring determined by both the quantum algorithm and classical algorithm.
 from argparse import ArgumentParser
 from qwerty import *
 
-def bv(oracle):
+def bv(oracle, acc=None):
     @qpu[[N]]
     def kernel():
         return ('p'**N | oracle.sign
                        | pm**N >> std**N
                        | measure**N)
 
-    return kernel()
+    return kernel(acc=acc)
 
 def get_black_box(secret_string):
     @classical[[N]]
@@ -36,6 +36,10 @@ if __name__ == '__main__':
     parser.add_argument('secret_bits',
                         help='The secret bitstring used to define the black '
                              'box for f(x) (i.e., the oracle). Example: 1101')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     secret_str = bit.from_str(args.secret_bits)
@@ -43,4 +47,4 @@ if __name__ == '__main__':
     black_box = get_black_box(secret_str)
 
     print('Classical:', naive_classical(black_box, n_bits))
-    print('Quantum:  ', bv(black_box))
+    print('Quantum:  ', bv(black_box, acc=args.acc))

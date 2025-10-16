@@ -1,21 +1,26 @@
-use crate::{ctx::MLIR_CTX, lower_prog_stmt::ast_program_to_mlir};
+use crate::{
+    ctx::{LLVM_CTX, MLIR_CTX},
+    lower::ast_program_to_mlir,
+};
 use melior::{
     Error,
     dialect::{qcirc, qwerty},
     ir::{Module, OperationLike, operation::OperationPrintingFlags, symbol_table::SymbolTable},
     pass::{PassIrPrintingOptions, PassManager, transform},
+    target::llvm_ir::{LLVMModule, translate_module},
 };
 use qwerty_ast::{
     dbg::DebugLoc,
     error::{LowerError, TypeError},
     meta::MetaProgram,
 };
-use std::{env, fs};
+use std::{env, fs, path::PathBuf};
 
 const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
 const INIT_MLIR_FILENAME: &str = "initial.mlir";
 const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
+const LLVM_IR_FILENAME: &str = "module.ll";
 
 #[derive(Debug, Clone, Copy)]
 pub enum QirProfile {
@@ -38,14 +43,8 @@ pub struct CompileConfig {
 fn run_passes(module: &mut Module, cfg: &CompileConfig) -> Result<(), Error> {
     let pm = PassManager::new(&MLIR_CTX);
     if cfg.dump {
-        let dump_dir = env::current_dir()
-            .unwrap()
-            .join(QWERTY_DEBUG_DIR)
-            .join(MLIR_DUMP_SUBDIR);
-        eprintln!(
-            "MLIR files will be dumped to directory `{}`",
-            dump_dir.display()
-        );
+        let dump_dir = create_debug_dump_dir().join(MLIR_DUMP_SUBDIR);
+        eprintln!("Dumping MLIR to directory `{}`", dump_dir.display());
         pm.enable_ir_printing(&PassIrPrintingOptions {
             before_all: true,
             after_all: true,
@@ -122,6 +121,32 @@ fn run_passes(module: &mut Module, cfg: &CompileConfig) -> Result<(), Error> {
     Ok(())
 }
 
+fn create_debug_dump_dir() -> PathBuf {
+    let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
+    fs::create_dir_all(&dump_dir).unwrap();
+    dump_dir
+}
+
+pub fn translate_to_llvm_ir(
+    module: Module<'static>,
+    debug: bool,
+) -> Result<LLVMModule<'static>, CompileError> {
+    let llvm_module = translate_module(module.as_operation(), &LLVM_CTX)
+        .ok_or_else(|| CompileError::Message("translation to LLVM IR failed".to_string(), None))?;
+
+    if debug {
+        let dump_dir = create_debug_dump_dir();
+        let dump_path = dump_dir.join(LLVM_IR_FILENAME);
+        eprintln!("Dumping LLVM IR (QIR) to file `{}`", dump_path.display());
+
+        llvm_module
+            .print_to_file(dump_path)
+            .map_err(|melior_err| CompileError::MLIR(melior_err, None))?;
+    }
+
+    Ok(llvm_module)
+}
+
 #[derive(Debug)]
 pub enum CompileError {
     AST(LowerError),
@@ -151,15 +176,9 @@ pub fn compile_meta_ast(
     let canon_ast = plain_ast.canonicalize();
 
     if cfg.dump {
-        let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
-        fs::create_dir_all(&dump_dir).unwrap();
-
-        // build full path
+        let dump_dir = create_debug_dump_dir();
         let dump_path = dump_dir.join(QWERTY_AST_FILENAME);
-        eprintln!(
-            "The Qwerty AST file will be dumped to file `{}`",
-            dump_path.display()
-        );
+        eprintln!("Dumping Qwerty AST to file `{}`", dump_path.display());
 
         let dump_str = format!(
             concat!(

@@ -28,6 +28,9 @@ README:
    * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
      semi-automated process for upgrading the version of LLVM used by the Qwerty
      compiler
+ * Integration with other tools:
+   * [`docs/qiree.md`](docs/qiree.md): Shows how to build the Qwerty compiler
+     with [QIR-EE][4] support
  * Compiler code documentation:
    * [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
      interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
@@ -156,3 +159,4 @@ artifact][3] or on the `cgo25-artifact` branch.
 [1]: https://www.rust-lang.org/tools/install
 [2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [3]: https://doi.org/10.5281/zenodo.14080494
+[4]: https://arxiv.org/abs/2404.14299

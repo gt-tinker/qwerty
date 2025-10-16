@@ -1,4 +1,4 @@
-use crate::{ctx::MLIR_CTX, lower_prog_stmt::Lowerable};
+use crate::{ctx::MLIR_CTX, lower::prog_stmt::Lowerable};
 use melior::{
     dialect::qwerty,
     ir::{self, Location, r#type::FunctionType},

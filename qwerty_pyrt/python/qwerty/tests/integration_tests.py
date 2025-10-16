@@ -5,7 +5,7 @@ import textwrap
 import unittest
 import qwerty.kernel
 from qwerty.runtime import bit
-from qwerty.err import QwertyTypeError
+from qwerty.err import QwertyTypeError, QwertyInternalError
 
 should_skip = bool(os.environ.get('SKIP_INTEGRATION_TESTS'))
 skip_msg = "Skipping integration tests as requested by $SKIP_INTEGRATION_TESTS"
@@ -489,6 +489,22 @@ class MetaInferIntegrationTests(unittest.TestCase):
 
         actual_qasm = qasm_ghz.test(num_qubits)
         self.assertEqual(expected_qasm, actual_qasm)
+
+    def test_qpe_on_qiree(self):
+        from .integ.meta import qpe
+        angle_deg, precision, shots, acc = 225.0, 3, 1024, 'qsim'
+
+        try:
+            actual_histo = qpe.test(angle_deg, precision, shots, acc)
+        except QwertyInternalError as e:
+            if str(e) == 'Not compiled with QIR-EE support':
+                self.skipTest('Not built with QIR-EE support, skipping')
+            else:
+                raise
+
+        self.assertGreater(actual_histo.get(angle_deg, 0), shots*15//16,
+                           "Too few correct answers")
+        self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
 
 @unittest.skipIf(should_skip, skip_msg)
 class ExampleIntegrationTests(unittest.TestCase):
