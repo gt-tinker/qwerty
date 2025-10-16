@@ -38,6 +38,15 @@ MLIR_CAPI_EXPORTED bool mlirTypeIsAQwertyQBundle(MlirType type);
 
 // Attributes
 
+/// Creates an qwerty::ApplyRevolveGeneratorAttr containing the given basis
+/// and basis vectors for the revolution
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyApplyRevolveGeneratorAttrGet(
+        MlirContext ctx, MlirAttribute foo, MlirAttribute bv1,
+        MlirAttribute bv2);
+
+/// Returns true if this is a qwerty::ApplyRevolveGeneratorAttr.
+MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyApplyRevolveGenerator(MlirAttribute attr);
+
 /// Creates an qwerty::SuperposAttr containing the given list of
 /// qwerty::SuperposElemAttrs.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertySuperposAttrGet(
@@ -93,6 +102,11 @@ MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromVeclist(
 /// provided.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromStd(
         MlirContext ctx, MlirAttribute std);
+
+/// Creates an qwerty::BasisElemAttr from the qwerty::ApplyRevolveGeneratorAttr
+/// provided.
+MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisElemAttrGetFromRevolve(
+        MlirContext ctx, MlirAttribute revolve);
 
 /// Returns true if this is a qwerty::BasisElemAttr.
 MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisElem(MlirAttribute attr);

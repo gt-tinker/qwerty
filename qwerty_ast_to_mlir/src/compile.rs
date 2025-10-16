@@ -5,7 +5,7 @@ use crate::{
 use melior::{
     Error,
     dialect::{qcirc, qwerty},
-    ir::{Module, operation::OperationPrintingFlags, symbol_table::SymbolTable},
+    ir::{Module, OperationLike, operation::OperationPrintingFlags, symbol_table::SymbolTable},
     pass::{PassIrPrintingOptions, PassManager, transform},
     target::llvm_ir::{LLVMModule, translate_module},
 };
@@ -18,6 +18,7 @@ use std::{env, fs, path::PathBuf};
 
 const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
+const INIT_MLIR_FILENAME: &str = "initial.mlir";
 const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
 const LLVM_IR_FILENAME: &str = "module.ll";
 
@@ -197,6 +198,23 @@ pub fn compile_meta_ast(
     }
 
     let mut module = ast_program_to_mlir(&canon_ast);
+
+    if cfg.dump {
+        let dump_dir = env::current_dir().unwrap().join(QWERTY_DEBUG_DIR);
+        fs::create_dir_all(&dump_dir).unwrap();
+        let dump_path = dump_dir.join(INIT_MLIR_FILENAME);
+        eprintln!(
+            "Initial (pre-verification) MLIR be dumped to `{}`",
+            dump_path.display()
+        );
+        module
+            .as_operation()
+            .print_to_file_with_flags(dump_path, OperationPrintingFlags::new())
+            .unwrap();
+    }
+
+    assert!(module.as_operation().verify());
+
     run_passes(&mut module, cfg).map_err(|e| CompileError::MLIR(e, canon_ast.dbg.clone()))?;
     Ok(module)
 }

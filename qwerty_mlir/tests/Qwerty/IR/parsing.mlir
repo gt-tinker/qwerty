@@ -123,3 +123,12 @@ qwerty.func @pred_inlined[](%arg0: !qwerty<qbundle[5]>, %arg1: !qwerty<qbundle[4
   }
   qwerty.return %predBundleOut, %regionResult : !qwerty<qbundle[5]>, !qwerty<qbundle[4]>
 }
+
+// CHECK-LABEL: qwerty.func @revolve[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]> {
+//  CHECK-NEXT:   %0 = qwerty.qbtrans %arg0 by {std: Z[5]} >> {revolve: {std: X[4]} by {"|0>", "|1>"}} : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   qwerty.return %0 : !qwerty<qbundle[5]>
+//  CHECK-NEXT: }
+qwerty.func @revolve[](%arg0: !qwerty<qbundle[5]>) irrev-> !qwerty<qbundle[5]> {
+  %0 = qwerty.qbtrans %arg0 by {std: Z[5]} >> {revolve: {std: X[4]} by {"|0>", "|1>"}} : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  qwerty.return %0 : !qwerty<qbundle[5]>
+}

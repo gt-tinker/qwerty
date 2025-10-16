@@ -133,7 +133,8 @@ where
     }
 }
 
-/// Converts a Qwerty AST into an mlir::ModuleOp.
+/// Converts a Qwerty AST into an mlir::ModuleOp. It is the caller's
+/// responsibility to verify the returned Module.
 pub fn ast_program_to_mlir(prog: &Program) -> Module<'static> {
     let loc = dbg_to_loc(prog.dbg.clone());
     let module = Module::new(loc);
@@ -161,8 +162,6 @@ pub fn ast_program_to_mlir(prog: &Program) -> Module<'static> {
             mlir_func_tys.push((func.get_name(), mlir_func_ty));
         }
     }
-
-    assert!(module.as_operation().verify());
 
     module
 }

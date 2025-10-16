@@ -32,8 +32,7 @@ def Qwerty_PrimitiveBasisAttr : I64EnumAttr<
             I64EnumAttrCase<"X", 0>,
             I64EnumAttrCase<"Y", 1>,
             I64EnumAttrCase<"Z", 2>,
-            I64EnumAttrCase<"FOURIER", 3>,
-            I64EnumAttrCase<"BELL", 4>,
+            I64EnumAttrCase<"BELL", 3>,
         ]> {
     let cppNamespace = "::qwerty";
 }
@@ -49,6 +48,24 @@ def Qwerty_BuiltinBasisAttr : Qwerty_Attr<"BuiltinBasis", "std"> {
     let genVerifyDecl = 1;
     let extraClassDeclaration = [{
         qwerty::BasisVectorListAttr expandToVeclist() const;
+    }];
+}
+
+def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "revolve"> {
+    let summary = "Represents a revolve basis generator";
+    let description = [{
+        Represents the revolve basis generator of the form 
+        `foo // {bv1, bv2}.revolve`, for use in synthesis of basis generator circuits
+    }];
+    let parameters = (ins "BasisAttr":$seed, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
+    let assemblyFormat = "$seed `by` ` ` `{` $bv1 `,` $bv2 `}`";
+    let genVerifyDecl = 1;
+    let extraClassDeclaration = [{
+        uint64_t getDim() const;
+        qwerty::PrimitiveBasis getPrimBasis() const;
+        bool isPredicate() const;
+        bool hasPhases() const;
+        uint64_t getNumPhases() const;
     }];
 }
 
@@ -94,7 +111,6 @@ def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
     let extraClassDeclaration = [{
         bool hasPhase() const { return getHasPhase(); }
         llvm::APInt getEigenbits() const { return getEigenbitsAttr().getValue(); }
-        qwerty::BasisVectorAttr deletePhase() const;
     }];
 }
 
@@ -111,6 +127,9 @@ def Qwerty_SuperposElemAttr : Qwerty_Attr<"SuperposElem", "superposelem"> {
     let extraClassDeclaration = [{
         llvm::APInt getEigenbits() const;
         uint64_t getDim() const;
+        bool isPredicate() const;
+        bool hasPhases() const;
+        uint64_t getNumPhases() const;
     }];
     let genVerifyDecl = 1;
 }
@@ -149,25 +168,28 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisVectorListAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }
 
 def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
-    let summary = "Union of BuiltinBasisAttr and BasisVectorListAttr";
+    let summary = "Union of BuiltinBasisAttr, BasisVectorListAttr, and ApplyRevolveGeneratorAttr";
     let description = [{
         A basis element as defined in Section 2.2 of the CGO paper: either a
-        built-in basis (e.g., pm[5]) or a basis literal (e.g., {'0', '1'}).
+        built-in basis (e.g., pm[5]), a basis literal (e.g., {'0', '1'}),
+        or (not in CGO paper) a revolve construct (foo // {bv1, bv2}.revolve).
     }];
-    let parameters = (ins OptionalParameter<"BuiltinBasisAttr">:$std, OptionalParameter<"BasisVectorListAttr">:$veclist);
+    let parameters = (ins OptionalParameter<"BuiltinBasisAttr">:$std, OptionalParameter<"BasisVectorListAttr">:$veclist, OptionalParameter<"ApplyRevolveGeneratorAttr">:$revolve);
     let hasCustomAssemblyFormat = 1;
     let builders = [
         AttrBuilder<(ins "BuiltinBasisAttr":$std), [{
-            return $_get($_ctxt, std, nullptr);
+            return $_get($_ctxt, std, nullptr, nullptr);
         }]>,
         AttrBuilder<(ins "BasisVectorListAttr":$veclist), [{
-            return $_get($_ctxt, nullptr, veclist);
+            return $_get($_ctxt, nullptr, veclist, nullptr);
+        }]>,
+        AttrBuilder<(ins "ApplyRevolveGeneratorAttr":$revolve), [{
+            return $_get($_ctxt, nullptr, nullptr, revolve);
         }]>
     ];
     let extraClassDeclaration = [{
@@ -176,7 +198,6 @@ def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisElemAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }
@@ -196,8 +217,6 @@ def Qwerty_BasisAttr : Qwerty_Attr<"Basis", "basis"> {
         bool hasPhases() const;
         bool hasOnlyOnes() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisAttr deletePhases() const;
-
         static qwerty::BasisAttr getAllOnesBasis(mlir::MLIRContext *ctx, size_t dim);
     }];
 }
