@@ -2987,11 +2987,6 @@ struct ArbitraryBasisRevolveGenerator
     mlir::ValueRange basis_phases = trans.getBasisPhases();
     llvm::SmallVector<mlir::Value> phases(basis_phases);
 
-    llvm::SmallVector<mlir::Value> baz_phases(phases.begin(),
-                                               phases.begin() + basis_in.getNumPhases());
-    llvm::SmallVector<mlir::Value> revolve_phases(phases.begin() + basis_in.getNumPhases(),
-                                               phases.end());
-
     auto elts_in = basis_in.getElems();
     auto elts_out = basis_out.getElems();
     // Must have at least one ApplyRevolveGeneratorAttr,
@@ -3105,6 +3100,11 @@ struct ArbitraryBasisRevolveGenerator
     // Now we can create two basis translations to create
     // baz >> std**N | std**N >> foo // bar.revolve
     if (!inverse) {
+      llvm::SmallVector<mlir::Value> baz_phases(phases.begin(),
+                                                 phases.begin() + basis_in.getNumPhases());
+      llvm::SmallVector<mlir::Value> revolve_phases(phases.begin() + basis_in.getNumPhases(),
+                                                 phases.end());
+
       qwerty::QBundleBasisTranslationOp baz_to_std =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
               loc, baz_N, std_N, baz_phases,
@@ -3117,6 +3117,10 @@ struct ArbitraryBasisRevolveGenerator
 
       rewriter.replaceOp(trans, recurse_case_fwd.getQbundleOut());
     } else { // foo // bar.revolve >> std**N | std**N >> baz
+      llvm::SmallVector<mlir::Value> revolve_phases(phases.begin(),
+                                                 phases.begin() + basis_in.getNumPhases());
+      llvm::SmallVector<mlir::Value> baz_phases(phases.begin() + basis_in.getNumPhases(),
+                                                 phases.end());
       qwerty::QBundleBasisTranslationOp recurse_case_rev =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
               loc, revolve_basis, std_N, revolve_phases,
