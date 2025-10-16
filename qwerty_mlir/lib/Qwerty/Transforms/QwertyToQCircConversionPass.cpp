@@ -3138,8 +3138,8 @@ struct ArbitraryBasisRevolveGenerator
   }
 };
 
-// This pass admits the qbtrans std**N >> std**(N-1) // bar.revolve (for arbitrary bar)
-// and generates std**N >> std**(N-1) // std.revolve | id**(N-1) * (std >> bar)
+// This pass admits the qbtrans std**N >> foo // bar.revolve (for arbitrary bar)
+// and generates std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
 // or id**(N-1) * (bar >> std) | std**(N-1) // std.revolve >> std**N (reverse case)
 struct ArbitraryRevolveBasisRevolveGenerator
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
@@ -3154,11 +3154,12 @@ struct ArbitraryRevolveBasisRevolveGenerator
     qwerty::BasisAttr basis_out = trans.getBasisOut();
     mlir::ValueRange basis_phases = trans.getBasisPhases();
 
-    // NOTE: Because we admit std**N >> std**(N-1) // bar.revolve,
-    // the only place phases can come from is bar. Thus, we don't
-    // need to separate phases, and can apply them directly to
-    // the std >> bar (or reverse) basis translation
-    llvm::SmallVector<mlir::Value> bar_phases(basis_phases);
+    // NOTE: Because we admit std**N >> foo // bar.revolve,
+    // all of the phases must come from the revolve basis.
+    // Thus, we have to split the phases between the new
+    // std**N >> foo // std.revolve case and the std >> bar
+    // case
+    llvm::SmallVector<mlir::Value> phases(basis_phases);
 
     auto elts_in = basis_in.getElems();
     auto elts_out = basis_out.getElems();
@@ -3221,20 +3222,29 @@ struct ArbitraryRevolveBasisRevolveGenerator
     qwerty::ApplyRevolveGeneratorAttr revolveAttr;
     qwerty::BuiltinBasisAttr builtinAttr;
     uint64_t elt_foo_dim = 0;
+    uint64_t foo_num_phases = 0;
 
     // Match the concrete attribute type and store it
     if ((veclistAttr = elt_foo.getVeclist())) {
         elt_foo_dim = veclistAttr.getDim();
+        foo_num_phases = veclistAttr.getNumPhases();
     } else if ((revolveAttr = elt_foo.getRevolve())) {
         elt_foo_dim = revolveAttr.getDim();
+        foo_num_phases = revolveAttr.getNumPhases();
     } else if ((builtinAttr = elt_foo.getStd())) {
         elt_foo_dim = builtinAttr.getDim();
+        // foo_num_phases stays 0, no phases in builtin bases
     }
 
     if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
           (builtin.getDim() - 1) == elt_foo_dim)) {
       return mlir::failure();
     }
+
+    // The phases for foo, the bar in foo // bar.revolve
+    // always go from left to right
+    llvm::SmallVector<mlir::Value> foo_phases(phases.begin(), phases.begin() + foo_num_phases);
+    llvm::SmallVector<mlir::Value> bar_phases(phases.begin() + foo_num_phases, phases.end());
 
     // code for creating bases that are reused in both fwd and rev directions
 
@@ -3292,7 +3302,7 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // 1. create qbtrans std**N >> foo // std.revolve
       qwerty::QBundleBasisTranslationOp recurse_case_fwd =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, std_N, revolve_basis, mlir::ValueRange(),
+              loc, std_N, revolve_basis, foo_phases,
               trans.getQbundleIn());
 
       // 2. qbunpack and get last qubit
@@ -3357,10 +3367,10 @@ struct ArbitraryRevolveBasisRevolveGenerator
       auto combined_packed =
           rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
 
-      // 5. apply inverse std**N >> foo // std.revolve
+      // 5. apply foo // std.revolve >> std**N
       qwerty::QBundleBasisTranslationOp recurse_case_rev = 
         rewriter.create<qwerty::QBundleBasisTranslationOp>(
-          loc, revolve_basis, std_N, mlir::ValueRange(), combined_packed);
+          loc, revolve_basis, std_N, foo_phases, combined_packed);
 
       mlir::ValueRange recurse_case_unpacked =
           rewriter.create<qwerty::QBundleUnpackOp>(loc, recurse_case_rev.getQbundleOut()).getQubits();
