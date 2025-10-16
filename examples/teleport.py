@@ -47,6 +47,11 @@ if __name__ == '__main__':
                              'simulation.')
     args = parser.parse_args()
 
+    # TODO: Remove this when we support adaptive profile
+    if args.acc is not None:
+        raise ValueError('Classical control flow is not currently supported '
+                         'in QIR-EE. Please try again without the --acc flag.')
+
     print("Teleporting a '1' state from Alice to Bob."
           "\nWhen Bob measures in the standard basis, he should always get a 1 bit:")
     histogram(teleport_1(shots=args.shots, acc=args.acc))

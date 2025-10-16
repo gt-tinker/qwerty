@@ -47,6 +47,11 @@ if __name__ == '__main__':
                              'simulation.')
     args = parser.parse_args()
 
+    # TODO: Remove this when we support adaptive profile
+    if args.acc is not None:
+        raise ValueError('Classical control flow is not currently supported '
+                         'in QIR-EE. Please try again without the --acc flag.')
+
     if args.bits is None:
         for i in range(1 << 2):
             payload = bit[2](i)

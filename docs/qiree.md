@@ -40,6 +40,11 @@ an accelerator on the command line as follows:
     00 -> 50.00%
     11 -> 50.00%
 
+Note that if you did not build the Qwerty compiler/runtime as described above,
+you will get:
+
+    qwerty.err.QwertyInternalError: Not compiled with QIR-EE support
+
 Classical control flow is currently not supported, so the [quantum
 teleportation](../examples/teleport.py) and [superdense
 coding](../examples/superdense.py) examples will not work with QIR-EE yet.
