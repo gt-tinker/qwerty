@@ -17,6 +17,8 @@ qwerty_ast_to_mlir = { version = "0.1.0", path = "../../qwerty_ast_to_mlir" }
 qwerty-mlir-sys = { version = "210.0.0", path = "../../qwerty_mlir_sys", optional = true }
 
 [features]
+# Enable QIR-EE support
+qiree = ["qwerty_ast_to_mlir/qiree"]
 # See build.rs for what this feature is
 qwerty-opt = ["dep:qwerty-mlir-sys"]
 default = ["qwerty-opt"]

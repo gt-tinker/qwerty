@@ -41,12 +41,21 @@ if __name__ == '__main__':
                         type=int,
                         default=1024,
                         help='Number of shots. Default: %(default)s')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
+
+    # TODO: Remove this when we support adaptive profile
+    if args.acc is not None:
+        raise ValueError('Classical control flow is not currently supported '
+                         'in QIR-EE. Please try again without the --acc flag.')
 
     print("Teleporting a '1' state from Alice to Bob."
           "\nWhen Bob measures in the standard basis, he should always get a 1 bit:")
-    histogram(teleport_1(shots=args.shots))
+    histogram(teleport_1(shots=args.shots, acc=args.acc))
     print("\nTeleporting an 'i' state from Alice to Bob."
           "\nWhen Bob measures in the ij basis, he should always get a 0 bit"
           "\n(since 'i' has index 0 in {'i','j'}):")
-    histogram(teleport_i(shots=args.shots))
+    histogram(teleport_i(shots=args.shots, acc=args.acc))

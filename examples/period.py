@@ -16,7 +16,7 @@ from fractions import Fraction
 from argparse import ArgumentParser
 from qwerty import *
 
-def period_finding(f):
+def period_finding(f, acc=None):
     @qpu[[N]]
     def kernel():
         return ('p'**N * '0'**N
@@ -28,8 +28,8 @@ def period_finding(f):
         return Fraction(int(bits),
                         2**len(bits))
 
-    frac1 = shift_binary_point(kernel())
-    frac2 = shift_binary_point(kernel())
+    frac1 = shift_binary_point(kernel(acc=acc))
+    frac2 = shift_binary_point(kernel(acc=acc))
     return math.lcm(frac1.denominator,
                     frac2.denominator)
 
@@ -50,6 +50,10 @@ if __name__ == '__main__':
                         metavar='M',
                         help='Find the period of f(x) = x % M. Must be a '
                              'power of 2. Default: 2**(N-1)')
+    parser.add_argument('--acc', '-a',
+                        default=None,
+                        help='Name of an accelerator. The default is local '
+                             'simulation.')
     args = parser.parse_args()
 
     if args.num_bits < 3:
@@ -69,7 +73,7 @@ if __name__ == '__main__':
     black_box = get_black_box(args.num_bits, mod)
 
     for i in range(16):
-        period_found = period_finding(black_box)
+        period_found = period_finding(black_box, acc=args.acc)
         if period_found == mod:
             print(f'Found period: {period_found}')
             break
