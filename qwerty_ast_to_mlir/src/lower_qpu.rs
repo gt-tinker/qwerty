@@ -558,13 +558,18 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                     Basis::ApplyBasisGenerator { basis, generator, .. } => {
                         match generator {
                             BasisGenerator::Revolve {v1, v2, ..} => {
-                                let foo = ast_basis_to_mlir(&basis).basis_attr;
-                                let (mut bv1_vec, _) = ast_vec_to_mlir(v1);
+                                let MlirBasis { basis_attr: foo_basis, phases: foo_phases, .. } = ast_basis_to_mlir(&basis);
+                                let (mut bv1_vec, bv1_phase) = ast_vec_to_mlir(v1);
                                 let bv1 = bv1_vec.pop().expect("In revolve, basis vectors must be a single vector");
-                                let (mut bv2_vec, _) = ast_vec_to_mlir(v2);
+                                let (mut bv2_vec, bv2_phase) = ast_vec_to_mlir(v2);
                                 let bv2 = bv2_vec.pop().expect("In revolve, basis vectors must be a single vector");
-                                let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo, bv1, bv2);
-                                (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), vec![])
+                                let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo_basis, bv1, bv2);
+
+                                // Because we care about phases
+                                let mut phase_vec = foo_phases.iter().map(|phase| Some(*phase)).collect::<Vec<Option<f64>>>();
+                                if !angle_is_approx_zero(bv1_phase) { phase_vec.push(Some(bv1_phase)) }
+                                if !angle_is_approx_zero(bv2_phase) { phase_vec.push(Some(bv2_phase)) }
+                                (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), phase_vec)
                             },
                         }
                     }

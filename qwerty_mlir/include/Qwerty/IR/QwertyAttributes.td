@@ -66,7 +66,6 @@ def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "rev
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisAttr deletePhases() const;
     }];
 }
 
@@ -112,7 +111,6 @@ def Qwerty_BasisVectorAttr : Qwerty_Attr<"BasisVector", "vec"> {
     let extraClassDeclaration = [{
         bool hasPhase() const { return getHasPhase(); }
         llvm::APInt getEigenbits() const { return getEigenbitsAttr().getValue(); }
-        qwerty::BasisVectorAttr deletePhase() const;
     }];
 }
 
@@ -132,7 +130,6 @@ def Qwerty_SuperposElemAttr : Qwerty_Attr<"SuperposElem", "superposelem"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisElemAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }
@@ -171,7 +168,6 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisVectorListAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }
@@ -202,7 +198,6 @@ def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisElemAttr deletePhases() const;
     }];
     let genVerifyDecl = 1;
 }
@@ -222,8 +217,6 @@ def Qwerty_BasisAttr : Qwerty_Attr<"Basis", "basis"> {
         bool hasPhases() const;
         bool hasOnlyOnes() const;
         uint64_t getNumPhases() const;
-        qwerty::BasisAttr deletePhases() const;
-
         static qwerty::BasisAttr getAllOnesBasis(mlir::MLIRContext *ctx, size_t dim);
     }];
 }

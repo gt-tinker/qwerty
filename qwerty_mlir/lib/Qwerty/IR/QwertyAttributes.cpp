@@ -199,32 +199,24 @@ uint64_t ApplyRevolveGeneratorAttr::getDim() const {
     return fooDim + 1;
 }
 
+// TODO: This is nonsense and we dislike it.
+// Strongly.
 PrimitiveBasis ApplyRevolveGeneratorAttr::getPrimBasis() const {
     // Inherit the primitive basis from foo
     return getBv1().getPrimBasis(); // TODO: Is this correct?
 }
 
-// TODO: Does this make sense?
 bool ApplyRevolveGeneratorAttr::isPredicate() const {
   return getFoo().hasPredicate();
 }
 
-// TODO: Does this make sense? Or do we need to consider the phases introduced potentially by
-// the actual revolve construct?
-// bool ApplyRevolveGeneratorAttr::hasPhases() const {
-//   return getFoo().hasPhases();
-// }
-
-// TODO: Does this make sens as well (similar to above)
-uint64_t ApplyRevolveGeneratorAttr::getNumPhases() const {
-  return getFoo().getNumPhases();
+bool ApplyRevolveGeneratorAttr::hasPhases() const {
+  return getFoo().hasPhases() || getBv1().hasPhase() || getBv2().hasPhase();
 }
 
-// TODO: Similar question
-// qwerty::BasisAttr qwerty::ApplyRevolveGeneratorAttr::deletePhases() const {
-//     auto newFoo = getFoo().deletePhases();
-//     return qwerty::ApplyRevolveGeneratorAttr::get(getContext(), newFoo, getBv1(), getBv2());
-// }
+uint64_t ApplyRevolveGeneratorAttr::getNumPhases() const {
+    return getFoo().getNumPhases() + getBv1().hasPhase() + getBv2().hasPhase();
+}
 
 uint64_t BasisVectorListAttr::getDim() const {
     llvm::ArrayRef<BasisVectorAttr> vectors = getVectors();
@@ -307,8 +299,7 @@ bool BasisElemAttr::isPredicate() const {
     } else if (getVeclist()) {
         return getVeclist().isPredicate();
     } else if (getRevolve()) {
-        return false; // NOTE: For the moment, we don't want revolve to be predicated!
-        // return getRevolve().isPredicate();
+        return getRevolve().isPredicate();
     } else {
         assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
@@ -335,9 +326,10 @@ bool BasisElemAttr::hasPhases() const {
         return false;
     } else if (getVeclist()) {
         return getVeclist().hasPhases();
+    } else if (getRevolve()) {
+        return getRevolve().hasPhases();
     } else {
-        // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
@@ -414,56 +406,6 @@ uint64_t BasisAttr::getNumPhases() const {
         total_n_phases += elems[i].getNumPhases();
     }
     return total_n_phases;
-}
-
-BasisVectorAttr BasisVectorAttr::deletePhase() const {
-    if (!hasPhase()) {
-        return *this;
-    }
-    return BasisVectorAttr::get(
-        getContext(), getPrimBasis(), getEigenbits(), getDim(),
-        /*hasPhase=*/false);
-}
-
-BasisVectorListAttr BasisVectorListAttr::deletePhases() const {
-    if (!hasPhases()) {
-        return *this;
-    }
-
-    llvm::SmallVector<BasisVectorAttr> vecs;
-    vecs.reserve(getVectors().size());
-
-    for (BasisVectorAttr vec : getVectors()) {
-        vecs.push_back(vec.deletePhase());
-    }
-
-    return BasisVectorListAttr::get(getContext(), vecs);
-}
-
-BasisElemAttr BasisElemAttr::deletePhases() const {
-    if (getStd() || !hasPhases()) {
-        return *this;
-    }
-
-    // TODO: Add third optional attr for ApplyRevolveGeneratorAttr
-    // How will this work?
-    return BasisElemAttr::get(
-        getContext(), getVeclist().deletePhases());
-}
-
-BasisAttr BasisAttr::deletePhases() const {
-    if (!hasPhases()) {
-        return *this;
-    }
-
-    llvm::SmallVector<BasisElemAttr> elems;
-    elems.reserve(getElems().size());
-
-    for (BasisElemAttr elem : getElems()) {
-        elems.push_back(elem.deletePhases());
-    }
-
-    return BasisAttr::get(getContext(), elems);
 }
 
 BasisAttr BasisAttr::getAllOnesBasis(mlir::MLIRContext *ctx, size_t dim) {
