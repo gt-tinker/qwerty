@@ -3035,15 +3035,9 @@ struct ArbitraryBasisRevolveGenerator
       inverse = true;
     }
 
-    // NOTE: We can completely ignore revolve's bv1, bv2 in
-    // this case, I believe. Any verification for dimension is already done
-    // We need this only for creating qbtrans objects, etc.
-    auto bv1 = revolve.getBv1();
-    auto bv2 = revolve.getBv2();
-
     // Both builtinbasis and foo can be any basis, as long as the dimensions
     // are compatible
-    qwerty::BasisAttr foo = revolve.getFoo();
+    qwerty::BasisAttr foo = revolve.getSeed();
     auto elts_foo = foo.getElems();
     if (elts_foo.size() != 1) {
       return mlir::failure();
@@ -3205,7 +3199,7 @@ struct ArbitraryRevolveBasisRevolveGenerator
     // We need builtinbasis to be std, but foo can be any basis as long
     // as the dimensions are compatible (similar to RecurseRevolveBasisGenerator,
     // but without the restriction that we care about it not being std)
-    qwerty::BasisAttr foo = revolve.getFoo();
+    qwerty::BasisAttr foo = revolve.getSeed();
     auto elts_foo = foo.getElems();
     if (elts_foo.size() != 1) {
       return mlir::failure();
@@ -3475,7 +3469,7 @@ struct RecurseRevolveBasisGenerator
     // NOTE: Revolve's foo is a BasisAttr so we need to verify that
 
     // we need to extract revolve's foo's basis here, for prim_basis and dim
-    qwerty::BasisAttr foo = revolve.getFoo();
+    qwerty::BasisAttr foo = revolve.getSeed();
     auto elts_foo = foo.getElems();
     if (elts_foo.size() != 1) {
       return mlir::failure();
@@ -3718,7 +3712,7 @@ struct LowerRevolveBasisGenerator
     // NOTE: Revolve's foo is a BasisAttr so we need to verify that
 
     // we need to extract revolve's foo's basis here, for prim_basis and dim
-    qwerty::BasisAttr foo = revolve.getFoo();
+    qwerty::BasisAttr foo = revolve.getSeed();
     auto elts_foo = foo.getElems();
     if (elts_foo.size() != 1) {
       return mlir::failure();

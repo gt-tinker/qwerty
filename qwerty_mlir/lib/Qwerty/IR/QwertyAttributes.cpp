@@ -195,7 +195,7 @@ mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser,
 
 uint64_t ApplyRevolveGeneratorAttr::getDim() const {
     // foo is a BasisAttr
-    uint64_t fooDim = getFoo().getDim();
+    uint64_t fooDim = getSeed().getDim();
     return fooDim + 1;
 }
 
@@ -207,15 +207,15 @@ PrimitiveBasis ApplyRevolveGeneratorAttr::getPrimBasis() const {
 }
 
 bool ApplyRevolveGeneratorAttr::isPredicate() const {
-  return getFoo().hasPredicate();
+  return getSeed().hasPredicate();
 }
 
 bool ApplyRevolveGeneratorAttr::hasPhases() const {
-  return getFoo().hasPhases() || getBv1().hasPhase() || getBv2().hasPhase();
+  return getSeed().hasPhases() || getBv1().hasPhase() || getBv2().hasPhase();
 }
 
 uint64_t ApplyRevolveGeneratorAttr::getNumPhases() const {
-    return getFoo().getNumPhases() + getBv1().hasPhase() + getBv2().hasPhase();
+    return getSeed().getNumPhases() + getBv1().hasPhase() + getBv2().hasPhase();
 }
 
 uint64_t BasisVectorListAttr::getDim() const {

@@ -1240,6 +1240,9 @@ impl Vector {
         }
     }
 
+    /// Converts a Vector into a Rust Vec of Vectors to remove
+    /// VectorTensor and VectorUnits from the state.
+    /// Similar to Basis::to_vec
     pub fn to_vec(&self) -> Vec<Vector> {
         match self {
             Vector::VectorTensor { qs, .. } => qs.clone(),

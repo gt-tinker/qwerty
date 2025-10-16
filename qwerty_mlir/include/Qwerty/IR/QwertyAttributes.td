@@ -54,10 +54,10 @@ def Qwerty_BuiltinBasisAttr : Qwerty_Attr<"BuiltinBasis", "std"> {
 def Qwerty_ApplyRevolveGeneratorAttr : Qwerty_Attr<"ApplyRevolveGenerator", "revolve"> {
     let summary = "Represents a revolve basis generator";
     let description = [{
-    Represents the revolve basis generator of the form 
-    foo // {bv1, bv2}.revolve, for use in synthesis of basis generator circuits
+        Represents the revolve basis generator of the form 
+        `foo // {bv1, bv2}.revolve`, for use in synthesis of basis generator circuits
     }];
-    let parameters = (ins "BasisAttr":$foo, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
+    let parameters = (ins "BasisAttr":$seed, "BasisVectorAttr":$bv1, "BasisVectorAttr":$bv2);
     let assemblyFormat = "$foo `by` ` ` `{` $bv1 `,` $bv2 `}`";
     let genVerifyDecl = 1;
     let extraClassDeclaration = [{

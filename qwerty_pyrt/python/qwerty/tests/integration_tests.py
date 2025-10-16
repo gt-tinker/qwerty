@@ -216,34 +216,41 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
     def test_revolve_general(self):
         from .integ.meta_noinfer import revolve_gen_rev
         shots = 1024
-        expected_histos = (
-            {bit[3](0b001): shots//2},
-            {bit[3](0b000): shots//2},
-        )
 
-        expected_histos = (
-            bit[3](0b000),
-            bit[3](0b001),
-            bit[3](0b010),
-            bit[3](0b011),
-            bit[3](0b100),
-            bit[3](0b101),
-            bit[3](0b110),
-            bit[3](0b111),
-        )
+        actual_histo = revolve_gen_rev.test(shots)
+        for i in range(1 << 3):
+            meas = bit[3](i)
+            self.assertGreater(actual_histo.get(meas, 0), shots//16, f"Too few {meas}")
 
-        actual_histos = revolve_gen_rev.test(shots)
-        self.assertGreater(actual_histos.get(expected_histos[0], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[1], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[2], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[3], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[4], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[5], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[6], 0), shots//16, "Too few zeros")
-        self.assertGreater(actual_histos.get(expected_histos[7], 0), shots//16, "Too few zeros")
-
-        tot = sum([actual_histos.get(expected_histos[i], 0) for i in range(8)])
+        tot = 0
+        for i in range(1 << 3):
+            meas = bit[3](i)
+            tot += actual_histo.get(meas, 0)
         self.assertEqual(shots, tot, "missing shots")
+
+    def test_revolve_with_phase(self):
+        from .integ.meta_noinfer import revolve_phase
+        shots = 1024
+
+        expected_histos = [
+            (bit[3](0b000), shots // 8),
+            (bit[3](0b010), shots // 8),
+            (bit[3](0b100), shots // 8),
+            (bit[3](0b110), shots // 8),
+        ]
+
+        actual_histo = revolve_phase.test(shots)
+
+        for meas, shots_expected in expected_histos:
+            self.assertGreater(
+                actual_histo.get(meas, 0),
+                shots_expected,
+                f"Too few counts for {meas}"
+            )
+
+        tot = sum(actual_histo.get(meas, 0) for meas, _ in expected_histos)
+        self.assertEqual(shots, tot, "missing shots")
+
 
     def test_interproc(self):
         # Like randbit above except involves a call from one kernel to another
