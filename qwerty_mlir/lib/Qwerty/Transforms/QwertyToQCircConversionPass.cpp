@@ -2984,6 +2984,13 @@ struct ArbitraryBasisRevolveGenerator
     mlir::Location loc = trans.getLoc();
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
+    mlir::ValueRange basis_phases = trans.getBasisPhases();
+    llvm::SmallVector<mlir::Value> phases(basis_phases);
+
+    llvm::SmallVector<mlir::Value> baz_phases(phases.begin(),
+                                               phases.begin() + basis_in.getNumPhases());
+    llvm::SmallVector<mlir::Value> revolve_phases(phases.begin() + basis_in.getNumPhases(),
+                                               phases.end());
 
     auto elts_in = basis_in.getElems();
     auto elts_out = basis_out.getElems();
@@ -3100,24 +3107,24 @@ struct ArbitraryBasisRevolveGenerator
     if (!inverse) {
       qwerty::QBundleBasisTranslationOp baz_to_std =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, baz_N, std_N, mlir::ValueRange(),
+              loc, baz_N, std_N, baz_phases,
               trans.getQbundleIn());
 
       qwerty::QBundleBasisTranslationOp recurse_case_fwd =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, std_N, revolve_basis, mlir::ValueRange(),
+              loc, std_N, revolve_basis, revolve_phases,
               baz_to_std.getQbundleOut());
 
       rewriter.replaceOp(trans, recurse_case_fwd.getQbundleOut());
     } else { // foo // bar.revolve >> std**N | std**N >> baz
       qwerty::QBundleBasisTranslationOp recurse_case_rev =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, revolve_basis, std_N, mlir::ValueRange(),
+              loc, revolve_basis, std_N, revolve_phases,
               trans.getQbundleIn());
 
       qwerty::QBundleBasisTranslationOp std_to_baz =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, std_N, baz_N, mlir::ValueRange(),
+              loc, std_N, baz_N, baz_phases,
               recurse_case_rev.getQbundleOut());
 
       rewriter.replaceOp(trans, std_to_baz.getQbundleOut());
@@ -3141,6 +3148,13 @@ struct ArbitraryRevolveBasisRevolveGenerator
     mlir::Location loc = trans.getLoc();
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
+    mlir::ValueRange basis_phases = trans.getBasisPhases();
+
+    // NOTE: Because we admit std**N >> std**(N-1) // bar.revolve,
+    // the only place phases can come from is bar. Thus, we don't
+    // need to separate phases, and can apply them directly to
+    // the std >> bar (or reverse) basis translation
+    llvm::SmallVector<mlir::Value> bar_phases(basis_phases);
 
     auto elts_in = basis_in.getElems();
     auto elts_out = basis_out.getElems();
@@ -3239,7 +3253,6 @@ struct ArbitraryRevolveBasisRevolveGenerator
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(
                     qwerty::PrimitiveBasis::Z, 1))});
 
-
     auto bv1_bv2_vec = rewriter.getAttr<qwerty::BasisVectorListAttr>(
         llvm::ArrayRef<qwerty::BasisVectorAttr>{bv1, bv2});
 
@@ -3293,7 +3306,7 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // 3. create std >> bar qbtrans on last qubit
       qwerty::QBundleBasisTranslationOp std_to_bar =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, std_1, bar_1, mlir::ValueRange(),
+              loc, std_1, bar_1, bar_phases,
               packed_last_qubit);
       
       // 4. qbpack resulting qubits with first N-1 qubits
@@ -3324,7 +3337,7 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // create inverse std >> bar
       qwerty::QBundleBasisTranslationOp bar_to_std =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
-              loc, bar_1, std_1, mlir::ValueRange(), packed_last_qubit);
+              loc, bar_1, std_1, bar_phases, packed_last_qubit);
 
       // 3. unpack the result
       mlir::ValueRange bar_std_unpacked =
@@ -3388,6 +3401,14 @@ struct RecurseRevolveBasisGenerator
     mlir::Location loc = trans.getLoc();
     qwerty::BasisAttr basis_in = trans.getBasisIn();
     qwerty::BasisAttr basis_out = trans.getBasisOut();
+    mlir::ValueRange basis_phases = trans.getBasisPhases();
+
+    // NOTE: Because we admit std**N >> foo // std.revolve,
+    // the only place phases can come from is foo. Thus, we don't
+    // need to separate phases, and can apply them directly to
+    // the std**(N-1) >> foo (or reverse) basis translation
+    llvm::SmallVector<mlir::Value> foo_phases(basis_phases);
+
     // NOTE: We DON'T want to match on the "base case", which takes the
     // form std**N >> std**(N-1) // std.revolve or its reverse
 
@@ -3509,6 +3530,9 @@ struct RecurseRevolveBasisGenerator
     qwerty::BasisAttr revolve_basis =
         qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
 
+    // TODO: add phases instead of the valueranges
+    // We split the list of phases into two pieces, depending on
+    // which phases go in which basis
     if (!inverse) {
       qwerty::QBundleBasisTranslationOp base_case_fwd =
           rewriter.create<qwerty::QBundleBasisTranslationOp>(
@@ -3541,7 +3565,7 @@ struct RecurseRevolveBasisGenerator
           qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
 
       auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
-          loc, std_N_minus_1, foo_basis, mlir::ValueRange(),
+          loc, std_N_minus_1, foo_basis, foo_phases,
           packed_N_minus_1);
 
       // 4. qbunpack qubits from new qbtrans
@@ -3583,7 +3607,7 @@ struct RecurseRevolveBasisGenerator
           rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
 
       auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
-          loc, foo_basis, std_N_minus_1, mlir::ValueRange(), packed_N_minus_1);
+          loc, foo_basis, std_N_minus_1, foo_phases, packed_N_minus_1);
 
       // 3. unpack outputs of subtrans (N-1 qubits in std)
       mlir::ValueRange subtrans_unpacked =
