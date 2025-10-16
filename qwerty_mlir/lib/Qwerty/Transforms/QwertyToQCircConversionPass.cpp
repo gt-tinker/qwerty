@@ -3146,6 +3146,11 @@ struct ArbitraryRevolveBasisRevolveGenerator
   using mlir::OpConversionPattern<
       qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
 
+  void initialize() {
+    /// Signal that this pattern safely handles recursive application.
+    setHasBoundedRewriteRecursion();
+  }
+
   mlir::LogicalResult
   matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const final {
@@ -3196,14 +3201,6 @@ struct ArbitraryRevolveBasisRevolveGenerator
     // if they are, we ignore (should go to base case)
     auto bv1 = revolve.getBv1();
     auto bv2 = revolve.getBv2();
-    // NOTE: bv1 and bv2 should still span, I don't think we have
-    // a good way of checking that for now
-    if (((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-           bv1.getEigenbits()[0] == 0) &&
-          (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-           bv2.getEigenbits()[0] == 1))) {
-      return mlir::failure();
-    }
 
     // We need builtinbasis to be std, but foo can be any basis as long
     // as the dimensions are compatible (similar to RecurseRevolveBasisGenerator,
@@ -3465,7 +3462,8 @@ struct RecurseRevolveBasisGenerator
     if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
            bv1.getEigenbits()[0] == 0) &&
           (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-           bv2.getEigenbits()[0] == 1))) {
+           bv2.getEigenbits()[0] == 1)) &&
+           !(bv1.hasPhase() || bv2.hasPhase())) {
       return mlir::failure();
     }
 
@@ -3710,7 +3708,8 @@ struct LowerRevolveBasisGenerator
     if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
            bv1.getEigenbits()[0] == 0) &&
           (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
-           bv2.getEigenbits()[0] == 1))) {
+           bv2.getEigenbits()[0] == 1) &&
+          !(bv1.hasPhase() || bv2.hasPhase()))) {
       return mlir::failure();
     }
 
