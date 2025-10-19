@@ -1,0 +1,5 @@
+*.tar.xz
+# We don't want to commit results here in the artifact branch
+results/
+# ...same for LLVM IR
+*.ll

@@ -1,0 +1,1439 @@
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 11]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 11]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 12]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 12]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 11]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 11]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 12]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 12]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 1]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 2]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 3]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 4]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 11]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 5]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 6]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 7]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qiskit (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qwerty (params: n/a) [Problem Size: 10]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qwerty (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 8]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold plus state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-fold minus state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+n-qubit GHZ state with phase in Qsharp (params: n/a) [Problem Size: 9]
+	Transpiling
+	Transpiling Complete
+	Evaluating
+	Evaluation Complete
+	Dumping Results
+Traceback (most recent call last):
+  File "/mnt/e/CollegeWork/qwerty/eval/compare-circs/qre.py", line 289, in run_parallel_tasks
+    result = proc.queue.get(block=True, timeout=2.0)
+  File "/usr/lib/python3.10/multiprocessing/queues.py", line 114, in get
+    raise Empty
+_queue.Empty
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/mnt/e/CollegeWork/qwerty/eval/compare-circs/qre.py", line 436, in <module>
+    main()
+  File "/mnt/e/CollegeWork/qwerty/eval/compare-circs/qre.py", line 416, in main
+    for circ_idx, result in runner(args.timeout,
+  File "/mnt/e/CollegeWork/qwerty/eval/compare-circs/qre.py", line 291, in run_parallel_tasks
+    raise ValueError('process finished without a result. '
+ValueError: process finished without a result. data is missing
