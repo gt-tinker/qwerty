@@ -56,6 +56,13 @@ def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, ConstantLike, InferTypeOpAdap
     let description = [{
         Arbitrary-length constant wires
     }];
+
+    let builders = [
+        OpBuilder<(ins "::llvm::APInt":$val), [{
+            build($_builder, $_state, $_builder.getIntegerAttr($_builder.getIntegerType(val.getBitWidth()), val));
+        }]>
+    ];
+
     let arguments = (ins APIntAttr:$value);
     let results = (outs CCirc_Wire:$result);
     let assemblyFormat = "$value attr-dict `:` qualified(type($result))";
@@ -72,6 +79,7 @@ def CCirc_AndOp : CCirc_Op<"and", [Pure, InferTypeOpAdaptor]> {
     let results = (outs CCirc_Wire:$result);
     let assemblyFormat = "`(` $left `,` $right `)` attr-dict `:` functional-type(operands, results)";
     let hasVerifier = 1;
+    let hasCanonicalizer = 1;
 }
 
 def CCirc_OrOp : CCirc_Op<"or", [Pure, InferTypeOpAdaptor]> {

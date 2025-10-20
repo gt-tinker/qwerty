@@ -38,6 +38,8 @@ uint64_t modular_inverse(uint64_t a, uint64_t m) {
     return (x % m + m) % m;
 }
 
+//when finding double negation, cancel it out. 
+// ~(~a) -> a
 struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
 
@@ -52,6 +54,149 @@ struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
 
         rewriter.replaceOp(op, upstream_notop.getOperand());
         return mlir::success();
+    }
+};
+
+// ~0 -> 1
+// ~1 -> 0
+// ~101 -> 010
+struct NegateConstantPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
+    using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::NotOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        ccirc::ConstantOp upstream_const =
+            op.getOperand().getDefiningOp<ccirc::ConstantOp>();
+
+        if (!upstream_const) {
+            return mlir::failure();
+        }
+
+        llvm::APInt value = upstream_const.getValue();
+
+        value.flipAllBits();
+
+        rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, value);
+        return mlir::success();
+    }
+};
+
+// if there is zero in either op parameter (and(0, x)), turn into constant 0.
+// since AND is commutative, this should handle and(x, 0) as well.
+struct AndWithZeroPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
+    using OpRewritePattern<ccirc::AndOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
+        bool isZeroOperand = false;
+
+        // Check if the left-hand side is a constant zero
+        if (auto lhsConst = lhs.getDefiningOp<ccirc::ConstantOp>()) {
+            if (lhsConst.getValue().isZero()) {
+                isZeroOperand = true;
+            }
+        }
+
+        // If not, check if the right-hand side is a constant zero
+        if (!isZeroOperand) {
+            if (auto rhsConst = rhs.getDefiningOp<ccirc::ConstantOp>()) {
+                if (rhsConst.getValue().isZero()) {
+                    isZeroOperand = true;
+                }
+            }
+        }
+
+        // If either operand is zero, the result is zero
+        if (isZeroOperand) {
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(op.getType().getDim(), 0));
+            return mlir::success();
+        }
+
+        return mlir::failure();
+    }
+};
+
+// and(1, x) -> x
+// since AND is commutative, this should also handle and(x, 1)
+struct AndWithOnePattern : public mlir::OpRewritePattern<ccirc::AndOp> {
+    using OpRewritePattern<ccirc::AndOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
+        mlir::Value otherOperand = nullptr;
+
+        // Check if lhs is a constant one
+        if (auto lhsConst = lhs.getDefiningOp<ccirc::ConstantOp>()) {
+            if (lhsConst.getValue().isAllOnes()) {
+                otherOperand = rhs;
+            }
+        } 
+        // If not, check if rhs is a constant one
+        else if (auto rhsConst = rhs.getDefiningOp<ccirc::ConstantOp>()) {
+            if (rhsConst.getValue().isAllOnes()) {
+                otherOperand = lhs;
+            }
+        }
+
+        // If we found a constant one, replace the AND op with the other operand
+        if (otherOperand) {
+            rewriter.replaceOp(op, otherOperand);
+            return mlir::success();
+        }
+
+        return mlir::failure();
+    }
+};
+
+// and(x, x) -> x
+struct DoubleAndPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
+    using OpRewritePattern<ccirc::AndOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        if (op.getLeft() == op.getRight()) {
+            rewriter.replaceOp(op, op.getLeft());
+            return mlir::success();
+        }
+        return mlir::failure();
+    }
+};
+
+// and(x, not(x)) -> 0
+// since AND is commutative, this should also handle and(not(x), x)
+struct AndWithNegationPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
+    using OpRewritePattern<ccirc::AndOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
+        bool match = false;
+
+        // Check for the pattern and(x, not(x))
+        if (auto rhsNot = rhs.getDefiningOp<ccirc::NotOp>()) {
+            if (rhsNot.getOperand() == lhs) {
+                match = true;
+            }
+        }
+        // Check for the pattern and(not(x), x)
+        else if (auto lhsNot = lhs.getDefiningOp<ccirc::NotOp>()) {
+            if (lhsNot.getOperand() == rhs) {
+                match = true;
+            }
+        }
+        
+        // If a match is found, replace the AND op with a constant 0
+        if (match) {
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(op.getType().getDim(), 0));
+            return mlir::success();
+        }
+
+        return mlir::failure();
     }
 };
 
@@ -468,6 +613,11 @@ BINARY_OP_VERIFY_AND_INFER(And)
 BINARY_OP_VERIFY_AND_INFER(Or)
 BINARY_OP_VERIFY_AND_INFER(Xor)
 
+void AndOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
+                                        mlir::MLIRContext *context) {
+    results.add<AndWithZeroPattern, AndWithOnePattern, DoubleAndPattern, AndWithNegationPattern>(context);
+}
+
 #define UNARY_OP_VERIFY_AND_INFER(name) \
     mlir::LogicalResult name##Op::verify() { \
         if (getOperand().getType() != getResult().getType()) { \
@@ -488,7 +638,7 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
-    results.add<DoubleNegationPattern>(context);
+    results.add<DoubleNegationPattern, NegateConstantPattern>(context);
 }
 
 mlir::LogicalResult ParityOp::verify() {
