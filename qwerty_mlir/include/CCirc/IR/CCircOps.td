@@ -59,9 +59,7 @@ def CCirc_ConstantOp : CCirc_Op<"constant", [Pure, ConstantLike, InferTypeOpAdap
 
     let builders = [
         OpBuilder<(ins "::llvm::APInt":$val), [{
-            
             build($_builder, $_state, $_builder.getIntegerAttr($_builder.getIntegerType(val.getBitWidth()), val));
-            //build($_builder, $_state, ::mlir::IntegerAttr::get(::mlir::IntegerType::get($_ctxt, val.getBitWidth()), val));
         }]>
     ];
 

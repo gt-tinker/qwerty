@@ -57,22 +57,22 @@ struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     }
 };
 
-struct NegateZeroPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
+// ~0 -> 1
+// ~1 -> 0
+// ~101 -> 010
+struct NegateConstantPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
 
     mlir::LogicalResult matchAndRewrite(ccirc::NotOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        ccirc::ConstantOp upstream_zero =
+        ccirc::ConstantOp upstream_const =
             op.getOperand().getDefiningOp<ccirc::ConstantOp>();
 
-        if (!upstream_zero) {
+        if (!upstream_const) {
             return mlir::failure();
         }
 
-        llvm::APInt value = upstream_zero.getValue();
-        if (value.getBitWidth() != 1) {
-            return mlir::failure();
-        }
+        llvm::APInt value = upstream_const.getValue();
 
         value.flipAllBits();
 
@@ -88,13 +88,13 @@ struct AndWithZeroPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        mlir::Value lhs = op.getOperand(0);
-        mlir::Value rhs = op.getOperand(1);
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
         bool isZeroOperand = false;
 
         // Check if the left-hand side is a constant zero
         if (auto lhsConst = lhs.getDefiningOp<ccirc::ConstantOp>()) {
-            if (lhsConst.getValue().isZero() && lhsConst.getType().getIntOrFloatBitWidth() == 1) {
+            if (lhsConst.getValue().isZero()) {
                 isZeroOperand = true;
             }
         }
@@ -102,7 +102,7 @@ struct AndWithZeroPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
         // If not, check if the right-hand side is a constant zero
         if (!isZeroOperand) {
             if (auto rhsConst = rhs.getDefiningOp<ccirc::ConstantOp>()) {
-                if (rhsConst.getValue().isZero() && rhsConst.getType().getIntOrFloatBitWidth() == 1) {
+                if (rhsConst.getValue().isZero()) {
                     isZeroOperand = true;
                 }
             }
@@ -110,7 +110,7 @@ struct AndWithZeroPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
 
         // If either operand is zero, the result is zero
         if (isZeroOperand) {
-            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, rewriter.getIntegerAttr(op.getType(), 0));
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(op.getType().getDim(), 0));
             return mlir::success();
         }
 
@@ -125,19 +125,19 @@ struct AndWithOnePattern : public mlir::OpRewritePattern<ccirc::AndOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        mlir::Value lhs = op.getOperand(0);
-        mlir::Value rhs = op.getOperand(1);
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
         mlir::Value otherOperand = nullptr;
 
         // Check if lhs is a constant one
         if (auto lhsConst = lhs.getDefiningOp<ccirc::ConstantOp>()) {
-            if (lhsConst.getValue().isOne() && lhsConst.getType().getIntOrFloatBitWidth() == 1) {
+            if (lhsConst.getValue().isAllOnes()) {
                 otherOperand = rhs;
             }
         } 
         // If not, check if rhs is a constant one
         else if (auto rhsConst = rhs.getDefiningOp<ccirc::ConstantOp>()) {
-            if (rhsConst.getValue().isOne() && rhsConst.getType().getIntOrFloatBitWidth() == 1) {
+            if (rhsConst.getValue().isAllOnes()) {
                 otherOperand = lhs;
             }
         }
@@ -158,8 +158,8 @@ struct DoubleAndPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        if (op.getOperand(0) == op.getOperand(1)) {
-            rewriter.replaceOp(op, op.getOperand(0));
+        if (op.getLeft() == op.getRight()) {
+            rewriter.replaceOp(op, op.getLeft());
             return mlir::success();
         }
         return mlir::failure();
@@ -173,8 +173,8 @@ struct AndWithNegationPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::AndOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        mlir::Value lhs = op.getOperand(0);
-        mlir::Value rhs = op.getOperand(1);
+        mlir::Value lhs = op.getLeft();
+        mlir::Value rhs = op.getRight();
         bool match = false;
 
         // Check for the pattern and(x, not(x))
@@ -192,7 +192,7 @@ struct AndWithNegationPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
         
         // If a match is found, replace the AND op with a constant 0
         if (match) {
-            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, rewriter.getIntegerAttr(op.getType(), 0));
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(op.getType().getDim(), 0));
             return mlir::success();
         }
 
@@ -638,7 +638,7 @@ UNARY_OP_VERIFY_AND_INFER(Not)
 
 void NotOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                         mlir::MLIRContext *context) {
-    results.add<DoubleNegationPattern, NegateZeroPattern>(context);
+    results.add<DoubleNegationPattern, NegateConstantPattern>(context);
 }
 
 mlir::LogicalResult ParityOp::verify() {
