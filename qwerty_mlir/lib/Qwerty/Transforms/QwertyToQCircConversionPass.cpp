@@ -2085,8 +2085,6 @@ void findStandardizations(
         llvm::ArrayRef<qwerty::BasisElemAttr> elems) {
     size_t qubit_idx = 0;
     for (qwerty::BasisElemAttr elem : elems) {
-        // Little optimization: treat fourier[1] as pm. This will hopefully
-        // help find more unconditional standardizations below
         qwerty::PrimitiveBasis prim_basis = elem.getPrimBasis();
         stdize.emplace_back(prim_basis, qubit_idx, qubit_idx + elem.getDim());
         qubit_idx += elem.getDim();
@@ -2967,12 +2965,12 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
   }
 }
 
-// This should also work for std // std.revolve >> ij // std.revolve
-// for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
-
 // This pass admits the qbtrans baz >> foo // bar.revolve (or reverse)
 // and generates baz >> std**N | std**N >> foo // bar.revolve OR
 // foo // bar.revolve >> std**N | std**N >> baz (reverse)
+
+// This should also work for std // std.revolve >> ij // std.revolve
+// for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
 struct ArbitraryBasisRevolveGenerator
     : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
   using mlir::OpConversionPattern<
@@ -3541,7 +3539,6 @@ struct RecurseRevolveBasisGenerator
         qwerty::BasisAttr revolve_basis =
                 qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
 
-        // TODO: add phases instead of the valueranges
         // We split the list of phases into two pieces, depending on
         // which phases go in which basis
         if (!inverse) {
@@ -3955,8 +3952,8 @@ struct SynthesizePermutations : public mlir::OpConversionPattern<qwerty::QBundle
 
         if (!isAligned(basis_in, basis_out) || hasGenerators(basis_in) ||
             hasGenerators(basis_out)) {
-          // AlignBasisTranslations needs to run first
-          return mlir::failure();
+            // AlignBasisTranslations needs to run first
+            return mlir::failure();
         }
 
         // Must return success past this point

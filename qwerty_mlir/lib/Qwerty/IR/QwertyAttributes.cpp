@@ -194,9 +194,9 @@ mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser,
 }
 
 uint64_t ApplyRevolveGeneratorAttr::getDim() const {
-    // foo is a BasisAttr
-    uint64_t fooDim = getSeed().getDim();
-    return fooDim + 1;
+    // seed is a BasisAttr
+    uint64_t seedDim = getSeed().getDim();
+    return seedDim + 1;
 }
 
 // TODO: This is nonsense and we dislike it.
