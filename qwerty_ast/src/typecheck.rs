@@ -2128,8 +2128,8 @@ fn supneg_ortho(
     bv_2b: &Vector,
     angle_deg_2b: f64,
 ) -> bool {
-    bv_1a.strip_dbg() == bv_1b.strip_dbg()
-        && bv_2a.strip_dbg() == bv_2b.strip_dbg()
+    bv_1a.approx_equal(&bv_1b)
+        && bv_2a.approx_equal(&bv_2b)
         && basis_vectors_are_ortho(bv_1a, bv_2a)
         && (in_phase(angle_deg_1a, angle_deg_1b) && anti_phase(angle_deg_2a, angle_deg_2b)
             || anti_phase(angle_deg_1a, angle_deg_1b) && in_phase(angle_deg_2a, angle_deg_2b))
@@ -2390,9 +2390,7 @@ fn basis_span_equiv(b1: &Basis, b2: &Basis) -> bool {
 
                     (Some(be1_dim), Some(be2_dim)) => {
                         if be1_dim == be2_dim {
-                            if be1.fully_spans() && be2.fully_spans()
-                                || be1.strip_dbg() == be2.strip_dbg()
-                            {
+                            if be1.fully_spans() && be2.fully_spans() || be1.approx_equal(&be2) {
                                 // Looks good. Keep going
                             } else {
                                 // Nothing to factor. Game over

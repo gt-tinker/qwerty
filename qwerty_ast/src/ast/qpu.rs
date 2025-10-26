@@ -802,6 +802,31 @@ impl Vector {
         }
     }
 
+    /// Returns whether vectors are equivalent, using `strip_dbg` and
+    /// `angles_are_approx_equal`
+    pub fn approx_equal(&self, other: &Vector) -> bool {
+        let self_stripped = &self.strip_dbg();
+        let other_stripped = other.strip_dbg();
+
+        match (self_stripped, other_stripped) {
+            (Vector::ZeroVector { .. }, Vector::ZeroVector { .. }) => true,
+            (Vector::OneVector { .. }, Vector::OneVector { .. }) => true,
+            (Vector::PadVector { .. }, Vector::PadVector { .. }) => true,
+            (Vector::TargetVector { .. }, Vector::TargetVector { .. }) => true,
+            (Vector::VectorUnit { .. }, Vector::VectorUnit { .. }) => true,
+            (Vector::VectorTilt {q: q1, angle_deg: deg1, ..}, Vector::VectorTilt { q: q2, angle_deg: deg2, .. }) => {
+                angles_are_approx_equal(*deg1, deg2) && q1.approx_equal(&q2)
+            }
+            (Vector::UniformVectorSuperpos { q1: q1a, q2: q2a, .. }, Vector::UniformVectorSuperpos { q1: q1b, q2: q2b, .. }) => {
+                q1a.approx_equal(&q1b) && q2a.approx_equal(&q2b)
+            }
+            (Vector::VectorTensor { qs: qs1, .. }, Vector::VectorTensor { qs: qs2, .. }) => {
+                qs1.len() == qs2.len() && qs1.iter().zip(qs2).all(|(v1, v2)| v1.approx_equal(&v2))
+            }
+            _ => false,
+        }
+    }
+
     /// Returns number of non-target and non-padding qubits represented by a basis
     /// vector (`⌊bv⌋` in the spec) or None if the basis vector is malformed
     /// (currently, if both sides of a superposition have different dimensions
@@ -1601,6 +1626,32 @@ impl Basis {
                 generator: generator.strip_dbg(),
                 dbg: None,
             },
+        }
+    }
+
+    /// Returns whether bases are equivalent, using `strip_dbg` and
+    /// `angles_are_approx_equal`
+    pub fn approx_equal(&self, other: &Basis) -> bool {
+        let self_stripped = self.strip_dbg();
+        let other_stripped = other.strip_dbg();
+        match (self_stripped, other_stripped) {
+            (Basis::EmptyBasisLiteral { .. }, Basis::EmptyBasisLiteral { .. }) => true,
+            (Basis::BasisLiteral { vecs: v1, .. }, Basis::BasisLiteral { vecs: v2, .. }) => {
+                v1.len() == v2.len() && v1.iter().zip(v2).all(|(a, b)| a.approx_equal(&b))
+            }
+            (Basis::BasisTensor { bases: b1, .. }, Basis::BasisTensor { bases: b2, .. }) => {
+                b1.len() == b2.len() && b1.iter().zip(b2).all(|(a, b)| a.approx_equal(&b))
+            }
+            (Basis::ApplyBasisGenerator { basis: b1, generator: g1, .. },
+             Basis::ApplyBasisGenerator { basis: b2, generator: g2, .. }) => {
+                (match (g1, g2) {
+                    (BasisGenerator::Revolve { v1: v1a, v2: v2a, .. },
+                     BasisGenerator::Revolve { v1: v1b, v2: v2b, .. }) => {
+                        v1a.approx_equal(&v1b) && v2a.approx_equal(&v2b)
+                    }
+                }) && b1.approx_equal(&b2)
+            }
+            _ => false,
         }
     }
 

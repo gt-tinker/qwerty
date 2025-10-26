@@ -479,11 +479,11 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
 
     // helper for classifying
     let classify = |v1: &Vector, v2: &Vector| -> Option<qwerty::PrimitiveBasis> {
-        if v1.strip_dbg() == std.0 && v2.strip_dbg() == std.1 {
+        if v1.approx_equal(&std.0) && v2.approx_equal(&std.1) {
             Some(qwerty::PrimitiveBasis::Z)
-        } else if v1.strip_dbg() == pm.0 && v2.strip_dbg() == pm.1 {
+        } else if v1.approx_equal(&pm.0) && v2.approx_equal(&pm.1) {
             Some(qwerty::PrimitiveBasis::X)
-        } else if v1.strip_dbg() == ij.0 && v2.strip_dbg() == ij.1 {
+        } else if v1.approx_equal(&ij.0) && v2.approx_equal(&ij.1) {
             Some(qwerty::PrimitiveBasis::Y)
         } else {
             None
