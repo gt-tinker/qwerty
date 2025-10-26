@@ -430,9 +430,9 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
 
 /// If the Vec of Bases is a vector of only basis literals {0, 1},
 /// or only {p, m}, or only {i, j}, then we want to find this!
-fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::PrimitiveBasis) {
+fn try_basis_as_primitive(basis_elems: &Vec<Basis>) -> Option<qwerty::PrimitiveBasis> {
     if basis_elems.is_empty() {
-        return (false, qwerty::PrimitiveBasis::Z);
+        return None;
     }
 
     // Define the canonical primitive bases
@@ -496,7 +496,7 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
     };
 
     let Some(candidate) = candidate_basis else {
-        return (false, qwerty::PrimitiveBasis::Z);
+        return None;
     };
 
     // verify all other elements match the same primitive basis pattern
@@ -504,14 +504,14 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
         match elem {
             Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
                 if classify(&vecs[0], &vecs[1]) != Some(candidate) {
-                    return (false, qwerty::PrimitiveBasis::Z);
+                    return None;
                 }
             }
-            _ => return (false, qwerty::PrimitiveBasis::Z),
+            _ => return None,
         }
     }
 
-    (true, candidate)
+    Some(candidate)
 }
 
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
@@ -520,8 +520,8 @@ fn is_vec_basis_equiv_primitive(basis_elems: &Vec<Basis>) -> (bool, qwerty::Prim
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
     let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
-    let (vec_basis_equiv_prim, prim_basis) = is_vec_basis_equiv_primitive(&basis_elements);
-    let (elems, phases) = if vec_basis_equiv_prim {
+    let prim_basis = try_basis_as_primitive(&basis_elements);
+    let (elems, phases) = if let Some(prim_basis) = prim_basis {
         let std =
             qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, prim_basis, basis_elements.len() as u64);
         let basis_elem = qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std);
