@@ -5,8 +5,10 @@ open Microsoft.Quantum.Arrays;
 open Microsoft.Quantum.Intrinsic;
 open Microsoft.Quantum.Unstable.StatePreparation;
 
-operation RandPrep(n : Int, vec: ComplexPolar[]) : Result[] {
+operation QFT(n : Int) : Result[] {
     use qubits = Qubit[n];
-    ApproximatelyPreparePureStateCP(0.0, vec, qubits);
+
+    ApplyQFT(qubits);
+
     return MeasureEachZ(qubits);
 }

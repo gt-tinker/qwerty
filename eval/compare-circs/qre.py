@@ -20,64 +20,57 @@ from qiskit_aer import AerSimulator
 
 from estimate_utils import estimate_circ, do_transpile
 
-from benchmarks.plus import plus_qwerty, plus_qiskit, plus_qsharp, plus_qiskit_hand
-from benchmarks.minus import minus_qwerty, minus_qiskit, minus_qsharp, minus_qiskit_hand
-from benchmarks.ghz import ghz_qwerty, ghz_qiskit, ghz_qsharp, ghz_qiskit_hand
-from benchmarks.negghz import negghz_qwerty, negghz_qiskit, negghz_qsharp, negghz_qiskit_hand
-from benchmarks.fourier import fourier_qwerty, fourier_qiskit, fourier_qsharp, fourier_qiskit_hand
-from benchmarks.rand import rand_qwerty, rand_qiskit, rand_qsharp # no rand_qiskit_hand. I am not Rain Man
+# from benchmarks.plus import plus_qwerty, plus_qiskit, plus_qsharp, plus_qiskit_hand
+# from benchmarks.minus import minus_qwerty, minus_qiskit, minus_qsharp, minus_qiskit_hand
+# from benchmarks.ghz import ghz_qwerty, ghz_qiskit, ghz_qsharp, ghz_qiskit_hand
+# from benchmarks.negghz import negghz_qwerty, negghz_qiskit, negghz_qsharp, negghz_qiskit_hand
+from benchmarks.qft import qft_qwerty, qft_qiskit, qft_qsharp, qft_qiskit_hand
 
 def parameters_split(s):
     x = s.replace(" ", "").split(",")
     return x
 
 # ------------------------------------Running Algorithms----------------------------------------
-def plus_circs(problem_size):
-    return [
-        ('plus', 'Qwerty', 'n-fold plus state', 'n/a', lambda: plus_qwerty.get_circuit(problem_size), problem_size),
-        ('plus', 'Qsharp', 'n-fold plus state', 'n/a', lambda: plus_qsharp.get_circuit(problem_size), problem_size),
-        ('plus', 'Qiskit', 'n-fold plus state', 'n/a', lambda: plus_qiskit.get_circuit(problem_size), problem_size),
-        ('plus', 'Qiskit-handwritten', 'n-fold plus state', 'n/a', lambda: plus_qiskit_hand.get_circuit(problem_size), problem_size),
-    ]
+# def plus_circs(problem_size):
+#     return [
+#         ('plus', 'Qwerty', 'n-fold plus state', 'n/a', lambda: plus_qwerty.get_circuit(problem_size), problem_size),
+#         ('plus', 'Qsharp', 'n-fold plus state', 'n/a', lambda: plus_qsharp.get_circuit(problem_size), problem_size),
+#         ('plus', 'Qiskit', 'n-fold plus state', 'n/a', lambda: plus_qiskit.get_circuit(problem_size), problem_size),
+#         ('plus', 'Qiskit-handwritten', 'n-fold plus state', 'n/a', lambda: plus_qiskit_hand.get_circuit(problem_size), problem_size),
+#     ]
+#
+# def minus_circs(problem_size):
+#     return [
+#         ('minus', 'Qwerty', 'n-fold minus state', 'n/a', lambda: minus_qwerty.get_circuit(problem_size), problem_size),
+#         ('minus', 'Qsharp', 'n-fold minus state', 'n/a', lambda: minus_qsharp.get_circuit(problem_size), problem_size),
+#         ('minus', 'Qiskit', 'n-fold minus state', 'n/a', lambda: minus_qiskit.get_circuit(problem_size), problem_size),
+#         ('minus', 'Qiskit-handwritten', 'n-fold minus state', 'n/a', lambda: minus_qiskit_hand.get_circuit(problem_size), problem_size),
+#     ]
+#
+# def ghz_circs(problem_size):
+#     return [
+#         ('ghz', 'Qwerty', 'n-qubit GHZ state', 'n/a', lambda: ghz_qwerty.get_circuit(problem_size), problem_size),
+#         ('ghz', 'Qsharp', 'n-qubit GHZ state', 'n/a', lambda: ghz_qsharp.get_circuit(problem_size), problem_size),
+#         ('ghz', 'Qiskit', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit.get_circuit(problem_size), problem_size),
+#         ('ghz', 'Qiskit-handwritten', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit_hand.get_circuit(problem_size), problem_size),
+#     ]
+#
+# def negghz_circs(problem_size):
+#     return [
+#         ('negghz', 'Qwerty', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qwerty.get_circuit(problem_size), problem_size),
+#         ('negghz', 'Qsharp', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qsharp.get_circuit(problem_size), problem_size),
+#         ('negghz', 'Qiskit', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit.get_circuit(problem_size), problem_size),
+#         ('negghz', 'Qiskit-handwritten', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit_hand.get_circuit(problem_size), problem_size),
+#     ]
 
-def minus_circs(problem_size):
-    return [
-        ('minus', 'Qwerty', 'n-fold minus state', 'n/a', lambda: minus_qwerty.get_circuit(problem_size), problem_size),
-        ('minus', 'Qsharp', 'n-fold minus state', 'n/a', lambda: minus_qsharp.get_circuit(problem_size), problem_size),
-        ('minus', 'Qiskit', 'n-fold minus state', 'n/a', lambda: minus_qiskit.get_circuit(problem_size), problem_size),
-        ('minus', 'Qiskit-handwritten', 'n-fold minus state', 'n/a', lambda: minus_qiskit_hand.get_circuit(problem_size), problem_size),
-    ]
 
-def ghz_circs(problem_size):
+# FIXME: Add better descriptions for this!
+def qft_circs(problem_size):
     return [
-        ('ghz', 'Qwerty', 'n-qubit GHZ state', 'n/a', lambda: ghz_qwerty.get_circuit(problem_size), problem_size),
-        ('ghz', 'Qsharp', 'n-qubit GHZ state', 'n/a', lambda: ghz_qsharp.get_circuit(problem_size), problem_size),
-        ('ghz', 'Qiskit', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit.get_circuit(problem_size), problem_size),
-        ('ghz', 'Qiskit-handwritten', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit_hand.get_circuit(problem_size), problem_size),
-    ]
-
-def negghz_circs(problem_size):
-    return [
-        ('negghz', 'Qwerty', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qwerty.get_circuit(problem_size), problem_size),
-        ('negghz', 'Qsharp', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qsharp.get_circuit(problem_size), problem_size),
-        ('negghz', 'Qiskit', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit.get_circuit(problem_size), problem_size),
-        ('negghz', 'Qiskit-handwritten', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit_hand.get_circuit(problem_size), problem_size),
-    ]
-
-def fourier_circs(problem_size):
-    return [
-        ('fourier', 'Qwerty', 'n-qubit Fourier basis state', 'last state', lambda: fourier_qwerty.get_circuit(problem_size), problem_size),
-        ('fourier', 'Qsharp', 'n-qubit Fourier basis state', 'last state', lambda: fourier_qsharp.get_circuit(problem_size), problem_size),
-        ('fourier', 'Qiskit', 'n-qubit Fourier basis state', 'last state', lambda: fourier_qiskit.get_circuit(problem_size), problem_size),
-        ('fourier', 'Qiskit-handwritten', 'n-qubit Fourier basis state', 'last state', lambda: fourier_qiskit_hand.get_circuit(problem_size), problem_size),
-    ]
-
-def rand_circs(problem_size):
-    return [
-        ('rand', 'Qwerty', 'n-qubit random state', 'pre-generated', lambda: rand_qwerty.get_circuit(problem_size), problem_size),
-        ('rand', 'Qsharp', 'n-qubit random state', 'pre-generated', lambda: rand_qsharp.get_circuit(problem_size), problem_size),
-        ('rand', 'Qiskit', 'n-qubit random state', 'pre-generated', lambda: rand_qiskit.get_circuit(problem_size), problem_size),
-        # no rand for Qiskit-handwritten. I am not Rain Man
+        ('qft', 'Qwerty', 'n-qubit qft basis state', 'last state', lambda: qft_qwerty.get_circuit(problem_size), problem_size),
+        ('qft', 'Qsharp', 'n-qubit qft basis state', 'last state', lambda: qft_qsharp.get_circuit(problem_size), problem_size),
+        ('qft', 'Qiskit', 'n-qubit qft basis state', 'last state', lambda: qft_qiskit.get_circuit(problem_size), problem_size),
+        ('qft', 'Qiskit-handwritten', 'n-qubit qft basis state', 'last state', lambda: qft_qiskit_hand.get_circuit(problem_size), problem_size),
     ]
 
 def get_all_circs(arg_algo, arg_problem_sizes):
@@ -87,12 +80,11 @@ def get_all_circs(arg_algo, arg_problem_sizes):
         #problem_sizes = [2**x for x in range(2, 8)]
         problem_sizes = [x for x in range(1, 13)]
     algo_circ_funcs = OrderedDict([
-        ('plus', plus_circs),
-        ('minus', minus_circs),
-        ('ghz', ghz_circs),
-        ('negghz', negghz_circs),
-        ('fourier', fourier_circs),
-        ('rand', rand_circs),
+        # ('plus', plus_circs),
+        # ('minus', minus_circs),
+        # ('ghz', ghz_circs),
+        # ('negghz', negghz_circs),
+        ('qft', qft_circs),
     ])
     circs = []
 

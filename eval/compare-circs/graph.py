@@ -16,12 +16,11 @@ qsharp = {}
 qiskit_hand = {}
 
 def initialize_specific_dictionary(dit):
-    dit["plus"] = {}
-    dit["minus"] = {}
-    dit["ghz"] = {}
-    dit["negghz"] = {}
-    dit["fourier"] = {}
-    dit["rand"] = {}
+    # dit["plus"] = {}
+    # dit["minus"] = {}
+    # dit["ghz"] = {}
+    # dit["negghz"] = {}
+    dit["qft"] = {}
     
     for key in dit:
         dit[key]["0"] = {}
@@ -55,18 +54,16 @@ def abbreviate(algo):
     abbrev = ""
     algo.strip()
     match algo:
-        case "n-foldplusstate":
-            abbrev = "plus"
-        case "n-foldminusstate":
-            abbrev = "minus"
-        case "n-qubitGHZstate":
-            abbrev = "ghz"
-        case "n-qubitGHZstatewithphase":
-            abbrev = "negghz"
-        case "n-qubitFourierbasisstate":
-            abbrev = "fourier"
-        case "n-qubitrandomstate":
-            abbrev = "rand"
+        # case "n-foldplusstate":
+        #     abbrev = "plus"
+        # case "n-foldminusstate":
+        #     abbrev = "minus"
+        # case "n-qubitGHZstate":
+        #     abbrev = "ghz"
+        # case "n-qubitGHZstatewithphase":
+        #     abbrev = "negghz"
+        case "n-qubitqftbasisstate":
+            abbrev = "qft"
         case _:
             raise Exception("Error: Unknown Algorithm " + algo)
     return abbrev
@@ -74,18 +71,16 @@ def abbreviate(algo):
 def unabbreviate(algo):
     abbrev = ""
     match algo:
-        case "plus":
-            abbrev = "n-fold plus state"
-        case "minus":
-            abbrev = "n-fold minus state"
-        case "ghz":
-            abbrev = "n-qubit GHZ state"
-        case "negghz":
-            abbrev = "n-qubit GHZ state with phase"
-        case "fourier":
-            abbrev = "n-qubit Fourier basis state"
-        case "rand":
-            abbrev = "n-qubit random state"
+        # case "plus":
+        #     abbrev = "n-fold plus state"
+        # case "minus":
+        #     abbrev = "n-fold minus state"
+        # case "ghz":
+        #     abbrev = "n-qubit GHZ state"
+        # case "negghz":
+        #     abbrev = "n-qubit GHZ state with phase"
+        case "qft":
+            abbrev = "n-qubit QFT basis state"
         case _:
             raise Exception("Error: Unknown Algorithm " + algo)
     return abbrev
@@ -235,9 +230,7 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand
     plt.bar(X_axis - 0.3, qwerty, 0.2, alpha=opacity, label = "Qwerty", color='#0072B2')
     plt.bar(X_axis - 0.1, qiskit, 0.2, alpha=opacity, label = "Qiskit", color='#009E73')
     plt.bar(X_axis + 0.1, qsharp, 0.2, alpha=opacity, label = "Q#", color='#D55E00')
-
-    if (unabbreviate('rand') not in title):
-        plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#F1E654')
+    plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#F1E654')
     
     plt.xlabel("Number of Qubits", fontsize= 14)
     plt.ylabel(subytitle, fontsize= 14)
@@ -245,12 +238,8 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand
 
     largest = 0
     smallest = 0
-    if (unabbreviate('rand') not in title):
-        largest = int(max(max(qwerty),max(qiskit), max(qsharp), max(qiskit_hand)))
-        smallest = int(min(min(qwerty), min(qiskit), min(qsharp), min(qiskit_hand)))
-    else:
-        largest = int(max(max(qwerty),max(qiskit), max(qsharp)))
-        smallest = int(min(min(qwerty), min(qiskit), min(qsharp)))
+    largest = int(max(max(qwerty),max(qiskit), max(qsharp), max(qiskit_hand)))
+    smallest = int(min(min(qwerty), min(qiskit), min(qsharp), min(qiskit_hand)))
     #plt.ylim(top=largest+2)  # adjust the top leaving bottom unchanged
     #plt.ylim(bottom=smallest-2)
 
@@ -288,7 +277,7 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand
 
 def graph_all(args):
     sizes = []
-    for size in qwerty["plus"]["3"]["time"]:
+    for size in qwerty["qft"]["3"]["time"]:
         sizes.append(size)
     
     # Graph each component of the CSV file
@@ -309,9 +298,7 @@ def graph_all(args):
                 qwerty_list[index] = qwerty[algo][opt]["time"][sizes[index]]
                 qiskit_list[index] = qiskit[algo][opt]["time"][sizes[index]]
                 qsharp_list[index] = qsharp[algo][opt]["time"][sizes[index]]
-
-                if algo != "rand":
-                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["time"][sizes[index]]
+                qiskit_hand_list[index] = qiskit_hand[algo][opt]["time"][sizes[index]]
             
             file = os.path.join(results_dir, f'{algo}_O{opt}_time.png')
             title = unabbreviate(algo) + ": Execution Time vs Input Size"
@@ -329,8 +316,7 @@ def graph_all(args):
                 qwerty_list[index] = qwerty[algo][opt]["logical"][sizes[index]]
                 qiskit_list[index] = qiskit[algo][opt]["logical"][sizes[index]]
                 qsharp_list[index] = qsharp[algo][opt]["logical"][sizes[index]]
-                if algo != "rand":
-                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["logical"][sizes[index]]
+                qiskit_hand_list[index] = qiskit_hand[algo][opt]["logical"][sizes[index]]
             
             file = os.path.join(results_dir, f'{algo}_O{opt}_logical.png')
             title = unabbreviate(algo) + ": Logical Qubits vs Input Size"
@@ -344,9 +330,7 @@ def graph_all(args):
                 qwerty_list[index] = qwerty[algo][opt]["physical"][sizes[index]]
                 qiskit_list[index] = qiskit[algo][opt]["physical"][sizes[index]]
                 qsharp_list[index] = qsharp[algo][opt]["physical"][sizes[index]]
-                
-                if algo != "rand":
-                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["physical"][sizes[index]]
+                qiskit_hand_list[index] = qiskit_hand[algo][opt]["physical"][sizes[index]]
             
             file = os.path.join(results_dir, f'{algo}_O{opt}_physical.png')
             title = unabbreviate(algo) + ": Physical Kiloqubits vs Input Size"
@@ -364,9 +348,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["ccix"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["ccix"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["ccix"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["ccix"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["ccix"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_ccix.png')
                 title = unabbreviate(algo) + ": CCIX vs Input Size"
@@ -380,9 +362,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["ccz"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["ccz"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["ccz"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["ccz"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["ccz"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_ccz.png')
                 title = unabbreviate(algo) + ": CCZ vs Input Size"
@@ -396,9 +376,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["measure"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["measure"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["measure"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["measure"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["measure"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_measure.png')
                 title = unabbreviate(algo) + ": Measurement Count vs Input Size"
@@ -412,9 +390,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["rotation"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["rotation"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["rotation"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["rotation"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["rotation"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_rotation.png')
                 title = unabbreviate(algo) + ": Rotation Count vs Input Size"
@@ -428,9 +404,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["depth"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["depth"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["depth"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["depth"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["depth"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_depth.png')
                 title = unabbreviate(algo) + ": Rotation Depth vs Input Size"
@@ -444,9 +418,7 @@ def graph_all(args):
                     qwerty_list[index] = qwerty[algo][opt]["tgates"][sizes[index]]
                     qiskit_list[index] = qiskit[algo][opt]["tgates"][sizes[index]]
                     qsharp_list[index] = qsharp[algo][opt]["tgates"][sizes[index]]
-
-                    if algo != "rand":
-                        qiskit_hand_list[index] = qiskit_hand[algo][opt]["tgates"][sizes[index]]
+                    qiskit_hand_list[index] = qiskit_hand[algo][opt]["tgates"][sizes[index]]
             
                 file = os.path.join(results_dir, f'{algo}_O{opt}_tgates.png')
                 title = unabbreviate(algo) + ": T Gate Count vs Input Size"
