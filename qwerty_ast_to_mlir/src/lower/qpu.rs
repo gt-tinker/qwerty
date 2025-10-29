@@ -254,13 +254,7 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     };
     let mut phase = root_phase;
 
-    let vecs = if let Vector::VectorTensor { qs, .. } = root_vec {
-        qs.clone()
-    } else if let Vector::VectorUnit { .. } = root_vec {
-        vec![]
-    } else {
-        vec![root_vec]
-    };
+    let vecs = root_vec.to_vec();
 
     for v in &vecs {
         let (v_prim_basis, v_eigenstate, v_phase) = ast_vec_to_mlir_helper(v);
@@ -434,44 +428,90 @@ fn is_bell_basis(vecs: &[Vector]) -> bool {
     }
 }
 
-// TODO: Remove this hack
-/// Returns `true` if this is the Fourier basis as defined in the QCE '25
-/// prelude using the `revolve` basis generator.
-fn is_fourier(basis: &Basis) -> bool {
-    match basis {
-        // {'0'+'1', '0'-'1'} == pm (the fourier[1] base case)
-        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
-            (if let Vector::UniformVectorSuperpos { q1, q2, .. } = &vecs[0] {
-                matches!(&**q1, Vector::ZeroVector { .. })
-                    && matches!(&**q2, Vector::OneVector { .. })
-            } else {
-                false
-            }) && (if let Vector::UniformVectorSuperpos { q1, q2, .. } = &vecs[1] {
-                matches!(&**q1, Vector::ZeroVector { .. })
-                    && if let Vector::VectorTilt { q, angle_deg, .. } = &**q2 {
-                        matches!(&**q, Vector::OneVector { .. })
-                            && angles_are_approx_equal(*angle_deg, 180.0)
-                    } else {
-                        false
-                    }
-            } else {
-                false
-            })
-        }
-
-        Basis::ApplyBasisGenerator {
-            basis: inner_basis,
-            generator:
-                BasisGenerator::Revolve {
-                    v1: Vector::ZeroVector { .. },
-                    v2: Vector::OneVector { .. },
-                    ..
-                },
-            ..
-        } => is_fourier(inner_basis),
-
-        _ => false,
+/// If the Vec of Bases is a vector of only basis literals {0, 1},
+/// or only {p, m}, or only {i, j}, then we want to find this!
+fn try_basis_as_primitive(basis_elems: &Vec<Basis>) -> Option<qwerty::PrimitiveBasis> {
+    if basis_elems.is_empty() {
+        return None;
     }
+
+    // Define the canonical primitive bases
+    let std = (
+        Vector::ZeroVector { dbg: None },
+        Vector::OneVector { dbg: None },
+    );
+
+    let p = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::OneVector { dbg: None }),
+        dbg: None,
+    };
+    let m = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 180.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let pm = (p, m);
+
+    let i = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 90.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let j = Vector::UniformVectorSuperpos {
+        q1: Box::new(Vector::ZeroVector { dbg: None }),
+        q2: Box::new(Vector::VectorTilt {
+            q: Box::new(Vector::OneVector { dbg: None }),
+            angle_deg: 270.0,
+            dbg: None,
+        }),
+        dbg: None,
+    };
+    let ij = (i, j);
+
+    // helper for classifying
+    let classify = |v1: &Vector, v2: &Vector| -> Option<qwerty::PrimitiveBasis> {
+        if v1.approx_equal(&std.0) && v2.approx_equal(&std.1) {
+            Some(qwerty::PrimitiveBasis::Z)
+        } else if v1.approx_equal(&pm.0) && v2.approx_equal(&pm.1) {
+            Some(qwerty::PrimitiveBasis::X)
+        } else if v1.approx_equal(&ij.0) && v2.approx_equal(&ij.1) {
+            Some(qwerty::PrimitiveBasis::Y)
+        } else {
+            None
+        }
+    };
+
+    let candidate_basis = match &basis_elems[0] {
+        Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => classify(&vecs[0], &vecs[1]),
+        _ => None,
+    };
+
+    let Some(candidate) = candidate_basis else {
+        return None;
+    };
+
+    // verify all other elements match the same primitive basis pattern
+    for elem in basis_elems.iter().skip(1) {
+        match elem {
+            Basis::BasisLiteral { vecs, .. } if vecs.len() == 2 => {
+                if classify(&vecs[0], &vecs[1]) != Some(candidate) {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+    }
+
+    Some(candidate)
 }
 
 /// Converts a Basis AST node into a qwerty::BasisAttribute and a separate list
@@ -480,44 +520,66 @@ fn is_fourier(basis: &Basis) -> bool {
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
     let basis_elements = basis.make_explicit().canonicalize().to_vec();
 
-    let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
-        .iter()
-        .map(|elem| {
-            match elem {
-                Basis::BasisLiteral { vecs, .. } if is_bell_basis(vecs) => {
-                    let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Bell, 2);
-                    (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
+    let prim_basis = try_basis_as_primitive(&basis_elements);
+    let (elems, phases) = if let Some(prim_basis) = prim_basis {
+        let std =
+            qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, prim_basis, basis_elements.len() as u64);
+        let basis_elem = qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std);
+        let elems = vec![basis_elem];
+        let phases = vec![];
+        (elems, phases)
+    } else {
+        let (elems, phases): (Vec<_>, Vec<_>) = basis_elements
+            .iter()
+            .map(|elem| {
+                match elem {
+                    Basis::BasisLiteral { vecs, .. } if is_bell_basis(vecs) => {
+                        let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Bell, 2);
+                        (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
+                    }
+
+                    Basis::BasisLiteral { vecs, .. } => {
+                        let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
+                            let (vec_attrs, phase) = ast_vec_to_mlir(vec);
+                            // TODO: Fix this
+                            assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
+                            let vec_attr = vec_attrs[0];
+                            let phase_opt = if vec_attr.has_phase() {
+                                Some(phase)
+                            } else {
+                                None
+                            };
+                            (vec_attr, phase_opt)
+                        }).unzip();
+                        let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
+                        (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
+                    },
+
+                    Basis::ApplyBasisGenerator { basis, generator, .. } => {
+                        match generator {
+                            BasisGenerator::Revolve {v1, v2, ..} => {
+                                let MlirBasis { basis_attr: foo_basis, phases: foo_phases, .. } = ast_basis_to_mlir(&basis);
+                                let (mut bv1_vec, bv1_phase) = ast_vec_to_mlir(v1);
+                                let bv1 = bv1_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                                let (mut bv2_vec, bv2_phase) = ast_vec_to_mlir(v2);
+                                let bv2 = bv2_vec.pop().expect("In revolve, basis vectors must be a single vector");
+                                let revolve = qwerty::ApplyRevolveGeneratorAttribute::new(&MLIR_CTX, foo_basis, bv1, bv2);
+
+                                // Because we care about phases
+                                let mut phase_vec = foo_phases.iter().map(|phase| Some(*phase)).collect::<Vec<Option<f64>>>();
+                                if !angle_is_approx_zero(bv1_phase) { phase_vec.push(Some(bv1_phase)) }
+                                if !angle_is_approx_zero(bv2_phase) { phase_vec.push(Some(bv2_phase)) }
+                                (qwerty::BasisElemAttribute::from_revolve(&MLIR_CTX, revolve), phase_vec)
+                            },
+                        }
+                    }
+
+                    Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
                 }
-
-                Basis::BasisLiteral { vecs, .. } => {
-                    let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
-                        let (vec_attrs, phase) = ast_vec_to_mlir(vec);
-                        // TODO: Fix this
-                        assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
-                        let vec_attr = vec_attrs[0];
-                        let phase_opt = if vec_attr.has_phase() {
-                            Some(phase)
-                        } else {
-                            None
-                        };
-                        (vec_attr, phase_opt)
-                    }).unzip();
-                    let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
-                    (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
-                },
-
-                Basis::ApplyBasisGenerator { .. } if is_fourier(elem) => {
-                    let dim = elem.get_dim().expect("valid fourier basis").try_into().unwrap();
-                    let std = qwerty::BuiltinBasisAttribute::new(&MLIR_CTX, qwerty::PrimitiveBasis::Fourier, dim);
-                    (qwerty::BasisElemAttribute::from_std(&MLIR_CTX, std), vec![])
-                }
-
-                Basis::ApplyBasisGenerator { .. } => todo!("nontrivial basis generator"),
-
-                Basis::EmptyBasisLiteral { .. } | Basis::BasisTensor { .. } => unreachable!("EmptyBasisLiteral and BasisTensor should have been canonicalized away"),
-            }
-        })
-        .unzip();
+            })
+            .unzip();
+        (elems, phases)
+    };
 
     let basis_attr = qwerty::BasisAttribute::new(&MLIR_CTX, &elems);
     let phases = phases.iter().flatten().filter_map(|opt| *opt).collect();

@@ -150,40 +150,72 @@ mlir::Attribute BasisVectorAttr::parse(mlir::AsmParser &parser, mlir::Type odsTy
 }
 
 void BasisElemAttr::print(mlir::AsmPrinter &printer) const {
-    if (getStd()) {
+    if (BuiltinBasisAttr std = getStd()) {
         printer << "std:";
-        printer.printStrippedAttrOrType(getStd());
-    } else if (getVeclist()) {
+        printer.printStrippedAttrOrType(std);
+    } else if (BasisVectorListAttr list = getVeclist()) {
         printer << "list:";
-        printer.printStrippedAttrOrType(getVeclist());
+        printer.printStrippedAttrOrType(list);
+    } else if (ApplyRevolveGeneratorAttr revolve = getRevolve()) {
+        printer << "revolve:";
+        printer.printStrippedAttrOrType(revolve);
     } else {
         assert(0 && "Invalid basis element state. How did the validator not "
                     "catch this?");
     }
 }
 
-mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser, mlir::Type odsType) {
+mlir::Attribute BasisElemAttr::parse(mlir::AsmParser &parser,
+                                     mlir::Type odsType) {
     llvm::StringRef kw;
-    if (parser.parseKeyword(&kw)
-        || parser.parseColon()) {
+
+    if (parser.parseOptionalKeyword(&kw) || parser.parseColon()) {
         return {};
     }
 
     if (kw == "std") {
         BuiltinBasisAttr std;
-        if (parser.parseCustomAttributeWithFallback<BuiltinBasisAttr>(std)) {
+        if (parser.parseCustomAttributeWithFallback<BuiltinBasisAttr>(std))
             return {};
-        }
         return BasisElemAttr::get(parser.getContext(), std);
     } else if (kw == "list") {
         BasisVectorListAttr list;
-        if (parser.parseCustomAttributeWithFallback<BasisVectorListAttr>(list)) {
+        if (parser.parseCustomAttributeWithFallback<BasisVectorListAttr>(list))
             return {};
-        }
         return BasisElemAttr::get(parser.getContext(), list);
+    } else if (kw == "revolve") {
+        ApplyRevolveGeneratorAttr revolve;
+        if (parser.parseCustomAttributeWithFallback<ApplyRevolveGeneratorAttr>(revolve))
+            return {};
+        return BasisElemAttr::get(parser.getContext(), revolve);
     } else {
         return {};
     }
+}
+
+uint64_t ApplyRevolveGeneratorAttr::getDim() const {
+    // seed is a BasisAttr
+    uint64_t seedDim = getSeed().getDim();
+    return seedDim + 1;
+}
+
+// TODO: This is nonsense and we dislike it.
+// Strongly.
+PrimitiveBasis ApplyRevolveGeneratorAttr::getPrimBasis() const {
+    // Inherit the primitive basis from foo
+    return getBv1().getPrimBasis(); // TODO: Is this correct?
+}
+
+bool ApplyRevolveGeneratorAttr::isPredicate() const {
+  return getSeed().hasPredicate();
+}
+
+bool ApplyRevolveGeneratorAttr::hasPhases() const {
+  return getSeed().hasPhases() || getBv1().hasPhase() || getBv2().hasPhase();
+}
+
+uint64_t ApplyRevolveGeneratorAttr::getNumPhases() const {
+    return getSeed().getNumPhases() + getBv1().hasPhase() + getBv2().hasPhase();
 }
 
 uint64_t BasisVectorListAttr::getDim() const {
@@ -238,8 +270,10 @@ uint64_t BasisElemAttr::getDim() const {
         return getStd().getDim();
     } else if (getVeclist()) {
         return getVeclist().getDim();
+    } else if (getRevolve()) {
+        return getRevolve().getDim();
     } else {
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
@@ -250,8 +284,10 @@ PrimitiveBasis BasisElemAttr::getPrimBasis() const {
         return getStd().getPrimBasis();
     } else if (getVeclist()) {
         return getVeclist().getPrimBasis();
+    } else if (getRevolve()) {
+        return getRevolve().getPrimBasis();
     } else {
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return (PrimitiveBasis)-1;
     }
@@ -262,8 +298,10 @@ bool BasisElemAttr::isPredicate() const {
         return false;
     } else if (getVeclist()) {
         return getVeclist().isPredicate();
+    } else if (getRevolve()) {
+        return getRevolve().isPredicate();
     } else {
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return false;
     }
@@ -274,8 +312,10 @@ uint64_t BasisElemAttr::getNumPhases() const {
         return 0;
     } else if (getVeclist()) {
         return getVeclist().getNumPhases();
+    } else if (getRevolve()) {
+        return getRevolve().getNumPhases();
     } else {
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
@@ -286,8 +326,10 @@ bool BasisElemAttr::hasPhases() const {
         return false;
     } else if (getVeclist()) {
         return getVeclist().hasPhases();
+    } else if (getRevolve()) {
+        return getRevolve().hasPhases();
     } else {
-        assert(0 && "Neither basis nor vector list in this basis element. "
+        assert(0 && "None of basis, vector list, or revolve generator in this basis element. "
                     "Verifier should catch this!");
         return 0;
     }
@@ -364,54 +406,6 @@ uint64_t BasisAttr::getNumPhases() const {
         total_n_phases += elems[i].getNumPhases();
     }
     return total_n_phases;
-}
-
-BasisVectorAttr BasisVectorAttr::deletePhase() const {
-    if (!hasPhase()) {
-        return *this;
-    }
-    return BasisVectorAttr::get(
-        getContext(), getPrimBasis(), getEigenbits(), getDim(),
-        /*hasPhase=*/false);
-}
-
-BasisVectorListAttr BasisVectorListAttr::deletePhases() const {
-    if (!hasPhases()) {
-        return *this;
-    }
-
-    llvm::SmallVector<BasisVectorAttr> vecs;
-    vecs.reserve(getVectors().size());
-
-    for (BasisVectorAttr vec : getVectors()) {
-        vecs.push_back(vec.deletePhase());
-    }
-
-    return BasisVectorListAttr::get(getContext(), vecs);
-}
-
-BasisElemAttr BasisElemAttr::deletePhases() const {
-    if (getStd() || !hasPhases()) {
-        return *this;
-    }
-
-    return BasisElemAttr::get(
-        getContext(), getVeclist().deletePhases());
-}
-
-BasisAttr BasisAttr::deletePhases() const {
-    if (!hasPhases()) {
-        return *this;
-    }
-
-    llvm::SmallVector<BasisElemAttr> elems;
-    elems.reserve(getElems().size());
-
-    for (BasisElemAttr elem : getElems()) {
-        elems.push_back(elem.deletePhases());
-    }
-
-    return BasisAttr::get(getContext(), elems);
 }
 
 BasisAttr BasisAttr::getAllOnesBasis(mlir::MLIRContext *ctx, size_t dim) {
@@ -505,6 +499,20 @@ mlir::LogicalResult BasisVectorListAttr::verify(
     return mlir::success();
 }
 
+mlir::LogicalResult ApplyRevolveGeneratorAttr::verify(
+        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
+        BasisAttr foo,
+        BasisVectorAttr bv1,
+        BasisVectorAttr bv2) {
+    if (bv1.getDim() != 1 || bv2.getDim() != 1) {
+        return emitError() << "Basis vectors we are using to revolve around must have dim 1";
+    }
+
+    // TODO: We also need to check if foo fully spans
+
+    return mlir::success();
+}
+
 mlir::LogicalResult SuperposElemAttr::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
         mlir::FloatAttr prob_attr,
@@ -579,11 +587,12 @@ mlir::LogicalResult SuperposAttr::verify(
 mlir::LogicalResult BasisElemAttr::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
         BuiltinBasisAttr std,
-        BasisVectorListAttr list) {
-    if (!!std ^ !!list) {
+        BasisVectorListAttr list,
+        ApplyRevolveGeneratorAttr revolve) {
+    if (!!std ^ !!list ^ !!revolve) {
         return mlir::success();
     } else {
-        return emitError() << "A standard basis xor a basis vector list are "
+        return emitError() << "A standard basis xor a basis vector list xor a revolve generator are "
                               "required for a basis element";
     }
 }

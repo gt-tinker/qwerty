@@ -1646,112 +1646,16 @@ struct EnsembleOpLowering : public mlir::OpConversionPattern<qwerty::EnsembleOp>
     }
 };
 
-// As specified in Section 5.1 of Mike & Ike
-void runQft(mlir::Location loc, mlir::OpBuilder &builder,
-            llvm::SmallVectorImpl<mlir::Value> &control_qubits,
-            llvm::SmallVectorImpl<mlir::Value> &qubits,
-            size_t start_idx, size_t n) {
-    assert(n <= qubits.size() && start_idx < qubits.size()
-           && start_idx+n <= qubits.size()
-           && "QFT indices out of range");
-    for (size_t i = 0; i < n; i++) {
-        qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
-            loc, qcirc::Gate1Q::H, control_qubits,
-            qubits[start_idx+i]);
-        qubits[start_idx+i] = h.getResult();
-        control_qubits.clear();
-        control_qubits.append(h.getControlResults().begin(),
-                              h.getControlResults().end());
-
-        for (size_t j = i+1; j < n; j++) {
-            // TODO: this precision is not enough for very large circuits. Need
-            // to use llvm::APFloat or something
-            double phase = 2.0*M_PI/std::pow(2, j-i+1);
-            mlir::Value phase_const =
-                qcirc::stationaryF64Const(builder, loc, phase);
-            llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
-                                                      control_qubits.end());
-            p_controls.push_back(qubits[start_idx+j]);
-            qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-                    loc, qcirc::Gate1Q1P::P, phase_const,
-                    p_controls, qubits[start_idx+i]);
-            control_qubits.clear();
-            // Exclude last control qubit
-            control_qubits.append(cp.getControlResults().begin(),
-                                  cp.getControlResults().begin()
-                                  + (cp.getControlResults().size()-1));
-            // ...since we need it here
-            qubits[start_idx+j] = cp.getControlResults()[
-                cp.getControlResults().size()-1];
-            qubits[start_idx+i] = cp.getResult();
+// We want to check for the presence of basis generators
+// for use in the AlignBasisTranslations and SynthesizePermutations
+// checks
+bool hasGenerators(qwerty::BasisAttr basis) {
+    for (qwerty::BasisElemAttr elem : basis.getElems()) {
+        if (elem.getRevolve()) {
+            return true;
         }
     }
-
-    for (size_t i = 0; i < n/2; i++) {
-        qcirc::Gate2QOp swap = builder.create<qcirc::Gate2QOp>(
-                loc, qcirc::Gate2Q::Swap, control_qubits,
-                qubits[start_idx+i], qubits[start_idx+n-1-i]);
-        qubits[start_idx+i] = swap.getLeftResult();
-        qubits[start_idx+n-1-i] = swap.getRightResult();
-        control_qubits.clear();
-        control_qubits.append(swap.getControlResults().begin(),
-                              swap.getControlResults().end());
-    }
-}
-
-// The above but written backwards (and the phases flipped), basically
-void runInverseQft(mlir::Location loc, mlir::OpBuilder &builder,
-                   llvm::SmallVectorImpl<mlir::Value> &control_qubits,
-                   llvm::SmallVectorImpl<mlir::Value> &qubits,
-                   size_t start_idx, size_t n) {
-    assert(n <= qubits.size() && start_idx < qubits.size()
-           && start_idx+n <= qubits.size()
-           && "IQFT indices out of range");
-
-    for (size_t ii = 0; ii < n/2; ii++) {
-        size_t i = n/2-1-ii;
-        qcirc::Gate2QOp swap = builder.create<qcirc::Gate2QOp>(
-                loc, qcirc::Gate2Q::Swap, control_qubits,
-                qubits[start_idx+i], qubits[start_idx+n-1-i]);
-        qubits[start_idx+i] = swap.getLeftResult();
-        qubits[start_idx+n-1-i] = swap.getRightResult();
-        control_qubits.clear();
-        control_qubits.append(swap.getControlResults().begin(),
-                              swap.getControlResults().end());
-    }
-
-    for (size_t ii = 0; ii < n; ii++) {
-        size_t i = n-1-ii;
-        for (size_t jj = i+1; jj < n; jj++) {
-            size_t j = n+i-jj;
-            // TODO: this precision is not enough for very large circuits. Need
-            // to use llvm::APFloat or something
-            double phase = -2.0*M_PI/std::pow(2, j-i+1);
-            mlir::Value phase_const =
-                qcirc::stationaryF64Const(builder, loc, phase);
-            llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
-                                                      control_qubits.end());
-            p_controls.push_back(qubits[start_idx+j]);
-            qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
-                    loc, qcirc::Gate1Q1P::P, phase_const,
-                    p_controls, qubits[start_idx+i]);
-            // Exclude last control qubit
-            control_qubits.clear();
-            control_qubits.append(cp.getControlResults().begin(),
-                                  cp.getControlResults().begin()
-                                  + (cp.getControlResults().size()-1));
-            // ...since we need it here
-            qubits[start_idx+j] = cp.getControlResults()[
-                cp.getControlResults().size()-1];
-            qubits[start_idx+i] = cp.getResult();
-        }
-        qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
-            loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx+i]);
-        qubits[start_idx+i] = h.getResult();
-        control_qubits.clear();
-        control_qubits.append(h.getControlResults().begin(),
-                              h.getControlResults().end());
-    }
+    return false;
 }
 
 // In the code here, we happen to use a stricter definition of "aligned" that
@@ -2181,13 +2085,7 @@ void findStandardizations(
         llvm::ArrayRef<qwerty::BasisElemAttr> elems) {
     size_t qubit_idx = 0;
     for (qwerty::BasisElemAttr elem : elems) {
-        // Little optimization: treat fourier[1] as pm. This will hopefully
-        // help find more unconditional standardizations below
-        qwerty::PrimitiveBasis prim_basis =
-                elem.getPrimBasis() == qwerty::PrimitiveBasis::FOURIER
-                && elem.getDim() == 1
-            ? qwerty::PrimitiveBasis::X
-            : elem.getPrimBasis();
+        qwerty::PrimitiveBasis prim_basis = elem.getPrimBasis();
         stdize.emplace_back(prim_basis, qubit_idx, qubit_idx + elem.getDim());
         qubit_idx += elem.getDim();
     }
@@ -2200,7 +2098,6 @@ bool primBasisIsSeparable(qwerty::PrimitiveBasis prim) {
         case qwerty::PrimitiveBasis::Z:
             return true;
 
-        case qwerty::PrimitiveBasis::FOURIER:
         case qwerty::PrimitiveBasis::BELL:
             return false;
 
@@ -2551,15 +2448,7 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
 
         size_t dim = stdize.end - stdize.start;
 
-        if (stdize.prim_basis == qwerty::PrimitiveBasis::FOURIER) {
-            if (left) {
-                runInverseQft(loc, rewriter, control_qubits,
-                              qubits, qubit_idx, dim);
-            } else { // right
-                runQft(loc, rewriter, control_qubits,
-                       qubits, qubit_idx, dim);
-            }
-        } else if (stdize.prim_basis == qwerty::PrimitiveBasis::BELL) {
+        if (stdize.prim_basis == qwerty::PrimitiveBasis::BELL) {
             assert(dim == 2 && "I only know the Bell basis on two qubits");
             if (left) {
                 one_qubit_gate(qcirc::Gate1Q::X, 1, 0);
@@ -2986,6 +2875,874 @@ void shootdownStandardizations(llvm::SmallVectorImpl<Standardization> &left_stdi
     }
 }
 
+// A helper function for forward synthesis
+// which is std**N >> std**(N-1) // std.revolve
+// AND the backward synthesis
+// which is std**(N-1) // std.revolve >> std**N
+void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
+                       llvm::SmallVectorImpl<mlir::Value> &control_qubits,
+                       llvm::SmallVectorImpl<mlir::Value> &qubits,
+                       size_t start_idx, size_t n, bool inverse) {
+  assert(n <= qubits.size() && start_idx < qubits.size() &&
+         start_idx + n <= qubits.size() && "Revolve indices out of range");
+  if (!inverse) {
+    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+        loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
+
+    qubits[start_idx] = h.getResult();
+    control_qubits.clear();
+    control_qubits.append(h.getControlResults().begin(),
+                          h.getControlResults().end());
+
+    for (size_t i = 1; i < n; i++) {
+      // TODO: this precision is not enough for very large circuits. Need
+      // to use llvm::APFloat or something
+
+      double phase = 2.0 * M_PI / std::pow(2, i + 1);
+      mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
+      llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
+                                                control_qubits.end());
+      p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
+      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+          loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
+          qubits[start_idx]); // applied on 0th qubit
+      control_qubits.clear();
+      // Exclude last control qubit
+      control_qubits.append(cp.getControlResults().begin(),
+                            cp.getControlResults().begin() +
+                                (cp.getControlResults().size() - 1));
+      // ...since we need it here
+      qubits[start_idx + i] =
+          cp.getControlResults()[cp.getControlResults().size() - 1];
+      qubits[start_idx] = cp.getResult();
+    }
+
+    // Do RotL(n) via qubits list
+    mlir::Value first = qubits[0];
+    for (size_t i = 0; i < n - 1; i++) {
+      qubits[i] = qubits[i + 1];
+    }
+    qubits[n - 1] = first;
+  } else { // inverse
+    // Do RotR(n) via qubits list
+    mlir::Value last = qubits[n - 1];
+    for (size_t i = n - 1; i > 0; i--) {
+      qubits[i] = qubits[i - 1];
+    }
+    qubits[0] = last;
+
+    // Apply controlled phases in reverse order, with negative angles.
+    for (size_t ii = 1; ii < n; ii++) {
+      size_t i = n - ii;                               // go from n-1 down to 1
+      double phase = -2.0 * M_PI / std::pow(2, i + 1); // negative angle
+      mlir::Value phase_const = qcirc::stationaryF64Const(builder, loc, phase);
+
+      llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
+                                                control_qubits.end());
+      p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
+
+      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+          loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx]);
+
+      control_qubits.clear();
+      control_qubits.append(cp.getControlResults().begin(),
+                            cp.getControlResults().begin() +
+                                (cp.getControlResults().size() - 1));
+
+      qubits[start_idx + i] =
+          cp.getControlResults()[cp.getControlResults().size() - 1];
+      qubits[start_idx] = cp.getResult();
+    }
+
+    // final H on q<start_idx>
+    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+        loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
+
+    qubits[start_idx] = h.getResult();
+    control_qubits.clear();
+    control_qubits.append(h.getControlResults().begin(),
+                          h.getControlResults().end());
+  }
+}
+
+// This pass admits the qbtrans baz >> foo // bar.revolve (or reverse)
+// and generates baz >> std**N | std**N >> foo // bar.revolve OR
+// foo // bar.revolve >> std**N | std**N >> baz (reverse)
+
+// This should also work for std // std.revolve >> ij // std.revolve
+// for example -> std // std.revolve >> std**2 | std**2 >> ij // std.revolve
+struct ArbitraryBasisRevolveGenerator
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    mlir::Location loc = trans.getLoc();
+    qwerty::BasisAttr basis_in = trans.getBasisIn();
+    qwerty::BasisAttr basis_out = trans.getBasisOut();
+    mlir::ValueRange basis_phases = trans.getBasisPhases();
+    llvm::SmallVector<mlir::Value> phases(basis_phases);
+
+    auto elts_in = basis_in.getElems();
+    auto elts_out = basis_out.getElems();
+    // Must have at least one ApplyRevolveGeneratorAttr,
+    // but no requirement for BuiltinBasisAttr because baz
+    // can be any basis as long as dim matches
+    if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_in = elts_in.front();
+    auto elt_out = elts_out.front();
+
+    if (!(elt_out.getRevolve() || elt_in.getRevolve())) {
+      return mlir::failure();
+    }
+
+    // Now we can populate the bases and do more checking
+    qwerty::BasisVectorListAttr veclist_outer;
+    qwerty::ApplyRevolveGeneratorAttr revolve_outer;
+    qwerty::BuiltinBasisAttr builtin_outer;
+    qwerty::ApplyRevolveGeneratorAttr revolve;
+
+    bool inverse = false;
+
+    // To get dim for baz in baz >> foo // bar.revolve
+    uint64_t baz_dim = 0;
+    if (elt_out.getRevolve()) {
+      if ((veclist_outer = elt_in.getVeclist())) {
+        baz_dim = veclist_outer.getDim();
+      } else if ((revolve_outer = elt_in.getRevolve())) {
+        baz_dim = revolve_outer.getDim();
+      } else if ((builtin_outer = elt_in.getStd())) {
+        baz_dim = builtin_outer.getDim();
+      }
+      revolve = elt_out.getRevolve();
+    } else {
+      if ((veclist_outer = elt_out.getVeclist())) {
+        baz_dim = veclist_outer.getDim();
+      } else if ((revolve_outer = elt_out.getRevolve())) {
+        baz_dim = revolve_outer.getDim();
+      } else if ((builtin_outer = elt_out.getStd())) {
+        baz_dim = builtin_outer.getDim();
+      }
+      revolve = elt_in.getRevolve();
+      inverse = true;
+    }
+
+    // Both builtinbasis and foo can be any basis, as long as the dimensions
+    // are compatible
+    qwerty::BasisAttr foo = revolve.getSeed();
+    auto elts_foo = foo.getElems();
+    if (elts_foo.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_foo = elts_foo.front();
+
+    // get foo's dim
+    qwerty::BasisVectorListAttr veclistAttr;
+    qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+    qwerty::BuiltinBasisAttr builtinAttr;
+    uint64_t elt_foo_dim = 0;
+
+    // Match the concrete attribute type and store it
+    if ((veclistAttr = elt_foo.getVeclist())) {
+      elt_foo_dim = veclistAttr.getDim();
+    } else if ((revolveAttr = elt_foo.getRevolve())) {
+      elt_foo_dim = revolveAttr.getDim();
+    } else if ((builtinAttr = elt_foo.getStd())) {
+      elt_foo_dim = builtinAttr.getDim();
+    }
+
+    if (!((baz_dim - 1) == elt_foo_dim)) {
+      return mlir::failure();
+    }
+
+    // code for creating bases that are reused in both fwd and rev directions
+
+    qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim + 1))});
+
+    // baz basis
+    qwerty::BasisElemAttr baz_elem;
+    if (veclist_outer) {
+      baz_elem =
+          qwerty::BasisElemAttr::get(rewriter.getContext(), veclist_outer);
+    } else if (revolve_outer) {
+      baz_elem =
+          qwerty::BasisElemAttr::get(rewriter.getContext(), revolve_outer);
+    } else if (builtin_outer) {
+      baz_elem =
+          qwerty::BasisElemAttr::get(rewriter.getContext(), builtin_outer);
+    }
+
+    qwerty::BasisAttr baz_N =
+        qwerty::BasisAttr::get(rewriter.getContext(), {baz_elem});
+
+    // foo // bar.revolve basis
+    qwerty::BasisElemAttr revolve_elem =
+        qwerty::BasisElemAttr::get(rewriter.getContext(), revolve);
+    qwerty::BasisAttr revolve_basis =
+        qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
+
+    // Now we can create two basis translations to create
+    // baz >> std**N | std**N >> foo // bar.revolve
+    if (!inverse) {
+      llvm::SmallVector<mlir::Value> baz_phases(
+          phases.begin(), phases.begin() + basis_in.getNumPhases());
+      llvm::SmallVector<mlir::Value> revolve_phases(
+          phases.begin() + basis_in.getNumPhases(), phases.end());
+
+      qwerty::QBundleBasisTranslationOp baz_to_std =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, baz_N, std_N, baz_phases, trans.getQbundleIn());
+
+      qwerty::QBundleBasisTranslationOp recurse_case_fwd =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_N, revolve_basis, revolve_phases,
+              baz_to_std.getQbundleOut());
+
+      rewriter.replaceOp(trans, recurse_case_fwd.getQbundleOut());
+    } else { // foo // bar.revolve >> std**N | std**N >> baz
+      llvm::SmallVector<mlir::Value> revolve_phases(
+          phases.begin(), phases.begin() + basis_in.getNumPhases());
+      llvm::SmallVector<mlir::Value> baz_phases(
+          phases.begin() + basis_in.getNumPhases(), phases.end());
+      qwerty::QBundleBasisTranslationOp recurse_case_rev =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, revolve_basis, std_N, revolve_phases, trans.getQbundleIn());
+
+      qwerty::QBundleBasisTranslationOp std_to_baz =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_N, baz_N, baz_phases, recurse_case_rev.getQbundleOut());
+
+      rewriter.replaceOp(trans, std_to_baz.getQbundleOut());
+    }
+
+    return mlir::success();
+  }
+};
+
+// This pass admits the qbtrans std**N >> foo // bar.revolve (for arbitrary bar)
+// and generates std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
+// or id**(N-1) * (bar >> std) | std**(N-1) // std.revolve >> std**N (reverse
+// case)
+struct ArbitraryRevolveBasisRevolveGenerator
+    : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+  using mlir::OpConversionPattern<
+      qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+  void initialize() {
+    /// Signal that this pattern safely handles recursive application.
+    setHasBoundedRewriteRecursion();
+  }
+
+  mlir::LogicalResult
+  matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const final {
+    mlir::Location loc = trans.getLoc();
+    qwerty::BasisAttr basis_in = trans.getBasisIn();
+    qwerty::BasisAttr basis_out = trans.getBasisOut();
+    mlir::ValueRange basis_phases = trans.getBasisPhases();
+
+    // NOTE: Because we admit std**N >> foo // bar.revolve,
+    // all of the phases must come from the revolve basis.
+    // Thus, we have to split the phases between the new
+    // std**N >> foo // std.revolve case and the std >> bar
+    // case
+    llvm::SmallVector<mlir::Value> phases(basis_phases);
+
+    auto elts_in = basis_in.getElems();
+    auto elts_out = basis_out.getElems();
+    // Must have one element each, either BuiltinBasisAttr or
+    // ApplyRevolveGeneratorAttr
+    if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+      return mlir::failure();
+    }
+
+    auto elt_in = elts_in.front();
+    auto elt_out = elts_out.front();
+
+    if (!((elt_in.getStd() && elt_out.getRevolve()) ||
+          (elt_in.getRevolve() && elt_out.getStd()))) {
+      return mlir::failure();
+    }
+
+    // Now we can populate the bases and do more checking
+    qwerty::BuiltinBasisAttr builtin;
+    qwerty::ApplyRevolveGeneratorAttr revolve;
+
+    bool inverse = false;
+
+    if (elt_in.getStd() && elt_out.getRevolve()) {
+      builtin = elt_in.getStd();
+      revolve = elt_out.getRevolve();
+    } else {
+      builtin = elt_out.getStd();
+      revolve = elt_in.getRevolve();
+      inverse = true;
+    }
+
+    // check whether revolve's bv1 and bv2 are 0, 1
+    // if they are, we ignore (should go to base case)
+    auto bv1 = revolve.getBv1();
+    auto bv2 = revolve.getBv2();
+
+    // We need builtinbasis to be std, but foo can be any basis as long
+    // as the dimensions are compatible (similar to
+    // RecurseRevolveBasisGenerator, but without the restriction that we care
+    // about it not being std)
+    qwerty::BasisAttr foo = revolve.getSeed();
+    auto elts_foo = foo.getElems();
+    if (elts_foo.size() != 1) {
+      return mlir::failure();
+    }
+    // If foo's elt is std at this point, then we reject, since it
+    // should be handled by the recursive case
+    auto elt_foo = elts_foo.front();
+
+    // get foo's dim
+    qwerty::BasisVectorListAttr veclistAttr;
+    qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+    qwerty::BuiltinBasisAttr builtinAttr;
+    uint64_t elt_foo_dim = 0;
+    uint64_t foo_num_phases = 0;
+
+    // Match the concrete attribute type and store it
+    if ((veclistAttr = elt_foo.getVeclist())) {
+      elt_foo_dim = veclistAttr.getDim();
+      foo_num_phases = veclistAttr.getNumPhases();
+    } else if ((revolveAttr = elt_foo.getRevolve())) {
+      elt_foo_dim = revolveAttr.getDim();
+      foo_num_phases = revolveAttr.getNumPhases();
+    } else if ((builtinAttr = elt_foo.getStd())) {
+      elt_foo_dim = builtinAttr.getDim();
+      // foo_num_phases stays 0, no phases in builtin bases
+    }
+
+    if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+          (builtin.getDim() - 1) == elt_foo_dim)) {
+      return mlir::failure();
+    }
+
+    // The phases for foo, the bar in foo // bar.revolve
+    // always go from left to right
+    llvm::SmallVector<mlir::Value> foo_phases(phases.begin(),
+                                              phases.begin() + foo_num_phases);
+    llvm::SmallVector<mlir::Value> bar_phases(phases.begin() + foo_num_phases,
+                                              phases.end());
+
+    // code for creating bases that are reused in both fwd and rev directions
+
+    qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim + 1))});
+
+    qwerty::BasisAttr foo_N_minus_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, elt_foo_dim))});
+
+    // for use in std >> bar, or reverse
+    qwerty::BasisAttr std_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{
+            rewriter.getAttr<qwerty::BasisElemAttr>(
+                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                    qwerty::PrimitiveBasis::Z, 1))});
+
+    auto bv1_bv2_vec = rewriter.getAttr<qwerty::BasisVectorListAttr>(
+        llvm::ArrayRef<qwerty::BasisVectorAttr>{bv1, bv2});
+
+    auto bv1_bv2_elem = rewriter.getAttr<qwerty::BasisElemAttr>(bv1_bv2_vec);
+
+    // for use in std >> bar, or reverse
+    auto bar_1 = rewriter.getAttr<qwerty::BasisAttr>(
+        std::initializer_list<qwerty::BasisElemAttr>{bv1_bv2_elem});
+
+    // create bv1 = |0>, bv2 = |1>
+    auto ctx = rewriter.getContext();
+    auto attr_zero = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 0);
+    auto attr_one = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 1);
+
+    auto bv1_vec = qwerty::BasisVectorAttr::get(
+        rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_zero, 1, false);
+    auto bv2_vec = qwerty::BasisVectorAttr::get(
+        rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_one, 1, false);
+
+    auto revolve_attr = rewriter.getAttr<qwerty::ApplyRevolveGeneratorAttr>(
+        foo_N_minus_1, bv1_vec, bv2_vec);
+
+    // foo // std.revolve basis
+    qwerty::BasisElemAttr revolve_elem =
+        qwerty::BasisElemAttr::get(rewriter.getContext(), revolve_attr);
+    qwerty::BasisAttr revolve_basis =
+        qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
+
+    // Now we can create two basis translations to create
+    // std**N >> foo // std.revolve | id**(N-1) * (std >> bar)
+    if (!inverse) {
+      // Steps:
+      // 1. create qbtrans std**N >> foo // std.revolve
+      qwerty::QBundleBasisTranslationOp recurse_case_fwd =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_N, revolve_basis, foo_phases, trans.getQbundleIn());
+
+      // 2. qbunpack and get last qubit
+      mlir::ValueRange fwd_unpacked =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc,
+                                               recurse_case_fwd.getQbundleOut())
+              .getQubits();
+
+      llvm::SmallVector<mlir::Value> last_qubit(std::prev(fwd_unpacked.end()),
+                                                fwd_unpacked.end());
+      auto packed_last_qubit =
+          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+
+      // 3. create std >> bar qbtrans on last qubit
+      qwerty::QBundleBasisTranslationOp std_to_bar =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, std_1, bar_1, bar_phases, packed_last_qubit);
+
+      // 4. qbpack resulting qubits with first N-1 qubits
+      llvm::SmallVector<mlir::Value> final_qubits(
+          fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
+
+      mlir::ValueRange bar_qubit =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc, std_to_bar.getQbundleOut())
+              .getQubits();
+      final_qubits.push_back(bar_qubit.front());
+
+      // 5. replace op
+      rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
+    } else { // foo // bar.revolve >> std**N
+      // id**(N-1) * (bar >> std) | foo // std.revolve >> std**N (reverse case)
+      // 1. unpack input bundle to get individual qubits
+      mlir::ValueRange in_unpacked =
+          rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+              .getQubits();
+
+      // 2. take the last qubit, apply inverse std >> bar translation
+      llvm::SmallVector<mlir::Value> last_qubit(std::prev(in_unpacked.end()),
+                                                in_unpacked.end());
+      mlir::Value packed_last_qubit =
+          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+
+      // create inverse std >> bar
+      qwerty::QBundleBasisTranslationOp bar_to_std =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, bar_1, std_1, bar_phases, packed_last_qubit);
+
+      // 3. unpack the result
+      mlir::ValueRange bar_std_unpacked =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc, bar_to_std.getQbundleOut())
+              .getQubits();
+
+      // 4. combine with first N-1 qubits
+      llvm::SmallVector<mlir::Value> combined_qubits(
+          in_unpacked.begin(), std::prev(in_unpacked.end()));
+
+      combined_qubits.push_back(bar_std_unpacked.front());
+
+      auto combined_packed =
+          rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+
+      // 5. apply foo // std.revolve >> std**N
+      qwerty::QBundleBasisTranslationOp recurse_case_rev =
+          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+              loc, revolve_basis, std_N, foo_phases, combined_packed);
+
+      mlir::ValueRange recurse_case_unpacked =
+          rewriter
+              .create<qwerty::QBundleUnpackOp>(loc,
+                                               recurse_case_rev.getQbundleOut())
+              .getQubits();
+
+      llvm::SmallVector<mlir::Value> final_qubits(recurse_case_unpacked.begin(),
+                                                  recurse_case_unpacked.end());
+
+      rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
+    }
+
+    return mlir::success();
+  }
+};
+
+// TODO: Figure out how to do predicated RevolveGenerators like
+// (aka '1' * std[N] >> '1' * (std[N-1] // std.revolve))
+
+// This pattern matches on either:
+// std**N >> foo // std.revolve OR foo // std.revolve >> std**N
+// and creates either:
+// std**N >> std**(N-1) // std.revolve | RotL | (std**(N-1) >> foo) * id OR
+// (foo >> std**(N-1)) * id | RotR | std**(N-1) // std.revolve >> std**N
+// respectively.
+//
+// Note that the RotL and RotR are implicit, so the base case
+// matches on std**N >> std**(N-1) // std.revolve or
+// std**(N-1) // std.revolve >> std**N.
+struct RecurseRevolveBasisGenerator
+        : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+    using mlir::OpConversionPattern<
+            qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+    void initialize() {
+        /// Signal that this pattern safely handles recursive application.
+        setHasBoundedRewriteRecursion();
+    }
+
+    mlir::LogicalResult
+    matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                        mlir::ConversionPatternRewriter &rewriter) const final {
+
+        mlir::Location loc = trans.getLoc();
+        qwerty::BasisAttr basis_in = trans.getBasisIn();
+        qwerty::BasisAttr basis_out = trans.getBasisOut();
+        mlir::ValueRange basis_phases = trans.getBasisPhases();
+
+        // NOTE: Because we admit std**N >> foo // std.revolve,
+        // the only place phases can come from is foo. Thus, we don't
+        // need to separate phases, and can apply them directly to
+        // the std**(N-1) >> foo (or reverse) basis translation
+        llvm::SmallVector<mlir::Value> foo_phases(basis_phases);
+
+        // NOTE: We DON'T want to match on the "base case", which takes the
+        // form std**N >> std**(N-1) // std.revolve or its reverse
+
+        auto elts_in = basis_in.getElems();
+        auto elts_out = basis_out.getElems();
+        // Must have one element each, either BuiltinBasisAttr or
+        // ApplyRevolveGeneratorAttr
+        if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+            return mlir::failure();
+        }
+
+        auto elt_in = elts_in.front();
+        auto elt_out = elts_out.front();
+
+        if (!((elt_in.getStd() && elt_out.getRevolve()) ||
+                    (elt_in.getRevolve() && elt_out.getStd()))) {
+            return mlir::failure();
+        }
+
+        // Now we can populate the bases and do more checking
+        qwerty::BuiltinBasisAttr builtin;
+        qwerty::ApplyRevolveGeneratorAttr revolve;
+
+        bool inverse = false;
+
+        if (elt_in.getStd() && elt_out.getRevolve()) {
+            builtin = elt_in.getStd();
+            revolve = elt_out.getRevolve();
+        } else {
+            builtin = elt_out.getStd();
+            revolve = elt_in.getRevolve();
+            inverse = true;
+        }
+
+        // the aforementioned checks for prim-basis correctness
+        // First, check that revolve's bv1, bv2 are prim basis Z
+        // and eigenbits 0, 1 (in that order)
+        auto bv1 = revolve.getBv1();
+        auto bv2 = revolve.getBv2();
+        if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                     bv1.getEigenbits()[0] == 0) &&
+                    (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                     bv2.getEigenbits()[0] == 1)) &&
+                     !(bv1.hasPhase() || bv2.hasPhase())) {
+            return mlir::failure();
+        }
+
+        // Here, we differ from the base case. We check that the builtinbasis
+        // is std, and that the dimensions for revolve's foo = builtinbasis - 1,
+        // but we DO NOT require that foo be a standard basis.
+        // Then, check that revolve's foo and builtinbasis are both
+        // std, where revolve's dim is one less than builtinbasis' dim
+        // NOTE: Revolve's foo is a BasisAttr so we need to verify that
+
+        // we need to extract revolve's foo's basis here, for prim_basis and dim
+        qwerty::BasisAttr foo = revolve.getSeed();
+        auto elts_foo = foo.getElems();
+        if (elts_foo.size() != 1) {
+            return mlir::failure();
+        }
+        // If foo's elt is std at this point, then we reject, since it
+        // should be handled by the recursive case
+        auto elt_foo = elts_foo.front();
+
+        // get foo's dim
+        qwerty::BasisVectorListAttr veclistAttr;
+        qwerty::ApplyRevolveGeneratorAttr revolveAttr;
+        qwerty::BuiltinBasisAttr builtinAttr;
+        uint64_t elt_foo_dim = 0;
+
+        // Match the concrete attribute type and store it
+        if ((veclistAttr = elt_foo.getVeclist())) {
+                elt_foo_dim = veclistAttr.getDim();
+        } else if ((revolveAttr = elt_foo.getRevolve())) {
+                elt_foo_dim = revolveAttr.getDim();
+        } else if ((builtinAttr = elt_foo.getStd())) {
+                if (builtinAttr.getPrimBasis() == qwerty::PrimitiveBasis::Z)
+                        return mlir::failure();
+                elt_foo_dim = builtinAttr.getDim();
+        }
+
+        if (!(builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                    (builtin.getDim() - 1) == elt_foo_dim)) {
+            return mlir::failure();
+        }
+
+        // Now, we can split our qbtrans in two, depending on inverse.
+        // qbtrans ops
+
+        // These are the building blocks for the canonical/base case basis
+        // translation std**N basis
+        qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
+                std::initializer_list<qwerty::BasisElemAttr>{
+                        rewriter.getAttr<qwerty::BasisElemAttr>(
+                                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                                        qwerty::PrimitiveBasis::Z, elt_foo_dim + 1))});
+
+        qwerty::BasisAttr std_N_minus_1 = rewriter.getAttr<qwerty::BasisAttr>(
+                std::initializer_list<qwerty::BasisElemAttr>{
+                        rewriter.getAttr<qwerty::BasisElemAttr>(
+                                rewriter.getAttr<qwerty::BuiltinBasisAttr>(
+                                        qwerty::PrimitiveBasis::Z, elt_foo_dim))});
+
+        // create bv1 = |0>, bv2 = |1>
+        auto ctx = rewriter.getContext();
+        auto attr_zero = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 0);
+        auto attr_one = mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 1), 1);
+
+        auto bv1_vec = qwerty::BasisVectorAttr::get(
+                rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_zero, 1, false);
+        auto bv2_vec = qwerty::BasisVectorAttr::get(
+                rewriter.getContext(), qwerty::PrimitiveBasis::Z, attr_one, 1, false);
+
+        auto revolve_attr = rewriter.getAttr<qwerty::ApplyRevolveGeneratorAttr>(
+                std_N_minus_1, bv1_vec, bv2_vec);
+
+        // std**(N-1) // std.revolve basis
+        qwerty::BasisElemAttr revolve_elem =
+                qwerty::BasisElemAttr::get(rewriter.getContext(), revolve_attr);
+        qwerty::BasisAttr revolve_basis =
+                qwerty::BasisAttr::get(rewriter.getContext(), {revolve_elem});
+
+        // We split the list of phases into two pieces, depending on
+        // which phases go in which basis
+        if (!inverse) {
+            qwerty::QBundleBasisTranslationOp base_case_fwd =
+                    rewriter.create<qwerty::QBundleBasisTranslationOp>(
+                            loc, std_N, revolve_basis, mlir::ValueRange(),
+                            trans.getQbundleIn());
+
+            // 1. qbunpack to get the qubits
+            mlir::ValueRange fwd_unpacked =
+                    rewriter
+                            .create<qwerty::QBundleUnpackOp>(loc, base_case_fwd.getQbundleOut())
+                            .getQubits();
+
+            // 2. qbpack N-1 first qubits
+            llvm::SmallVector<mlir::Value> first_N_minus_1(
+                    fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
+            auto packed_N_minus_1 =
+                    rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
+
+            // 3. (new qbtrans) apply std**(N-1) >> foo to the first N-1 qubits
+            qwerty::BasisElemAttr foo_elem;
+            if (veclistAttr) {
+                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+            } else if (revolveAttr) {
+                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+            } else if (builtinAttr) {
+                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+            }
+            qwerty::BasisAttr foo_basis =
+                    qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+
+            auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
+                    loc, std_N_minus_1, foo_basis, foo_phases,
+                    packed_N_minus_1);
+
+            // 4. qbunpack qubits from new qbtrans
+            mlir::ValueRange subtrans_unpacked =
+                    rewriter
+                            .create<qwerty::QBundleUnpackOp>(loc, subtrans.getQbundleOut())
+                            .getQubits();
+
+            // 5. (re) qbpack qubits from new qbtrans with Nth qubit from original
+            // qbtrans
+            llvm::SmallVector<mlir::Value> final_qubits(subtrans_unpacked.begin(), subtrans_unpacked.end());
+            final_qubits.push_back(fwd_unpacked.back());
+
+            // 6. replace og trans with this final qbpack
+            rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);
+
+        } else { // foo // std.revolve >> std**N
+            // (foo >> std**(N-1)) * id | RotR | std**(N-1) // std.revolve >> std**N
+            qwerty::BasisElemAttr foo_elem;
+            if (veclistAttr) {
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+            } else if (revolveAttr) {
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+            } else if (builtinAttr) {
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+            }
+            qwerty::BasisAttr foo_basis =
+                    qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+
+            // 1. unpack the original input (N qubits)
+            mlir::ValueRange rev_unpacked =
+                    rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn()).getQubits();
+
+            // 2. pack first N-1 qubits, apply sub-translation foo -> std**(N-1)
+            llvm::SmallVector<mlir::Value> first_N_minus_1(rev_unpacked.begin(), std::prev(rev_unpacked.end()));
+            auto packed_N_minus_1 =
+                    rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
+
+            auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
+                    loc, foo_basis, std_N_minus_1, foo_phases, packed_N_minus_1);
+
+            // 3. unpack outputs of subtrans (N-1 qubits in std)
+            mlir::ValueRange subtrans_unpacked =
+                    rewriter.create<qwerty::QBundleUnpackOp>(loc, subtrans.getQbundleOut()).getQubits();
+
+            // 4. now repack the N-1 outputs together with the original Nth qubit
+            llvm::SmallVector<mlir::Value> combined_qubits(subtrans_unpacked.begin(), subtrans_unpacked.end());
+            combined_qubits.push_back(rev_unpacked.back()); // original last qubit
+
+            auto combined_packed =
+                    rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+
+            // 5. apply the base-case rev: (std**(N-1) // revolve) >> std**N
+            qwerty::QBundleBasisTranslationOp base_case_rev =
+                    rewriter.create<qwerty::QBundleBasisTranslationOp>(
+                            loc, revolve_basis, std_N, mlir::ValueRange(), combined_packed);
+
+            mlir::ValueRange base_case_unpacked =
+                    rewriter.create<qwerty::QBundleUnpackOp>(loc, base_case_rev.getQbundleOut()).getQubits();
+
+            llvm::SmallVector<mlir::Value> final_qubits(base_case_unpacked.begin(), base_case_unpacked.end());
+
+            rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);}
+
+        return mlir::success();
+    }
+};
+
+// In this pattern, we explicitly lower the base case, which is
+// std**N >> std**(N-1) // std.revolve or
+// std**(N-1) // std.revolve >> std**N
+// This basis translation is explicitly lowered to a circuit
+// specified in `runRevolveCircuit`
+struct LowerRevolveBasisGenerator
+        : public mlir::OpConversionPattern<qwerty::QBundleBasisTranslationOp> {
+    using mlir::OpConversionPattern<
+            qwerty::QBundleBasisTranslationOp>::OpConversionPattern;
+
+    mlir::LogicalResult
+    matchAndRewrite(qwerty::QBundleBasisTranslationOp trans, OpAdaptor adaptor,
+                          mlir::ConversionPatternRewriter &rewriter) const final {
+        // Verify that we indeed see the base case here
+        // then call the runRevolveCircuit here if we match
+        mlir::Location loc = trans.getLoc();
+        qwerty::BasisAttr basis_in = trans.getBasisIn();
+        qwerty::BasisAttr basis_out = trans.getBasisOut();
+
+        auto elts_in = basis_in.getElems();
+        auto elts_out = basis_out.getElems();
+        // Must have one element each, either BuiltinBasisAttr or
+        // ApplyRevolveGeneratorAttr
+        if (elts_in.size() != elts_out.size() || elts_in.size() != 1) {
+            return mlir::failure();
+        }
+
+        auto elt_in = elts_in.front();
+        auto elt_out = elts_out.front();
+
+        if (!((elt_in.getStd() && elt_out.getRevolve()) ||
+                    (elt_in.getRevolve() && elt_out.getStd()))) {
+            return mlir::failure();
+        }
+
+        // Now we can populate the bases and do more checking
+        qwerty::BuiltinBasisAttr builtin;
+        qwerty::ApplyRevolveGeneratorAttr revolve;
+
+        bool inverse = false;
+
+        if (elt_in.getStd() && elt_out.getRevolve()) {
+            builtin = elt_in.getStd();
+            revolve = elt_out.getRevolve();
+        } else {
+            builtin = elt_out.getStd();
+            revolve = elt_in.getRevolve();
+            inverse = true;
+        }
+
+        // the aforementioned checks for prim-basis correctness
+        // First, check that revolve's bv1, bv2 are prim basis Z
+        // and eigenbits 0, 1 (in that order)
+        auto bv1 = revolve.getBv1();
+        auto bv2 = revolve.getBv2();
+        if (!((bv1.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                     bv1.getEigenbits()[0] == 0) &&
+                    (bv2.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                     bv2.getEigenbits()[0] == 1) &&
+                    !(bv1.hasPhase() || bv2.hasPhase()))) {
+            return mlir::failure();
+        }
+
+        // Then, check that revolve's foo and builtinbasis are both
+        // std, where revolve's dim is one less than builtinbasis' dim
+        // NOTE: Revolve's foo is a BasisAttr so we need to verify that
+
+        // we need to extract revolve's foo's basis here, for prim_basis and dim
+        qwerty::BasisAttr foo = revolve.getSeed();
+        auto elts_foo = foo.getElems();
+        if (elts_foo.size() != 1) {
+            return mlir::failure();
+        }
+        auto elt_foo = elts_foo.front();
+        if (!elt_foo.getStd()) {
+            return mlir::failure();
+        }
+
+        qwerty::BuiltinBasisAttr foo_basis = elt_foo.getStd();
+        if (!(foo_basis.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                    builtin.getPrimBasis() == qwerty::PrimitiveBasis::Z &&
+                    (builtin.getDim() - 1) == foo_basis.getDim())) {
+            return mlir::failure();
+        }
+
+        // Now we know we've matched on the correct thing, and can make a circuit
+        // for it!
+        mlir::ValueRange unpacked =
+                rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+                        .getQubits();
+        llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
+        llvm::SmallVector<mlir::Value> controls;
+        // TODO: Is the 0 correct? not necessarily, understand how to generalize
+        runRevolveCircuit(loc, rewriter, controls, qubits, 0, builtin.getDim(),
+                                            inverse);
+
+        rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, qubits);
+
+        return mlir::success();
+    }
+};
+
 // This pattern does most of the work for synthesizing a basis translation
 // besides synthesis of classical logic. Please see Section 6.3 of the CGO
 // paper for details on the overarching ideas implemented here.
@@ -3002,8 +3759,9 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
         // If this basis translation is already aligned and in the standard
         // basis, we can skip this pattern entirely and let
         // SynthesizePermutations (below) continue with synthesis
-        if (isAligned(basis_in, basis_out)) {
-            return mlir::failure();
+        if (isAligned(basis_in, basis_out) || hasGenerators(basis_in) ||
+            hasGenerators(basis_out)) {
+          return mlir::failure();
         }
 
         llvm::SmallVector<Standardization> left_stdize, right_stdize;
@@ -3192,7 +3950,8 @@ struct SynthesizePermutations : public mlir::OpConversionPattern<qwerty::QBundle
         qwerty::BasisAttr basis_in = trans.getBasisIn();
         qwerty::BasisAttr basis_out = trans.getBasisOut();
 
-        if (!isAligned(basis_in, basis_out)) {
+        if (!isAligned(basis_in, basis_out) || hasGenerators(basis_in) ||
+            hasGenerators(basis_out)) {
             // AlignBasisTranslations needs to run first
             return mlir::failure();
         }
@@ -3582,6 +4341,10 @@ struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<
                      QBundleDiscardZeroOpLowering,
                      QBundlePhaseOpLowering,
                      QBundleIdentityOpLowering,
+                     ArbitraryBasisRevolveGenerator,
+                     ArbitraryRevolveBasisRevolveGenerator,
+                     RecurseRevolveBasisGenerator,
+                     LowerRevolveBasisGenerator,
                      AlignBasisTranslations,
                      SynthesizePermutations,
                      QBundleMeasureNonStd,
