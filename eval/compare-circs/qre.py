@@ -25,6 +25,8 @@ from estimate_utils import estimate_circ, do_transpile
 # from benchmarks.ghz import ghz_qwerty, ghz_qiskit, ghz_qsharp, ghz_qiskit_hand
 # from benchmarks.negghz import negghz_qwerty, negghz_qiskit, negghz_qsharp, negghz_qiskit_hand
 from benchmarks.qft import qft_qwerty, qft_qiskit, qft_qsharp, qft_qiskit_hand
+from benchmarks.canonical import canonical_qwerty, canonical_qiskit, canonical_qsharp, canonical_qiskit_hand
+
 
 def parameters_split(s):
     x = s.replace(" ", "").split(",")
@@ -73,18 +75,28 @@ def qft_circs(problem_size):
         ('qft', 'Qiskit-handwritten', 'n-qubit qft basis state', 'last state', lambda: qft_qiskit_hand.get_circuit(problem_size), problem_size),
     ]
 
+def canonical_circs(problem_size):
+    return [
+        ('canonical', 'Qwerty', 'n-qubit canonical basis state', 'last state', lambda: canonical_qwerty.get_circuit(problem_size), problem_size),
+        ('canonical', 'Qsharp', 'n-qubit canonical basis state', 'last state', lambda: canonical_qsharp.get_circuit(problem_size), problem_size),
+        ('canonical', 'Qiskit', 'n-qubit canonical basis state', 'last state', lambda: canonical_qiskit.get_circuit(problem_size), problem_size),
+        ('canonical', 'Qiskit-handwritten', 'n-qubit canonical basis state', 'last state', lambda: canonical_qiskit_hand.get_circuit(problem_size), problem_size),
+    ]
+
 def get_all_circs(arg_algo, arg_problem_sizes):
     if arg_problem_sizes:
         problem_sizes = arg_problem_sizes
     else:
         #problem_sizes = [2**x for x in range(2, 8)]
-        problem_sizes = [x for x in range(1, 13)]
+        # problem_sizes = [x for x in range(1, 13)]
+        problem_sizes = [x for x in range(2, 22, 2)]
     algo_circ_funcs = OrderedDict([
         # ('plus', plus_circs),
         # ('minus', minus_circs),
         # ('ghz', ghz_circs),
         # ('negghz', negghz_circs),
         ('qft', qft_circs),
+        ('canonical', canonical_circs),
     ])
     circs = []
 
