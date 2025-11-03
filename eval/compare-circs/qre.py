@@ -26,6 +26,7 @@ from estimate_utils import estimate_circ, do_transpile
 # from benchmarks.negghz import negghz_qwerty, negghz_qiskit, negghz_qsharp, negghz_qiskit_hand
 from benchmarks.qft import qft_qwerty, qft_qiskit, qft_qsharp, qft_qiskit_hand
 from benchmarks.canonical import canonical_qwerty, canonical_qiskit, canonical_qsharp, canonical_qiskit_hand
+from benchmarks.revolve_phases import revolve_phases_qwerty, revolve_phases_qiskit, revolve_phases_qsharp, revolve_phases_qiskit_hand
 
 
 def parameters_split(s):
@@ -33,38 +34,6 @@ def parameters_split(s):
     return x
 
 # ------------------------------------Running Algorithms----------------------------------------
-# def plus_circs(problem_size):
-#     return [
-#         ('plus', 'Qwerty', 'n-fold plus state', 'n/a', lambda: plus_qwerty.get_circuit(problem_size), problem_size),
-#         ('plus', 'Qsharp', 'n-fold plus state', 'n/a', lambda: plus_qsharp.get_circuit(problem_size), problem_size),
-#         ('plus', 'Qiskit', 'n-fold plus state', 'n/a', lambda: plus_qiskit.get_circuit(problem_size), problem_size),
-#         ('plus', 'Qiskit-handwritten', 'n-fold plus state', 'n/a', lambda: plus_qiskit_hand.get_circuit(problem_size), problem_size),
-#     ]
-#
-# def minus_circs(problem_size):
-#     return [
-#         ('minus', 'Qwerty', 'n-fold minus state', 'n/a', lambda: minus_qwerty.get_circuit(problem_size), problem_size),
-#         ('minus', 'Qsharp', 'n-fold minus state', 'n/a', lambda: minus_qsharp.get_circuit(problem_size), problem_size),
-#         ('minus', 'Qiskit', 'n-fold minus state', 'n/a', lambda: minus_qiskit.get_circuit(problem_size), problem_size),
-#         ('minus', 'Qiskit-handwritten', 'n-fold minus state', 'n/a', lambda: minus_qiskit_hand.get_circuit(problem_size), problem_size),
-#     ]
-#
-# def ghz_circs(problem_size):
-#     return [
-#         ('ghz', 'Qwerty', 'n-qubit GHZ state', 'n/a', lambda: ghz_qwerty.get_circuit(problem_size), problem_size),
-#         ('ghz', 'Qsharp', 'n-qubit GHZ state', 'n/a', lambda: ghz_qsharp.get_circuit(problem_size), problem_size),
-#         ('ghz', 'Qiskit', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit.get_circuit(problem_size), problem_size),
-#         ('ghz', 'Qiskit-handwritten', 'n-qubit GHZ state', 'n/a', lambda: ghz_qiskit_hand.get_circuit(problem_size), problem_size),
-#     ]
-#
-# def negghz_circs(problem_size):
-#     return [
-#         ('negghz', 'Qwerty', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qwerty.get_circuit(problem_size), problem_size),
-#         ('negghz', 'Qsharp', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qsharp.get_circuit(problem_size), problem_size),
-#         ('negghz', 'Qiskit', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit.get_circuit(problem_size), problem_size),
-#         ('negghz', 'Qiskit-handwritten', 'n-qubit GHZ state with phase', 'n/a', lambda: negghz_qiskit_hand.get_circuit(problem_size), problem_size),
-#     ]
-
 
 # FIXME: Add better descriptions for this!
 def qft_circs(problem_size):
@@ -83,6 +52,14 @@ def canonical_circs(problem_size):
         ('canonical', 'Qiskit-handwritten', 'n-qubit canonical basis state', 'last state', lambda: canonical_qiskit_hand.get_circuit(problem_size), problem_size),
     ]
 
+def revolve_phases_circs(problem_size):
+    return [
+        ('revolve_phases', 'Qwerty', 'n-qubit revolve_phases basis state', 'last state', lambda: revolve_phases_qwerty.get_circuit(problem_size), problem_size),
+        ('revolve_phases', 'Qsharp', 'n-qubit revolve_phases basis state', 'last state', lambda: revolve_phases_qsharp.get_circuit(problem_size), problem_size),
+        ('revolve_phases', 'Qiskit', 'n-qubit revolve_phases basis state', 'last state', lambda: revolve_phases_qiskit.get_circuit(problem_size), problem_size),
+        ('revolve_phases', 'Qiskit-handwritten', 'n-qubit revolve_phases basis state', 'last state', lambda: revolve_phases_qiskit_hand.get_circuit(problem_size), problem_size),
+    ]
+
 def get_all_circs(arg_algo, arg_problem_sizes):
     if arg_problem_sizes:
         problem_sizes = arg_problem_sizes
@@ -97,6 +74,7 @@ def get_all_circs(arg_algo, arg_problem_sizes):
         # ('negghz', negghz_circs),
         ('qft', qft_circs),
         ('canonical', canonical_circs),
+        ('revolve_phases', revolve_phases_circs),
     ])
     circs = []
 

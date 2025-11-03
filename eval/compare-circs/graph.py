@@ -22,6 +22,7 @@ def initialize_specific_dictionary(dit):
     # dit["negghz"] = {}
     dit["qft"] = {}
     dit["canonical"] = {}
+    dit["revolve_phases"] = {}
     
     for key in dit:
         dit[key]["0"] = {}
@@ -67,6 +68,8 @@ def abbreviate(algo):
             abbrev = "qft"
         case "n-qubitcanonicalbasisstate":
             abbrev = "canonical"
+        case "n-qubitrevolve_phasesbasisstate":
+            abbrev = "revolve_phases"
         case _:
             raise Exception("Error: Unknown Algorithm " + algo)
     return abbrev
@@ -74,18 +77,13 @@ def abbreviate(algo):
 def unabbreviate(algo):
     abbrev = ""
     match algo:
-        # case "plus":
-        #     abbrev = "n-fold plus state"
-        # case "minus":
-        #     abbrev = "n-fold minus state"
-        # case "ghz":
-        #     abbrev = "n-qubit GHZ state"
-        # case "negghz":
-        #     abbrev = "n-qubit GHZ state with phase"
+        # FIXME: These descriptions need fixing too!
         case "qft":
             abbrev = "n-qubit QFT basis state"
         case "canonical":
             abbrev = "n-qubit canonical basis state"
+        case "revolve_phases":
+            abbrev = "n-qubit revolve_phases basis state"
         case _:
             raise Exception("Error: Unknown Algorithm " + algo)
     return abbrev

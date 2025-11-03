@@ -3,15 +3,21 @@ import qiskit.qasm2
 from qiskit import QuantumCircuit
 
 def get_circuit(n_qubits):
-    # TODO: Fix this, I copied it straight
-    # from the hand qiskit one
+    # NOTE: This is the same as the handwritten one
     circ = QuantumCircuit(n_qubits, n_qubits)
+
+    for i in range(n_qubits):
+        circ.sdg(i)
+        circ.h(i)
 
     circ.h(0)
 
     for i in range(1, n_qubits):
         angle = math.pi / (2 ** i)
         circ.cp(angle, i, 0)  # control=i, target=0
+
+    final_angle = math.pi * 25.0 / 180.0
+    circ.rz(final_angle, 0)
 
     circ.measure(range(n_qubits), range(n_qubits))
 

@@ -3,8 +3,6 @@ import qiskit.qasm2
 from qiskit import QuantumCircuit
 
 def get_circuit(n_qubits):
-    # TODO: Fix this, I copied it straight
-    # from the regular qiskit one
     circ = QuantumCircuit(n_qubits, n_qubits)
 
     circ.h(0)
