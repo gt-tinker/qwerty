@@ -200,6 +200,100 @@ struct AndWithNegationPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
     }
 };
 
+// parity(x) -> x
+struct ParitySingleOperandPattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        // Check if there is exactly one operand
+        if (op.getOperands().size() == 1) {
+            rewriter.replaceOp(op, op.getOperand(0));
+            return mlir::success();
+        }
+        return mlir::failure();
+    }
+};
+
+// parity(0, x1, ..., xn) -> parity(x1, ..., xn)
+// Since 0 XOR x = x, any 0 operands can be removed
+struct ParityWithZeroPattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        
+        llvm::SmallVector<mlir::Value> newOperands;
+        bool foundZero = false;
+
+        // Collect all non-zero operands
+        for (mlir::Value operand : op.getOperands()) {
+            if (auto constOp = operand.getDefiningOp<ccirc::ConstantOp>()) {
+                if (constOp.getValue().isZero()) {
+                    foundZero = true;
+                    continue;
+                }
+            }
+            newOperands.push_back(operand);
+        }
+
+        if (!foundZero) {
+            return mlir::failure();
+        }
+
+        // If all operands were zeros (parity(0) or parity(0, 0)) the result is 0
+        if (newOperands.empty()) {
+            unsigned bitWidth = op.getType().getDim();
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(bitWidth, 0));
+        } else {
+            // Otherwise create a new parity op without the zeros
+            rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, op.getType(), newOperands);
+        }
+        return mlir::success();
+    }
+};
+
+struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        
+        llvm::SmallVector<mlir::Value> newOperands;
+        bool foundOne = false;
+        bool negate = false;
+
+        // Collect all non-zero operands
+        for (mlir::Value operand : op.getOperands()) {
+            if (auto constOp = operand.getDefiningOp<ccirc::ConstantOp>()) {
+                if (constOp.getValue().isAllOnes()) {
+                    foundOne = true;
+                    negate = !negate;
+                    continue;
+                }
+            }
+            newOperands.push_back(operand);
+        }
+
+        if (!foundOne) {
+            return mlir::failure();
+        }
+
+        if (newOperands.empty()) {
+            unsigned bitWidth = op.getType().getDim();
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(bitWidth, negate ? 1 : 0));
+        } else {
+            mlir::Value parity_result = rewriter.create<ccirc::ParityOp>(op.getLoc(), newOperands).getResult();
+            if (negate) {
+                rewriter.replaceOpWithNewOp<ccirc::NotOp>(op, parity_result);
+            } else {
+                rewriter.replaceOp(op, parity_result);
+            }
+        }
+        return mlir::success();
+    }
+};
+
 struct PushNotThroughParity : public mlir::OpRewritePattern<ccirc::ParityOp> {
     using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
 
@@ -670,7 +764,7 @@ mlir::LogicalResult ParityOp::inferReturnTypes(
 void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                            mlir::MLIRContext *context) {
     results.add<PushNotThroughParity,
-                MergeParityOps>(context);
+                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern, ParityWithOnePattern>(context);
 }
 
 #define ROTATE_OP_VERIFY_AND_INFER(name) \

@@ -49,3 +49,30 @@ ccirc.circuit @pack_unpack_trivial(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]
   %4 = ccirc.wirepack(%1#2) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
   ccirc.return %2, %3, %4 : !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>
 }
+
+// CHECK-LABEL: ccirc.circuit @parity_single_operand(%arg0: !ccirc<wire[1]>) irrev {
+// CHECK-NEXT:    ccirc.return %arg0 : !ccirc<wire[1]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_single_operand(%arg0: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.parity(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %0 : !ccirc<wire[1]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_zero(%arg0: !ccirc<wire[3]>) irrev {
+// CHECK-NEXT:    ccirc.return %arg0 : !ccirc<wire[3]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_zero(%arg0: !ccirc<wire[3]>) irrev {
+  %0 = ccirc.constant 0 : i3 : !ccirc<wire[3]>
+  %1 = ccirc.parity(%0, %arg0) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
+  ccirc.return %1 : !ccirc<wire[3]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_one(%arg0: !ccirc<wire[3]>) irrev {
+// CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+// CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[3]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_one(%arg0: !ccirc<wire[3]>) irrev {
+  %0 = ccirc.constant 7 : i3 : !ccirc<wire[3]>
+  %1 = ccirc.parity(%0, %arg0) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
+  ccirc.return %1 : !ccirc<wire[3]>
+}
