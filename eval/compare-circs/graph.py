@@ -16,10 +16,8 @@ qsharp = {}
 qiskit_hand = {}
 
 def initialize_specific_dictionary(dit):
-    # dit["plus"] = {}
-    # dit["minus"] = {}
-    # dit["ghz"] = {}
-    # dit["negghz"] = {}
+    # NOTE: For canonical and revolve_phases, the handwritten and regular
+    # qiskit are the same, so we should only draw qiskit hand
     dit["qft"] = {}
     dit["canonical"] = {}
     dit["revolve_phases"] = {}
@@ -222,7 +220,7 @@ def parse_args():
 def chop(data):
     return data
 
-def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand, log):
+def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand, log, algo):
     sizes, qwerty, qiskit, qsharp, qiskit_hand = (chop(x) for x in (sizes, qwerty, qiskit, qsharp, qiskit_hand))
 
     X_axis = np.arange(len(sizes)) 
@@ -231,10 +229,14 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand
     ax.set_facecolor('white')
 
     plt.bar(X_axis - 0.3, qwerty, 0.2, alpha=opacity, label = "Qwerty", color='#0072B2')
-    plt.bar(X_axis - 0.1, qiskit, 0.2, alpha=opacity, label = "Qiskit", color='#009E73')
     plt.bar(X_axis + 0.1, qsharp, 0.2, alpha=opacity, label = "Q#", color='#D55E00')
-    plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#F1E654')
+
+    # only if qft do we want to show non-handwritten qiskit
+    if algo == "qft":
+        plt.bar(X_axis - 0.1, qiskit, 0.2, alpha=opacity, label = "Qiskit", color='#F1E654')
     
+    plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#009E73')
+
     plt.xlabel("Number of Qubits", fontsize= 14)
     plt.ylabel(subytitle, fontsize= 14)
     #plt.title(title, fontsize=8)
@@ -310,7 +312,7 @@ def graph_all(args):
             if(log_base_time):
                 title = unabbreviate(algo) + ": Runtime vs Input Size"
                 ytitle = "Runtime (μs, log scale)"
-            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, log_base_time)
+            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, log_base_time, algo)
 
     # Logical
     for algo in qwerty:
@@ -324,7 +326,7 @@ def graph_all(args):
             file = os.path.join(results_dir, f'{algo}_O{opt}_logical.png')
             title = unabbreviate(algo) + ": Logical Qubits vs Input Size"
             ytitle = "Logical Qubits"
-            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
     
     # Physical
     for algo in qwerty:
@@ -342,7 +344,7 @@ def graph_all(args):
             if(log_base_time):
                 title = unabbreviate(algo) + ": Physical vs Input Size"
                 ytitle = "Physical Kiloqubits (log scale)"
-            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, log_base_time)
+            graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, log_base_time, algo)
 
     if(args.ccix):
         for algo in qwerty:
@@ -356,7 +358,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_ccix.png')
                 title = unabbreviate(algo) + ": CCIX vs Input Size"
                 ytitle = "CCIX"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
 
     if(args.ccz):
         for algo in qwerty:
@@ -370,7 +372,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_ccz.png')
                 title = unabbreviate(algo) + ": CCZ vs Input Size"
                 ytitle = "CCZ"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
 
     if(args.measure):
         for algo in qwerty:
@@ -384,7 +386,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_measure.png')
                 title = unabbreviate(algo) + ": Measurement Count vs Input Size"
                 ytitle = "Measurement Count"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
 
     if(args.rotation):
         for algo in qwerty:
@@ -398,7 +400,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_rotation.png')
                 title = unabbreviate(algo) + ": Rotation Count vs Input Size"
                 ytitle = "Rotation Count"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
 
     if(args.depth):
         for algo in qwerty:
@@ -412,7 +414,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_depth.png')
                 title = unabbreviate(algo) + ": Rotation Depth vs Input Size"
                 ytitle = "Rotation Depth"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
         
     if(args.tgates):
         for algo in qwerty:
@@ -426,7 +428,7 @@ def graph_all(args):
                 file = os.path.join(results_dir, f'{algo}_O{opt}_tgates.png')
                 title = unabbreviate(algo) + ": T Gate Count vs Input Size"
                 ytitle = "T Gate Count"
-                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False)
+                graph_bar(file, title, ytitle, sizes, qwerty_list, qiskit_list, qsharp_list, qiskit_hand_list, False, algo)
 
 def main():
     args = parse_args()
