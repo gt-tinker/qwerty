@@ -234,8 +234,9 @@ def graph_bar(file, title, subytitle, sizes, qwerty, qiskit, qsharp, qiskit_hand
     # only if qft do we want to show non-handwritten qiskit
     if algo == "qft":
         plt.bar(X_axis - 0.1, qiskit, 0.2, alpha=opacity, label = "Qiskit", color='#F1E654')
-    
-    plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#009E73')
+        plt.bar(X_axis + 0.3, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#009E73')
+    else: 
+        plt.bar(X_axis - 0.1, qiskit_hand, 0.2, alpha=opacity, label = "QiskitHW", color='#009E73')
 
     plt.xlabel("Number of Qubits", fontsize= 14)
     plt.ylabel(subytitle, fontsize= 14)
