@@ -294,6 +294,40 @@ struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
     }
 };
 
+struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        
+        llvm::SmallDenseSet<mlir::Value, 8> newOperands;
+
+        for (mlir::Value operand : op.getOperands()) {
+            auto ops = newOperands.find(operand);
+            if (ops != newOperands.end()) {
+                newOperands.erase(ops);
+            } else {
+                newOperands.insert(operand);
+            }
+        }
+
+        if (newOperands.size() == op.getOperands().size()) {
+            return mlir::failure();
+        }
+
+        llvm::SmallVector<mlir::Value> replacements;
+        for (mlir::Value operand : op.getOperands()) {
+            auto ops = newOperands.find(operand);
+            if (ops != newOperands.end()) {
+                replacements.push_back(operand);
+                newOperands.erase(ops);
+            }
+        }
+        rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, replacements);
+        return mlir::success();
+    }
+};
+
 struct PushNotThroughParity : public mlir::OpRewritePattern<ccirc::ParityOp> {
     using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
 
