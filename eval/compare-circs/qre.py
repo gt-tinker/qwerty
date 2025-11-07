@@ -66,7 +66,10 @@ def get_all_circs(arg_algo, arg_problem_sizes):
     else:
         #problem_sizes = [2**x for x in range(2, 8)]
         # problem_sizes = [x for x in range(1, 13)]
-        problem_sizes = [x for x in range(2, 22, 2)]
+        # problem_sizes = [x for x in range(16, 97, 16)]
+        problem_sizes = [4]
+        problem_sizes = [16, 32, 64, 96]
+        # problem_sizes = [16, 32, 64, 128]
     algo_circ_funcs = OrderedDict([
         # ('plus', plus_circs),
         # ('minus', minus_circs),
@@ -128,12 +131,15 @@ def evaluate_circ(circ, qasm_dir, circs_dir, re_params='', do_simulation=False, 
             raw_circ_out.write(f'{header}\n{opt_circ}\n')
 
     # Run Simulator and dump result into file
+    # FIXME: Revert later
+    # do_simulation = True
     if do_simulation:
+        print("DOING SIMULATION\n")
         aer_sim = AerSimulator(method='statevector')
         opt_circ.remove_final_measurements(True)
         opt_circ.save_statevector()
         output_state = aer_sim.run(opt_circ).result().get_statevector(opt_circ)
-        header = f"_________{lang_pretty}\'s Circuit Result_________"
+        header = f"_________{lang_pretty}\'s Circuit Result (opt_level={opt_level})_________"
         simulator_res = [f'{header}\n{output_state.data.round(3)}\n']
     else:
         simulator_res = []

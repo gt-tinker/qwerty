@@ -20,5 +20,10 @@ operation Canonical(n : Int) : Result[] {
 	Controlled R1([control], (angle, target));
     }
 
+    // swaps
+    for i in 0 .. (n / 2 - 1) {
+        SWAP(qubits[i], qubits[n - 1 - i]);
+    }
+
     return MeasureEachZ(qubits);
 }

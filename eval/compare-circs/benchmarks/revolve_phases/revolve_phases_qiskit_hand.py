@@ -18,6 +18,10 @@ def get_circuit(n_qubits):
     final_angle = math.pi * 25.0 / 180.0
     circ.rz(final_angle, 0)
 
+    # add swaps
+    for i in range(n_qubits // 2):
+        circ.swap(i, n_qubits - 1 - i)
+
     circ.measure(range(n_qubits), range(n_qubits))
 
     circ = circ.decompose(reps=10)

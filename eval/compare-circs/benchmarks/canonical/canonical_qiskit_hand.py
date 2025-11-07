@@ -11,6 +11,10 @@ def get_circuit(n_qubits):
         angle = math.pi / (2 ** i)
         circ.cp(angle, i, 0)  # control=i, target=0
 
+    # add swaps
+    for i in range(n_qubits // 2):
+        circ.swap(i, n_qubits - 1 - i)
+
     circ.measure(range(n_qubits), range(n_qubits))
 
     circ = circ.decompose(reps=10)
