@@ -138,6 +138,7 @@ Once you have WSL installed, you may follow this guide and others as if you were
 
 Earlier we stated that WSL and Windows have access to each other file systems. This is 100% true, with the caveat that it is [far, far slower](https://learn.microsoft.com/en-us/windows/wsl/filesystems) than interacting with either's native file system. Microsoft admits as much in their comparison between [WSL1 and WSL2](https://learn.microsoft.com/en-us/windows/wsl/compare-versions).
 
+!["WSL1 v.s WSL2 File Performance"](./figures/WSl1vWSL2CrossPlatformFilePerformance.png)
 
 The takeaway here is to clone and keep all qwerty files in the WSL file system (i.e ~/). As a real world example, an undergraduate student cloned this repository using WSL onto their Window's filesystem. Running ``maturin develop -vvv`` was a multiday (>8 hrs) task. When moved to WSL, ``maturin develop -vvv`` took at most 10 minutes.
 
