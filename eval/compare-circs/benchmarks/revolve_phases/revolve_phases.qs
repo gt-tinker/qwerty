@@ -24,18 +24,15 @@ operation RevolvePhases(n : Int) : Result[] {
         Controlled R1([control], (angle, target));
     }
 
-    // TODO: Add swaps here
+    // rotl swaps
+    for i in 0 .. (n - 2) {
+	SWAP(qubits[i], qubits[i + 1]);
+    }
 
     // Final single-qubit phase of 25 degrees on the target (qubit 0)
     let finalAngle = PI() * 25.0 / 180.0;
-    // R1(finalAngle, qubits[0]);
-    Rz(finalAngle, qubits[0]);
+    R1(finalAngle, qubits[n - 1]);
 
-
-    // Add swaps after RZ
-    for i in 0 .. (n / 2 - 1) {
-        SWAP(qubits[i], qubits[n - 1 - i]);
-    }
 
     // Measure all qubits in Z and return the results as an array
     return MeasureEachZ(qubits);

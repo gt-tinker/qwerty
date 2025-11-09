@@ -15,10 +15,4 @@ pushd "$whereami/compare-circs/"
     ./qre.py
     ./merge-results.sh
     ./graph.py
-
-    #for bench in bv grover simon period; do
-    #    for metric in time physical; do
-    #        cp -v "$qre_results_dir/${bench}_O3_${metric}.pdf" "$summary_results_dir/${metric}_${bench}.pdf"
-    #    done
-    #done
 popd

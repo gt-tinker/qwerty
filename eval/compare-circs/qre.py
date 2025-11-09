@@ -67,7 +67,7 @@ def get_all_circs(arg_algo, arg_problem_sizes):
         #problem_sizes = [2**x for x in range(2, 8)]
         # problem_sizes = [x for x in range(1, 13)]
         # problem_sizes = [x for x in range(16, 97, 16)]
-        problem_sizes = [4]
+        # problem_sizes = [3]
         problem_sizes = [16, 32, 64, 96]
         # problem_sizes = [16, 32, 64, 128]
     algo_circ_funcs = OrderedDict([

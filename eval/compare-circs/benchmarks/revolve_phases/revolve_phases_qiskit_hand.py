@@ -15,12 +15,13 @@ def get_circuit(n_qubits):
         angle = math.pi / (2 ** i)
         circ.cp(angle, i, 0)  # control=i, target=0
 
+    for i in range(n_qubits - 1):
+        circ.swap(i, i + 1)
+        
     final_angle = math.pi * 25.0 / 180.0
-    circ.rz(final_angle, 0)
+    # phase gate
+    circ.p(final_angle, 0)
 
-    # add swaps
-    for i in range(n_qubits // 2):
-        circ.swap(i, n_qubits - 1 - i)
 
     circ.measure(range(n_qubits), range(n_qubits))
 
