@@ -40,6 +40,8 @@ README:
      superposition literals
    * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
      compiler itself
+ * Addition Documentation:
+   * [`docs/wsl-tips.md`](docs/wsl-tips.md): Recommendations for working with WSL on Windows. 
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
