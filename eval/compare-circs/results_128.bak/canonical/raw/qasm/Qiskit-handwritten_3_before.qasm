@@ -1,0 +1,18 @@
+_________Qiskit-handwritten's Qasm PRE-OPT [Problem Size: 3]_________OPENQASM 3.0;
+include "stdgates.inc";
+bit[3] c;
+qubit[3] q;
+U(pi/2, 0, pi) q[0];
+U(0, 0, pi/4) q[1];
+cx q[1], q[0];
+U(0, 0, -pi/4) q[0];
+cx q[1], q[0];
+U(0, 0, pi/4) q[0];
+U(0, 0, pi/8) q[2];
+cx q[2], q[0];
+U(0, 0, -pi/8) q[0];
+cx q[2], q[0];
+U(0, 0, pi/8) q[0];
+c[0] = measure q[0];
+c[1] = measure q[1];
+c[2] = measure q[2];

@@ -1,0 +1,11 @@
+_________Qsharp's Qasm [Problem Size: 2]_________OPENQASM 3.0;
+include "stdgates.inc";
+bit[2] c;
+rz(-pi/4) $0;
+rz(-pi/2) $1;
+h $1;
+cx $1, $0;
+rz(-pi/4) $0;
+cx $1, $0;
+c[0] = measure $1;
+c[0] = measure $0;

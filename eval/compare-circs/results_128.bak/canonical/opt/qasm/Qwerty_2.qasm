@@ -1,0 +1,10 @@
+_________Qwerty's Qasm [Problem Size: 2]_________OPENQASM 3.0;
+include "stdgates.inc";
+bit[2] c;
+qubit[2] q;
+h q[0];
+cx q[1], q[0];
+rz(-pi/4) q[0];
+cx q[1], q[0];
+c[0] = measure q[1];
+c[1] = measure q[0];

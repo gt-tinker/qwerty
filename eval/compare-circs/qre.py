@@ -67,9 +67,9 @@ def get_all_circs(arg_algo, arg_problem_sizes):
         #problem_sizes = [2**x for x in range(2, 8)]
         # problem_sizes = [x for x in range(1, 13)]
         # problem_sizes = [x for x in range(16, 97, 16)]
-        # problem_sizes = [3]
-        problem_sizes = [16, 32, 64, 96]
-        # problem_sizes = [16, 32, 64, 128]
+        problem_sizes = [2]
+        # problem_sizes = [16, 32, 64, 96]
+        problem_sizes = [16, 32, 64, 128]
     algo_circ_funcs = OrderedDict([
         # ('plus', plus_circs),
         # ('minus', minus_circs),
@@ -108,7 +108,12 @@ def evaluate_circ(circ, qasm_dir, circs_dir, re_params='', do_simulation=False, 
     re = qsharp.ResourceEstimator(re_params)
     print(f"{algo_pretty} in {lang_pretty} (params: {params}) [Problem Size: {problem_size}]")
     print(f"\tTranspiling")
-    opt_circ = do_transpile(re, circ, opt_level, use_our_transpile)
+    # TODO: if do_opt true, run do_transpile else don't (just use circ)
+    if do_opt:
+        opt_circ = do_transpile(re, circ, opt_level, use_our_transpile)
+    else:
+        # temp
+        opt_circ = do_transpile(re, circ, opt_level, use_our_transpile)
     print(f"\tTranspiling Complete")
 
     # Run Estimator over Circuit
@@ -119,10 +124,18 @@ def evaluate_circ(circ, qasm_dir, circs_dir, re_params='', do_simulation=False, 
 
     print(f"\tDumping Results")
 
+
+    with open(os.path.join(qasm_dir, f'{lang_pretty}_{problem_size}_before.qasm'), 'w') as raw_qasm_out:
+        header = f"_________{lang_pretty}\'s Qasm PRE-OPT [Problem Size: {problem_size}]_________"
+        # TODO: write circ_qasm, do a before and after for that with opt_circ, etc.
+        raw_qasm_out.write(f'{header}')
+        qiskit.qasm3.dump(circ, raw_qasm_out)
+
     # Dump Qasm Result into file
     with open(os.path.join(qasm_dir, f'{lang_pretty}_{problem_size}.qasm'), 'w') as raw_qasm_out:
         header = f"_________{lang_pretty}\'s Qasm [Problem Size: {problem_size}]_________"
-        raw_qasm_out.write(f'{header}\n{circ_qasm}\n')
+        raw_qasm_out.write(f'{header}')
+        qiskit.qasm3.dump(opt_circ, raw_qasm_out)
 
     if problem_size <= 8:
         # Dump Quantum Circuit Result into file
@@ -216,6 +229,8 @@ def run_task(circ, cfg):
     algo_dirs = cfg.all_algo_dirs[ugly_name]
     do_opt = circ[-1]
 
+    # TODO: if opt level 0, don't run transpiler at all?
+    # or if do_opt off, don't run w transpiler
     if do_opt:
         do_simulation = False
         qasm_dir = algo_dirs.opt_qasm_dir

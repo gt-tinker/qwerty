@@ -1,0 +1,15 @@
+_________Qwerty's Qasm [Problem Size: 3]_________OPENQASM 3.0;
+include "stdgates.inc";
+bit[3] c;
+qubit[3] q;
+h q[0];
+cx q[1], q[0];
+rz(-pi/4) q[0];
+cx q[1], q[0];
+rz(1.1780971633974482) q[0];
+cx q[2], q[0];
+rz(-0.392699) q[0];
+cx q[2], q[0];
+c[0] = measure q[1];
+c[1] = measure q[2];
+c[2] = measure q[0];
