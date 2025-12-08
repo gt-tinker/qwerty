@@ -253,6 +253,9 @@ struct ParityWithZeroPattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
     }
 };
 
+
+// parity(x, x, y1, ..., yn) -> parity(y1, ..., yn)
+// Since x XOR x = 0, any pair of identical operands cancels out
 struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
     using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
 
@@ -294,6 +297,7 @@ struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
     }
 };
 
+
 struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
     using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
 
@@ -324,6 +328,34 @@ struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
             }
         }
         rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, replacements);
+        return mlir::success();
+    }
+};
+
+// parity(parity(x1, x2), y1, y2) -> parity(x1, x2, y1, y2)
+struct NestedParityPattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
+    using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
+                                        mlir::PatternRewriter &rewriter) const override {
+        llvm::SmallVector<mlir::Value> newOperands;
+        bool nested = false;
+
+        for (mlir::Value operand : op.getOperands()) {
+            if (auto innerParityOp = operand.getDefiningOp<ccirc::ParityOp>()) {
+                newOperands.append(innerParityOp.getOperands().begin(),
+                                   innerParityOp.getOperands().end());
+                nested = true;
+            } else {
+                newOperands.push_back(operand);
+            }
+        }
+
+        if (!nested) {
+            return mlir::failure();
+        }
+
+        rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, op.getType(), newOperands);
         return mlir::success();
     }
 };
@@ -798,7 +830,8 @@ mlir::LogicalResult ParityOp::inferReturnTypes(
 void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                            mlir::MLIRContext *context) {
     results.add<PushNotThroughParity,
-                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern, ParityWithOnePattern>(context);
+                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern, 
+                ParityWithOnePattern, NestedParityPattern>(context);
 }
 
 #define ROTATE_OP_VERIFY_AND_INFER(name) \

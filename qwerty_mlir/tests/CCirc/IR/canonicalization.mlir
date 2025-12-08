@@ -76,3 +76,13 @@ ccirc.circuit @parity_one(%arg0: !ccirc<wire[3]>) irrev {
   %1 = ccirc.parity(%0, %arg0) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
   ccirc.return %1 : !ccirc<wire[3]>
 }
+
+// CHECK-LABEL: ccirc.circuit @parity_nested(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
+// CHECK-NEXT:   %0 = ccirc.parity(%arg0, %arg1, %arg2) : (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+// CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[1]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_nested(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.parity(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %1 = ccirc.parity(%0, %arg2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %1 : !ccirc<wire[1]>
+}
