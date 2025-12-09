@@ -38,7 +38,7 @@ uint64_t modular_inverse(uint64_t a, uint64_t m) {
     return (x % m + m) % m;
 }
 
-//when finding double negation, cancel it out. 
+// when finding double negation, cancel it out. 
 // ~(~a) -> a
 struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
@@ -208,7 +208,7 @@ struct ParitySingleOperandPattern : public mlir::OpRewritePattern<ccirc::ParityO
                                         mlir::PatternRewriter &rewriter) const override {
         // Check if there is exactly one operand
         if (op.getOperands().size() == 1) {
-            rewriter.replaceOp(op, op.getOperand(0));
+            rewriter.replaceOp(op, op.getOperands()[0]);
             return mlir::success();
         }
         return mlir::failure();
@@ -297,7 +297,7 @@ struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
     }
 };
 
-
+// parity(x, x, y1, y2, ..., yn) -> parity(y1, y2, ..., yn)
 struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
     using OpRewritePattern<ccirc::ParityOp>::OpRewritePattern;
 
