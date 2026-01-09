@@ -13,7 +13,7 @@ enum Chunk {
     Hook(Vec<Stmt>),
 }
 
-fn block_to_chunks(block: Block) -> Result<Vec<Chunk>, Error> {
+fn block_into_chunks(block: Block) -> Result<Vec<Chunk>, Error> {
     let Block { stmts, .. } = block;
 
     let mut chunks = Vec::new();
@@ -45,6 +45,10 @@ fn block_to_chunks(block: Block) -> Result<Vec<Chunk>, Error> {
     }
 
     Ok(chunks)
+}
+
+fn expr_into_chunks(span: Span, expr: Expr) -> Vec<Chunk> {
+    vec![Chunk::Hook(vec![Stmt::Expr(expr, Some(Token![;](span)))])]
 }
 
 fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenStream2 {
@@ -148,12 +152,8 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
         }
 
         let chunks = match *body {
-            Expr::Block(ExprBlock { block, .. }) => block_to_chunks(block)?,
-
-            other_expr => vec![Chunk::Hook(vec![Stmt::Expr(
-                other_expr,
-                Some(Token![;](span)),
-            )])],
+            Expr::Block(ExprBlock { block, .. }) => block_into_chunks(block)?,
+            other_expr => expr_into_chunks(span, other_expr),
         };
 
         ent_arms.push(chunks_into_ent_arm(&pat, span, chunks));
