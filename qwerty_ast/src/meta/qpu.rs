@@ -101,14 +101,38 @@ impl fmt::Display for FloatExpr {
     /// Returns a representation of a dimension variable expression that
     /// matches the syntax in the Python DSL.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FloatExpr::FloatDimExpr { expr, .. } => write!(f, "{}", expr),
-            FloatExpr::FloatConst { val, .. } => write!(f, "{}", val),
-            FloatExpr::FloatSum { left, right, .. } => write!(f, "({})+({})", left, right),
-            FloatExpr::FloatProd { left, right, .. } => write!(f, "({})*({})", left, right),
-            FloatExpr::FloatDiv { left, right, .. } => write!(f, "({})/({})", left, right),
-            FloatExpr::FloatNeg { val, .. } => write!(f, "-({})", val),
+        visitor_match! {FloatExpr, self,
+            FloatExpr::FloatDimExpr { expr, .. } => write!(f, "{}", expr)?,
+            FloatExpr::FloatConst { val, .. } => write!(f, "{}", val)?,
+            FloatExpr::FloatSum { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(left);
+                write!(f, ")+(")?;
+                visit!(right);
+                write!(f, ")")?;
+            }
+            FloatExpr::FloatProd { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(left);
+                write!(f, ")*(")?;
+                visit!(right);
+                write!(f, ")")?;
+            }
+            FloatExpr::FloatDiv { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(left);
+                write!(f, ")/(")?;
+                visit!(right);
+                write!(f, ")")?;
+            }
+            FloatExpr::FloatNeg { val, .. } => {
+                write!(f, "-(")?;
+                visit!(val);
+                write!(f, ")")?;
+            }
         }
+
+        Ok(())
     }
 }
 
