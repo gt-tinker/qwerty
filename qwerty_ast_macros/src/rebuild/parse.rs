@@ -1,7 +1,7 @@
 //! Code for parsing macro/attribute arguments using the [`syn::parse::Parse`]
 //! trait and storing the result in structs.
 
-use crate::rebuild::{attrs, paths};
+use crate::syn_util::{attrs, paths};
 use proc_macro2::{Delimiter, Span};
 use syn::{
     Arm, Attribute, Error, Expr, GenericParam, Ident, Item, ItemEnum, ItemStruct, Pat, PatIdent,

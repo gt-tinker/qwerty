@@ -7,6 +7,8 @@
 use proc_macro::TokenStream;
 
 mod rebuild;
+mod syn_util;
+mod visitor;
 
 fn result_to_token_stream(res: Result<TokenStream, syn::Error>) -> TokenStream {
     res.unwrap_or_else(|err| err.into_compile_error().into())
@@ -510,4 +512,9 @@ pub fn rewrite_ty(args: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn rewrite_match(args: TokenStream) -> TokenStream {
     result_to_token_stream(rebuild::impl_rewrite_match(args))
+}
+
+#[proc_macro]
+pub fn visitor_match(args: TokenStream) -> TokenStream {
+    result_to_token_stream(visitor::impl_visitor_match(args))
 }

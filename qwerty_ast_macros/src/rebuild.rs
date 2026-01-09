@@ -1,14 +1,12 @@
 //! Implementations of the rebuild-related macros in this crate.
 
+use crate::syn_util::{attrs, paths};
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote_spanned};
 use syn::{Arm, Error, ItemEnum, spanned::Spanned};
 
-mod attrs;
 mod gen_rebuild;
 mod parse;
-mod paths;
-mod tys;
 
 /// Implements `#[gen_rebuild { ... }]`. See [`crate::gen_rebuild`].
 pub fn impl_gen_rebuild(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {

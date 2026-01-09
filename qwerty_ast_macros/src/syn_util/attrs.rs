@@ -1,7 +1,7 @@
 //! Helpers for manipulating Rust attributes, e.g.,
 //! `#[gen_rebuild::skip_recurse]`.
 
-use crate::rebuild::paths;
+use crate::syn_util::paths;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
     AttrStyle, Attribute, Field, Fields, FieldsNamed, ItemEnum, ItemStruct, Meta, MetaList, Path,

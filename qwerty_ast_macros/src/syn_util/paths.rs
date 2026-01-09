@@ -49,6 +49,10 @@ pub fn path_as_ident<'a>(path: &'a Path) -> Option<&'a Ident> {
     }
 }
 
+pub fn path_is_ident_str<'a>(path: &'a Path, name: &str) -> bool {
+    path_as_ident(path).is_some_and(|ident| ident.to_string() == name)
+}
+
 /// Rewrite `MetaExpr` as `meta_expr`
 pub fn ident_to_snake_case(ident: &Ident) -> Ident {
     let span = ident.span();

@@ -1,6 +1,6 @@
 //! Helpers for manipulating types.
 
-use crate::rebuild::paths;
+use crate::syn_util::paths;
 use syn::{
     AngleBracketedGenericArguments, GenericArgument, Ident, Path, PathArguments, PathSegment,
     Token, Type, TypePath, TypeTuple, punctuated::Pair, spanned::Spanned, token::Paren,

@@ -1,6 +1,7 @@
 //! Code generation for `#[gen_rebuild { ... }]`.
 
-use crate::rebuild::{attrs, parse, tys};
+use crate::rebuild::parse;
+use crate::syn_util::{attrs, tys};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote_spanned;
 use syn::{

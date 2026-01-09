@@ -5,7 +5,7 @@ use crate::{
     meta::{DimExpr, DimVar, Progress, expand::MacroEnv},
 };
 use dashu::integer::{IBig, UBig};
-use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty};
+use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty, visitor_match};
 use std::fmt;
 
 #[gen_rebuild {
@@ -304,27 +304,40 @@ impl fmt::Display for MetaVector {
     /// Represents a vector in a human-readable form for error messages sent
     /// back to the programmer.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaVector::VectorAlias { name, .. } => write!(f, "{}", name),
-            MetaVector::VectorSymbol { sym, .. } => write!(f, "'{}'", sym),
+        visitor_match! {MetaVector, self,
+            MetaVector::VectorAlias { name, .. } => write!(f, "{}", name)?,
+            MetaVector::VectorSymbol { sym, .. } => write!(f, "'{}'", sym)?,
             MetaVector::VectorBroadcastTensor { val, factor, .. } => {
-                write!(f, "({})*({})", *val, factor)
+                write!(f, "(")?;
+                visit!(*val);
+                write!(f, ")*({})", factor)?;
             }
-            MetaVector::ZeroVector { .. } => write!(f, "'0'"),
-            MetaVector::OneVector { .. } => write!(f, "'1'"),
-            MetaVector::PadVector { .. } => write!(f, "'?'"),
-            MetaVector::TargetVector { .. } => write!(f, "'_'"),
+            MetaVector::ZeroVector { .. } => write!(f, "'0'")?,
+            MetaVector::OneVector { .. } => write!(f, "'1'")?,
+            MetaVector::PadVector { .. } => write!(f, "'?'")?,
+            MetaVector::TargetVector { .. } => write!(f, "'_'")?,
             MetaVector::VectorTilt { q, angle_deg, .. } => {
-                write!(f, "({})@({})", **q, *angle_deg)
+                write!(f, "(")?;
+                visit!(*q);
+                write!(f, ")@({})", *angle_deg)?;
             }
             MetaVector::UniformVectorSuperpos { q1, q2, .. } => {
-                write!(f, "({}) + ({})", **q1, **q2)
+                write!(f, "(")?;
+                visit!(*q1);
+                write!(f, ") + (")?;
+                visit!(*q2);
+                write!(f, ")")?;
             }
             MetaVector::VectorBiTensor { left, right, .. } => {
-                write!(f, "({}) * ({})", **left, **right)
+                write!(f, "(")?;
+                visit!(*left);
+                write!(f, ") * (")?;
+                visit!(*right);
+                write!(f, ")")?;
             }
-            MetaVector::VectorUnit { .. } => write!(f, "''"),
+            MetaVector::VectorUnit { .. } => write!(f, "''")?,
         }
+        Ok(())
     }
 }
 
@@ -1401,3 +1414,6 @@ impl fmt::Display for MetaStmt {
         }
     }
 }
+
+#[cfg(test)]
+mod test_display;
