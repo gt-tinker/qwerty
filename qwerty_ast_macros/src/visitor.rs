@@ -7,14 +7,13 @@ mod parse;
 
 enum Chunk {
     Visit(Expr),
-    Hook(Option<usize>, Vec<Stmt>),
+    Hook(Vec<Stmt>),
 }
 
 pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
     let parse::VisitorMatchCall { ty, match_on, arms } = syn::parse(args)?;
     let span = ty.span();
 
-    let mut hook_counter = 0;
     let mut ent_arms = Vec::new();
 
     for arm in arms {
@@ -53,7 +52,6 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
                 block: Block { stmts, .. },
                 ..
             }) => {
-                let mut seen_visit_already = false;
                 for stmt in stmts {
                     match stmt {
                         Stmt::Macro(StmtMacro {
@@ -61,20 +59,9 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
                             ..
                         }) if paths::path_is_ident_str(&path, "visit") => {
                             if !pending_stmts.is_empty() {
-                                // Don't increment the hook counter for the
-                                // first hook because it will just be in the
-                                // `Node` arm.
-                                let counter = if seen_visit_already {
-                                    let counter = Some(hook_counter);
-                                    hook_counter += 1;
-                                    counter
-                                } else {
-                                    None
-                                };
-                                chunks.push(Chunk::Hook(counter, pending_stmts));
+                                chunks.push(Chunk::Hook(pending_stmts));
                                 pending_stmts = Vec::new();
                             }
-                            seen_visit_already = true;
 
                             let arg: Expr = syn::parse2(tokens)?;
                             chunks.push(Chunk::Visit(arg));
@@ -87,22 +74,15 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
                 }
 
                 if !pending_stmts.is_empty() {
-                    let counter = if seen_visit_already {
-                        let counter = Some(hook_counter);
-                        hook_counter += 1;
-                        counter
-                    } else {
-                        None
-                    };
-                    chunks.push(Chunk::Hook(counter, pending_stmts));
+                    chunks.push(Chunk::Hook(pending_stmts));
                 }
             }
 
             other_expr => {
-                chunks.push(Chunk::Hook(
-                    None,
-                    vec![Stmt::Expr(other_expr, Some(Token![;](span)))],
-                ));
+                chunks.push(Chunk::Hook(vec![Stmt::Expr(
+                    other_expr,
+                    Some(Token![;](span)),
+                )]));
             }
         }
 
@@ -115,13 +95,13 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
             chunks.reverse();
 
             let first_chunk = chunks.pop().expect("chunks is nonempty yet empty");
-            let (leading_hook_stmts, extra_first_chunk) =
-                if let Chunk::Hook(None, stmts) = first_chunk {
-                    (stmts, None)
-                } else {
-                    (Vec::new(), Some(first_chunk))
-                };
+            let (leading_hook_stmts, extra_first_chunk) = if let Chunk::Hook(stmts) = first_chunk {
+                (stmts, None)
+            } else {
+                (Vec::new(), Some(first_chunk))
+            };
 
+            let mut hook_counter = 0usize;
             let (push_stmts, mut hook_arms): (Vec<_>, Vec<_>) = extra_first_chunk
                 .into_iter()
                 .chain(chunks.into_iter())
@@ -138,19 +118,22 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
                             )
                         }
 
-                        Chunk::Hook(Some(hook_id), stmts) => (
-                            quote_spanned! {span=>
-                                stack.push(StackEntry::Hook(#hook_id, node));
-                            },
-                            quote_spanned! {span=>
-                                #[allow(unused)]
-                                StackEntry::Hook(#hook_id, #pat) => {
-                                    #(#stmts)*
-                                }
-                            },
-                        ),
+                        Chunk::Hook(stmts) => {
+                            let hook_id = hook_counter;
+                            hook_counter += 1;
 
-                        Chunk::Hook(None, _) => unreachable!("Only first hook should have no id"),
+                            (
+                                quote_spanned! {span=>
+                                    stack.push(StackEntry::Hook(#hook_id, node));
+                                },
+                                quote_spanned! {span=>
+                                    #[allow(unused)]
+                                    StackEntry::Hook(#hook_id, #pat) => {
+                                        #(#stmts)*
+                                    }
+                                },
+                            )
+                        }
                     }
                 })
                 .unzip();
