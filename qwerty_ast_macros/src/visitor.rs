@@ -93,7 +93,7 @@ fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenSt
                                 stack.push(StackEntry::Hook(#hook_id, node));
                             },
                             quote_spanned! {span=>
-                                #[allow(unused)]
+                                #[allow(unused_parens, unused_variables)]
                                 StackEntry::Hook(#hook_id, #pat) => {
                                     #(#stmts)*
                                 }
@@ -107,7 +107,7 @@ fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenSt
         hook_arms.reverse();
 
         quote_spanned! {span=>
-            #[allow(unused)]
+            #[allow(unused_parens, unused_variables)]
             StackEntry::Node(node @ (#pat)) => {
                 #(#leading_hook_stmts)*
                 #(#push_stmts)*
