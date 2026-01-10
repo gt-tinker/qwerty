@@ -8,7 +8,7 @@ use crate::{
     meta::{DimExpr, DimVar, Progress, expand::MacroEnv},
 };
 use dashu::integer::UBig;
-use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty};
+use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty, visitor_match};
 use std::fmt;
 
 #[gen_rebuild {
@@ -243,57 +243,77 @@ impl MetaExpr {
 // TODO: don't duplicate this code with classical.rs
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaExpr::Mod {
-                divisor, dividend, ..
-            } => write!(f, "({}) % ({})", divisor, dividend),
-            MetaExpr::Variable { name, .. } => write!(f, "{}", name),
-            MetaExpr::Slice {
-                val, lower, upper, ..
-            } => {
-                write!(f, "({})[{}:", val, lower)?;
+        visitor_match! {MetaExpr, self,
+            MetaExpr::Mod { dividend, divisor, .. } => {
+                write!(f, "(")?;
+                visit!(*dividend);
+                write!(f, ") % ({})", divisor)?;
+            }
+            MetaExpr::Variable { name, .. } => write!(f, "{}", name)?,
+            MetaExpr::Slice { val, lower, upper, .. } => {
+                write!(f, "(")?;
+                visit!(*val);
+                write!(f, ")[{}:", lower)?;
                 if let Some(upper_dimexpr) = upper {
                     write!(f, "{}", upper_dimexpr)?;
                 }
-                write!(f, "]")
+                write!(f, "]")?;
             }
             MetaExpr::UnaryOp { kind, val, .. } => {
                 let kind_str = match kind {
                     UnaryOpKind::Not => "~",
                 };
-                write!(f, "{}({})", kind_str, *val)
+                write!(f, "{}(", kind_str)?;
+                visit!(*val);
+                write!(f, ")")?;
             }
             MetaExpr::BinaryOp {
                 kind, left, right, ..
             } => {
+                write!(f, "(")?;
+                visit!(*left);
                 let kind_str = match kind {
                     BinaryOpKind::And => "&",
                     BinaryOpKind::Or => "|",
                     BinaryOpKind::Xor => "^",
                 };
-                write!(f, "({}) {} ({})", *left, kind_str, *right)
+                write!(f, ") {} (", kind_str)?;
+                visit!(*right);
+                write!(f, ")")?;
             }
             MetaExpr::ReduceOp { kind, val, .. } => {
+                write!(f, "(")?;
+                visit!(*val);
                 let kind_str = match kind {
                     BinaryOpKind::And => "and",
                     BinaryOpKind::Or => "or",
                     BinaryOpKind::Xor => "xor",
                 };
-                write!(f, "({}).{}_reduce()", kind_str, *val)
+                write!(f, ").{}_reduce()", kind_str)?;
             }
             MetaExpr::ModMul { x, j, y, mod_n, .. } => {
-                write!(f, "({})**2**({}) * ({}) % ({})", x, j, y, mod_n)
-            }
-            MetaExpr::Repeat { val, amt, .. } => {
-                write!(f, "({}).repeat({})", val, amt)
-            }
-            MetaExpr::Concat { left, right, .. } => {
-                write!(f, "({}).concat({})", left, right)
+                write!(f, "({})**2**({}) * (", x, j)?;
+                visit!(*y);
+                write!(f, ") % ({})", mod_n)?;
             }
             MetaExpr::BitLiteral { val, n_bits, .. } => {
-                write!(f, "bit[{}](0b{:b})", n_bits, val)
+                write!(f, "bit[{}](0b{:b})", n_bits, val)?;
+            }
+            MetaExpr::Repeat { val, amt, .. } => {
+                write!(f, "(")?;
+                visit!(*val);
+                write!(f, ").repeat({})", amt)?;
+            }
+            MetaExpr::Concat { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(*left);
+                write!(f, ").concat(")?;
+                visit!(*right);
+                write!(f, ")")?;
             }
         }
+
+        Ok(())
     }
 }
 
