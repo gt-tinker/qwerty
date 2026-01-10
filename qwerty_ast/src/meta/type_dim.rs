@@ -5,7 +5,7 @@ use crate::{
     meta::{MacroEnv, Progress},
 };
 use dashu::{base::Signed, integer::IBig};
-use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty};
+use qwerty_ast_macros::{gen_rebuild, rebuild, rewrite_match, rewrite_ty, visitor_match};
 use std::fmt;
 
 /// A dimension variable. The distinction between the two variants exists
@@ -298,18 +298,29 @@ impl DimExpr {
 
     /// Returns `true` if this expression contains at least one dim var.
     pub fn contains_dim_var(&self) -> bool {
-        match self {
-            DimExpr::DimVar { .. } => true,
-            DimExpr::DimConst { .. } => false,
+        visitor_match! {DimExpr, self,
+            DimExpr::DimVar { .. } => {
+                return true;
+            }
+            DimExpr::DimConst { .. } => {},
             DimExpr::DimSum { left, right, .. } => {
-                left.contains_dim_var() || right.contains_dim_var()
+                visit!(*left);
+                visit!(*right);
             }
             DimExpr::DimProd { left, right, .. } => {
-                left.contains_dim_var() || right.contains_dim_var()
+                visit!(*left);
+                visit!(*right);
             }
-            DimExpr::DimPow { base, pow, .. } => base.contains_dim_var() || pow.contains_dim_var(),
-            DimExpr::DimNeg { val, .. } => val.contains_dim_var(),
+            DimExpr::DimPow { base, pow, .. } => {
+                visit!(*base);
+                visit!(*pow);
+            }
+            DimExpr::DimNeg { val, .. } => {
+                visit!(*val);
+            }
         }
+
+        false
     }
 
     /// Extract an [`IBig`] from this dimension variable expression or

@@ -51,11 +51,15 @@ fn expr_into_chunks(span: Span, expr: Expr) -> Vec<Chunk> {
     vec![Chunk::Hook(vec![Stmt::Expr(expr, Some(Token![;](span)))])]
 }
 
-fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenStream2 {
+/// The `bool` return value represents whether a hook is involved.
+fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> (bool, TokenStream2) {
     if chunks.is_empty() {
-        quote_spanned! {span=>
-            StackEntry::Node(#pat) => {}
-        }
+        (
+            false, // No hooks here
+            quote_spanned! {span=>
+                StackEntry::Node(#pat) => {}
+            },
+        )
     } else {
         // So we can treat it as a stack
         chunks.reverse();
@@ -68,52 +72,52 @@ fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenSt
         };
 
         let mut hook_counter = 0usize;
-        let (push_stmts, mut hook_arms): (Vec<_>, Vec<_>) = extra_first_chunk
+        let (push_stmts, hook_arms): (Vec<_>, Vec<_>) = extra_first_chunk
             .into_iter()
             .chain(chunks.into_iter())
-            .map(|chunk| {
-                match chunk {
-                    Chunk::Visit(expr) => {
-                        (
-                            quote_spanned! {span=>
-                                stack.push(StackEntry::Node(&#expr));
-                            },
-                            quote_spanned! {span=>
-                                // No hook arm needed
-                            },
-                        )
-                    }
+            .map(|chunk| match chunk {
+                Chunk::Visit(expr) => (
+                    quote_spanned! {span=>
+                        stack.push(StackEntry::Node(&#expr));
+                    },
+                    None,
+                ),
 
-                    Chunk::Hook(stmts) => {
-                        let hook_id = hook_counter;
-                        hook_counter += 1;
+                Chunk::Hook(stmts) => {
+                    let hook_id = hook_counter;
+                    hook_counter += 1;
 
-                        (
-                            quote_spanned! {span=>
-                                stack.push(StackEntry::Hook(#hook_id, node));
-                            },
-                            quote_spanned! {span=>
-                                #[allow(unused_parens, unused_variables)]
-                                StackEntry::Hook(#hook_id, #pat) => {
-                                    #(#stmts)*
-                                }
-                            },
-                        )
-                    }
+                    (
+                        quote_spanned! {span=>
+                            stack.push(StackEntry::Hook(#hook_id, node));
+                        },
+                        Some(quote_spanned! {span=>
+                            #[allow(unused_parens, unused_variables)]
+                            StackEntry::Hook(#hook_id, #pat) => {
+                                #(#stmts)*
+                            }
+                        }),
+                    )
                 }
             })
             .unzip();
-        // For readability of generated code
-        hook_arms.reverse();
-
-        quote_spanned! {span=>
+        let hook_arms: Vec<_> = hook_arms
+            .into_iter()
+            .filter_map(|arm| arm)
+            // For readability of generated code
+            .rev()
+            .collect();
+        let hooks_were_generated = !hook_arms.is_empty();
+        let code = quote_spanned! {span=>
             #[allow(unused_parens, unused_variables)]
             StackEntry::Node(node @ (#pat)) => {
                 #(#leading_hook_stmts)*
                 #(#push_stmts)*
             }
             #(#hook_arms)*
-        }
+        };
+
+        (hooks_were_generated, code)
     }
 }
 
@@ -121,43 +125,68 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
     let parse::VisitorMatchCall { ty, match_on, arms } = syn::parse(args)?;
     let span = ty.span();
 
-    let mut ent_arms = Vec::new();
+    let arm_pairs = arms
+        .into_iter()
+        .map(|arm| {
+            let Arm {
+                attrs,
+                pat,
+                guard,
+                fat_arrow_token: _,
+                body,
+                comma: _,
+            } = arm;
 
-    for arm in arms {
-        let Arm {
-            attrs,
-            pat,
-            guard,
-            fat_arrow_token: _,
-            body,
-            comma: _,
-        } = arm;
+            if !attrs.is_empty() {
+                let first_attr = attrs
+                    .into_iter()
+                    .next()
+                    .expect("attrs is nonempty yet empty");
+                return Err(Error::new_spanned(
+                    first_attr,
+                    "Attributes not allowed on match arms",
+                ));
+            }
 
-        if !attrs.is_empty() {
-            let first_attr = attrs
-                .into_iter()
-                .next()
-                .expect("attrs is nonempty yet empty");
-            return Err(Error::new_spanned(
-                first_attr,
-                "Attributes not allowed on match arms",
-            ));
-        }
+            if let Some((if_tok, _)) = guard {
+                return Err(Error::new_spanned(
+                    if_tok,
+                    "Guards not allowed on match arms",
+                ));
+            }
 
-        if let Some((if_tok, _)) = guard {
-            return Err(Error::new_spanned(
-                if_tok,
-                "Guards not allowed on match arms",
-            ));
-        }
+            let chunks = match *body {
+                Expr::Block(ExprBlock { block, .. }) => block_into_chunks(block)?,
+                other_expr => expr_into_chunks(span, other_expr),
+            };
 
-        let chunks = match *body {
-            Expr::Block(ExprBlock { block, .. }) => block_into_chunks(block)?,
-            other_expr => expr_into_chunks(span, other_expr),
-        };
+            Ok(chunks_into_ent_arm(&pat, span, chunks))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let (hooks_were_generateds, ent_arms): (Vec<_>, Vec<_>) = arm_pairs.into_iter().unzip();
+    let hooks_were_generated = hooks_were_generateds
+        .into_iter()
+        .any(|hooks_were_generated| hooks_were_generated);
 
-        ent_arms.push(chunks_into_ent_arm(&pat, span, chunks));
-    }
+    let (maybe_hook_variant, maybe_hook_fallthrough) = if hooks_were_generated {
+        (
+            quote_spanned! {span=>
+                Hook(usize, &'a #ty),
+            },
+            quote_spanned! {span=>
+                StackEntry::Hook(_, _) => unreachable!("Invalid hook stack entry"),
+            },
+        )
+    } else {
+        (
+            quote_spanned! {span=>
+                // No hook variant
+            },
+            quote_spanned! {span=>
+                // No hook fallthrough arm
+            },
+        )
+    };
 
     Ok(quote_spanned! {span=>
         {
@@ -165,7 +194,7 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
 
             enum StackEntry<'a> {
                 Node(&'a #ty),
-                Hook(usize, &'a #ty),
+                #maybe_hook_variant
             }
 
             let mut stack = vec![StackEntry::Node(match_on)];
@@ -173,7 +202,7 @@ pub fn impl_visitor_match(args: TokenStream) -> Result<TokenStream, Error> {
             while let Some(ent) = stack.pop() {
                 let () = match ent {
                     #(#ent_arms)*
-                    StackEntry::Hook(_, _) => unreachable!("Invalid hook stack entry"),
+                    #maybe_hook_fallthrough
                 };
             }
         }
