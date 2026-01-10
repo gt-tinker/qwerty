@@ -488,63 +488,84 @@ impl fmt::Display for MetaType {
     /// Returns a representation of a type that matches the syntax for the
     /// Python DSL.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaType::FuncType { in_ty, out_ty } => match (&**in_ty, &**out_ty) {
-                (
-                    MetaType::RegType {
-                        elem_ty: in_elem_ty,
-                        dim: in_dim,
-                    },
-                    MetaType::RegType {
-                        elem_ty: out_elem_ty,
-                        dim: out_dim,
-                    },
-                ) if *in_elem_ty != RegKind::Basis && *out_elem_ty != RegKind::Basis => {
-                    let prefix = match (in_elem_ty, out_elem_ty) {
-                        (RegKind::Qubit, RegKind::Qubit) => "q",
-                        (RegKind::Qubit, RegKind::Bit) => "qb",
-                        (RegKind::Bit, RegKind::Qubit) => "bq",
-                        (RegKind::Bit, RegKind::Bit) => "b",
-                        (RegKind::Basis, _) | (_, RegKind::Basis) => {
-                            unreachable!("bases cannot be function arguments/results")
+        visitor_match! {MetaType, self,
+            MetaType::FuncType { in_ty, out_ty } => {
+                match (&**in_ty, &**out_ty) {
+                    (
+                        MetaType::RegType {
+                            elem_ty: in_elem_ty,
+                            dim: in_dim,
+                        },
+                        MetaType::RegType {
+                            elem_ty: out_elem_ty,
+                            dim: out_dim,
+                        },
+                    ) if *in_elem_ty != RegKind::Basis && *out_elem_ty != RegKind::Basis => {
+                        let prefix = match (in_elem_ty, out_elem_ty) {
+                            (RegKind::Qubit, RegKind::Qubit) => "q",
+                            (RegKind::Qubit, RegKind::Bit) => "qb",
+                            (RegKind::Bit, RegKind::Qubit) => "bq",
+                            (RegKind::Bit, RegKind::Bit) => "b",
+                            (RegKind::Basis, _) | (_, RegKind::Basis) => {
+                                unreachable!("bases cannot be function arguments/results")
+                            }
+                        };
+                        write!(f, "{}func[", prefix)?;
+                        if in_elem_ty == out_elem_ty && in_dim == out_dim {
+                            write!(f, "{}]", in_dim)?;
+                        } else {
+                            write!(f, "{},{}]", in_dim, out_dim)?;
                         }
-                    };
-                    write!(f, "{}func[", prefix)?;
-                    if in_elem_ty == out_elem_ty && in_dim == out_dim {
-                        write!(f, "{}]", in_dim)
-                    } else {
-                        write!(f, "{},{}]", in_dim, out_dim)
+                    }
+                    _ => {
+                        write!(f, "func[")?;
+                        // TODO: This visit!() isn't seen because it's not top-level
+                        visit!(*in_ty);
+                        write!(f, ",")?;
+                        // TODO: This visit!() isn't seen because it's not top-level
+                        visit!(*out_ty);
+                        write!(f, "]")?;
                     }
                 }
-                _ => write!(f, "func[{},{}]", in_ty, out_ty),
-            },
-            MetaType::RevFuncType { in_out_ty } => match &**in_out_ty {
-                MetaType::RegType {
-                    elem_ty: RegKind::Qubit,
-                    dim,
-                } => write!(f, "rev_qfunc[{}]", dim),
-                MetaType::RegType {
-                    elem_ty: RegKind::Bit,
-                    dim,
-                } => write!(f, "rev_bfunc[{}]", dim),
-                _ => write!(f, "rev_func[{}]", in_out_ty),
-            },
-            MetaType::RegType { elem_ty, dim } => match elem_ty {
-                RegKind::Qubit => write!(f, "qubit[{}]", dim),
-                RegKind::Bit => write!(f, "bit[{}]", dim),
-                RegKind::Basis => write!(f, "basis[{}]", dim),
-            },
+            }
+            MetaType::RevFuncType { in_out_ty } => {
+                match &**in_out_ty {
+                    MetaType::RegType { elem_ty: RegKind::Qubit, dim } => {
+                        write!(f, "rev_qfunc[{}]", dim)?;
+                    }
+                    MetaType::RegType { elem_ty: RegKind::Bit, dim } => {
+                        write!(f, "rev_bfunc[{}]", dim)?;
+                    }
+                    // TODO: This visit!() isn't seen because it's not top-level
+                    _ => {
+                        write!(f, "rev_func[")?;
+                        visit!(*in_out_ty);
+                        write!(f, "]")?;
+                    }
+                }
+
+            }
+            MetaType::RegType { elem_ty, dim } => {
+                match elem_ty {
+                    RegKind::Qubit => write!(f, "qubit[{}]", dim)?,
+                    RegKind::Bit => write!(f, "bit[{}]", dim)?,
+                    RegKind::Basis => write!(f, "basis[{}]", dim)?,
+                }
+            }
             MetaType::TupleType { tys } => {
                 write!(f, "(")?;
                 for (i, ty) in tys.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", ty)?;
+                    // TODO: This visit!() isn't seen because it's not top-level
+                    visit!(ty);
                 }
-                write!(f, ")")
+                write!(f, ")")?;
             }
-            MetaType::UnitType => write!(f, "None"),
+            MetaType::UnitType => write!(f, "None")?,
         }
+
+        Ok(())
     }
 }
