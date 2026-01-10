@@ -1,9 +1,9 @@
 use crate::syn_util::paths;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote_spanned;
+use quote::{ToTokens, quote_spanned};
 use syn::{
-    Arm, Block, Error, Expr, ExprBlock, Macro, Pat, Stmt, StmtMacro, Token, spanned::Spanned,
+    Arm, Block, Error, Expr, ExprBlock, Macro, Pat, Stmt, StmtMacro, Token, Type, spanned::Spanned,
 };
 
 mod parse;
@@ -11,6 +11,22 @@ mod parse;
 enum Chunk {
     Visit(Expr),
     Hook(Vec<Stmt>),
+    ForHook(Type, Pat, Expr, Vec<Chunk>),
+}
+
+struct NumChunks {
+    num_chunks: Vec<NumChunk>,
+    hook_defs: Vec<HookDef>,
+}
+
+enum NumChunk {
+    Visit(Expr),
+    CallHook(usize),
+}
+
+struct HookDef {
+    hook_id: usize,
+    stmts: Vec<TokenStream2>,
 }
 
 fn block_into_chunks(block: Block) -> Result<Vec<Chunk>, Error> {
@@ -24,14 +40,34 @@ fn block_into_chunks(block: Block) -> Result<Vec<Chunk>, Error> {
             Stmt::Macro(StmtMacro {
                 mac: Macro { path, tokens, .. },
                 ..
-            }) if paths::path_is_ident_str(&path, "visit") => {
+            }) if matches!(
+                paths::path_as_ident_string(&path).as_deref(),
+                Some("visit" | "visit_for")
+            ) =>
+            {
                 if !pending_stmts.is_empty() {
                     chunks.push(Chunk::Hook(pending_stmts));
                     pending_stmts = Vec::new();
                 }
 
-                let arg: Expr = syn::parse2(tokens)?;
-                chunks.push(Chunk::Visit(arg));
+                let chunk = match paths::path_as_ident_string(&path).as_deref() {
+                    Some("visit") => {
+                        let parse::VisitMacroCall { expr } = syn::parse2(tokens)?;
+                        Chunk::Visit(expr)
+                    }
+                    Some("visit_for") => {
+                        let parse::VisitForMacroCall {
+                            pat_ty,
+                            pat,
+                            expr,
+                            body,
+                        } = syn::parse2(tokens)?;
+                        let chunks = block_into_chunks(body)?;
+                        Chunk::ForHook(pat_ty, pat, expr, chunks)
+                    }
+                    _ => unreachable!("Unknown visit macro"),
+                };
+                chunks.push(chunk);
             }
 
             other_stmt => {
@@ -51,65 +87,114 @@ fn expr_into_chunks(span: Span, expr: Expr) -> Vec<Chunk> {
     vec![Chunk::Hook(vec![Stmt::Expr(expr, Some(Token![;](span)))])]
 }
 
-fn chunks_into_ent_arm(pat: &Pat, span: Span, mut chunks: Vec<Chunk>) -> TokenStream2 {
-    if chunks.is_empty() {
+fn number_chunks(span: Span, hook_counter: &mut usize, chunks: Vec<Chunk>) -> NumChunks {
+    let (num_chunks, hook_defs): (Vec<_>, Vec<_>) = chunks
+        .into_iter()
+        .map(|chunk| match chunk {
+            Chunk::Visit(expr) => (NumChunk::Visit(expr), vec![]),
+            Chunk::Hook(stmts) => {
+                let hook_id = *hook_counter;
+                *hook_counter += 1;
+                let stmts = stmts.into_iter().map(Stmt::into_token_stream).collect();
+                (
+                    NumChunk::CallHook(hook_id),
+                    vec![HookDef { hook_id, stmts }],
+                )
+            }
+
+            Chunk::ForHook(pat_ty, pat, expr, chunks) => {
+                let NumChunks {
+                    num_chunks: nested_num_chunks,
+                    mut hook_defs,
+                } = number_chunks(span, hook_counter, chunks);
+
+                let push_stmts: Vec<_> = nested_num_chunks
+                    .into_iter()
+                    .map(|num_chunk| num_chunk_into_push_stmt(span, num_chunk))
+                    .collect();
+
+                let stmt = quote_spanned! {span=>
+                    stack.extend({
+                        let mut stack = Vec::new();
+                        for #pat in #expr {
+                            #(#push_stmts)*
+                        }
+                        stack.reverse();
+                        stack
+                    });
+                };
+                let hook_id = *hook_counter;
+                *hook_counter += 1;
+                hook_defs.push(HookDef {
+                    hook_id,
+                    stmts: vec![stmt],
+                });
+
+                (NumChunk::CallHook(hook_id), hook_defs)
+            }
+        })
+        .unzip();
+    let hook_defs = hook_defs.into_iter().flatten().collect();
+
+    NumChunks {
+        num_chunks,
+        hook_defs,
+    }
+}
+
+fn num_chunk_into_push_stmt(span: Span, num_chunk: NumChunk) -> TokenStream2 {
+    match num_chunk {
+        NumChunk::Visit(expr) => {
+            quote_spanned! {span=>
+                stack.push(StackEntry::Node(&#expr));
+            }
+        }
+
+        NumChunk::CallHook(hook_id) => {
+            quote_spanned! {span=>
+                stack.push(StackEntry::Hook(#hook_id, node));
+            }
+        }
+    }
+}
+
+fn hook_def_into_arm(span: Span, pat: &Pat, hook_def: HookDef) -> TokenStream2 {
+    let HookDef { hook_id, stmts } = hook_def;
+
+    quote_spanned! {span=>
+        #[allow(unused)]
+        StackEntry::Hook(#hook_id, #pat) => {
+            #(#stmts)*
+        }
+    }
+}
+
+fn chunks_into_ent_arm(pat: &Pat, span: Span, chunks: Vec<Chunk>) -> TokenStream2 {
+    let mut hook_counter = 0usize;
+    let NumChunks {
+        num_chunks,
+        hook_defs,
+    } = number_chunks(span, &mut hook_counter, chunks);
+
+    if num_chunks.is_empty() {
         quote_spanned! {span=>
             StackEntry::Node(#pat) => {}
         }
     } else {
-        // So we can treat it as a stack
-        chunks.reverse();
-
-        let first_chunk = chunks.pop().expect("chunks is nonempty yet empty");
-        let (leading_hook_stmts, extra_first_chunk) = if let Chunk::Hook(stmts) = first_chunk {
-            (stmts, None)
-        } else {
-            (Vec::new(), Some(first_chunk))
-        };
-
-        let mut hook_counter = 0usize;
-        let (push_stmts, mut hook_arms): (Vec<_>, Vec<_>) = extra_first_chunk
+        let push_stmts: Vec<_> = num_chunks
             .into_iter()
-            .chain(chunks.into_iter())
-            .map(|chunk| {
-                match chunk {
-                    Chunk::Visit(expr) => {
-                        (
-                            quote_spanned! {span=>
-                                stack.push(StackEntry::Node(&#expr));
-                            },
-                            quote_spanned! {span=>
-                                // No hook arm needed
-                            },
-                        )
-                    }
-
-                    Chunk::Hook(stmts) => {
-                        let hook_id = hook_counter;
-                        hook_counter += 1;
-
-                        (
-                            quote_spanned! {span=>
-                                stack.push(StackEntry::Hook(#hook_id, node));
-                            },
-                            quote_spanned! {span=>
-                                #[allow(unused)]
-                                StackEntry::Hook(#hook_id, #pat) => {
-                                    #(#stmts)*
-                                }
-                            },
-                        )
-                    }
-                }
-            })
-            .unzip();
-        // For readability of generated code
-        hook_arms.reverse();
+            .map(|chunk| num_chunk_into_push_stmt(span, chunk))
+            .rev()
+            .collect();
+        let hook_arms: Vec<_> = hook_defs
+            .into_iter()
+            .map(|def| hook_def_into_arm(span, pat, def))
+            .collect();
 
         quote_spanned! {span=>
             #[allow(unused)]
             StackEntry::Node(node @ (#pat)) => {
-                #(#leading_hook_stmts)*
+                //#(#leading_stmts)*
                 #(#push_stmts)*
             }
             #(#hook_arms)*

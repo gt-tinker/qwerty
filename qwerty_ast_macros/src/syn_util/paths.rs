@@ -49,8 +49,8 @@ pub fn path_as_ident<'a>(path: &'a Path) -> Option<&'a Ident> {
     }
 }
 
-pub fn path_is_ident_str<'a>(path: &'a Path, name: &str) -> bool {
-    path_as_ident(path).is_some_and(|ident| ident.to_string() == name)
+pub fn path_as_ident_string<'a>(path: &'a Path) -> Option<String> {
+    path_as_ident(path).map(|ident| ident.to_string())
 }
 
 /// Rewrite `MetaExpr` as `meta_expr`

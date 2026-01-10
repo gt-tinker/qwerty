@@ -600,11 +600,13 @@ impl MetaBasis {
 
 impl fmt::Display for MetaBasis {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaBasis::BasisAlias { name, .. } => write!(f, "{}", name),
-            MetaBasis::BasisAliasRec { name, param, .. } => write!(f, "{}[{}]", name, param),
+        visitor_match! {MetaBasis, self,
+            MetaBasis::BasisAlias { name, .. } => write!(f, "{}", name)?,
+            MetaBasis::BasisAliasRec { name, param, .. } => write!(f, "{}[{}]", name, param)?,
             MetaBasis::BasisBroadcastTensor { val, factor, .. } => {
-                write!(f, "({})**({})", val, factor)
+                write!(f, "(")?;
+                visit!(val);
+                write!(f, ")**({})", factor)?;
             }
             MetaBasis::BasisLiteral { vecs, .. } => {
                 write!(f, "{{")?;
@@ -612,20 +614,28 @@ impl fmt::Display for MetaBasis {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", vec)?;
+                    write!(f, "{}", vec);
                 }
-                Ok(())
+                write!(f, "}}")?;
             }
             MetaBasis::EmptyBasisLiteral { .. } => write!(f, "{{}}"),
             MetaBasis::BasisBiTensor { left, right, .. } => {
-                write!(f, "({})*({})", *left, *right)
+                write!(f, "(")?;
+                visit!(left);
+                write!(f, ")*(")?;
+                visit!(right);
+                write!(f, ")")?;
             }
             MetaBasis::ApplyBasisGenerator {
                 basis, generator, ..
             } => {
-                write!(f, "({}) // ({})", *basis, generator)
+                write!(f, "(")?;
+                visit!(basis);
+                write!(f, ") // ({})", generator)?;
             }
         }
+
+        Ok(())
     }
 }
 
