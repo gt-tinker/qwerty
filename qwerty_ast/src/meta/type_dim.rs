@@ -374,14 +374,38 @@ impl fmt::Display for DimExpr {
     /// Returns a representation of a dimension variable expression that
     /// matches the syntax in the Python DSL.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DimExpr::DimVar { var, .. } => write!(f, "{}", var),
-            DimExpr::DimConst { val, .. } => write!(f, "{}", val),
-            DimExpr::DimSum { left, right, .. } => write!(f, "({})+({})", left, right),
-            DimExpr::DimProd { left, right, .. } => write!(f, "({})*({})", left, right),
-            DimExpr::DimPow { base, pow, .. } => write!(f, "({})**({})", base, pow),
-            DimExpr::DimNeg { val, .. } => write!(f, "-({})", val),
+        visitor_match! {DimExpr, self,
+            DimExpr::DimVar { var, .. } => write!(f, "{}", var)?,
+            DimExpr::DimConst { val, .. } => write!(f, "{}", val)?,
+            DimExpr::DimSum { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(*left);
+                write!(f, ")+(")?;
+                visit!(*right);
+                write!(f, ")")?;
+            }
+            DimExpr::DimProd { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(*left);
+                write!(f, ")*(")?;
+                visit!(*right);
+                write!(f, ")")?;
+            }
+            DimExpr::DimPow { base, pow, .. } => {
+                write!(f, "(")?;
+                visit!(*base);
+                write!(f, ")**(")?;
+                visit!(*pow);
+                write!(f, ")")?;
+            }
+            DimExpr::DimNeg { val, .. } => {
+                write!(f, "-(")?;
+                visit!(*val);
+                write!(f, ")")?;
+            }
         }
+
+        Ok(())
     }
 }
 
