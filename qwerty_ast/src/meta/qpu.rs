@@ -1074,49 +1074,70 @@ impl MetaExpr {
 // TODO: don't duplicate with qpu.rs
 impl fmt::Display for MetaExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MetaExpr::ExprMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
-            MetaExpr::BasisMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name),
+        visitor_match! {MetaExpr, self,
+            MetaExpr::ExprMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name)?,
+            MetaExpr::BasisMacro { name, arg, .. } => write!(f, "({}).{}", *arg, name)?,
             MetaExpr::BroadcastTensor { val, factor, .. } => {
-                write!(f, "({})**({})", *val, factor)
+                write!(f, "(")?;
+                visit!(*val);
+                write!(f, ")**({})", factor)?;
             }
-            MetaExpr::Instantiate { name, param, .. } => write!(f, "{}[[{}]]", name, param),
+            MetaExpr::Instantiate { name, param, .. } => write!(f, "{}[[{}]]", name, param)?,
             MetaExpr::Repeat {
                 for_each,
                 iter_var,
                 upper_bound,
                 ..
-            } => write!(
-                f,
-                "({} for {} in range({}))",
-                *for_each, iter_var, upper_bound
-            ),
-            MetaExpr::Variable { name, .. } => write!(f, "{}", name),
-            MetaExpr::UnitLiteral { .. } => write!(f, "[]"),
-            MetaExpr::EmbedClassical {
-                func, embed_kind, ..
             } => {
+                write!(f, "(")?;
+                visit!(*for_each);
+                write!(f, " for {} in range({}))", iter_var, upper_bound)?;
+            }
+            MetaExpr::Variable { name, .. } => write!(f, "{}", name)?,
+            MetaExpr::UnitLiteral { .. } => write!(f, "[]")?,
+            MetaExpr::EmbedClassical { func, embed_kind, .. } => {
+                write!(f, "(")?;
+                visit!(*func);
                 let embed_kind_str = match embed_kind {
                     EmbedKind::Sign => "sign",
                     EmbedKind::Xor => "xor",
                     EmbedKind::InPlace => "inplace",
                 };
-                write!(f, "({}).{}", func, embed_kind_str)
+                write!(f, ").{}", embed_kind_str)?;
             }
-            MetaExpr::Adjoint { func, .. } => write!(f, "~({})", *func),
-            MetaExpr::Pipe { lhs, rhs, .. } => write!(f, "({}) | ({})", *lhs, *rhs),
-            MetaExpr::Measure { basis, .. } => write!(f, "({}).measure", basis),
-            MetaExpr::Discard { .. } => write!(f, "discard"),
-            MetaExpr::BiTensor { left, right, .. } => write!(f, "({})*({})", *left, *right),
+            MetaExpr::Adjoint { func, .. } => {
+                write!(f, "~(")?;
+                visit!(*func);
+                write!(f, ")")?;
+            }
+            MetaExpr::Pipe { lhs, rhs, .. } => {
+                write!(f, "(")?;
+                visit!(*lhs);
+                write!(f, ") | (")?;
+                visit!(*rhs);
+                write!(f, ")")?;
+            }
+            MetaExpr::Measure { basis, .. } => {
+                write!(f, "({}).measure", basis)?;
+            }
+            MetaExpr::Discard { .. } => write!(f, "discard")?,
+            MetaExpr::BiTensor { left, right, .. } => {
+                write!(f, "(")?;
+                visit!(left);
+                write!(f, ")*(")?;
+                visit!(right);
+                write!(f, ")")?;
+            }
             MetaExpr::BasisTranslation { bin, bout, .. } => {
-                write!(f, "({}) >> ({})", bin, bout)
+                write!(f, "({}) >> ({})", bin, bout)?;
             }
-            MetaExpr::Predicated {
-                then_func,
-                else_func,
-                pred,
-                ..
-            } => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
+            MetaExpr::Predicated { then_func, else_func, pred, .. } => {
+                write!(f, "(")?;
+                visit!(then_func);
+                write!(f, ") if ({}) else (", pred)?;
+                visit!(else_func);
+                write!(f, ")")?;
+            }
             MetaExpr::NonUniformSuperpos { pairs, .. } => {
                 for (i, (prob, qlit)) in pairs.iter().enumerate() {
                     if i > 0 {
@@ -1124,7 +1145,6 @@ impl fmt::Display for MetaExpr {
                     }
                     write!(f, "({})*({})", prob, qlit)?;
                 }
-                Ok(())
             }
             MetaExpr::Ensemble { pairs, .. } => {
                 for (i, (prob, qlit)) in pairs.iter().enumerate() {
@@ -1133,17 +1153,23 @@ impl fmt::Display for MetaExpr {
                     }
                     write!(f, "({})*({})", prob, qlit)?;
                 }
-                Ok(())
             }
-            MetaExpr::Conditional {
-                then_expr,
-                else_expr,
-                cond,
-                ..
-            } => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
-            MetaExpr::QLit { vec } => write!(f, "{}", vec),
-            MetaExpr::BitLiteral { val, n_bits, .. } => write!(f, "bit[{}]({})", val, n_bits),
+            MetaExpr::Conditional { then_expr, else_expr, cond, .. } => {
+                write!(f, "(")?;
+                visit!(then_expr);
+                write!(f, ") if (")?;
+                visit!(cond);
+                write!(f, ") else (")?;
+                visit!(else_expr);
+                write!(f, ")")?;
+            }
+            MetaExpr::QLit { vec } => write!(f, "{}", vec)?,
+            MetaExpr::BitLiteral { val, n_bits, .. } => {
+                write!(f, "bit[{}]({})", val, n_bits)?;
+            }
         }
+
+        Ok(())
     }
 }
 
