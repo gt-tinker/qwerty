@@ -38,7 +38,7 @@ uint64_t modular_inverse(uint64_t a, uint64_t m) {
     return (x % m + m) % m;
 }
 
-// when finding double negation, cancel it out. 
+// when finding double negation, cancel it out.
 // ~(~a) -> a
 struct DoubleNegationPattern : public mlir::OpRewritePattern<ccirc::NotOp> {
     using OpRewritePattern<ccirc::NotOp>::OpRewritePattern;
@@ -134,7 +134,7 @@ struct AndWithOnePattern : public mlir::OpRewritePattern<ccirc::AndOp> {
             if (lhsConst.getValue().isAllOnes()) {
                 otherOperand = rhs;
             }
-        } 
+        }
         // If not, check if rhs is a constant one
         else if (auto rhsConst = rhs.getDefiningOp<ccirc::ConstantOp>()) {
             if (rhsConst.getValue().isAllOnes()) {
@@ -189,7 +189,7 @@ struct AndWithNegationPattern : public mlir::OpRewritePattern<ccirc::AndOp> {
                 match = true;
             }
         }
-        
+
         // If a match is found, replace the AND op with a constant 0
         if (match) {
             rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(op.getType().getDim(), 0));
@@ -222,7 +222,6 @@ struct ParityWithZeroPattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        
         llvm::SmallVector<mlir::Value> newOperands;
         bool foundZero = false;
 
@@ -261,7 +260,6 @@ struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        
         llvm::SmallVector<mlir::Value> newOperands;
         bool foundOne = false;
         bool negate = false;
@@ -303,7 +301,6 @@ struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
 
     mlir::LogicalResult matchAndRewrite(ccirc::ParityOp op,
                                         mlir::PatternRewriter &rewriter) const override {
-        
         llvm::SmallDenseSet<mlir::Value, 8> newOperands;
 
         for (mlir::Value operand : op.getOperands()) {
@@ -830,7 +827,7 @@ mlir::LogicalResult ParityOp::inferReturnTypes(
 void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                            mlir::MLIRContext *context) {
     results.add<PushNotThroughParity,
-                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern, 
+                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern,
                 ParityWithOnePattern, NestedParityPattern>(context);
 }
 
