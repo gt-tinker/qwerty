@@ -9,6 +9,26 @@ ccirc.circuit @double_negation(%arg0: !ccirc<wire[3]>) irrev {
   ccirc.return %1 : !ccirc<wire[3]>
 }
 
+// CHECK-LABEL: ccirc.circuit @negate_zero(%arg0: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:    %0 = ccirc.constant true : !ccirc<wire[1]>
+//  CHECK-NEXT:    ccirc.return %0 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @negate_zero(%arg0: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.constant false : !ccirc<wire[1]>
+  %1 = ccirc.not(%0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %1 : !ccirc<wire[1]>
+}
+
+// CHECK-LABEL: ccirc.circuit @negate_zeroOneZero(%arg0: !ccirc<wire[3]>) irrev {
+//  CHECK-NEXT:    %0 = ccirc.constant 2 : i3 : !ccirc<wire[3]>
+//  CHECK-NEXT:    ccirc.return %0 : !ccirc<wire[3]>
+//  CHECK-NEXT: }
+ccirc.circuit @negate_zeroOneZero(%arg0: !ccirc<wire[3]>) irrev {
+  %0 = ccirc.constant 5 : i3 : !ccirc<wire[3]>
+  %1 = ccirc.not(%0) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+  ccirc.return %1 : !ccirc<wire[3]>
+}
+
 // CHECK-LABEL: ccirc.circuit @pack_unpack(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
 //  CHECK-NEXT:   ccirc.return %arg0, %arg1, %arg2 : !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>
 //  CHECK-NEXT: }
@@ -28,4 +48,41 @@ ccirc.circuit @pack_unpack_trivial(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]
   %3 = ccirc.wirepack(%1#1) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
   %4 = ccirc.wirepack(%1#2) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
   ccirc.return %2, %3, %4 : !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_single_operand(%arg0: !ccirc<wire[1]>) irrev {
+// CHECK-NEXT:    ccirc.return %arg0 : !ccirc<wire[1]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_single_operand(%arg0: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.parity(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %0 : !ccirc<wire[1]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_zero(%arg0: !ccirc<wire[3]>) irrev {
+// CHECK-NEXT:    ccirc.return %arg0 : !ccirc<wire[3]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_zero(%arg0: !ccirc<wire[3]>) irrev {
+  %0 = ccirc.constant 0 : i3 : !ccirc<wire[3]>
+  %1 = ccirc.parity(%0, %arg0) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
+  ccirc.return %1 : !ccirc<wire[3]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_one(%arg0: !ccirc<wire[3]>) irrev {
+// CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wire[3]>) -> !ccirc<wire[3]>
+// CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[3]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_one(%arg0: !ccirc<wire[3]>) irrev {
+  %0 = ccirc.constant 7 : i3 : !ccirc<wire[3]>
+  %1 = ccirc.parity(%0, %arg0) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
+  ccirc.return %1 : !ccirc<wire[3]>
+}
+
+// CHECK-LABEL: ccirc.circuit @parity_nested(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
+// CHECK-NEXT:   %0 = ccirc.parity(%arg0, %arg1, %arg2) : (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+// CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[1]>
+// CHECK-NEXT:  }
+ccirc.circuit @parity_nested(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.parity(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %1 = ccirc.parity(%0, %arg2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %1 : !ccirc<wire[1]>
 }
