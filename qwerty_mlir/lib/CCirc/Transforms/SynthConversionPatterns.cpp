@@ -41,7 +41,7 @@ struct DecomposeRotateLeft
             ccirc::RotateLeftOp rotl,
             OpAdaptor adaptor,
             mlir::ConversionPatternRewriter &rewriter) const final {
-        decomposeRotate(rewriter, adaptor.getValue(), adaptor.getAmount(),
+        decomposeRotate(rewriter, rotl.getValue(), rotl.getAmount(),
                         rotl, ccirc::BitRotateDirection::Left);
         return mlir::success();
     }
@@ -55,7 +55,7 @@ struct DecomposeRotateRight
             ccirc::RotateRightOp rotr,
             OpAdaptor adaptor,
             mlir::ConversionPatternRewriter &rewriter) const final {
-        decomposeRotate(rewriter, adaptor.getValue(), adaptor.getAmount(),
+        decomposeRotate(rewriter, rotr.getValue(), rotr.getAmount(),
                         rotr, ccirc::BitRotateDirection::Right);
         return mlir::success();
     }
@@ -82,7 +82,7 @@ struct DecomposeModMul
         }
 
         mlir::ValueRange y_wires = rewriter.create<ccirc::WireUnpackOp>(
-            loc, adaptor.getY()).getWires();
+            loc, mod_mul.getY()).getWires();
         llvm::SmallVector<mlir::Value> wires_y(y_wires);
         llvm::SmallVector<mlir::Value> wires_out;
 
