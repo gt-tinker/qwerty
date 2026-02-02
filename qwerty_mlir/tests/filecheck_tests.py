@@ -24,14 +24,14 @@ def lookup_binary(exec_name):
         os.path.join(repo_root, 'qwerty_mlir', 'build', 'bin'),
     ]
     candidate_files = sorted(
-        ((path, os.path.getmtime(path))
+        ((os.path.getmtime(path), path)
          for cand_dir in candidate_dirs
          if os.path.exists(
              path := os.path.join(cand_dir, exec_name))),
         reverse=True)
 
     if candidate_files:
-        exec_path, _ = candidate_files[0]
+        _, exec_path = candidate_files[0]
         return exec_path
     else:
         # $PATH path
