@@ -155,7 +155,7 @@ def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
     let hasVerifier = 1;
 }
 
-def Qwerty_WirePackOp : CCirc_Op<"wirepack", [
+def CCirc_WirePackOp : CCirc_Op<"wirepack", [
         Pure, InferTypeOpAdaptor]> {
     let summary = "Combine wire bundles into a wire[N]";
     let arguments = (ins Variadic<CCirc_Wire>:$wires);
@@ -164,13 +164,22 @@ def Qwerty_WirePackOp : CCirc_Op<"wirepack", [
     let assemblyFormat = "`(` operands `)` attr-dict `:` functional-type(operands, results)";
 }
 
-def Qwerty_WireUnpackOp : CCirc_Op<"wireunpack", [
+def CCirc_WireUnpackOp : CCirc_Op<"wireunpack", [
         Pure, InferTypeOpAdaptor]> {
     let summary = "Split a wire[N] into N wire[1]s";
     let arguments = (ins CCirc_Wire:$wire);
     let results = (outs Variadic<CCirc_Wire>:$wires);
     let hasCanonicalizer = 1;
     let assemblyFormat = "$wire attr-dict `:` functional-type(operands, results)";
+}
+
+def FuncPtrOp : CCirc_Op<"func_ptr",
+        [ConstantLike, Pure,
+         DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let summary = "Get a function pointer for a circuit. For tests only";
+    let arguments = (ins FlatSymbolRefAttr:$value);
+    let results = (outs AnyType:$result);
+    let assemblyFormat = "attr-dict $value `:` type(results)";
 }
 
 #endif // DIALECT_INCLUDE_CCIRC_IR_CCIRC_OPS_TD

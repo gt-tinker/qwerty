@@ -3,6 +3,7 @@ import re
 import glob
 import shlex
 import shutil
+import platform
 import unittest
 import functools
 import subprocess
@@ -41,6 +42,44 @@ def lookup_binary(exec_name):
             # Let the Lord sort 'em out
             return exec_name
 
+@functools.cache
+def os_shlib_prefix_suffix():
+    system = platform.system()
+    if system == 'Windows':
+        return '', '.lib'
+    elif system == 'Darwin':
+        return 'lib', '.dylib'
+    else:
+        return 'lib', '.so'
+
+@functools.cache
+def get_mlir_helper_lib_path(lib_name):
+    mlir_dir = os.environ.get('MLIR_DIR')
+
+    if not mlir_dir:
+        raise ValueError('The environment variable $MLIR_DIR is not set. '
+                         'Please see the README')
+
+    shlib_prefix, shlib_suffix = os_shlib_prefix_suffix()
+    return os.path.join(mlir_dir,
+                        os.pardir,
+                        os.pardir,
+                        f'{shlib_prefix}{lib_name}{shlib_suffix}')
+
+# Because some upstream MLIR FileCheck tests do this, ours do too:
+#     // RUN: [snip] | mlir-runner [snip] --shared-libs=%mlir_c_runner_utils | FileCheck %s
+# The %mlir_c_runner_utils part needs to be replaced with the path to a shared
+# library included in our LLVM build.
+def substitute(arg, rel_filename):
+    if arg == '%s':
+        return rel_filename
+    elif arg.count('%') == 1:
+        before, lib_name = arg.split('%', maxsplit=1)
+        lib_path = get_mlir_helper_lib_path(lib_name)
+        return before + lib_path
+    else:
+        return arg
+
 # Imitates LLVM lit[2] by dynamically building a TestCase class[1]
 # [1]: https://stackoverflow.com/a/25860118/321301
 # [2]: https://llvm.org/docs/CommandGuide/lit.html
@@ -63,7 +102,7 @@ def discover_filecheck_tests(cls):
                              .format(test_filename))
         run_cmd_fmt = first_line[run_idx+len(RUN_PREFIX):]
         run_cmd_fmt_splat = shlex.split(run_cmd_fmt)
-        run_cmd_splat = [rel_filename if tok == '%s' else tok
+        run_cmd_splat = [substitute(tok, rel_filename)
                          for tok in run_cmd_fmt_splat]
         pipe_indices = [-1] \
                        + [i for i, tok in enumerate(run_cmd_splat)

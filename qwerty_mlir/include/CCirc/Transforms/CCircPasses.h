@@ -10,6 +10,8 @@
 #define DIALECT_INCLUDE_CCIRC_TRANSFORMS_CCIRC_TYPES_H
 
 #include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 
 namespace ccirc {
 
