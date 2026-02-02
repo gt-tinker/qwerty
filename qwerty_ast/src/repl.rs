@@ -81,7 +81,20 @@ impl Expr {
                 QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
                     index: state.sim.allocate(),
                 })),
-                _ => todo!("Rest of QLit eval_step"),
+                QLit::OneQubit { .. } => {
+                    let index = state.sim.allocate();
+                    state.sim.x(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+                QLit::UniformSuperpos { q1, q2, .. } => match (&**q1, &**q2) {
+                    (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => {
+                        let index = state.sim.allocate();
+                        state.sim.h(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+                    _ => todo!("Unknown type of superpos. Sorry"),
+                }
+                _ => todo!("Unknown type of qlit. Sorry"),
             },
             Expr::QubitRef { .. } | Expr::UnitLiteral { .. } => None,
             _ => todo!("eval_step() for Expr"),
