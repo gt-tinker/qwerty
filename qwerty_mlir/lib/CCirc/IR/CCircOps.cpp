@@ -908,4 +908,21 @@ void WireUnpackOp::getCanonicalizationPatterns(
     results.add<SimplifyPackUnpack>(context);
 }
 
+mlir::LogicalResult FuncPtrOp::verifySymbolUses(
+        mlir::SymbolTableCollection &sym_tab) {
+    llvm::StringRef circ_name = getValue();
+
+    // Try to find the referenced function.
+    CircuitOp circ = sym_tab.lookupNearestSymbolFrom<CircuitOp>(
+        getOperation(), mlir::StringAttr::get(getContext(), circ_name));
+    if (!circ) {
+        return emitOpError() << "reference to undefined circuit '" << circ_name
+                             << "'";
+    }
+
+    // TODO: verify that the type is correct
+
+    return mlir::success();
+}
+
 } // namespace ccirc
