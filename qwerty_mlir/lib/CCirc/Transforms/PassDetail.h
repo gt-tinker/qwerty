@@ -9,6 +9,10 @@
 
 namespace ccirc {
 
+// Add patterns used by both CCircToXAGConversionPass and
+// CCircToFuncArithConversionPass.
+void populateSynthConversionPatterns(mlir::RewritePatternSet &patterns);
+
 #define GEN_PASS_CLASSES
 #include "CCirc/Transforms/CCircPasses.h.inc"
 

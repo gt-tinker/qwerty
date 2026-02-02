@@ -10,5 +10,10 @@ def CCircToXAGConversion : Pass<"convert-ccirc-to-xag", "::ccirc::CircuitOp"> {
   let constructor = "ccirc::createCCircToXAGConversionPass()";
 }
 
+def CCircToFuncArithConversion : Pass<"convert-ccirc-to-func-arith", "::ccirc::CircuitOp"> {
+  let summary = "Convert every ccirc.circuit circuit op into a `func.func` op";
+  let constructor = "ccirc::createCCircToFuncArithConversionPass()";
+}
+
 #endif // DIALECT_INCLUDE_CCIRC_TRANSFORMS_CCIRC_PASSES_TD
 
