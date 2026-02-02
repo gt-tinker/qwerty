@@ -17,6 +17,7 @@ namespace ccirc {
 // Passes
 //===----------------------------------------------------------------------===//
 
+std::unique_ptr<mlir::Pass> createCCircToFuncArithConversionPass();
 std::unique_ptr<mlir::Pass> createCCircToXAGConversionPass();
 
 //===----------------------------------------------------------------------===//
