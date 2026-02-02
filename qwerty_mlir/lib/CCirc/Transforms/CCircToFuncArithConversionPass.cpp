@@ -2,6 +2,7 @@
 #include "util.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 
@@ -304,12 +305,25 @@ struct ReturnToFuncReturn
     }
 };
 
+struct FuncPtrToFuncConst
+        : public mlir::OpConversionPattern<ccirc::FuncPtrOp> {
+    using mlir::OpConversionPattern<ccirc::FuncPtrOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::FuncPtrOp func_ptr_op,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        rewriter.replaceOpWithNewOp<mlir::func::ConstantOp>(
+            func_ptr_op, func_ptr_op.getResult().getType(), func_ptr_op.getValue());
+        return mlir::success();
+    }
+};
+
 struct CCircToFuncArithConversionPass
         : public ccirc::CCircToFuncArithConversionBase<CCircToFuncArithConversionPass> {
     void runOnOperation() override {
-        ccirc::CircuitOp circ = getOperation();
-
         mlir::ConversionTarget target(getContext());
+        target.addIllegalDialect<ccirc::CCircDialect>();
         target.addLegalDialect<mlir::func::FuncDialect,
                                mlir::arith::ArithDialect>();
 
@@ -327,10 +341,12 @@ struct CCircToFuncArithConversionPass
                      ParityToXors,
                      // Final structural conversions
                      CircuitToFunc,
-                     ReturnToFuncReturn>(type_converter, &getContext());
+                     ReturnToFuncReturn,
+                     // Facilitate a hack used by FileCheck tests
+                     FuncPtrToFuncConst>(type_converter, &getContext());
 
-        if (mlir::failed(mlir::applyFullConversion(
-                circ, target, std::move(patterns)))) {
+        if (mlir::failed(mlir::applyPartialConversion(
+                getOperation(), target, std::move(patterns)))) {
             signalPassFailure();
         }
     }

@@ -5,6 +5,9 @@
 
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+
 #include "CCirc/IR/CCircOps.h"
 
 namespace ccirc {
