@@ -1,4 +1,6 @@
 add_mlir_dialect_library(MLIRCCircTransforms
+  SynthConversionPatterns.cpp
+  CCircToFuncArithConversionPass.cpp
   CCircToXAGConversionPass.cpp
 
   DEPENDS
