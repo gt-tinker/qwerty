@@ -222,13 +222,6 @@ struct ParityToXors
     }
 };
 
-//mlir::FunctionType wire_tys_to_int_tys(mlir::Builder &builder, mlir::TypeRange tys, llvm::SmallVectorImpl<mlir::Type> &tys_out) {
-//    for (mlir::Type ty : tys) {
-//        size_t dim = llvm::cast<ccirc::WireType>(ty).getDim();
-//        tys_out.push_back(builder.getIntegerType(dim));
-//    }
-//}
-
 mlir::FunctionType convertCircuitToFunctionType(
         const mlir::TypeConverter &ty_conv, ccirc::CircuitOp circ) {
     llvm::SmallVector<mlir::Type> in_tys;
@@ -313,7 +306,8 @@ struct FuncPtrToFuncConst
             OpAdaptor adaptor,
             mlir::ConversionPatternRewriter &rewriter) const final {
         rewriter.replaceOpWithNewOp<mlir::func::ConstantOp>(
-            func_ptr_op, func_ptr_op.getResult().getType(), func_ptr_op.getValue());
+            func_ptr_op, func_ptr_op.getResult().getType(),
+            func_ptr_op.getValue());
         return mlir::success();
     }
 };
