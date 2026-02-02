@@ -108,12 +108,8 @@ struct PackToArithShiftOr
             OpAdaptor adaptor,
             mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = pack.getLoc();
-        mlir::Type result_ty = getTypeConverter()->convertType(
-            pack.getWire().getType());
-        if (!result_ty) {
-            return rewriter.notifyMatchFailure(
-                pack, "cannot convert result type");
-        }
+        size_t combined_wire_dim = pack.getWire().getType().getDim();
+        mlir::Type result_ty = rewriter.getIntegerType(combined_wire_dim);
 
         size_t shift_by = 0;
         mlir::Value result;
@@ -121,20 +117,22 @@ struct PackToArithShiftOr
         for (auto [wire_val, int_val]
                 : llvm::reverse(llvm::zip(pack.getWires(),
                                           adaptor.getWires()))) {
+            size_t this_wire_dim = llvm::cast<ccirc::WireType>(
+                wire_val.getType()).getDim();
             mlir::Value zext = rewriter.create<mlir::arith::ExtUIOp>(
                 loc, result_ty, int_val).getResult();
             if (!result) {
                 result = zext;
             } else {
                 mlir::Value amt = rewriter.create<mlir::arith::ConstantOp>(
-                    loc, rewriter.getI64IntegerAttr(shift_by));
+                    loc, rewriter.getIntegerAttr(
+                        rewriter.getIntegerType(combined_wire_dim), shift_by));
                 mlir::Value shifted = rewriter.create<mlir::arith::ShLIOp>(
                     loc, zext, amt).getResult();
                 result = rewriter.create<mlir::arith::OrIOp>(
                     loc, result, shifted).getResult();
             }
-            shift_by += llvm::cast<ccirc::WireType>(
-                wire_val.getType()).getDim();
+            shift_by += this_wire_dim;
         }
 
         rewriter.replaceOp(pack, result);
@@ -161,7 +159,8 @@ struct UnpackToArithShiftTrunc
             mlir::Value shifted;
             if (shift_by) {
                 mlir::Value amt = rewriter.create<mlir::arith::ConstantOp>(
-                    loc, rewriter.getI64IntegerAttr(shift_by));
+                    loc, rewriter.getIntegerAttr(
+                        rewriter.getIntegerType(in_dim), shift_by));
                 shifted = rewriter.create<mlir::arith::ShRUIOp>(
                     loc, wire_int_val, amt).getResult();
             } else {

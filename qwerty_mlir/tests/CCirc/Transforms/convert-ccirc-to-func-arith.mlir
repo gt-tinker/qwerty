@@ -1,4 +1,4 @@
-// RUN: qwerty-opt -convert-ccirc-to-func-arith -canonicalize -convert-vector-to-llvm -convert-func-to-llvm -convert-arith-to-llvm %s | mlir-runner -e test -entry-point-result=void --shared-libs=%mlir_c_runner_utils | FileCheck %s
+// RUN: qwerty-opt -convert-ccirc-to-func-arith -canonicalize -convert-vector-to-llvm -convert-func-to-llvm -convert-arith-to-llvm %s | mlir-runner -e test -entry-point-result=void --shared-libs=%mlir_c_runner_utils | FileCheck --match-full-lines %s
 
 ccirc.circuit @bitwise_not(%arg0: !ccirc<wire[32]>) irrev {
     %0 = ccirc.not(%arg0) : (!ccirc<wire[32]>) -> !ccirc<wire[32]>
