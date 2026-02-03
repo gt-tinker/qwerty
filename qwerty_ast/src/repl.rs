@@ -3,7 +3,7 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
-    Stmt,
+    Stmt, angles_are_approx_equal,
     qpu::{
         Adjoint, BitLiteral, Conditional, EmbedClassical, Expr, Predicated, QLit, QLitExpr,
         QubitRef, Tensor, UnitLiteral,
@@ -77,7 +77,7 @@ impl Expr {
 
     pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
         match self {
-            Expr::QLitExpr(QLitExpr { qlit, .. }) => match qlit {
+            Expr::QLitExpr(QLitExpr { qlit, .. }) => match qlit.clone().canonicalize() {
                 QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
                     index: state.sim.allocate(),
                 })),
@@ -86,14 +86,86 @@ impl Expr {
                     state.sim.x(index);
                     Some(Expr::QubitRef(QubitRef { index }))
                 }
-                QLit::UniformSuperpos { q1, q2, .. } => match (&**q1, &**q2) {
+                QLit::UniformSuperpos { q1, q2, .. } => match (*q1, *q2) {
+                    // '0' + '1'
                     (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => {
                         let index = state.sim.allocate();
                         state.sim.h(index);
                         Some(Expr::QubitRef(QubitRef { index }))
                     }
+
+                    // '0' - '1'
+                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                        if angles_are_approx_equal(angle_deg, 180.0)
+                            && matches!(*q, QLit::OneQubit { .. }) =>
+                    {
+                        let index = state.sim.allocate();
+                        state.sim.x(index);
+                        state.sim.h(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+
+                    // '1' - '0'
+                    (QLit::OneQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                        if angles_are_approx_equal(angle_deg, 180.0)
+                            && matches!(*q, QLit::ZeroQubit { .. }) =>
+                    {
+                        let index = state.sim.allocate();
+                        state.sim.x(index);
+                        state.sim.h(index);
+                        state.sim.x(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+
+                    // -'0' - '1'
+                    (
+                        QLit::QubitTilt {
+                            q: q1,
+                            angle_deg: angle_deg1,
+                            ..
+                        },
+                        QLit::QubitTilt {
+                            q: q2,
+                            angle_deg: angle_deg2,
+                            ..
+                        },
+                    ) if angles_are_approx_equal(angle_deg1, 180.0)
+                        && angles_are_approx_equal(angle_deg2, 180.0)
+                        && matches!(*q1, QLit::ZeroQubit { .. })
+                        && matches!(*q2, QLit::OneQubit { .. }) =>
+                    {
+                        let index = state.sim.allocate();
+                        state.sim.x(index);
+                        state.sim.z(index);
+                        state.sim.x(index);
+                        state.sim.h(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+
+                    // '0' + '1'@90
+                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                        if angles_are_approx_equal(angle_deg, 90.0)
+                            && matches!(*q, QLit::OneQubit { .. }) =>
+                    {
+                        let index = state.sim.allocate();
+                        state.sim.h(index);
+                        state.sim.s(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+
+                    // '0' + '1'@270 ==> 'j'
+                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                        if angles_are_approx_equal(angle_deg, 270.0)
+                            && matches!(*q, QLit::OneQubit { .. }) =>
+                    {
+                        let index = state.sim.allocate();
+                        state.sim.h(index);
+                        state.sim.sadj(index);
+                        Some(Expr::QubitRef(QubitRef { index }))
+                    }
+
                     _ => todo!("Unknown type of superpos. Sorry"),
-                }
+                },
                 _ => todo!("Unknown type of qlit. Sorry"),
             },
             Expr::QubitRef { .. } | Expr::UnitLiteral { .. } => None,
