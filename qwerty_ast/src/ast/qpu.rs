@@ -4,7 +4,7 @@ use super::{
     AfterRewrite, Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp,
     angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
-use crate::dbg::DebugLoc;
+use crate::{dbg::DebugLoc, repl::SparseReplState};
 use dashu::integer::UBig;
 use itertools::Itertools;
 use qwerty_ast_macros::{
@@ -26,6 +26,10 @@ gen_rebuild_structs! {
             rewrite(canonicalize_rewriter),
             allow_retry_rewrite,
             recurse_attrs,
+        ),
+        recover(
+            rewrite(recover_rewriter),
+            more_copied_args(state: &SparseReplState),
         ),
     }
 

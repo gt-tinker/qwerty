@@ -18,15 +18,26 @@ pub struct ReplState {
 #[pymethods]
 impl ReplState {
     #[new]
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             state: Mutex::new(repl::ReplState::new()),
         }
     }
 
-    fn run(&self, stmt: PlainQpuStmt) -> PlainQpuExpr {
+    pub fn run(&self, stmt: PlainQpuStmt) -> PlainQpuExpr {
         PlainQpuExpr {
             expr: self.state.lock().unwrap().run(&stmt.stmt),
         }
     }
+
+    pub fn get_sparse_state(&mut self) -> SparseReplState {
+        let state = self.state.lock().unwrap().get_sparse_state();
+        SparseReplState { state }
+    }
+}
+
+/// Thin wrapper for qwerty_ast::repl::SparseReplState.
+#[pyclass]
+pub struct SparseReplState {
+    pub state: repl::SparseReplState
 }
