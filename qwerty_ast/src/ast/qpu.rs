@@ -4,7 +4,7 @@ use super::{
     Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp, angle_is_approx_zero,
     angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
-use crate::dbg::DebugLoc;
+use crate::{dbg::DebugLoc, repl::SparseReplState};
 use dashu::integer::UBig;
 use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty};
 use std::cmp::Ordering;
@@ -22,6 +22,10 @@ gen_rebuild_structs! {
         canonicalize(
             rewrite(canonicalize_rewriter),
             recurse_attrs,
+        ),
+        recover(
+            rewrite(recover_rewriter),
+            more_copied_args(state: &SparseReplState),
         ),
     }
 

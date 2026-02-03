@@ -3,14 +3,18 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
-    Stmt, angles_are_approx_equal,
+    Stmt, angles_are_approx_equal, Canonicalizable,
     qpu::{
         Adjoint, BitLiteral, Conditional, EmbedClassical, Expr, Predicated, QLit, QLitExpr,
-        QubitRef, Tensor, UnitLiteral,
+        QubitRef, Tensor, UnitLiteral, expr,
     },
 };
-use quantum_sparse_sim::QuantumSim;
+use quantum_sparse_sim::{QuantumSim, SparseState};
+use qwerty_ast_macros::rebuild;
 use std::collections::HashMap;
+
+/// Newtype for a `qir_runner` sparse state vector.
+pub struct SparseReplState(SparseState);
 
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
@@ -36,9 +40,37 @@ impl ReplState {
             Expr::UnitLiteral(UnitLiteral { dbg: None })
         }
     }
+
+    pub fn get_sparse_state(&mut self) -> SparseReplState {
+        SparseReplState(self.sim.get_sparse_state())
+    }
 }
 
 impl Expr {
+    /// Returns a version of this expression with any q[i]s.
+    pub fn recover(self, state: &SparseReplState) -> Self {
+        rebuild!(Expr, self, recover, state)
+    }
+
+    pub(crate) fn recover_rewriter(self, state: &SparseReplState) -> Self {
+        match self {
+            Expr::QubitRef(QubitRef { index }) => {
+                // TODO: actually do a partial trace etc
+                Expr::QLitExpr(QLitExpr { qlit: QLit::ZeroQubit { dbg: None }, dbg: None })
+            }
+            other_expr => other_expr,
+        }
+    }
+
+    /// Render this expression to a string in which all q[i]s replaced with
+    /// equivalent qubit literals, ready to be displayed to an eager, youthful
+    /// user who has no idea what q[i] means.
+    pub fn render(self, state: &SparseReplState) -> String {
+        let canon = self.canonicalize();
+        let recovered = canon.recover(state);
+        recovered.to_string()
+    }
+
     pub fn is_value(&self) -> bool {
         match self {
             Expr::Variable(_) => false,

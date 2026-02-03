@@ -78,4 +78,6 @@ def repl(prompt_func: Callable[[], str] = input,
             print_func(f'{err.kind()}: {err}')
             continue
 
-        print_func(str(result_expr_ast))
+        sparse_state = ctx.state.get_sparse_state()
+        rendered = result_expr_ast.render(sparse_state)
+        print_func(rendered)

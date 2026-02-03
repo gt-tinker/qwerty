@@ -1,7 +1,10 @@
-use crate::wrap_ast::{
-    py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
-    wrap_dim_expr::DimExpr,
-    wrap_type::{DebugLoc, MacroEnv, Type, TypeEnv},
+use crate::{
+    wrap_repl::SparseReplState,
+    wrap_ast::{
+        py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
+        wrap_dim_expr::DimExpr,
+        wrap_type::{DebugLoc, MacroEnv, Type, TypeEnv},
+    },
 };
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, meta};
@@ -13,6 +16,13 @@ use std::fmt;
 #[derive(Clone, PartialEq)]
 pub struct PlainQpuExpr {
     pub expr: ast::qpu::Expr,
+}
+
+#[pymethods]
+impl PlainQpuExpr {
+    pub fn render(&self, state: &SparseReplState) -> String {
+        self.expr.clone().render(&state.state)
+    }
 }
 
 impl fmt::Display for PlainQpuExpr {
