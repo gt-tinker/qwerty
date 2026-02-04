@@ -247,13 +247,13 @@ impl fmt::Display for Expr {
 			},
 
 			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::And, left, right, ..}) => {
-				write!(f, "({}) {} ({})", *left, "&", *right)
+				write!(f, "({!}) {} ({!})", *left, "&", *right)
 			},
 			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Or, left, right, ..}) => {
-				write!(f, "({}) {} ({})", *left, "|", *right)
+				write!(f, "({!}) {} ({!})", *left, "|", *right)
 			},
 			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Xor, left, right, ..}) => {
-				write!(f, "({}) {} ({})", *left, "^", *right)
+				write!(f, "({!}) {} ({!})", *left, "^", *right)
 			},
 
 			Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::And, val, ..}) => {
@@ -274,7 +274,7 @@ impl fmt::Display for Expr {
 			}
 
 			Expr::Concat(Concat { left, right, .. }) => {
-                write!(f, "({}).concat({})", *left, *right)
+                write!(f, "({!}).concat({!})", *left, *right)
             }
 
 			Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}).repeat({})", *val, amt),
