@@ -238,7 +238,7 @@ mlir::Value wrapStationaryF64Ops(
 
     {
         mlir::OpBuilder::InsertionGuard guard(builder);
-        llvm::SmallVector arg_locs(args.size(), loc);
+        llvm::SmallVector<mlir::Location> arg_locs(args.size(), loc);
         // Sets insertion point to end of this block
         mlir::Block *calc_block = builder.createBlock(
             &calc.getRegion(), {}, args.getTypes(), arg_locs);
