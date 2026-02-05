@@ -52,7 +52,7 @@ do need LLVM/MLIR and the C++ libraries as mentioned in [the
 README](../README.md). Once you have the dependencies installed, run the
 following commands from the root of the repository:
 
-    $ git submodule update --init tweedledum
+    $ git submodule update --init eigen
     $ mkdir build && cd build
     $ cmake -G Ninja ..
     $ ninja
