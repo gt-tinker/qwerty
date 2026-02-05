@@ -113,7 +113,7 @@ below:
       compilation terminated.
 
 Then a potential fix is to add the following code near the top of your
-`CMakeLists.txt` both in `/` and  `/tweedledum`:
+`CMakeLists.txt`:
 
     set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=1)
     set(CMAKE_JOB_POOL_LINK link_job_pool)
