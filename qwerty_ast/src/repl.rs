@@ -19,6 +19,8 @@ use quantum_sparse_sim::QuantumSim;
 use qwerty_ast_macros::rebuild;
 use std::{collections::HashMap, fmt};
 
+mod qlit2sparse;
+
 /// Newtype for a `qir_runner` sparse state vector.
 #[derive(Debug, Clone)]
 pub struct SparseReplState {
