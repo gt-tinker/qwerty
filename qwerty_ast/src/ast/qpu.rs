@@ -6,7 +6,7 @@ use super::{
 };
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
-use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty};
+use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty, visitor_write};
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -254,6 +254,31 @@ gen_rebuild_structs! {
     }
 }
 
+
+impl fmt::Display for NonUniformSuperpos {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+	    for (i, (prob, qlit)) in self.pairs.iter().enumerate() {
+	        if i > 0 {
+	            write!(f, " + ")?;
+	        }
+	        write!(f, "{}*({})", prob, qlit)?;
+	    }
+	    Ok(())
+	}
+}
+
+impl fmt::Display for Ensemble {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, (prob, qlit)) in self.pairs.iter().enumerate() {
+            if i > 0 {
+                write!(f, " ^ ")?;
+            }
+            write!(f, "{}*({})", prob, qlit)?;
+        }
+        Ok(())
+	}
+}
+
 impl Expr {
     /// Returns the debug location for this expression.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
@@ -344,6 +369,68 @@ impl Canonicalizable for Expr {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        visitor_write! { Expr, self,
+            Expr::Variable(var) => write!(f, "{}", var), // Defer to impl in ast.rs
+            Expr::UnitLiteral(UnitLiteral { .. }) => write!(f, "[]"),
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind: EmbedKind::Sign,
+                ..
+            }) => {
+                write!(f, "{}.{}", func_name, "sign")
+            }
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind: EmbedKind::Xor,
+                ..
+            }) => {
+                write!(f, "{}.{}", func_name, "xor")
+            }
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind: EmbedKind::InPlace,
+                ..
+            }) => {
+                write!(f, "{}.{}", func_name, "inplace")
+            }
+            Expr::Adjoint(Adjoint { func, .. }) => write!(f, "~({!})", *func),
+            Expr::Pipe(Pipe { lhs, rhs, .. }) => write!(f, "({!}) | ({!})", *lhs, *rhs),
+            Expr::Measure(Measure { basis, .. }) => write!(f, "({}).measure", basis),
+            Expr::Discard(Discard { .. }) => write!(f, "discard"),
+            Expr::Tensor(Tensor { vals, ..}) => {
+				write!(f, "({!:,})", vals.iter(), '*')
+            }
+            Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
+                write!(f, "({}) >> ({})", bin, bout)
+            }
+            Expr::Predicated(Predicated {
+                then_func,
+                else_func,
+                pred,
+                ..
+            }) => write!(f, "({!}) if ({}) else ({!})", then_func, pred, else_func),
+            Expr::NonUniformSuperpos(non_uniform_superpos) => {
+				write!(f, "{}", non_uniform_superpos) // Delegate to impl in this file
+            }
+            Expr::Ensemble(ensemble) => {
+	            write!(f, "{}", ensemble) // Delegate to impl in this file
+            }
+            Expr::Conditional(Conditional {
+                then_expr,
+                else_expr,
+                cond,
+                ..
+            }) => write!(f, "({!}) if ({!}) else ({!})", then_expr, cond, else_expr),
+            Expr::QLitExpr(QLitExpr { qlit, .. }) => write!(f, "{}", qlit),
+            Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
+            Expr::QubitRef(QubitRef { index }) => write!(f, "q[{}]", index),
+        }
+    }
+}
+
+
+/* impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Variable(var) => write!(f, "{}", var), // Defer to impl in ast.rs
             Expr::UnitLiteral(UnitLiteral { .. }) => write!(f, "[]"),
@@ -411,6 +498,8 @@ impl fmt::Display for Expr {
         }
     }
 }
+
+*/
 
 impl ToPythonCode for Expr {
     fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
