@@ -7,5 +7,6 @@ edition = "2024"
 dashu = "0.4.2"
 itertools = "0.14.0"
 num-integer = "0.1.46"
+num-complex = "0.4"
 quantum-sparse-sim = { version = "0.8.3", path = "../qir_runner/sparsesim" }
 qwerty_ast_macros = { version = "0.1.0", path = "../qwerty_ast_macros" }

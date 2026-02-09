@@ -9,12 +9,125 @@ use crate::ast::{
         QubitRef, Tensor, UnitLiteral, expr,
     },
 };
-use quantum_sparse_sim::{QuantumSim, SparseState};
+use quantum_sparse_sim::QuantumSim;
 use qwerty_ast_macros::rebuild;
 use std::collections::HashMap;
+use num_complex::Complex64;
+use dashu::integer::UBig;
 
 /// Newtype for a `qir_runner` sparse state vector.
-pub struct SparseReplState(SparseState);
+#[derive(Debug, Clone)]
+pub struct SparseReplState {
+    statevec: Vec<(UBig, Complex64)>,
+    num_qubits: usize,
+}
+
+impl SparseReplState {
+    /// Try to extract a one-qubit statevector for the qubit at the provided
+    /// index. Returns `None` if the qubit is entangled or out of range.
+    pub fn try_extract_1q_state(&self, qubit_index: usize) -> Option<(Complex64, Complex64)> {
+        let SparseReplState { statevec, num_qubits } = self;
+
+        if qubit_index >= num_qubits {
+            return None;
+        }
+
+        // Let ρ = |ψ⟩⟨ψ|, where |ψ⟩ is the entire n-qubit statevector, i.e.,
+        // |ψ⟩ = ∑_{i=0}^{2ⁿ−1} αᵢ.
+        //
+        // Then let ρₖ= tr₋ₖ(ρ). Here, tr₋ₖ(⋅) is notation for the partial
+        // trace as defined inSection 2.4.3 of Mike&Ike, with the ₋ₖ subscript
+        // meaning "trace out all qubits except for the qubit with index k".
+        //
+        // Our first step is to check if tr(ρₖ²) = 1, that is, if the qubit at
+        // index k is not entangled with any other qubits. Per some
+        // pen-and-paper perspiration,
+        // tr(ρₖ²) = ∑_{ℓ=0}^{2ⁿ⁻¹−1} ∑_{ℓ'=0}^{2ⁿ⁻¹−1}
+        //           ∑_{x=0}^1 ∑_{y=0}^1
+        //           α_{ℓxℓ} α_{ℓyℓ}* α_{ℓ'yℓ'} α_{ℓ'xℓ'}*
+        // Beware, * here means complex conjugate, not multiplication. And the
+        // shitty ℓxℓ notation means bits [0,k) of ℓ, concatenated with x,
+        // concatenated with bits [k,n) of ℓ. Sorry.
+        //
+        // This can be computed
+
+        let mut trace = Complex64::ZERO;
+        //let mut pending_prod = Complex64::ONE;
+        //let mut pending
+        let bit_idx = num_qubits-1-qubit_index;
+
+        // TODO: instead of this overcomplicated shit, just shuffle the bits
+        //       such that k becomes in the MSB and then sort it.
+        // Sort by ℓ and ℓ' in the code above
+        //let statevec = statevec.clone();
+        //state.sort_unstable_by(|(left_bits, _left_amp), (right_bits, _right_amp)| {
+        //    let left_bit = left_bits.bit(bit_idx);
+        //    let right_bit = right_bits.bit(bit_idx);
+
+        //    let mut left = left_bits;
+        //    left.clear_bit(bit_idx);
+        //    left = left << 1 | left_bit;
+
+        //    let mut right = right_bits;
+        //    right.clear_bit(bit_idx);
+        //    right = right << 1 | right_bit;
+
+        //    left.cmp(&right)
+        //});
+
+        let mut zero_partial_prods = Vec::new();
+        let mut one_partial_prods = Vec::new();
+
+        for (ell, ell_amp) in statevec {
+            for (ell_prime, ell_prime_amp) in statevec {
+                let ell_bit = ell.bit(bit_idx);
+                let ell_prime_bit = ell_prime.bit(bit_idx)
+
+                if ell_bit == ell_prime_bit {
+                    // Terms where x=0 and y=0, or x=1 and y=1. Easy.
+                    trace += ell_amp.norm_sqr() * ell_prime_amp.norm_sqr();
+
+                    let queue_ent = (ell, ell_prime, ell_amp * ell_prime_amp);
+                    if !ell_bit { // x=0 and y=0
+                        zero_partial_prods.push(queue_ent);
+                    } else { // x=1 and y=1
+                        one_partial_prods.push(queue_ent);
+                    }
+                }
+            }
+        }
+
+        zero_partial_prod.reverse();
+        one_partial_prod.reverse();
+
+        while let Some(((ell0, ellprime0, amp0), (ell1, ellprime1, amp1))) = zero_partial_prods.last().zip(one_partial_prods.last()) {
+            //ell1.clear_bit(bit_idx);
+            //ellprime1.clear_bit(bit_idx);
+
+            if ell0 == ell1 && ellprime0 == ellprime1 {
+                trace += amp0 * amp1;
+                zero_partial_prods.pop().expect("It can't be empty");
+                one_partial_prods.pop().expect("Can't be empty");
+            } else {
+                // TODO: this needs more thought. on the right track tho i think
+                // Put them back in the queue if appropriate
+                if ell0 < ell1 {
+                    one_partial_prods.push((ell1, ellprime1, amp1));
+                } else { // ell1 < ell0
+                    zero_partial_prods.push((ell0, ellprime0, amp0));
+                }
+            }
+        }
+
+        if !angles_are_approx_equal(trace, 1.0) {
+            // ρₖ is a mixed state!
+            return None;
+        }
+
+        // TODO: compute pure state
+        None
+    }
+}
 
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
@@ -42,7 +155,18 @@ impl ReplState {
     }
 
     pub fn get_sparse_state(&mut self) -> SparseReplState {
-        SparseReplState(self.sim.get_sparse_state())
+        // Convert from qir-runner bigint library (num_complex) to the one we
+        // use (dashu, a fork that is supposedly faster)
+        let (stefan_state, num_qubits) = self.sim.get_state();
+        let statevec = stefan_state
+            .into_iter()
+            .map(|(bits, amplitude)| {
+                let bytes_le = bits.to_bytes_le();
+                let dashu_bits = UBig::from_le_bytes(&bytes_le);
+                (dashu_bits, amplitude)
+            })
+            .collect();
+        SparseReplState { statevec, num_qubits }
     }
 }
 
