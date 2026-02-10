@@ -4,6 +4,7 @@
 use crate::wrap_ast::{PlainQpuExpr, PlainQpuStmt};
 use pyo3::prelude::*;
 use qwerty_ast::repl;
+use std::fmt;
 use std::sync::Mutex;
 
 /// Thin wrapper for qwerty_ast::repl::ReplState.
@@ -24,10 +25,14 @@ impl ReplState {
         }
     }
 
-    pub fn run(&self, stmt: PlainQpuStmt) -> PlainQpuExpr {
+    pub fn run(&mut self, stmt: PlainQpuStmt) -> PlainQpuExpr {
         PlainQpuExpr {
             expr: self.state.lock().unwrap().run(&stmt.stmt),
         }
+    }
+
+    pub fn free_value(&mut self, val: PlainQpuExpr) {
+        self.state.lock().unwrap().free_value(&val.expr);
     }
 
     pub fn get_sparse_state(&mut self) -> SparseReplState {
@@ -37,7 +42,13 @@ impl ReplState {
 }
 
 /// Thin wrapper for qwerty_ast::repl::SparseReplState.
-#[pyclass]
+#[pyclass(str)]
 pub struct SparseReplState {
-    pub state: repl::SparseReplState
+    pub state: repl::SparseReplState,
+}
+
+impl fmt::Display for SparseReplState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.state)
+    }
 }

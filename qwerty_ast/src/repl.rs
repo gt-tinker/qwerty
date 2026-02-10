@@ -5,8 +5,8 @@
 use crate::ast::{
     Canonicalizable, Stmt, angle_is_approx_zero, angles_are_approx_equal, canon_angle,
     qpu::{
-        Adjoint, BitLiteral, Conditional, EmbedClassical, Expr, NonUniformSuperpos, Predicated,
-        QLit, QLitExpr, QubitRef, Tensor, UnitLiteral, expr,
+        Adjoint, BitLiteral, Expr, NonUniformSuperpos, Predicated, QLit, QLitExpr, QubitRef,
+        Tensor, UnitLiteral, expr,
     },
 };
 use dashu::{base::BitTest, integer::UBig};
@@ -14,13 +14,48 @@ use num_bigint::BigUint;
 use num_complex::{Complex64, ComplexFloat};
 use quantum_sparse_sim::QuantumSim;
 use qwerty_ast_macros::rebuild;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 /// Newtype for a `qir_runner` sparse state vector.
 #[derive(Debug, Clone)]
 pub struct SparseReplState {
     statevec: Vec<(UBig, Complex64)>,
     num_qubits: usize,
+}
+
+impl fmt::Display for SparseReplState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let SparseReplState {
+            statevec,
+            num_qubits,
+        } = self;
+
+        write!(f, "[")?;
+
+        for (i, (bits, amp)) in statevec.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+
+            write!(f, "'")?;
+
+            for i in 0..*num_qubits {
+                write!(
+                    f,
+                    "{}",
+                    if bits.bit(num_qubits - 1 - i) {
+                        "1"
+                    } else {
+                        "0"
+                    }
+                )?;
+            }
+
+            write!(f, "': {}", amp)?;
+        }
+
+        write!(f, "]")
+    }
 }
 
 impl SparseReplState {
@@ -247,6 +282,24 @@ impl ReplState {
         }
     }
 
+    /// Discards this value, freeing any resources associated with it.
+    /// Realistically, this means discarding qubit references.
+    pub fn free_value(&mut self, expr: &Expr) {
+        // Per the grammar, these are the only ways that `q[i]`s can show up in
+        // a value.
+        match expr {
+            Expr::QubitRef(QubitRef { index }) => {
+                self.sim.release(*index);
+            }
+            Expr::Tensor(Tensor { vals, .. }) => {
+                for val in vals {
+                    self.free_value(val);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn get_sparse_state(&mut self) -> SparseReplState {
         // Convert from qir-runner bigint library (num_bigint) to the one we
         // use (dashu, a fork that is supposedly faster)
@@ -265,96 +318,206 @@ impl ReplState {
     }
 }
 
+impl QubitRef {
+    /// Try to recover an expression, e.g., `.25*'0' + .75*'1'` from this
+    /// `q[i]` given the repl state.
+    fn recover(self, state: &SparseReplState) -> Expr {
+        let QubitRef { index } = self;
+
+        if let Some((amp0, amp1)) = state.try_extract_1q_state(index) {
+            let (zero_abs, zero_rad) = amp0.to_polar();
+            let zero_prob = zero_abs * zero_abs;
+            let zero_deg = canon_angle(zero_rad * std::f64::consts::FRAC_1_PI * 180.0);
+
+            let (one_abs, one_rad) = amp1.to_polar();
+            let one_prob = one_abs * one_abs;
+            let one_deg = canon_angle(one_rad * std::f64::consts::FRAC_1_PI * 180.0);
+
+            let zero = QLit::ZeroQubit { dbg: None };
+            let zero_vec = if angle_is_approx_zero(zero_deg) {
+                zero
+            } else {
+                QLit::QubitTilt {
+                    q: Box::new(zero),
+                    angle_deg: zero_deg,
+                    dbg: None,
+                }
+            };
+
+            let one = QLit::OneQubit { dbg: None };
+            let one_vec = if angle_is_approx_zero(one_deg) {
+                one
+            } else {
+                QLit::QubitTilt {
+                    q: Box::new(one),
+                    angle_deg: one_deg,
+                    dbg: None,
+                }
+            };
+
+            if angle_is_approx_zero(zero_prob) {
+                Expr::QLitExpr(QLitExpr {
+                    qlit: one_vec,
+                    dbg: None,
+                })
+            } else if angle_is_approx_zero(one_prob) {
+                Expr::QLitExpr(QLitExpr {
+                    qlit: zero_vec,
+                    dbg: None,
+                })
+            } else if angles_are_approx_equal(zero_prob, 0.5) {
+                let uniform = QLit::UniformSuperpos {
+                    q1: Box::new(zero_vec),
+                    q2: Box::new(one_vec),
+                    dbg: None,
+                };
+                Expr::QLitExpr(QLitExpr {
+                    qlit: uniform,
+                    dbg: None,
+                })
+            } else {
+                Expr::NonUniformSuperpos(NonUniformSuperpos {
+                    pairs: vec![(zero_prob, zero_vec), (one_prob, one_vec)],
+                    dbg: None,
+                })
+            }
+        } else {
+            // Pass through unchanged
+            Expr::QubitRef(QubitRef { index })
+        }
+    }
+}
+
+impl QLit {
+    pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
+        match self.clone().canonicalize() {
+            QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
+                index: state.sim.allocate(),
+            })),
+            QLit::OneQubit { .. } => {
+                let index = state.sim.allocate();
+                state.sim.x(index);
+                Some(Expr::QubitRef(QubitRef { index }))
+            }
+            QLit::UniformSuperpos { q1, q2, .. } => match (*q1, *q2) {
+                // '0' + '1'
+                (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => {
+                    let index = state.sim.allocate();
+                    state.sim.h(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                // '0' - '1'
+                (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                    if angles_are_approx_equal(angle_deg, 180.0)
+                        && matches!(*q, QLit::OneQubit { .. }) =>
+                {
+                    let index = state.sim.allocate();
+                    state.sim.x(index);
+                    state.sim.h(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                // '1' - '0'
+                (QLit::OneQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                    if angles_are_approx_equal(angle_deg, 180.0)
+                        && matches!(*q, QLit::ZeroQubit { .. }) =>
+                {
+                    let index = state.sim.allocate();
+                    state.sim.x(index);
+                    state.sim.h(index);
+                    state.sim.x(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                // -'0' - '1'
+                (
+                    QLit::QubitTilt {
+                        q: q1,
+                        angle_deg: angle_deg1,
+                        ..
+                    },
+                    QLit::QubitTilt {
+                        q: q2,
+                        angle_deg: angle_deg2,
+                        ..
+                    },
+                ) if angles_are_approx_equal(angle_deg1, 180.0)
+                    && angles_are_approx_equal(angle_deg2, 180.0)
+                    && matches!(*q1, QLit::ZeroQubit { .. })
+                    && matches!(*q2, QLit::OneQubit { .. }) =>
+                {
+                    let index = state.sim.allocate();
+                    state.sim.x(index);
+                    state.sim.z(index);
+                    state.sim.x(index);
+                    state.sim.h(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                // '0' + '1'@90
+                (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                    if angles_are_approx_equal(angle_deg, 90.0)
+                        && matches!(*q, QLit::OneQubit { .. }) =>
+                {
+                    let index = state.sim.allocate();
+                    state.sim.h(index);
+                    state.sim.s(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                // '0' + '1'@270 ==> 'j'
+                (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
+                    if angles_are_approx_equal(angle_deg, 270.0)
+                        && matches!(*q, QLit::OneQubit { .. }) =>
+                {
+                    let index = state.sim.allocate();
+                    state.sim.h(index);
+                    state.sim.sadj(index);
+                    Some(Expr::QubitRef(QubitRef { index }))
+                }
+
+                _ => todo!("Unknown type of superpos. Sorry"),
+            },
+            _ => todo!("Unknown type of qlit. Sorry"),
+        }
+    }
+}
+
 impl Expr {
-    /// Returns a version of this expression with any q[i]s.
+    /// Returns a version of this expression with any `q[i]`s replaced with
+    /// equivalent qubit literals.
     pub fn recover(self, state: &SparseReplState) -> Self {
         rebuild!(Expr, self, recover, state)
     }
 
     pub(crate) fn recover_rewriter(self, state: &SparseReplState) -> Self {
         match self {
-            Expr::QubitRef(QubitRef { index }) => {
-                if let Some((amp0, amp1)) = state.try_extract_1q_state(index) {
-                    let (zero_abs, zero_rad) = amp0.to_polar();
-                    let zero_prob = zero_abs * zero_abs;
-                    let zero_deg = canon_angle(zero_rad * std::f64::consts::FRAC_1_PI * 180.0);
-
-                    let (one_abs, one_rad) = amp1.to_polar();
-                    let one_prob = one_abs * one_abs;
-                    let one_deg = canon_angle(one_rad * std::f64::consts::FRAC_1_PI * 180.0);
-
-                    let zero = QLit::ZeroQubit { dbg: None };
-                    let zero_vec = if angle_is_approx_zero(zero_deg) {
-                        zero
-                    } else {
-                        QLit::QubitTilt {
-                            q: Box::new(zero),
-                            angle_deg: zero_deg,
-                            dbg: None,
-                        }
-                    };
-
-                    let one = QLit::OneQubit { dbg: None };
-                    let one_vec = if angle_is_approx_zero(one_deg) {
-                        one
-                    } else {
-                        QLit::QubitTilt {
-                            q: Box::new(one),
-                            angle_deg: one_deg,
-                            dbg: None,
-                        }
-                    };
-
-                    if angle_is_approx_zero(zero_prob) {
-                        Expr::QLitExpr(QLitExpr {
-                            qlit: one_vec,
-                            dbg: None,
-                        })
-                    } else if angle_is_approx_zero(one_prob) {
-                        Expr::QLitExpr(QLitExpr {
-                            qlit: zero_vec,
-                            dbg: None,
-                        })
-                    } else if angles_are_approx_equal(zero_prob, 0.5) {
-                        let uniform = QLit::UniformSuperpos {
-                            q1: Box::new(zero_vec),
-                            q2: Box::new(one_vec),
-                            dbg: None,
-                        };
-                        Expr::QLitExpr(QLitExpr {
-                            qlit: uniform,
-                            dbg: None,
-                        })
-                    } else {
-                        Expr::NonUniformSuperpos(NonUniformSuperpos {
-                            pairs: vec![(zero_prob, zero_vec), (one_prob, one_vec)],
-                            dbg: None,
-                        })
-                    }
-                } else {
-                    // Pass through unchanged
-                    Expr::QubitRef(QubitRef { index })
-                }
-            }
+            Expr::QubitRef(qref) => qref.recover(state),
             other_expr => other_expr,
         }
     }
 
     /// Render this expression to a string in which all q[i]s replaced with
     /// equivalent qubit literals, ready to be displayed to an eager, youthful
-    /// user who has no idea what q[i] means.
+    /// user who has no idea what q[i] means. Returns an empty string if
+    /// nothing should be printed.
     pub fn render(self, state: &SparseReplState) -> String {
-        let canon = self.canonicalize();
-        let recovered = canon.recover(state);
-        recovered.to_string()
+        if let Expr::UnitLiteral(_) = self {
+            "".to_string()
+        } else {
+            let canon = self.canonicalize();
+            let recovered = canon.recover(state);
+            recovered.to_string()
+        }
     }
 
     pub fn is_value(&self) -> bool {
         match self {
             Expr::Variable(_) => false,
             Expr::UnitLiteral(_) => true,
-            Expr::EmbedClassical(EmbedClassical { func_name: _, .. }) => true,
-            Expr::Adjoint(Adjoint { func, .. }) => func.as_ref().is_value(),
+            Expr::EmbedClassical(_) => true,
+            Expr::Adjoint(Adjoint { func, .. }) => func.is_value(),
             Expr::Pipe(_) => false,
             Expr::Measure(_) => true,
             Expr::Discard(_) => true,
@@ -366,19 +529,10 @@ impl Expr {
                 then_func,
                 else_func,
                 ..
-            }) => then_func.as_ref().is_value() && else_func.as_ref().is_value(),
+            }) => then_func.is_value() && else_func.is_value(),
             Expr::NonUniformSuperpos(_) => false,
             Expr::Ensemble(_) => false,
-            Expr::Conditional(Conditional {
-                then_expr,
-                else_expr,
-                cond,
-                ..
-            }) => {
-                then_expr.as_ref().is_value()
-                    && else_expr.as_ref().is_value()
-                    && cond.as_ref().is_value()
-            }
+            Expr::Conditional(_) => false,
             Expr::QLitExpr(_) => false,
             Expr::BitLiteral(BitLiteral { n_bits, .. }) => *n_bits == 1,
             Expr::QubitRef(_) => true,
@@ -387,97 +541,7 @@ impl Expr {
 
     pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
         match self {
-            Expr::QLitExpr(QLitExpr { qlit, .. }) => match qlit.clone().canonicalize() {
-                QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
-                    index: state.sim.allocate(),
-                })),
-                QLit::OneQubit { .. } => {
-                    let index = state.sim.allocate();
-                    state.sim.x(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
-                }
-                QLit::UniformSuperpos { q1, q2, .. } => match (*q1, *q2) {
-                    // '0' + '1'
-                    (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => {
-                        let index = state.sim.allocate();
-                        state.sim.h(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    // '0' - '1'
-                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
-                        if angles_are_approx_equal(angle_deg, 180.0)
-                            && matches!(*q, QLit::OneQubit { .. }) =>
-                    {
-                        let index = state.sim.allocate();
-                        state.sim.x(index);
-                        state.sim.h(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    // '1' - '0'
-                    (QLit::OneQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
-                        if angles_are_approx_equal(angle_deg, 180.0)
-                            && matches!(*q, QLit::ZeroQubit { .. }) =>
-                    {
-                        let index = state.sim.allocate();
-                        state.sim.x(index);
-                        state.sim.h(index);
-                        state.sim.x(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    // -'0' - '1'
-                    (
-                        QLit::QubitTilt {
-                            q: q1,
-                            angle_deg: angle_deg1,
-                            ..
-                        },
-                        QLit::QubitTilt {
-                            q: q2,
-                            angle_deg: angle_deg2,
-                            ..
-                        },
-                    ) if angles_are_approx_equal(angle_deg1, 180.0)
-                        && angles_are_approx_equal(angle_deg2, 180.0)
-                        && matches!(*q1, QLit::ZeroQubit { .. })
-                        && matches!(*q2, QLit::OneQubit { .. }) =>
-                    {
-                        let index = state.sim.allocate();
-                        state.sim.x(index);
-                        state.sim.z(index);
-                        state.sim.x(index);
-                        state.sim.h(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    // '0' + '1'@90
-                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
-                        if angles_are_approx_equal(angle_deg, 90.0)
-                            && matches!(*q, QLit::OneQubit { .. }) =>
-                    {
-                        let index = state.sim.allocate();
-                        state.sim.h(index);
-                        state.sim.s(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    // '0' + '1'@270 ==> 'j'
-                    (QLit::ZeroQubit { .. }, QLit::QubitTilt { q, angle_deg, .. })
-                        if angles_are_approx_equal(angle_deg, 270.0)
-                            && matches!(*q, QLit::OneQubit { .. }) =>
-                    {
-                        let index = state.sim.allocate();
-                        state.sim.h(index);
-                        state.sim.sadj(index);
-                        Some(Expr::QubitRef(QubitRef { index }))
-                    }
-
-                    _ => todo!("Unknown type of superpos. Sorry"),
-                },
-                _ => todo!("Unknown type of qlit. Sorry"),
-            },
+            Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.eval_step(state),
             Expr::QubitRef { .. } | Expr::UnitLiteral { .. } => None,
             _ => todo!("eval_step() for Expr"),
         }
