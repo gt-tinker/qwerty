@@ -259,6 +259,7 @@ version = "0.1.0"
 dependencies = [
  "dashu",
  "itertools",
+ "num-complex",
  "num-integer",
  "quantum-sparse-sim",
  "qwerty_ast_macros",
