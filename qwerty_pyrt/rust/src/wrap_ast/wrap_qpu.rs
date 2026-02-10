@@ -1,10 +1,10 @@
 use crate::{
-    wrap_repl::SparseReplState,
     wrap_ast::{
         py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
         wrap_dim_expr::DimExpr,
         wrap_type::{DebugLoc, MacroEnv, Type, TypeEnv},
     },
+    wrap_repl::SparseReplState,
 };
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, meta};
