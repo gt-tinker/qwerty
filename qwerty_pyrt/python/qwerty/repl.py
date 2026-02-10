@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from .convert_ast import convert_qpu_repl_input
 from .err import QwertyProgrammerError
 from .default_qpu_prelude import default_qpu_prelude
-from ._qwerty_pyrt import ReplState, TypeEnv, MacroEnv, PlainQpuStmt, PlainQpuExpr, SparseReplState
+from ._qwerty_pyrt import ReplState, TypeEnv, MacroEnv, PlainQpuStmt, \
+                          PlainQpuExpr, SparseReplState
 
 @dataclass
 class ReplContext:
@@ -76,7 +77,7 @@ def repl(prompt_func: Callable[[], str] = input,
             if magic_cmd == 'state':
                 print_func(ctx.get_sparse_state())
             else:
-                print_func('Unknown magic command %{}')
+                print_func(f'Unknown magic command %{magic_cmd}')
         else:
             try:
                 py_ast = ast.parse(stripped_cmd, mode='single')

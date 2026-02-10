@@ -504,6 +504,7 @@ impl Expr {
     /// nothing should be printed.
     pub fn render(self, state: &SparseReplState) -> String {
         if let Expr::UnitLiteral(_) = self {
+            // In the Python REPL, nothing is printed for None.
             "".to_string()
         } else {
             let canon = self.canonicalize();
