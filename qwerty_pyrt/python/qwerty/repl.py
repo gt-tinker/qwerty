@@ -40,7 +40,7 @@ class ReplContext:
         return self.state.get_sparse_state()
 
 def repl(prompt_func: Callable[[], str] = input,
-         print_func: Callable[[str], None] = print) -> None:
+         print_func: Callable[[str], None] = print) -> int:
     """
     Run the Qwerty REPL.
 
@@ -55,7 +55,7 @@ def repl(prompt_func: Callable[[], str] = input,
         except QwertyProgrammerError as err:
             print_func(f'Error in prelude: {err}. This is a bug.')
             # Bail out. This should never happen
-            return
+            return 1
 
     while True:
         try:
@@ -63,7 +63,7 @@ def repl(prompt_func: Callable[[], str] = input,
         except (EOFError, KeyboardInterrupt):
             # Print a newline so the user's shell prompt is on a fresh line
             print_func()
-            return
+            return 0
 
         stripped_cmd = cmd.strip()
         if not stripped_cmd:
