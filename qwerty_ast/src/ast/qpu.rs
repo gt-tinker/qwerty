@@ -9,6 +9,7 @@ use dashu::integer::UBig;
 use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty, visitor_write};
 use std::cmp::Ordering;
 use std::fmt;
+use itertools::{Itertools};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmbedKind {
@@ -254,31 +255,6 @@ gen_rebuild_structs! {
     }
 }
 
-
-impl fmt::Display for NonUniformSuperpos {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-	    for (i, (prob, qlit)) in self.pairs.iter().enumerate() {
-	        if i > 0 {
-	            write!(f, " + ")?;
-	        }
-	        write!(f, "{}*({})", prob, qlit)?;
-	    }
-	    Ok(())
-	}
-}
-
-impl fmt::Display for Ensemble {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (i, (prob, qlit)) in self.pairs.iter().enumerate() {
-            if i > 0 {
-                write!(f, " ^ ")?;
-            }
-            write!(f, "{}*({})", prob, qlit)?;
-        }
-        Ok(())
-	}
-}
-
 impl Expr {
     /// Returns the debug location for this expression.
     pub fn get_dbg(&self) -> Option<DebugLoc> {
@@ -409,11 +385,27 @@ impl fmt::Display for Expr {
                 pred,
                 ..
             }) => write!(f, "({!}) if ({}) else ({!})", then_func, pred, else_func),
-            Expr::NonUniformSuperpos(non_uniform_superpos) => {
-				write!(f, "{}", non_uniform_superpos) // Delegate to impl in this file
+            Expr::NonUniformSuperpos(NonUniformSuperpos{ pairs, ..}) => {
+				write!(f, "{}",
+                        pairs.iter()
+                        .format_with(
+                            " + ",
+                            |(prob, qlit), f| {
+                                f(&format_args!("{}*({})", prob, qlit))
+                            }
+                        )
+					  )
             }
-            Expr::Ensemble(ensemble) => {
-	            write!(f, "{}", ensemble) // Delegate to impl in this file
+            Expr::Ensemble(Ensemble {pairs, ..} ) => {
+	            write!(
+		            f, "{}",
+	            		pairs.iter()
+	            		.format_with(
+		            		"+",
+		            		|(prob, qlit), f | {
+								f(&format_args!("{}*({})",  prob, qlit))
+		            		}
+	            		))
             }
             Expr::Conditional(Conditional {
                 then_expr,
