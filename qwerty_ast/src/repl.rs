@@ -286,7 +286,7 @@ impl ReplState {
 
                 Expr::UnitLiteral(UnitLiteral { dbg: None })
             }
-            unknown => todo!("Unknown type of statment {:?}. Sorry", unknown),
+            unknown => todo!("Unknown type of statment {}. Sorry", unknown),
         }
     }
 
@@ -648,21 +648,27 @@ impl Expr {
             // By definition, values do not need evaluation
             val if val.is_value() => None,
 
-            unknown => todo!("eval_step() for Expr: {:?}", unknown),
+            unknown => todo!("eval_step() for Expr: {}", unknown),
         }
     }
 
     pub fn eval_to_value(&self, state: &mut ReplState) -> Expr {
         let mut expr = self.clone();
-        loop {
+        let val = loop {
             match expr.eval_step(state) {
                 Some(new_expr) => {
                     expr = new_expr;
                 }
                 None => {
-                    return expr;
+                    break expr;
                 }
             }
-        }
+        };
+        assert!(
+            val.is_value(),
+            "Evaluated to non-value {}. This is an interpreter bug.",
+            val
+        );
+        val
     }
 }
