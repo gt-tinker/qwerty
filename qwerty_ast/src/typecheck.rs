@@ -1029,8 +1029,8 @@ impl Tilt {
                 Ok((val_ty.clone(), *val_compute_kind))
             }
 
-            invalid_ty => Err(TypeError {
-                kind: TypeErrorKind::UnsupportedTilt(invalid_ty.to_string()),
+            _ => Err(TypeError {
+                kind: TypeErrorKind::UnsupportedTilt,
                 dbg: dbg.clone(),
             }),
         }

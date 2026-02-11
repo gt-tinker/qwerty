@@ -225,7 +225,7 @@ gen_rebuild_structs! {
             /// ```
             Tensor(Tensor),
 
-            /// Tilt a qubit register or function. Example syntax:
+            /// Tilt a qubit register or function value. Example syntax:
             /// ```text
             /// q @ 90
             /// ```
@@ -400,6 +400,7 @@ impl Expr {
             | Expr::Compose(_)
             | Expr::Measure(_)
             | Expr::Discard(_)
+            | Expr::Tilt(_)
             | Expr::BasisTranslation(_)
             | Expr::Predicated(_)
             | Expr::NonUniformSuperpos(_)
@@ -470,6 +471,13 @@ impl fmt::Display for Expr {
             }
             Expr::Tilt(Tilt { val, angle_deg, .. }) => {
                 write!(f, "({}) @ {}", *val, *angle_deg)
+            }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-({})", val)
+                } else {
+                    write!(f, "({}) @ {}", val, angle_deg)
+                }
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
@@ -569,9 +577,15 @@ impl ToPythonCode for Expr {
                 Ok(())
             }
             Expr::Tilt(Tilt { val, angle_deg, .. }) => {
-                write!(f, "(")?;
-                val.fmt_py(f)?;
-                write!(f, ") @ {}", angle_deg)
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ")")
+                } else {
+                    write!(f, "(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ") @ {}", angle_deg)
+                }
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "(")?;
