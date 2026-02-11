@@ -1672,19 +1672,42 @@ pub enum Basis {
 }
 
 impl Basis {
+    /// Returns `true` if this is the one-qubit standard basis.
+    pub fn is_std_1q(&self) -> bool {
+        if let Basis::BasisLiteral { vecs, .. } = self {
+            vecs.len() == 2
+                && matches!(&vecs[0], Vector::ZeroVector { .. })
+                && matches!(&vecs[1], Vector::OneVector { .. })
+        } else {
+            false
+        }
+    }
+
     /// Returns the n-qubit standard basis, where n = dim.
     pub fn std(dim: usize, dbg: Option<DebugLoc>) -> Basis {
-        let mut bases = vec![];
-        for _ in 0..dim {
-            bases.push(Basis::BasisLiteral {
+        if dim == 0 {
+            Basis::EmptyBasisLiteral { dbg }
+        } else if dim == 1 {
+            Basis::BasisLiteral {
                 vecs: vec![
                     Vector::ZeroVector { dbg: dbg.clone() },
                     Vector::OneVector { dbg: dbg.clone() },
                 ],
-                dbg: dbg.clone(),
-            });
+                dbg,
+            }
+        } else {
+            let mut bases = vec![];
+            for _ in 0..dim {
+                bases.push(Basis::BasisLiteral {
+                    vecs: vec![
+                        Vector::ZeroVector { dbg: dbg.clone() },
+                        Vector::OneVector { dbg: dbg.clone() },
+                    ],
+                    dbg: dbg.clone(),
+                });
+            }
+            Basis::BasisTensor { bases, dbg: dbg }
         }
-        Basis::BasisTensor { bases, dbg: dbg }
     }
 
     /// Returns a version of this basis with no debug info. Useful for

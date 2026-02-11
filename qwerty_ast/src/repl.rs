@@ -3,10 +3,11 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
-    Canonicalizable, Stmt, angle_is_approx_zero, angles_are_approx_equal, canon_angle,
+    Assign, Canonicalizable, Stmt, StmtExpr, angle_is_approx_zero, angles_are_approx_equal,
+    canon_angle,
     qpu::{
-        Adjoint, BitLiteral, Expr, NonUniformSuperpos, Predicated, QLit, QLitExpr, QubitRef,
-        Tensor, UnitLiteral, expr,
+        Adjoint, Basis, BasisTranslation, BitLiteral, Expr, Measure, NonUniformSuperpos, Pipe,
+        Predicated, QLit, QLitExpr, QubitRef, Tensor, UnitLiteral, Variable, expr,
     },
 };
 use dashu::{base::BitTest, integer::UBig};
@@ -244,8 +245,7 @@ impl SparseReplState {
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
     sim: QuantumSim,
-    // TODO: use this
-    _bindings: HashMap<String, Expr>,
+    bindings: HashMap<String, Expr>,
 }
 
 /// Swap both endianness and the bigint library used. Stefan (qir-runner)
@@ -269,16 +269,24 @@ impl ReplState {
     pub fn new() -> Self {
         ReplState {
             sim: QuantumSim::new(None),
-            _bindings: HashMap::new(),
+            bindings: HashMap::new(),
         }
     }
 
     /// Evaluates an expression and returns a value.
     pub fn run(&mut self, stmt: &Stmt<Expr>) -> Expr {
-        if let Stmt::Expr(stmt_expr) = stmt {
-            stmt_expr.expr.eval_to_value(self)
-        } else {
-            Expr::UnitLiteral(UnitLiteral { dbg: None })
+        match stmt {
+            Stmt::Expr(StmtExpr { expr, .. }) => expr.eval_to_value(self),
+            Stmt::Assign(Assign { lhs, rhs, .. }) => {
+                let rhs_val = rhs.eval_to_value(self);
+
+                if let Some(old_rhs_val) = self.bindings.insert(lhs.clone(), rhs_val) {
+                    self.free_value(&old_rhs_val);
+                }
+
+                Expr::UnitLiteral(UnitLiteral { dbg: None })
+            }
+            unknown => todo!("Unknown type of statment {:?}. Sorry", unknown),
         }
     }
 
@@ -542,9 +550,79 @@ impl Expr {
 
     pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
         match self {
+            // Normally, we would have something like E-Let* in Figure 11-4 of
+            // TAPL. But we are in a weird situation where we re getting a
+            // trickle of statements.
+            Expr::Variable(Variable { name, .. }) => match state.bindings.get(name) {
+                None => unreachable!("Unbound variable {name}. Type checking should catch this!"),
+                Some(rhs_val) => Some(rhs_val.clone()),
+            },
+
+            Expr::Pipe(Pipe { lhs, rhs, .. }) => {
+                match (&**lhs, &**rhs) {
+                    // E-Meas
+                    (Expr::QubitRef(QubitRef { index }), Expr::Measure(Measure { basis, .. })) => {
+                        let basis = basis.clone().canonicalize();
+                        if basis.is_std_1q() {
+                            let outcome = state.sim.measure(*index);
+                            state.sim.release(*index);
+
+                            let val = if !outcome { UBig::ZERO } else { UBig::ONE };
+                            Some(Expr::BitLiteral(BitLiteral {
+                                val,
+                                n_bits: 1,
+                                dbg: None,
+                            }))
+                        } else {
+                            let std1 = Basis::std(1, None);
+                            Some(Expr::Pipe(Pipe {
+                                lhs: Box::new(Expr::Pipe(Pipe {
+                                    lhs: Box::new(Expr::QubitRef(QubitRef { index: *index })),
+                                    rhs: Box::new(Expr::BasisTranslation(BasisTranslation {
+                                        bin: basis.clone(),
+                                        bout: std1.clone(),
+                                        dbg: None,
+                                    })),
+                                    dbg: None,
+                                })),
+                                rhs: Box::new(Expr::Measure(Measure {
+                                    basis: std1,
+                                    dbg: None,
+                                })),
+                                dbg: None,
+                            }))
+                        }
+                    }
+
+                    // E-Pipe2
+                    (lhs, rhs_val) if rhs_val.is_value() => {
+                        let lhs = lhs.eval_step(state)?;
+                        Some(Expr::Pipe(Pipe {
+                            lhs: Box::new(lhs),
+                            rhs: Box::new(rhs_val.clone()),
+                            dbg: None,
+                        }))
+                    }
+
+                    // E-Pipe1
+                    (lhs, rhs) => {
+                        let rhs = rhs.eval_step(state)?;
+                        Some(Expr::Pipe(Pipe {
+                            lhs: Box::new(lhs.clone()),
+                            rhs: Box::new(rhs),
+                            dbg: None,
+                        }))
+                    }
+                }
+            }
+
+            // E-QAtom
             Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.eval_step(state),
-            Expr::QubitRef { .. } | Expr::UnitLiteral { .. } => None,
-            _ => todo!("eval_step() for Expr"),
+
+            // By definition, values do not need evaluation
+            val if val.is_value() => None,
+
+            unknown => todo!("eval_step() for Expr: {:?}", unknown),
         }
     }
 

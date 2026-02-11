@@ -31,8 +31,6 @@ class ReplContext:
     def run_stmt(self, stmt_ast: PlainQpuStmt) -> PlainQpuExpr:
         plain_ast = stmt_ast.lower(self.macro_env, self.type_env)
         plain_ast.type_check_no_ret(self.type_env)
-        # TODO: Assignment statements should also update TypeEnv (not sure of
-        #       the cleanest way to do this)
         return self.state.run(plain_ast)
 
     def free_value(self, val_ast: PlainQpuExpr):
