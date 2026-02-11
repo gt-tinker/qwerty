@@ -635,6 +635,45 @@ impl Expr {
                                 state.sim.x(*index);
                             }
 
+                            (
+                                Basis::BasisLiteral {
+                                    vecs: vecs_left, ..
+                                },
+                                Basis::BasisLiteral {
+                                    vecs: vecs_right, ..
+                                },
+                            )
+                            | (
+                                Basis::BasisLiteral {
+                                    vecs: vecs_right, ..
+                                },
+                                Basis::BasisLiteral {
+                                    vecs: vecs_left, ..
+                                },
+                            ) if matches!(
+                                &vecs_left[..],
+                                [
+                                    Vector::UniformVectorSuperpos { q1: q1l, q2: q2l, .. },
+                                    Vector::UniformVectorSuperpos { q1: q1r, q2: q2r, .. }
+                                ]
+                                if matches!(
+                                    (&**q1l, &**q2l, &**q1r, &**q2r),
+                                    (
+                                        Vector::ZeroVector { .. },
+                                        Vector::OneVector { .. },
+                                        Vector::ZeroVector { .. },
+                                        Vector::VectorTilt {q, angle_deg, ..}
+                                    ) if angles_are_approx_equal(*angle_deg, 180.0)
+                                        && matches!(&**q, Vector::OneVector { .. })
+                                )
+                            ) && matches!(
+                                &vecs_right[..],
+                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
+                            ) =>
+                            {
+                                state.sim.h(*index);
+                            }
+
                             (left, right) => todo!(
                                 "Synthesis for basis translation {} >> {} not yet implemented",
                                 left,
