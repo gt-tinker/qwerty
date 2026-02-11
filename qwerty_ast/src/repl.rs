@@ -7,7 +7,7 @@ use crate::ast::{
     canon_angle,
     qpu::{
         Adjoint, Basis, BasisTranslation, BitLiteral, Expr, Measure, NonUniformSuperpos, Pipe,
-        Predicated, QLit, QLitExpr, QubitRef, Tensor, UnitLiteral, Variable, expr,
+        Predicated, QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Variable, expr,
     },
 };
 use dashu::{base::BitTest, integer::UBig};
@@ -611,6 +611,31 @@ impl Expr {
                         Some(Expr::Pipe(Pipe {
                             lhs: Box::new(lhs.clone()),
                             rhs: Box::new(rhs),
+                            dbg: None,
+                        }))
+                    }
+                }
+            }
+
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                match &**val {
+                    Expr::QubitRef(QubitRef { index }) => {
+                        let ctls = &[];
+                        let angle_rad = canon_angle(*angle_deg) / 180.0 * std::f64::consts::PI;
+                        let phase = Complex64::cis(angle_rad);
+                        // Be sneaky and use mcphase with no controls as a P(theta) gate
+                        state.sim.mcphase(ctls, phase, *index);
+                        state.sim.x(*index);
+                        state.sim.mcphase(ctls, phase, *index);
+                        state.sim.x(*index);
+                        Some(Expr::QubitRef(QubitRef { index: *index }))
+                    }
+
+                    other_val => {
+                        let other_val = other_val.eval_step(state)?;
+                        Some(Expr::Tilt(Tilt {
+                            val: Box::new(other_val),
+                            angle_deg: *angle_deg,
                             dbg: None,
                         }))
                     }

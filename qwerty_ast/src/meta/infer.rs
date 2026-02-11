@@ -1131,6 +1131,10 @@ impl ExprConstrainable for qpu::MetaExpr {
                 )
             }
 
+            qpu::MetaExpr::Tilt { val, .. } => {
+                val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
+            }
+
             qpu::MetaExpr::BasisTranslation { bin, bout, .. } => {
                 let bin_dim = bin.get_dim();
                 let bout_dim = bout.get_dim();

@@ -1278,8 +1278,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp_Pow(binOp)
         #elif isinstance(binOp.op, ast.BitAnd):
         #    return self.visit_BinOp_BitAnd(binOp)
-        #elif isinstance(binOp.op, ast.MatMult):
-        #    return self.visit_BinOp_MatMult(binOp)
+        elif isinstance(binOp.op, ast.MatMult):
+            return self.visit_BinOp_MatMult(binOp)
         else:
             op_name = type(binOp.op).__name__
             raise QwertySyntaxError('Unknown binary operation {}'
@@ -1387,59 +1387,59 @@ class QpuVisitor(BaseVisitor):
     #    dbg = self.get_debug_loc(binOp)
     #    return Pred(dbg, basis, body)
 
-    #def visit_BinOp_MatMult(self, binOp: ast.BinOp):
-    #    """
-    #    Convert a Python matrix multiplication expression into a Qwerty
-    #    ``Phase`` (tilt) AST node. For example, ``t1 @ t2`` becomes a ``Phase``
-    #    node with two children — the left should be a rev_qfunc[N] or qubit[N],
-    #    and the right should be a float. If the right operand is in degrees
-    #    (this is the default unless you write ``t1 @ rad(t2)``), then a
-    #    conversion to radians is automatically synthesized.
-    #    """
-    #    if isinstance(call := binOp.right, ast.Call) \
-    #            and isinstance(name := call.func, ast.Name) \
-    #            and name.id in ('deg', 'rad'):
-    #        unit = name.id
-    #        if call.keywords:
-    #            raise QwertySyntaxError(
-    #                'Keyword arguments not supported for {}(...)'.format(unit),
-    #                self.get_debug_loc(binOp))
-    #        if len(call.args) != 1:
-    #            raise QwertySyntaxError(
-    #                'Wrong number of arguments {} != 1 passed to {}(...)'
-    #                .format(len(call.args), unit),
-    #                self.get_debug_loc(binOp))
-    #        angle = call.args[0]
-    #        # Set the debug location for the angle expression code to this
-    #        # pseudo-function (deg() or rad())
-    #        angle_conv_dbg_node = call
-    #    else:
-    #        unit = 'deg'
-    #        angle = binOp.right
-    #        angle_conv_dbg_node = binOp.right
+    def visit_BinOp_MatMult(self, binOp: ast.BinOp):
+        """
+        Convert a Python matrix multiplication expression into a Qwerty
+        ``Tilt`` AST node. For example, ``t1 @ t2`` becomes a ``Tilt``
+        expression with two children — the left should be a rev_qfunc[N] or
+        qubit[N], and the right should be a float.
+        """
+        # TODO: investigate reintroducing this expr@rad(float_expr) syntax.
+        #if isinstance(call := binOp.right, ast.Call) \
+        #        and isinstance(name := call.func, ast.Name) \
+        #        and name.id in ('deg', 'rad'):
+        #    unit = name.id
+        #    if call.keywords:
+        #        raise QwertySyntaxError(
+        #            'Keyword arguments not supported for {}(...)'.format(unit),
+        #            self.get_debug_loc(binOp))
+        #    if len(call.args) != 1:
+        #        raise QwertySyntaxError(
+        #            'Wrong number of arguments {} != 1 passed to {}(...)'
+        #            .format(len(call.args), unit),
+        #            self.get_debug_loc(binOp))
+        #    angle = call.args[0]
+        #    # Set the debug location for the angle expression code to this
+        #    # pseudo-function (deg() or rad())
+        #    angle_conv_dbg_node = call
+        #else:
+        #    unit = 'deg'
+        #    angle = binOp.right
+        #    angle_conv_dbg_node = binOp.right
 
-    #    angle_expr = self.extract_float_expr(angle)
-    #    if unit == 'deg':
-    #        angle_conv_dbg = self.get_debug_loc(angle_conv_dbg_node)
-    #        # Convert to radians: angle_expr/360 * 2*pi
-    #        # The canonicalizer AST pass will fold this
-    #        angle_expr = \
-    #            FloatBinaryOp(
-    #                angle_conv_dbg.copy(),
-    #                FLOAT_MUL,
-    #                FloatBinaryOp(
-    #                    angle_conv_dbg.copy(),
-    #                    FLOAT_DIV,
-    #                    angle_expr,
-    #                    FloatLiteral(
-    #                        angle_conv_dbg.copy(), 360.0)),
-    #                FloatLiteral(
-    #                    angle_conv_dbg.copy(),
-    #                    2*math.pi))
+        #angle_expr = self.extract_float_expr(angle)
+        #if unit == 'deg':
+        #    angle_conv_dbg = self.get_debug_loc(angle_conv_dbg_node)
+        #    # Convert to radians: angle_expr/360 * 2*pi
+        #    # The canonicalizer AST pass will fold this
+        #    angle_expr = \
+        #        FloatBinaryOp(
+        #            angle_conv_dbg.copy(),
+        #            FLOAT_MUL,
+        #            FloatBinaryOp(
+        #                angle_conv_dbg.copy(),
+        #                FLOAT_DIV,
+        #                angle_expr,
+        #                FloatLiteral(
+        #                    angle_conv_dbg.copy(), 360.0)),
+        #            FloatLiteral(
+        #                angle_conv_dbg.copy(),
+        #                2*math.pi))
 
-    #    dbg = self.get_debug_loc(binOp)
-    #    lhs = self.visit(binOp.left)
-    #    return Phase(dbg, angle_expr, lhs)
+        dbg = self.get_debug_loc(binOp)
+        val = self.visit(binOp.left)
+        angle_deg = self.extract_float_expr(binOp.right)
+        return QpuExpr.new_tilt(val, angle_deg, dbg)
 
     def visit_BinOp_RShift(self, binOp: ast.BinOp):
         """
@@ -1464,26 +1464,26 @@ class QpuVisitor(BaseVisitor):
         factor = self.extract_dimvar_expr(binOp.right)
         return QpuExpr.new_broadcast_tensor(val, factor, dbg)
 
-    #def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
-    #    if isinstance(unaryOp.op, ast.USub):
-    #        return self.visit_UnaryOp_USub(unaryOp)
-    #    elif isinstance(unaryOp.op, ast.Invert):
-    #        return self.visit_UnaryOp_Invert(unaryOp)
-    #    else:
-    #        op_name = type(unaryOp.op).__name__
-    #        raise QwertySyntaxError('Unknown unary operation {}'
-    #                                .format(op_name),
-    #                                self.get_debug_loc(unaryOp))
+    def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
+        if isinstance(unaryOp.op, ast.USub):
+            return self.visit_UnaryOp_USub(unaryOp)
+        #elif isinstance(unaryOp.op, ast.Invert):
+        #    return self.visit_UnaryOp_Invert(unaryOp)
+        else:
+            op_name = type(unaryOp.op).__name__
+            raise QwertySyntaxError('Unknown unary operation {}'
+                                    .format(op_name),
+                                    self.get_debug_loc(unaryOp))
 
-    #def visit_UnaryOp_USub(self, unaryOp: ast.UnaryOp):
-    #    """
-    #    Convert a Python unary negation AST node into a Qwerty AST node tilting
-    #    the operand by 180 degrees. For example, ``-f`` or ``-'0'``.
-    #    """
-    #    dbg = self.get_debug_loc(unaryOp)
-    #    value = self.visit(unaryOp.operand)
-    #    # Euler's identity, e^{iπ} = -1
-    #    return Phase(dbg, FloatLiteral(dbg.copy(), math.pi), value)
+    def visit_UnaryOp_USub(self, unaryOp: ast.UnaryOp):
+        """
+        Convert a Python unary negation AST node into a Qwerty AST node tilting
+        the operand by 180 degrees. For example, ``-f`` or ``-'0'``.
+        """
+        dbg = self.get_debug_loc(unaryOp)
+        val = self.visit(unaryOp.operand)
+        angle_deg = FloatExpr.new_const(180.0, dbg)
+        return QpuExpr.new_tilt(val, angle_deg, dbg)
 
     #def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
     #    """
@@ -1852,8 +1852,8 @@ class QpuVisitor(BaseVisitor):
         #elif isinstance(node, ast.BinOp):
         elif isinstance(node, ast.BinOp):
             return self.visit_BinOp(node)
-        #elif isinstance(node, ast.UnaryOp):
-        #    return self.visit_UnaryOp(node)
+        elif isinstance(node, ast.UnaryOp):
+            return self.visit_UnaryOp(node)
         elif isinstance(node, ast.Set):
             return self.visit_Set(node)
         elif isinstance(node, ast.GeneratorExp):

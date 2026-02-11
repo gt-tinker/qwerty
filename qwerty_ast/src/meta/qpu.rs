@@ -751,6 +751,17 @@ pub enum MetaExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// Tilt a qubit state or function value. Example syntax:
+    /// ```text
+    /// -q
+    /// ```
+    Tilt {
+        val: Box<MetaExpr>,
+        #[gen_rebuild::skip_recurse(substitute_basis_alias)]
+        angle_deg: FloatExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// The mighty basis translation. Example syntax:
     /// ```text
     /// pm >> std
@@ -849,6 +860,7 @@ impl MetaExpr {
             | MetaExpr::Measure { dbg, .. }
             | MetaExpr::Discard { dbg }
             | MetaExpr::BiTensor { dbg, .. }
+            | MetaExpr::Tilt { dbg, .. }
             | MetaExpr::BasisTranslation { dbg, .. }
             | MetaExpr::Predicated { dbg, .. }
             | MetaExpr::NonUniformSuperpos { dbg, .. }
@@ -914,6 +926,14 @@ impl MetaExpr {
             BiTensor { left, right, dbg } => {
                 Ok(ast::qpu::Expr::Tensor(ast::qpu::Tensor {
                     vals: vec![left, right],
+                    dbg,
+                }))
+            }
+
+            Tilt { val, angle_deg, dbg } => {
+                Ok(ast::qpu::Expr::Tilt(ast::qpu::Tilt {
+                    val: Box::new(val),
+                    angle_deg,
                     dbg,
                 }))
             }
@@ -1033,6 +1053,7 @@ impl fmt::Display for MetaExpr {
             MetaExpr::Measure { basis, .. } => write!(f, "({}).measure", basis),
             MetaExpr::Discard { .. } => write!(f, "discard"),
             MetaExpr::BiTensor { left, right, .. } => write!(f, "({!})*({!})", *left, *right),
+            MetaExpr::Tilt { val, angle_deg, .. } => write!(f, "({!})*({})", *val, angle_deg),
             MetaExpr::BasisTranslation { bin, bout, .. } => write!(f, "({}) >> ({})", bin, bout),
             MetaExpr::Predicated { then_func, else_func, pred, .. } => {
                 write!(f, "({!}) if ({}) else ({!})", *then_func, pred, *else_func)
