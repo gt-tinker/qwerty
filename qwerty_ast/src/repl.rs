@@ -6,8 +6,9 @@ use crate::ast::{
     Assign, Canonicalizable, Stmt, StmtExpr, angle_is_approx_zero, angles_are_approx_equal,
     canon_angle,
     qpu::{
-        Adjoint, Basis, BasisTranslation, BitLiteral, Compose, Expr, Measure, NonUniformSuperpos,
-        Pipe, Predicated, QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Variable, expr,
+        Adjoint, Basis, BasisTranslation, BitLiteral, Comopse, Expr, Measure, NonUniformSuperpos,
+        Pipe, Predicated, QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Variable, Vector,
+        expr,
     },
 };
 use dashu::{base::BitTest, integer::UBig};
@@ -286,7 +287,7 @@ impl ReplState {
 
                 Expr::UnitLiteral(UnitLiteral { dbg: None })
             }
-            unknown => todo!("Unknown type of statment {}. Sorry", unknown),
+            unknown => todo!("Unknown type of statement {}. Sorry", unknown),
         }
     }
 
@@ -594,6 +595,56 @@ impl Expr {
                                 dbg: None,
                             }))
                         }
+                    }
+
+                    // E-BTrans
+                    (
+                        Expr::QubitRef(QubitRef { index }),
+                        Expr::BasisTranslation(BasisTranslation { bin, bout, .. }),
+                    ) => {
+                        // Strip debug info so we can actually compare them
+                        let bin = bin.clone().into_strip_dbg().canonicalize();
+                        let bout = bout.clone().into_strip_dbg().canonicalize();
+
+                        match (bin, bout) {
+                            (left, right) if left == right => {
+                                // Nothing to do.
+                            }
+
+                            (
+                                Basis::BasisLiteral {
+                                    vecs: vecs_left, ..
+                                },
+                                Basis::BasisLiteral {
+                                    vecs: vecs_right, ..
+                                },
+                            )
+                            | (
+                                Basis::BasisLiteral {
+                                    vecs: vecs_right, ..
+                                },
+                                Basis::BasisLiteral {
+                                    vecs: vecs_left, ..
+                                },
+                            ) if matches!(
+                                &vecs_left[..],
+                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
+                            ) && matches!(
+                                &vecs_right[..],
+                                [Vector::OneVector { .. }, Vector::ZeroVector { .. }]
+                            ) =>
+                            {
+                                state.sim.x(*index);
+                            }
+
+                            (left, right) => todo!(
+                                "Synthesis for basis translation {} >> {} not yet implemented",
+                                left,
+                                right
+                            ),
+                        }
+
+                        Some(Expr::QubitRef(QubitRef { index: *index }))
                     }
 
                     // E-Pipe2
