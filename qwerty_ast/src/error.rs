@@ -33,6 +33,7 @@ pub enum TypeErrorKind {
     SpanMismatch,
     DoesNotFullySpan,
     UnsupportedTensorProduct,
+    UnsupportedTilt,
     NotOrthogonal { left: String, right: String },
     InvalidQubitOperation(String),
     NonReversibleOperationInReversibleFunction(String),
@@ -133,6 +134,7 @@ impl fmt::Display for TypeErrorKind {
             //       f*f where f : (qubit[1]->bit[1]) -> unit. The types match
             //       but that's not a valid tensor product.
             TypeErrorKind::UnsupportedTensorProduct => write!(f, "Unsupported tensor product"),
+            TypeErrorKind::UnsupportedTilt => write!(f, "Cannot tilt this"),
             // TODO: say something more specific than "constructs"?
             TypeErrorKind::NotOrthogonal { left, right } => write!(
                 f,

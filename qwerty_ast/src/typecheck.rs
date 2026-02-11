@@ -17,7 +17,7 @@ use crate::ast::{
     qpu::{
         self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
         EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated, QLit,
-        QLitExpr, QubitRef, Tensor, UnitLiteral, Vector, VectorAtomKind,
+        QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Vector, VectorAtomKind,
     },
 };
 
@@ -879,6 +879,35 @@ impl Tensor {
     }
 }
 
+impl Tilt {
+    pub fn calc_type(
+        &self,
+        (val_ty, val_compute_kind): &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Tilt { dbg, .. } = self;
+
+        if let Type::RegType {
+            elem_ty: RegKind::Qubit,
+            dim,
+        } = val_ty
+            && *dim > 0
+        {
+            Ok((val_ty.clone(), *val_compute_kind))
+        } else {
+            Err(TypeError {
+                kind: TypeErrorKind::UnsupportedTilt,
+                dbg: dbg.clone(),
+            })
+        }
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Tilt { val, .. } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
+}
+
 impl BasisTranslation {
     pub fn calc_type(
         &self,
@@ -1446,6 +1475,7 @@ impl TypeCheckable for qpu::Expr {
             qpu::Expr::Measure(measure) => measure.typecheck(),
             qpu::Expr::Discard(discard) => discard.typecheck(),
             qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
+            qpu::Expr::Tilt(tilt) => tilt.typecheck(env),
             qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
             qpu::Expr::Predicated(pred) => pred.typecheck(env),
             qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),

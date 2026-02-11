@@ -1217,6 +1217,8 @@ fn ast_qpu_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
+        qpu::Expr::Tilt(_) => todo!("missing tilt lowering"),
+
         qpu::Expr::BasisTranslation(btrans @ BasisTranslation { bin, bout, dbg }) => {
             let bin_ty = bin.typecheck().expect("Input basis to pass typechecking");
             let bout_ty = bout.typecheck().expect("Output basis to pass typechecking");

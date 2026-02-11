@@ -87,6 +87,14 @@ gen_rebuild_structs! {
             pub dbg: Option<DebugLoc>,
         }
 
+        /// See [`Expr::Tilt`].
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct Tilt {
+            pub val: Box<Expr>,
+            pub angle_deg: f64,
+            pub dbg: Option<DebugLoc>,
+        }
+
         /// See [`Expr::BasisTranslation`].
         #[derive(Debug, Clone, PartialEq)]
         pub struct BasisTranslation {
@@ -198,6 +206,12 @@ gen_rebuild_structs! {
             /// ```
             Tensor(Tensor),
 
+            /// Tilt a qubit state or function value. Example syntax:
+            /// ```text
+            /// -q
+            /// ```
+            Tilt(Tilt),
+
             /// The mighty basis translation. Example syntax:
             /// ```text
             /// {'0','1'} >> {'0',-'1'}
@@ -270,6 +284,7 @@ impl Expr {
             | Expr::Measure(Measure { dbg, .. })
             | Expr::Discard(Discard { dbg, .. })
             | Expr::Tensor(Tensor { dbg, .. })
+            | Expr::Tilt(Tilt { dbg, .. })
             | Expr::BasisTranslation(BasisTranslation { dbg, .. })
             | Expr::Predicated(Predicated { dbg, .. })
             | Expr::NonUniformSuperpos(NonUniformSuperpos { dbg, .. })
@@ -312,6 +327,7 @@ impl Expr {
             | Expr::Pipe(_)
             | Expr::Measure(_)
             | Expr::Discard(_)
+            | Expr::Tilt(_)
             | Expr::BasisTranslation(_)
             | Expr::Predicated(_)
             | Expr::NonUniformSuperpos(_)
@@ -375,6 +391,13 @@ impl fmt::Display for Expr {
                     write!(f, "({})", val)?;
                 }
                 Ok(())
+            }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-({})", val)
+                } else {
+                    write!(f, "({}) @ {}", val, angle_deg)
+                }
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
@@ -461,6 +484,17 @@ impl ToPythonCode for Expr {
                     write!(f, ")")?;
                 }
                 Ok(())
+            }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ")")
+                } else {
+                    write!(f, "(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ") @ {}", angle_deg)
+                }
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "(")?;
