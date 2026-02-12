@@ -13,8 +13,9 @@ import ast
 from typing import Optional
 from collections.abc import Callable
 from dataclasses import dataclass
-from .convert_ast import convert_qpu_repl_input, Capturer, CapturedSymbol
+from .prelude import PreludeHandle
 from .err import QwertyProgrammerError
+from .convert_ast import convert_qpu_repl_input, Capturer, CapturedSymbol
 from .default_qpu_prelude import default_qpu_prelude
 from ._qwerty_pyrt import ReplState, TypeEnv, MacroEnv, PlainQpuStmt, \
                           PlainQpuExpr, PlainClassicalFunctionDef, \
@@ -71,6 +72,45 @@ class ReplContext:
     def get_sparse_state(self) -> SparseReplState:
         return self.state.get_sparse_state()
 
+    def run_prelude(self, prelude: PreludeHandle):
+        for stmt in prelude._get_stmts():
+            self.run_stmt(stmt)
+
+    def run_cmd_str(self, cmd: str) -> Optional[str]:
+        stripped_cmd = cmd.strip()
+        if not stripped_cmd:
+            # Ignore blank lines
+            return None
+
+        if stripped_cmd.startswith('%'):
+            magic_cmd = stripped_cmd[1:]
+            if magic_cmd == 'state':
+                return self.get_sparse_state()
+            else:
+                raise QwertyProgrammerError(f'Unknown magic command %{magic_cmd}')
+        else:
+            py_ast = ast.parse(stripped_cmd, mode='single')
+            stmt_ast = convert_qpu_repl_input(py_ast,
+                                              capturer=self.capturer)
+            result_expr_ast = self.run_stmt(stmt_ast)
+
+            sparse_state = self.get_sparse_state()
+            rendered = result_expr_ast.render(sparse_state)
+            if rendered:
+                ret = rendered
+            else:
+                ret = None
+            self.free_value(result_expr_ast)
+            return ret
+
+    def run_cmd_str_catch(self, cmd: str) -> Optional[str]:
+        try:
+            return self.run_cmd_str(cmd)
+        except SyntaxError as err:
+            return f'Syntax Error: {err}'
+        except QwertyProgrammerError as err:
+            return f'{err.kind()}: {err}'
+
 def repl(prompt_func: Callable[[], str] = input,
          print_func: Callable[[str], None] = print) -> int:
     """
@@ -81,13 +121,12 @@ def repl(prompt_func: Callable[[], str] = input,
     """
     ctx = ReplContext.new()
 
-    for stmt in default_qpu_prelude._get_stmts():
-        try:
-            ctx.run_stmt(stmt)
-        except QwertyProgrammerError as err:
-            print_func(f'Error in prelude: {err}. This is a bug.')
-            # Bail out. This should never happen
-            return 1
+    try:
+        ctx.run_prelude(default_qpu_prelude)
+    except QwertyProgrammerError as err:
+        print_func(f'Error in prelude: {err}. This is a bug.')
+        # Bail out. This should never happen
+        return 1
 
     while True:
         try:
@@ -97,34 +136,41 @@ def repl(prompt_func: Callable[[], str] = input,
             print_func()
             return 0
 
-        stripped_cmd = cmd.strip()
-        if not stripped_cmd:
-            # Ignore blank lines
-            continue
+        result = ctx.run_cmd_str_catch(cmd)
+        if result is not None:
+            print_func(result)
 
-        if stripped_cmd.startswith('%'):
-            magic_cmd = stripped_cmd[1:]
-            if magic_cmd == 'state':
-                print_func(ctx.get_sparse_state())
-            else:
-                print_func(f'Unknown magic command %{magic_cmd}')
-        else:
-            try:
-                py_ast = ast.parse(stripped_cmd, mode='single')
-            except SyntaxError as err:
-                print_func(f'Syntax Error: {err}')
-                continue
+def get_jupyter_kernel():
+    from ipykernel.kernelbase import Kernel
 
-            try:
-                stmt_ast = convert_qpu_repl_input(py_ast,
-                                                  capturer=ctx.capturer)
-                result_expr_ast = ctx.run_stmt(stmt_ast)
-            except QwertyProgrammerError as err:
-                print_func(f'{err.kind()}: {err}')
-                continue
+    class QwertyKernel(Kernel):
+        implementation = 'Qwerty'
+        implementation_version = '0.0.1'
+        banner = '>> >> >> QWERTY >> >> >>'
+        language_info = {
+            'name': 'Qwerty',
+            'mimetype': 'text/x-python',
+            'file_extension': '.py',
+            "codemirror_mode": {"name": "ipython", "version": 3},
+            "pygments_lexer": "ipython3",
+        }
 
-            sparse_state = ctx.get_sparse_state()
-            rendered = result_expr_ast.render(sparse_state)
-            if rendered:
-                print_func(rendered)
-            ctx.free_value(result_expr_ast)
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.ctx = ReplContext.new()
+
+            self.ctx.run_prelude(default_qpu_prelude)
+
+        def do_execute(self, code, silent, **kwargs):
+            result = self.ctx.run_cmd_str_catch(code)
+
+            if result is not None and not silent:
+                stream_content = {'name': 'stdout', 'text': result}
+                self.send_response(self.iopub_socket, 'stream', stream_content)
+
+            return {'status': 'ok',
+                    'execution_count': self.execution_count,
+                    'payload': [],
+                    'user_expressions': {}}
+
+    return QwertyKernel
