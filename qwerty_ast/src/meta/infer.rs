@@ -741,12 +741,7 @@ impl TypeEnv {
         self.bindings.insert(name.to_string(), ty);
     }
 
-    fn insert_cfunc(
-        &mut self,
-        name: String,
-        in_dim: Option<DimExpr>,
-        out_dim: Option<DimExpr>,
-    ) {
+    fn insert_cfunc(&mut self, name: String, in_dim: Option<DimExpr>, out_dim: Option<DimExpr>) {
         self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
     }
 
