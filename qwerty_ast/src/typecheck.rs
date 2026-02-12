@@ -87,11 +87,7 @@ impl TypeEnv {
     }
 
     /// Inserts a variable into the type context.
-    pub fn insert_var(
-        &mut self,
-        name: &str,
-        typ: Type,
-    ) {
+    pub fn insert_var(&mut self, name: &str, typ: Type) {
         if let Some(_) = self.vars.insert(name.to_string(), typ) {
             // If this was a linear value, it's usable again now.
             self.linear_vars_used.remove(name);
