@@ -70,6 +70,14 @@ class ReplTests(unittest.TestCase):
                                           "function. (at column 1)"), call()])
         self.assertEqual(exit_code, 0)
 
+    def test_cfunc_def(self):
+        prompt_func = Mock(side_effect=["f: cfunc = lambda x: ~x", "f.sign('0')", EOFError()])
+        print_func = Mock()
+        exit_code = repl(prompt_func, print_func)
+        prompt_func.assert_has_calls([call(PROMPT), call(PROMPT), call(PROMPT)])
+        print_func.assert_has_calls([call("-'0'"), call()])
+        self.assertEqual(exit_code, 0)
+
 class AnyOf:
     """
     Based on ``unittest.mock._ANY`` in the CPython source code. Matches any
@@ -119,9 +127,17 @@ class CrnchSummit2026PosterReplTests(unittest.TestCase):
             ("flop = {'0'+'1'>>'0', '0'-'1'>>'1'}", None),
             ("flop('0'+'1')", call("'0'")),
             ("flop('0'-'1')", call("'1'")),
-            # TODO: classical function definition, testing
+            ("f: cfunc = lambda x: x", None),
+            ("f.sign('0')", call("'0'")),
+            ("f.sign('1')", call("-'1'")),
+            ("f.sign('0'+'1')", call("('0') + (-'1')")),
             ("'0' | flip", call("'1'")),
-            # TODO: full deutsch's
+            ("'0'+'1' | f.sign | flop | measure", call("bit[1](0b1)")),
+            ("'0'+'1' | f.sign | flop | measure", call("bit[1](0b1)")),
+            ("'0'+'1' | f.sign | flop | measure", call("bit[1](0b1)")),
+            ("'0'+'1' | f.sign | flop | measure", call("bit[1](0b1)")),
+            ("'0'+'1' | f.sign", call("('0') + (-'1')")),
+            ("'0'-'1' | flop", call("'1'")),
             (EOFError(), call()),
         ]
         prompt_func_results, prints = zip(*inputs_and_outputs)

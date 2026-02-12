@@ -10,28 +10,60 @@ qwerty_ast::repl to actually run the code.
 """
 
 import ast
+from typing import Optional
 from collections.abc import Callable
 from dataclasses import dataclass
-from .convert_ast import convert_qpu_repl_input
+from .convert_ast import convert_qpu_repl_input, Capturer, CapturedSymbol
 from .err import QwertyProgrammerError
 from .default_qpu_prelude import default_qpu_prelude
 from ._qwerty_pyrt import ReplState, TypeEnv, MacroEnv, PlainQpuStmt, \
-                          PlainQpuExpr, SparseReplState
+                          PlainQpuExpr, PlainClassicalFunctionDef, \
+                          SparseReplState
+
+class ReplSymbolCapturer(Capturer):
+    def __init__(self):
+        self.symbol_names = set()
+
+    def register_symbol(self, symbol_name):
+        self.symbol_names.add(symbol_name)
+
+    def shadows_python_variable(self, var_name: str) -> bool:
+        return False
+
+    def capture(self, var_name: str) -> Optional[str]:
+        if var_name in self.symbol_names:
+            return CapturedSymbol(var_name)
+
+        return None
 
 @dataclass
 class ReplContext:
     state: ReplState
     type_env: TypeEnv
     macro_env: MacroEnv
+    capturer: ReplSymbolCapturer
 
     @classmethod
     def new(cls):
-        return cls(ReplState(), TypeEnv(), MacroEnv())
+        return cls(ReplState(), TypeEnv(), MacroEnv(), ReplSymbolCapturer())
 
-    def run_stmt(self, stmt_ast: PlainQpuStmt) -> PlainQpuExpr:
-        plain_ast = stmt_ast.lower(self.macro_env, self.type_env)
-        plain_ast.type_check_no_ret(self.type_env)
-        return self.state.run(plain_ast)
+    def run_stmt(self, stmt_ast) -> PlainQpuExpr:
+        lowered = stmt_ast.lower(self.macro_env, self.type_env)
+        if isinstance(plain_ast := lowered, PlainQpuStmt):
+            # This is a plain @qpu statement AST (no metaQwerty anymore)
+            plain_ast.type_check_no_ret(self.type_env)
+            return self.state.run(plain_ast)
+        elif isinstance(classical_func_def := lowered,
+                        PlainClassicalFunctionDef):
+            # This is a classical lambda
+            classical_func_def.type_check(self.type_env)
+            self.type_env.insert_classical_func(classical_func_def)
+            self.state.insert_classical_func(classical_func_def)
+            self.capturer.register_symbol(classical_func_def.get_name())
+            return PlainQpuExpr.trivial(None)
+        else:
+            ty = type(lowered)
+            assert False, f"Lowering a @qpu statement produced {ty}, huh?"
 
     def free_value(self, val_ast: PlainQpuExpr):
         self.state.free_value(val_ast)
@@ -84,7 +116,8 @@ def repl(prompt_func: Callable[[], str] = input,
                 continue
 
             try:
-                stmt_ast = convert_qpu_repl_input(py_ast)
+                stmt_ast = convert_qpu_repl_input(py_ast,
+                                                  capturer=ctx.capturer)
                 result_expr_ast = ctx.run_stmt(stmt_ast)
             except QwertyProgrammerError as err:
                 print_func(f'{err.kind()}: {err}')

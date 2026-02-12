@@ -1,7 +1,7 @@
 //! Wraps qwerty_ast::repl::ReplState in a Python object. Used by repl.py to
 //! run the Qwerty REPL.
 
-use crate::wrap_ast::{PlainQpuExpr, PlainQpuStmt};
+use crate::wrap_ast::{PlainClassicalFunctionDef, PlainQpuExpr, PlainQpuStmt};
 use pyo3::prelude::*;
 use qwerty_ast::repl;
 use std::fmt;
@@ -38,6 +38,13 @@ impl ReplState {
     pub fn get_sparse_state(&mut self) -> SparseReplState {
         let state = self.state.lock().unwrap().get_sparse_state();
         SparseReplState { state }
+    }
+
+    pub fn insert_classical_func(&mut self, func_def: PlainClassicalFunctionDef) {
+        self.state
+            .lock()
+            .unwrap()
+            .insert_classical_func(func_def.function_def);
     }
 }
 

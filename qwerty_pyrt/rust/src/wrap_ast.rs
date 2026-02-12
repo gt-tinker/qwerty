@@ -6,7 +6,8 @@ mod wrap_qpu;
 mod wrap_type;
 
 pub use wrap_classical::{
-    BinaryOpKind, ClassicalExpr, ClassicalFunctionDef, ClassicalStmt, UnaryOpKind,
+    BinaryOpKind, ClassicalExpr, ClassicalFunctionDef, ClassicalStmt, PlainClassicalFunctionDef,
+    UnaryOpKind,
 };
 pub use wrap_dim_expr::{DimExpr, DimVar};
 pub use wrap_prog::{Backend, Program};

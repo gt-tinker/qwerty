@@ -1,4 +1,8 @@
-use crate::wrap_ast::wrap_dim_expr::DimExpr;
+use crate::wrap_ast::{
+    py_glue::{ProgErrKind, get_err},
+    wrap_classical::PlainClassicalFunctionDef,
+    wrap_dim_expr::DimExpr,
+};
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg, meta, typecheck};
 use std::fmt;
@@ -109,6 +113,22 @@ impl TypeEnv {
         TypeEnv {
             env: typecheck::TypeEnv::new(),
         }
+    }
+
+    pub fn insert_classical_func(
+        &mut self,
+        py: Python<'_>,
+        classical_func: &PlainClassicalFunctionDef,
+    ) -> PyResult<()> {
+        let PlainClassicalFunctionDef {
+            function_def:
+                func_def @ ast::FunctionDef {
+                    name, is_rev, dbg, ..
+                },
+        } = classical_func;
+        self.env
+            .insert_classical_func(&name, *is_rev, func_def.in_dim(), func_def.out_dim(), dbg)
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
     }
 }
 

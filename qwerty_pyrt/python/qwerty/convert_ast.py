@@ -711,25 +711,103 @@ class BaseVisitor:
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
-    #def visit_AnnAssign(self, assign: ast.AnnAssign):
-    #    """
-    #    Throw an error for the Python type-annotated assignment statement,
-    #    since it is unnecessary::
+    def try_extract_cfunc_dims(self, root: ast.AST) \
+            -> Optional[Tuple[DimExpr, DimExpr]]:
+        """
+        Tries to parse a type annotation as ``cfunc[3,2]`` and return the ``3``
+        and ``2``. Writing just ``cfunc`` is interpreted as ``cfunc[1,1]``, and
+        ``cfunc[4]`` is interpreted as ``cfunc[4,4]``. If the ``cfunc`` keyword
+        is missing (e.g., if the type is `qubit` instead), returns ``None``.
+        """
 
-    #        q: qubit = '0'
-    #    """
-    #    dbg = self.get_debug_loc(assign)
-    #    raise QwertySyntaxError('Typed assignments, i.e.\n'
-    #                            '\tsimple -- q: qubit = v\n'
-    #                            '\tdestructuring -- (a, b): (qubit, qubit[2]) '
-    #                            '= v\n'
-    #                            '\tsubscript typing -- a[1]: bit = x\n'
-    #                            '\tor even just wrapping the name in parens '
-    #                            '-- (a): bit = y\n'
-    #                            'are currently unsupported. Please give '
-    #                            'variables simple names without annotations '
-    #                            'for now.',
-    #                            dbg)
+        dbg = self.get_debug_loc(root)
+
+        if isinstance(name := root, ast.Name) and name.id == 'cfunc':
+            one = DimExpr.new_const(1, dbg)
+            return (one, one)
+        elif isinstance(sub := root, ast.Subscript) \
+                and isinstance(name := sub.value, ast.Name) \
+                and name.id == 'cfunc':
+            if isinstance(dim_param := sub.slice, ast.Tuple) \
+                    and len(dims := dim_param.elts) == 2:
+                in_dim, out_dim = dims
+                in_dim_expr = self.extract_dimvar_expr(in_dim)
+                out_dim_expr = self.extract_dimvar_expr(out_dim)
+                return (in_dim_expr, out_dim_expr)
+            else:
+                in_out_dim = self.extract_dimvar_expr(dim_param)
+                return (in_out_dim, in_out_dim)
+        else:
+            return None
+
+    def extract_classical_expr(self, root: ast.AST) -> ClassicalExpr:
+        visitor = ClassicalVisitor(name_generator=self.name_generator,
+                                   capturer=self.capturer,
+                                   filename=self.filename,
+                                   line_offset=self.line_offset,
+                                   col_offset=self.col_offset)
+        expr = visitor.visit(root)
+        if not isinstance(expr, ClassicalExpr):
+            dbg = self.get_debug_loc(root)
+            raise QwertySyntaxError('Expected @classical expression', dbg)
+        return expr
+
+    def visit_AnnAssign(self, assign: ast.AnnAssign):
+        """
+        Process an inline classical function definition::
+
+            f: cfunc[3,1] = lambda x: (x & secret_string).xor_reduce()
+
+        Other uses of this Python AST node will throw an error, since type
+        annotations are not needed in Qwerty assignments.
+        """
+        dbg = self.get_debug_loc(assign)
+
+        if assign.simple == 1 \
+                and isinstance(target := assign.target, ast.Name) \
+                and (cfunc_dims := self.try_extract_cfunc_dims(
+                    assign.annotation)) is not None:
+            name = target.id
+            in_dim, out_dim = cfunc_dims
+
+            if not isinstance(lam := assign.value, ast.Lambda):
+                raise QwertySyntaxError('Right-hand side of inline classical '
+                                        'function definition must be lambda '
+                                        'expression.', dbg)
+
+            lam_args = lam.args
+            if lam_args.posonlyargs \
+                    or lam_args.vararg \
+                    or lam_args.kwonlyargs \
+                    or lam_args.kw_defaults \
+                    or lam_args.kwarg \
+                    or lam_args.defaults:
+                raise QwertySyntaxError('Inline classical function '
+                                        'definitions may not have keyword '
+                                        'arguments, varargs, or default '
+                                        'arguments.', dbg)
+
+            if len(args := lam_args.args) != 1:
+                raise QwertySyntaxError('Inline classical function definition '
+                                        'must take one argument. Graduate '
+                                        'school has been hard on me.', dbg)
+            arg, = args
+
+            if arg.annotation is not None \
+                    or arg.type_comment is not None:
+                # This isn't even possible in current Python syntax, but let's
+                # be paranoid anyway.
+                raise QwertySyntaxError('Inline classical function definition '
+                                        'arguments must have no type '
+                                        'annotations', dbg)
+            arg_name = arg.arg
+            body = self.extract_classical_expr(lam.body)
+
+            return QpuStmt.new_classical_lambda_def(name, arg_name, in_dim,
+                                                    out_dim, body, dbg)
+        else:
+            raise QwertySyntaxError('Please do not include type annotations in '
+                                    'assignment statements.', dbg)
 
     #def visit_AugAssign(self, assign: ast.AugAssign):
     #    """
@@ -821,8 +899,8 @@ class BaseVisitor:
             return self.visit_Assign(node)
         elif isinstance(node, ast.Name):
             return self.visit_Name(node)
-        #elif isinstance(node, ast.AnnAssign):
-        #    return self.visit_AnnAssign(node)
+        elif isinstance(node, ast.AnnAssign):
+            return self.visit_AnnAssign(node)
         #elif isinstance(node, ast.AugAssign):
         #    return self.visit_AugAssign(node)
         # Commenting these for now, since we can't handle nested functions, and
