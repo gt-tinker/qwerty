@@ -244,6 +244,8 @@ impl SparseReplState {
     }
 }
 
+pub struct NotImplementedError(pub String);
+
 /// Holds the quantum simulator state and a mapping of names to values.
 pub struct ReplState {
     sim: QuantumSim,
@@ -278,19 +280,22 @@ impl ReplState {
     }
 
     /// Evaluates an expression and returns a value.
-    pub fn run(&mut self, stmt: &Stmt<Expr>) -> Expr {
+    pub fn run(&mut self, stmt: &Stmt<Expr>) -> Result<Expr, NotImplementedError> {
         match stmt {
             Stmt::Expr(StmtExpr { expr, .. }) => expr.eval_to_value(self),
             Stmt::Assign(Assign { lhs, rhs, .. }) => {
-                let rhs_val = rhs.eval_to_value(self);
+                let rhs_val = rhs.eval_to_value(self)?;
 
                 if let Some(old_rhs_val) = self.bindings.insert(lhs.clone(), rhs_val) {
                     self.free_value(&old_rhs_val);
                 }
 
-                Expr::UnitLiteral(UnitLiteral { dbg: None })
+                Ok(Expr::UnitLiteral(UnitLiteral { dbg: None }))
             }
-            unknown => todo!("Unknown type of statement {}. Sorry", unknown),
+            unknown => Err(NotImplementedError(format!(
+                "Unknown type of statement {}. Sorry",
+                unknown
+            ))),
         }
     }
 
@@ -406,22 +411,22 @@ impl QubitRef {
 }
 
 impl QLit {
-    pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
+    pub fn eval_step(&self, state: &mut ReplState) -> Result<Expr, NotImplementedError> {
         match self.clone().canonicalize() {
-            QLit::ZeroQubit { .. } => Some(Expr::QubitRef(QubitRef {
+            QLit::ZeroQubit { .. } => Ok(Expr::QubitRef(QubitRef {
                 index: state.sim.allocate(),
             })),
             QLit::OneQubit { .. } => {
                 let index = state.sim.allocate();
                 state.sim.x(index);
-                Some(Expr::QubitRef(QubitRef { index }))
+                Ok(Expr::QubitRef(QubitRef { index }))
             }
             QLit::UniformSuperpos { q1, q2, .. } => match (*q1, *q2) {
                 // '0' + '1'
                 (QLit::ZeroQubit { .. }, QLit::OneQubit { .. }) => {
                     let index = state.sim.allocate();
                     state.sim.h(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
                 // '0' - '1'
@@ -432,7 +437,7 @@ impl QLit {
                     let index = state.sim.allocate();
                     state.sim.x(index);
                     state.sim.h(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
                 // '1' - '0'
@@ -444,7 +449,7 @@ impl QLit {
                     state.sim.x(index);
                     state.sim.h(index);
                     state.sim.x(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
                 // -'0' - '1'
@@ -469,7 +474,7 @@ impl QLit {
                     state.sim.z(index);
                     state.sim.x(index);
                     state.sim.h(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
                 // '0' + '1'@90
@@ -480,7 +485,7 @@ impl QLit {
                     let index = state.sim.allocate();
                     state.sim.h(index);
                     state.sim.s(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
                 // '0' + '1'@270 ==> 'j'
@@ -491,12 +496,16 @@ impl QLit {
                     let index = state.sim.allocate();
                     state.sim.h(index);
                     state.sim.sadj(index);
-                    Some(Expr::QubitRef(QubitRef { index }))
+                    Ok(Expr::QubitRef(QubitRef { index }))
                 }
 
-                _ => todo!("Unknown type of superpos. Sorry"),
+                _ => Err(NotImplementedError(
+                    "Unknown type of superpos. Sorry".to_string(),
+                )),
             },
-            _ => todo!("Unknown type of qlit. Sorry"),
+            _ => Err(NotImplementedError(
+                "Unknown type of qlit. Sorry".to_string(),
+            )),
         }
     }
 }
@@ -558,14 +567,14 @@ impl Expr {
         }
     }
 
-    pub fn eval_step(&self, state: &mut ReplState) -> Option<Expr> {
+    pub fn eval_step(&self, state: &mut ReplState) -> Result<Option<Expr>, NotImplementedError> {
         match self {
             // Normally, we would have something like E-Let* in Figure 11-4 of
             // TAPL. But we are in a weird situation where we re getting a
             // trickle of statements.
             Expr::Variable(Variable { name, .. }) => match state.bindings.get(name) {
                 None => unreachable!("Unbound variable {name}. Type checking should catch this!"),
-                Some(rhs_val) => Some(rhs_val.clone()),
+                Some(rhs_val) => Ok(Some(rhs_val.clone())),
             },
 
             Expr::Pipe(Pipe { lhs, rhs, .. }) => {
@@ -578,14 +587,14 @@ impl Expr {
                             state.sim.release(*index);
 
                             let val = if !outcome { UBig::ZERO } else { UBig::ONE };
-                            Some(Expr::BitLiteral(BitLiteral {
+                            Ok(Some(Expr::BitLiteral(BitLiteral {
                                 val,
                                 n_bits: 1,
                                 dbg: None,
-                            }))
+                            })))
                         } else {
                             let std1 = Basis::std(1, None);
-                            Some(Expr::Pipe(Pipe {
+                            Ok(Some(Expr::Pipe(Pipe {
                                 lhs: Box::new(Expr::Pipe(Pipe {
                                     lhs: Box::new(Expr::QubitRef(QubitRef { index: *index })),
                                     rhs: Box::new(Expr::BasisTranslation(BasisTranslation {
@@ -600,7 +609,7 @@ impl Expr {
                                     dbg: None,
                                 })),
                                 dbg: None,
-                            }))
+                            })))
                         }
                     }
 
@@ -616,6 +625,7 @@ impl Expr {
                         match (bin, bout) {
                             (left, right) if left == right => {
                                 // Nothing to do.
+                                Ok(())
                             }
 
                             (
@@ -642,6 +652,7 @@ impl Expr {
                             ) =>
                             {
                                 state.sim.x(*index);
+                                Ok(())
                             }
 
                             (
@@ -681,16 +692,16 @@ impl Expr {
                             ) =>
                             {
                                 state.sim.h(*index);
+                                Ok(())
                             }
 
-                            (left, right) => todo!(
+                            (left, right) => Err(NotImplementedError(format!(
                                 "Synthesis for basis translation {} >> {} not yet implemented",
-                                left,
-                                right
-                            ),
-                        }
+                                left, right
+                            ))),
+                        }?;
 
-                        Some(Expr::QubitRef(QubitRef { index: *index }))
+                        Ok(Some(Expr::QubitRef(QubitRef { index: *index })))
                     }
 
                     (
@@ -709,97 +720,113 @@ impl Expr {
                         let out_dim = func_def.out_dim();
 
                         if in_dim != 1 || out_dim != 1 {
-                            todo!("I only understand cfunc[1,1]");
+                            Err(NotImplementedError(
+                                "I only understand cfunc[1,1]".to_string(),
+                            ))
+                        } else if args.len() != 1 {
+                            Err(NotImplementedError(
+                                "I do not understand more than one cfunc arg".to_string(),
+                            ))
+                        } else {
+                            let arg_name = &args[0].1;
+
+                            match &body[..] {
+                                [
+                                    Stmt::Return(Return {
+                                        val:
+                                            classical::Expr::Variable(classical::Variable {
+                                                name, ..
+                                            }),
+                                        ..
+                                    }),
+                                ] if name == arg_name => {
+                                    state.sim.z(*index);
+                                    Ok(())
+                                }
+
+                                [
+                                    Stmt::Return(Return {
+                                        val:
+                                            classical::Expr::UnaryOp(classical::UnaryOp {
+                                                kind: UnaryOpKind::Not,
+                                                val,
+                                                ..
+                                            }),
+                                        ..
+                                    }),
+                                ] if matches!(&**val, classical::Expr::Variable(classical::Variable { name, .. }) if name == arg_name) =>
+                                {
+                                    state.sim.x(*index);
+                                    state.sim.z(*index);
+                                    state.sim.x(*index);
+                                    Ok(())
+                                }
+
+                                [
+                                    Stmt::Return(Return {
+                                        val:
+                                            classical::Expr::BitLiteral(classical::BitLiteral {
+                                                val,
+                                                n_bits: 1,
+                                                ..
+                                            }),
+                                        ..
+                                    }),
+                                ] if *val == UBig::ZERO => {
+                                    // Nothing to do (this is identity)
+                                    Ok(())
+                                }
+
+                                [
+                                    Stmt::Return(Return {
+                                        val:
+                                            classical::Expr::BitLiteral(classical::BitLiteral {
+                                                val,
+                                                n_bits: 1,
+                                                ..
+                                            }),
+                                        ..
+                                    }),
+                                ] if *val == UBig::ONE => {
+                                    state.sim.z(*index);
+                                    state.sim.x(*index);
+                                    state.sim.z(*index);
+                                    state.sim.x(*index);
+                                    Ok(())
+                                }
+
+                                _ => Err(NotImplementedError(
+                                    "Unknown classical function structure".to_string(),
+                                )),
+                            }?;
+
+                            Ok(Some(Expr::QubitRef(QubitRef { index: *index })))
                         }
-
-                        if args.len() != 1 {
-                            todo!("I do not understand more than one cfunc arg");
-                        }
-                        let arg_name = &args[0].1;
-
-                        match &body[..] {
-                            [
-                                Stmt::Return(Return {
-                                    val: classical::Expr::Variable(classical::Variable { name, .. }),
-                                    ..
-                                }),
-                            ] if name == arg_name => {
-                                state.sim.z(*index);
-                            }
-
-                            [
-                                Stmt::Return(Return {
-                                    val:
-                                        classical::Expr::UnaryOp(classical::UnaryOp {
-                                            kind: UnaryOpKind::Not,
-                                            val,
-                                            ..
-                                        }),
-                                    ..
-                                }),
-                            ] if matches!(&**val, classical::Expr::Variable(classical::Variable { name, .. }) if name == arg_name) =>
-                            {
-                                state.sim.x(*index);
-                                state.sim.z(*index);
-                                state.sim.x(*index);
-                            }
-
-                            [
-                                Stmt::Return(Return {
-                                    val:
-                                        classical::Expr::BitLiteral(classical::BitLiteral {
-                                            val,
-                                            n_bits: 1,
-                                            ..
-                                        }),
-                                    ..
-                                }),
-                            ] if *val == UBig::ZERO => {
-                                // Nothing to do (this is identity)
-                            }
-
-                            [
-                                Stmt::Return(Return {
-                                    val:
-                                        classical::Expr::BitLiteral(classical::BitLiteral {
-                                            val,
-                                            n_bits: 1,
-                                            ..
-                                        }),
-                                    ..
-                                }),
-                            ] if *val == UBig::ONE => {
-                                state.sim.z(*index);
-                                state.sim.x(*index);
-                                state.sim.z(*index);
-                                state.sim.x(*index);
-                            }
-
-                            _ => todo!("Unknown classical function structure"),
-                        }
-
-                        Some(Expr::QubitRef(QubitRef { index: *index }))
                     }
 
                     // E-Pipe2
                     (lhs, rhs_val) if rhs_val.is_value() => {
-                        let lhs = lhs.eval_step(state)?;
-                        Some(Expr::Pipe(Pipe {
-                            lhs: Box::new(lhs),
-                            rhs: Box::new(rhs_val.clone()),
-                            dbg: None,
-                        }))
+                        Ok(if let Some(lhs) = lhs.eval_step(state)? {
+                            Some(Expr::Pipe(Pipe {
+                                lhs: Box::new(lhs),
+                                rhs: Box::new(rhs_val.clone()),
+                                dbg: None,
+                            }))
+                        } else {
+                            None
+                        })
                     }
 
                     // E-Pipe1
-                    (lhs, rhs) => {
-                        let rhs = rhs.eval_step(state)?;
+                    (lhs, rhs) => Ok(if let Some(rhs) = rhs.eval_step(state)? {
                         Some(Expr::Pipe(Pipe {
                             lhs: Box::new(lhs.clone()),
                             rhs: Box::new(rhs),
                             dbg: None,
                         }))
-                    }
+                    } else {
+                        None
+                    }),
                 }
             }
 
@@ -814,34 +841,38 @@ impl Expr {
                         state.sim.x(*index);
                         state.sim.mcphase(ctls, phase, *index);
                         state.sim.x(*index);
-                        Some(Expr::QubitRef(QubitRef { index: *index }))
+                        Ok(Some(Expr::QubitRef(QubitRef { index: *index })))
                     }
 
-                    other_val => {
-                        let other_val = other_val.eval_step(state)?;
+                    other_val => Ok(if let Some(other_val) = other_val.eval_step(state)? {
                         Some(Expr::Tilt(Tilt {
                             val: Box::new(other_val),
                             angle_deg: *angle_deg,
                             dbg: None,
                         }))
-                    }
+                    } else {
+                        None
+                    }),
                 }
             }
 
             // E-QAtom
-            Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.eval_step(state),
+            Expr::QLitExpr(QLitExpr { qlit, .. }) => Ok(Some(qlit.eval_step(state)?)),
 
             // By definition, values do not need evaluation
-            val if val.is_value() => None,
+            val if val.is_value() => Ok(None),
 
-            unknown => todo!("eval_step() for Expr: {}", unknown),
+            unknown => Err(NotImplementedError(format!(
+                "eval_step() for Expr: {}",
+                unknown
+            ))),
         }
     }
 
-    pub fn eval_to_value(&self, state: &mut ReplState) -> Expr {
+    pub fn eval_to_value(&self, state: &mut ReplState) -> Result<Expr, NotImplementedError> {
         let mut expr = self.clone();
         let val = loop {
-            match expr.eval_step(state) {
+            match expr.eval_step(state)? {
                 Some(new_expr) => {
                     expr = new_expr;
                 }
@@ -850,11 +881,13 @@ impl Expr {
                 }
             }
         };
-        assert!(
-            val.is_value(),
-            "Evaluated to non-value {}. This is an interpreter bug.",
-            val
-        );
-        val
+        if val.is_value() {
+            Ok(val)
+        } else {
+            Err(NotImplementedError(format!(
+                "Evaluated to non-value {}. This is an interpreter bug.",
+                val
+            )))
+        }
     }
 }
