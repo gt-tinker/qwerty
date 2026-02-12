@@ -42,5 +42,5 @@ def default_qpu_prelude():
     # Built-in functions
     id = '?' >> '?'
     discard = __DISCARD__()
-    #flip = std.flip
+    flip = std.flip
     measure = std.measure

@@ -688,7 +688,7 @@ impl TypeEnv {
         for (func_name, avail_func_ty) in funcs_avail {
             match avail_func_ty {
                 AvailableFuncType::Qpu(func_ty) => {
-                    ret.insert(func_name.to_string(), func_ty.clone())?;
+                    ret.insert(func_name.to_string(), func_ty.clone());
                 }
                 AvailableFuncType::Classical(in_dim, out_dim) => {
                     ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone());
@@ -697,7 +697,7 @@ impl TypeEnv {
         }
 
         for (arg_ty, arg_name) in args {
-            ret.insert(arg_name.to_string(), arg_ty.clone())?;
+            ret.insert(arg_name.to_string(), arg_ty.clone());
         }
 
         Ok(ret)
@@ -737,19 +737,8 @@ impl TypeEnv {
         }
     }
 
-    fn insert(&mut self, name: String, ty: InferType) -> Result<(), LowerError> {
-        let existing_binding = self.bindings.insert(name.to_string(), ty);
-        if existing_binding.is_some() {
-            Err(LowerError {
-                kind: LowerErrorKind::TypeError {
-                    kind: TypeErrorKind::RedefinedVariable(name),
-                },
-                // TODO: set a debug location
-                dbg: None,
-            })
-        } else {
-            Ok(())
-        }
+    fn insert(&mut self, name: String, ty: InferType) {
+        self.bindings.insert(name.to_string(), ty);
     }
 
     fn insert_cfunc(
@@ -1590,7 +1579,7 @@ fn build_type_constraints_for_unpack_assign<E: ExprConstrainable>(
     }?;
 
     for (lhs_name, lhs_ty) in lhs.iter().zip(lhs_tys.into_iter()) {
-        env.insert(lhs_name.to_string(), lhs_ty)?;
+        env.insert(lhs_name.to_string(), lhs_ty);
     }
 
     Ok(None)
@@ -1670,7 +1659,7 @@ impl StmtConstrainable for qpu::MetaStmt {
             qpu::MetaStmt::Assign { lhs, rhs, .. } => {
                 let rhs_ty =
                     rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                env.insert(lhs.to_string(), rhs_ty)?;
+                env.insert(lhs.to_string(), rhs_ty);
                 Ok(None)
             }
 
@@ -1730,7 +1719,7 @@ impl StmtConstrainable for classical::MetaStmt {
             classical::MetaStmt::Assign { lhs, rhs, .. } => {
                 let rhs_ty =
                     rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                env.insert(lhs.to_string(), rhs_ty)?;
+                env.insert(lhs.to_string(), rhs_ty);
                 Ok(None)
             }
 

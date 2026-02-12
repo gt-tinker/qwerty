@@ -86,21 +86,15 @@ impl TypeEnv {
             .insert(name.to_string(), (is_rev, in_dim, out_dim));
     }
 
-    /// Attempts to insert a variable into the type context, throwing an error
-    /// if it is already defined.
+    /// Inserts a variable into the type context.
     pub fn insert_var(
         &mut self,
         name: &str,
         typ: Type,
-        dbg: &Option<DebugLoc>,
-    ) -> Result<(), TypeError> {
-        if let None = self.vars.insert(name.to_string(), typ) {
-            Ok(())
-        } else {
-            Err(TypeError {
-                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
-                dbg: dbg.clone(),
-            })
+    ) {
+        if let Some(_) = self.vars.insert(name.to_string(), typ) {
+            // If this was a linear value, it's usable again now.
+            self.linear_vars_used.remove(name);
         }
     }
 
@@ -195,19 +189,18 @@ impl<E: TypeCheckable> FunctionDef<E> {
         E::validate_signature(&arg_tys, &self.ret_type, &self.dbg)?;
 
         let mut env = TypeEnv::new();
-        let dbg = &self.dbg;
 
         for (name, is_rev, in_dim, out_dim) in &funcs_available.classical_funcs {
             env.insert_classical_func(name, *is_rev, *in_dim, *out_dim);
         }
 
         for (name, ty) in &funcs_available.qpu_kernels {
-            env.insert_var(name, ty.clone(), dbg)?;
+            env.insert_var(name, ty.clone());
         }
 
         // Bind function arguments in environment
         for (ty, name) in &self.args {
-            env.insert_var(name, ty.clone(), dbg)?;
+            env.insert_var(name, ty.clone());
         }
 
         Ok(env)
@@ -294,9 +287,9 @@ impl<E: TypeCheckable> Assign<E> {
         env: &mut TypeEnv,
         rhs_result: &(Type, ComputeKind),
     ) -> Result<ComputeKind, TypeError> {
-        let Assign { lhs, dbg, .. } = self;
+        let Assign { lhs, .. } = self;
         let (rhs_ty, result_compute_kind) = rhs_result;
-        env.insert_var(lhs, rhs_ty.clone(), dbg)?;
+        env.insert_var(lhs, rhs_ty.clone());
         Ok(*result_compute_kind)
     }
 
@@ -338,8 +331,7 @@ impl<E: TypeCheckable> UnpackAssign<E> {
                             elem_ty: elem_ty.clone(),
                             dim: 1,
                         },
-                        dbg,
-                    )?;
+                    );
                 }
                 Ok(*compute_kind)
             }
