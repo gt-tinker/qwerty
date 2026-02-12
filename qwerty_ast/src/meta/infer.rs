@@ -691,7 +691,7 @@ impl TypeEnv {
                     ret.insert(func_name.to_string(), func_ty.clone())?;
                 }
                 AvailableFuncType::Classical(in_dim, out_dim) => {
-                    ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone())?;
+                    ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone());
                 }
             }
         }
@@ -757,20 +757,8 @@ impl TypeEnv {
         name: String,
         in_dim: Option<DimExpr>,
         out_dim: Option<DimExpr>,
-    ) -> Result<(), LowerError> {
-        let existing_cfunc = self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
-        if existing_cfunc.is_some() {
-            Err(LowerError {
-                kind: LowerErrorKind::TypeError {
-                    // TODO: use more precise error? since this is just functions?
-                    kind: TypeErrorKind::RedefinedVariable(name),
-                },
-                // TODO: set a debug location
-                dbg: None,
-            })
-        } else {
-            Ok(())
-        }
+    ) {
+        self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
     }
 
     fn get_type(&self, name: &str) -> Option<InferType> {
@@ -1663,7 +1651,7 @@ impl StmtConstrainable for qpu::MetaStmt {
                     name.to_string(),
                     Some(in_dim.clone()),
                     Some(out_dim.clone()),
-                )?;
+                );
                 Ok(None)
             }
 

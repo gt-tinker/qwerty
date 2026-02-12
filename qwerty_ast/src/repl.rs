@@ -330,13 +330,8 @@ impl ReplState {
     }
 
     pub fn insert_classical_func(&mut self, func_def: FunctionDef<classical::Expr>) {
-        let old_func = self
-            .classical_funcs
+        self.classical_funcs
             .insert(func_def.name.to_string(), func_def);
-        assert!(
-            old_func.is_none(),
-            "Duplicate function. Type checking should catch this"
-        );
     }
 }
 

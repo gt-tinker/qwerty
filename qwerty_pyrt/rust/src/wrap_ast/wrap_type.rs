@@ -1,5 +1,4 @@
 use crate::wrap_ast::{
-    py_glue::{ProgErrKind, get_err},
     wrap_classical::PlainClassicalFunctionDef,
     wrap_dim_expr::DimExpr,
 };
@@ -117,18 +116,16 @@ impl TypeEnv {
 
     pub fn insert_classical_func(
         &mut self,
-        py: Python<'_>,
         classical_func: &PlainClassicalFunctionDef,
-    ) -> PyResult<()> {
+    ) {
         let PlainClassicalFunctionDef {
             function_def:
                 func_def @ ast::FunctionDef {
-                    name, is_rev, dbg, ..
+                    name, is_rev, ..
                 },
         } = classical_func;
         self.env
-            .insert_classical_func(&name, *is_rev, func_def.in_dim(), func_def.out_dim(), dbg)
-            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))
+            .insert_classical_func(&name, *is_rev, func_def.in_dim(), func_def.out_dim());
     }
 }
 

@@ -81,21 +81,9 @@ impl TypeEnv {
         is_rev: bool,
         in_dim: usize,
         out_dim: usize,
-        dbg: &Option<DebugLoc>,
-    ) -> Result<(), TypeError> {
-        if self.classical_funcs.contains_key(name) {
-            Err(TypeError {
-                // TODO: use a more specific error message?
-                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
-                dbg: dbg.clone(),
-            })
-        } else {
-            let old_func = self
-                .classical_funcs
-                .insert(name.to_string(), (is_rev, in_dim, out_dim));
-            assert!(old_func.is_none());
-            Ok(())
-        }
+    ) {
+        self.classical_funcs
+            .insert(name.to_string(), (is_rev, in_dim, out_dim));
     }
 
     /// Attempts to insert a variable into the type context, throwing an error
@@ -210,7 +198,7 @@ impl<E: TypeCheckable> FunctionDef<E> {
         let dbg = &self.dbg;
 
         for (name, is_rev, in_dim, out_dim) in &funcs_available.classical_funcs {
-            env.insert_classical_func(name, *is_rev, *in_dim, *out_dim, dbg)?;
+            env.insert_classical_func(name, *is_rev, *in_dim, *out_dim);
         }
 
         for (name, ty) in &funcs_available.qpu_kernels {
