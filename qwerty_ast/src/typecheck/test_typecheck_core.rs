@@ -63,9 +63,7 @@ fn test_unpack_assign_typing() {
             elem_ty: RegKind::Qubit,
             dim: 2,
         },
-        /*dbg=*/ &None,
-    )
-    .unwrap();
+    );
 
     // The typechecker expects to build the environment itself, so let's test the stmt directly:
     let stmt = match &legal_prog.funcs[0] {
@@ -91,9 +89,7 @@ fn test_unpack_assign_typing() {
             elem_ty: RegKind::Qubit,
             dim: 2,
         },
-        /*dbg=*/ &None,
-    )
-    .unwrap();
+    );
 
     let result2 = illegal_stmt.typecheck(&mut env2, Some(Type::UnitType));
     assert!(
@@ -120,17 +116,10 @@ fn test_assign_shadow() {
         dbg: None,
     });
     let mut env = TypeEnv::new();
-    env.insert_var("bubba", Type::UnitType, /*dbg=*/ &None)
-        .unwrap();
+    env.insert_var("bubba", Type::UnitType);
 
     let result = stmt.typecheck(&mut env, Some(Type::UnitType));
-    assert_eq!(
-        result,
-        Err(TypeError {
-            kind: TypeErrorKind::RedefinedVariable("bubba".to_string()),
-            dbg: None,
-        })
-    );
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -145,8 +134,7 @@ fn test_unpack_assign_non_register_rhs() {
         dbg: None,
     });
     let mut env = TypeEnv::new();
-    env.insert_var("not_a_reg", Type::UnitType, /*dbg=*/ &None)
-        .unwrap();
+    env.insert_var("not_a_reg", Type::UnitType);
 
     let result = stmt.typecheck(&mut env, Some(Type::UnitType));
     assert!(
