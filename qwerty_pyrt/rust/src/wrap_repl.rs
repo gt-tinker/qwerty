@@ -1,7 +1,9 @@
 //! Wraps qwerty_ast::repl::ReplState in a Python object. Used by repl.py to
 //! run the Qwerty REPL.
 
-use crate::wrap_ast::{PlainClassicalFunctionDef, PlainQpuExpr, PlainQpuStmt};
+use crate::wrap_ast::{
+    PlainClassicalFunctionDef, PlainQpuExpr, PlainQpuStmt, ProgErrKind, get_err,
+};
 use pyo3::prelude::*;
 use qwerty_ast::repl;
 use std::fmt;
@@ -25,10 +27,11 @@ impl ReplState {
         }
     }
 
-    pub fn run(&mut self, stmt: PlainQpuStmt) -> PlainQpuExpr {
-        PlainQpuExpr {
-            expr: self.state.lock().unwrap().run(&stmt.stmt),
-        }
+    pub fn run(&mut self, py: Python<'_>, stmt: PlainQpuStmt) -> PyResult<PlainQpuExpr> {
+        let expr = self.state.lock().unwrap().run(&stmt.stmt).map_err(
+            |repl::NotImplementedError(msg)| get_err(py, ProgErrKind::Internal, msg, None),
+        )?;
+        Ok(PlainQpuExpr { expr })
     }
 
     pub fn free_value(&mut self, val: PlainQpuExpr) {

@@ -5,6 +5,7 @@ mod wrap_prog;
 mod wrap_qpu;
 mod wrap_type;
 
+pub use py_glue::{ProgErrKind, get_err};
 pub use wrap_classical::{
     BinaryOpKind, ClassicalExpr, ClassicalFunctionDef, ClassicalStmt, PlainClassicalFunctionDef,
     UnaryOpKind,
