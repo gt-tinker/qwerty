@@ -231,6 +231,7 @@ pub enum LowerErrorKind {
         bad_divisor: usize,
     },
     InvalidEmbedOperand,
+    UnsupportedClassicalLambda,
 }
 
 impl fmt::Display for LowerErrorKind {
@@ -362,6 +363,12 @@ impl fmt::Display for LowerErrorKind {
             }
             LowerErrorKind::InvalidEmbedOperand => {
                 write!(f, "Embed operand must be the name of a classical function")
+            }
+            LowerErrorKind::UnsupportedClassicalLambda => {
+                write!(
+                    f,
+                    "Classical lambdas are currently supported only in the Qwerty REPL"
+                )
             }
         }
     }

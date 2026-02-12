@@ -71,6 +71,10 @@ impl TypeEnv {
         self.vars.iter()
     }
 
+    pub fn all_classical_funcs(&self) -> impl Iterator<Item = (&String, &(bool, usize, usize))> {
+        self.classical_funcs.iter()
+    }
+
     pub fn insert_classical_func(
         &mut self,
         name: &str,
@@ -79,17 +83,18 @@ impl TypeEnv {
         out_dim: usize,
         dbg: &Option<DebugLoc>,
     ) -> Result<(), TypeError> {
-        if let None = self
-            .classical_funcs
-            .insert(name.to_string(), (is_rev, in_dim, out_dim))
-        {
-            Ok(())
-        } else {
+        if self.classical_funcs.contains_key(name) {
             Err(TypeError {
                 // TODO: use a more specific error message?
                 kind: TypeErrorKind::RedefinedVariable(name.to_string()),
                 dbg: dbg.clone(),
             })
+        } else {
+            let old_func = self
+                .classical_funcs
+                .insert(name.to_string(), (is_rev, in_dim, out_dim));
+            assert!(old_func.is_none());
+            Ok(())
         }
     }
 
@@ -118,41 +123,23 @@ impl TypeEnv {
     pub fn is_empty(&self) -> bool {
         self.vars.is_empty()
     }
+
+    pub fn get_cfuncs_available(&self) -> FuncsAvailable {
+        let classical_funcs = self
+            .classical_funcs
+            .iter()
+            .map(|(name, (is_rev, in_dim, out_dim))| (name.to_string(), *is_rev, *in_dim, *out_dim))
+            .collect();
+        FuncsAvailable {
+            qpu_kernels: Vec::new(),
+            classical_funcs,
+        }
+    }
 }
 
 //
 // ─── TOP-LEVEL TYPECHECKER ──────────────────────────────────────────────────────
 //
-
-impl FunctionDef<classical::Expr> {
-    fn in_dim(&self) -> usize {
-        let FunctionDef { args, .. } = self;
-        args.iter().fold(0, |acc, (arg_ty, _arg_name)| {
-            if let Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim,
-            } = arg_ty
-            {
-                acc + *dim
-            } else {
-                panic!("Compiler bug: All @classical arguments must be bits")
-            }
-        })
-    }
-
-    fn out_dim(&self) -> usize {
-        let FunctionDef { ret_type, .. } = self;
-        if let Type::RegType {
-            elem_ty: RegKind::Bit,
-            dim,
-        } = ret_type
-        {
-            *dim
-        } else {
-            panic!("Compiler bug: All @classical functions must return bits")
-        }
-    }
-}
 
 /// Tracks the functions available for code to call.
 #[derive(Debug)]

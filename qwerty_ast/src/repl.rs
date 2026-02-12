@@ -3,11 +3,13 @@
 //! arXiv:2404.12603.
 
 use crate::ast::{
-    Assign, Canonicalizable, Stmt, StmtExpr, angle_is_approx_zero, angles_are_approx_equal,
-    canon_angle,
+    Assign, Canonicalizable, FunctionDef, Return, Stmt, StmtExpr, angle_is_approx_zero,
+    angles_are_approx_equal, canon_angle,
+    classical::{self, UnaryOpKind},
     qpu::{
-        Adjoint, Basis, BasisTranslation, BitLiteral, Expr, Measure, NonUniformSuperpos, Pipe,
-        Predicated, QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Variable, Vector, expr,
+        Adjoint, Basis, BasisTranslation, BitLiteral, EmbedClassical, EmbedKind, Expr, Measure,
+        NonUniformSuperpos, Pipe, Predicated, QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral,
+        Variable, Vector, expr,
     },
 };
 use dashu::{base::BitTest, integer::UBig};
@@ -246,6 +248,7 @@ impl SparseReplState {
 pub struct ReplState {
     sim: QuantumSim,
     bindings: HashMap<String, Expr>,
+    classical_funcs: HashMap<String, FunctionDef<classical::Expr>>,
 }
 
 /// Swap both endianness and the bigint library used. Stefan (qir-runner)
@@ -270,6 +273,7 @@ impl ReplState {
         ReplState {
             sim: QuantumSim::new(None),
             bindings: HashMap::new(),
+            classical_funcs: HashMap::new(),
         }
     }
 
@@ -323,6 +327,16 @@ impl ReplState {
             statevec,
             num_qubits,
         }
+    }
+
+    pub fn insert_classical_func(&mut self, func_def: FunctionDef<classical::Expr>) {
+        let old_func = self
+            .classical_funcs
+            .insert(func_def.name.to_string(), func_def);
+        assert!(
+            old_func.is_none(),
+            "Duplicate function. Type checking should catch this"
+        );
     }
 }
 
@@ -679,6 +693,94 @@ impl Expr {
                                 left,
                                 right
                             ),
+                        }
+
+                        Some(Expr::QubitRef(QubitRef { index: *index }))
+                    }
+
+                    (
+                        Expr::QubitRef(QubitRef { index }),
+                        Expr::EmbedClassical(EmbedClassical {
+                            func_name,
+                            embed_kind: EmbedKind::Sign,
+                            ..
+                        }),
+                    ) => {
+                        let func_def @ FunctionDef { args, body, .. } = state
+                            .classical_funcs
+                            .get(func_name)
+                            .expect("Unknown function. How did this pass type checking?");
+                        let in_dim = func_def.in_dim();
+                        let out_dim = func_def.out_dim();
+
+                        if in_dim != 1 || out_dim != 1 {
+                            todo!("I only understand cfunc[1,1]");
+                        }
+
+                        if args.len() != 1 {
+                            todo!("I do not understand more than one cfunc arg");
+                        }
+                        let arg_name = &args[0].1;
+
+                        match &body[..] {
+                            [
+                                Stmt::Return(Return {
+                                    val: classical::Expr::Variable(classical::Variable { name, .. }),
+                                    ..
+                                }),
+                            ] if name == arg_name => {
+                                state.sim.z(*index);
+                            }
+
+                            [
+                                Stmt::Return(Return {
+                                    val:
+                                        classical::Expr::UnaryOp(classical::UnaryOp {
+                                            kind: UnaryOpKind::Not,
+                                            val,
+                                            ..
+                                        }),
+                                    ..
+                                }),
+                            ] if matches!(&**val, classical::Expr::Variable(classical::Variable { name, .. }) if name == arg_name) =>
+                            {
+                                state.sim.x(*index);
+                                state.sim.z(*index);
+                                state.sim.x(*index);
+                            }
+
+                            [
+                                Stmt::Return(Return {
+                                    val:
+                                        classical::Expr::BitLiteral(classical::BitLiteral {
+                                            val,
+                                            n_bits: 1,
+                                            ..
+                                        }),
+                                    ..
+                                }),
+                            ] if *val == UBig::ZERO => {
+                                // Nothing to do (this is identity)
+                            }
+
+                            [
+                                Stmt::Return(Return {
+                                    val:
+                                        classical::Expr::BitLiteral(classical::BitLiteral {
+                                            val,
+                                            n_bits: 1,
+                                            ..
+                                        }),
+                                    ..
+                                }),
+                            ] if *val == UBig::ONE => {
+                                state.sim.z(*index);
+                                state.sim.x(*index);
+                                state.sim.z(*index);
+                                state.sim.x(*index);
+                            }
+
+                            _ => todo!("Unknown classical function structure"),
                         }
 
                         Some(Expr::QubitRef(QubitRef { index: *index }))

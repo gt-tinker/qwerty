@@ -184,11 +184,12 @@ impl InstantationExpandable for qpu::MetaStmt {
                 )
             }
 
-            // Doesn't contain an expression
+            // Doesn't contain a @qpu expression
             qpu::MetaStmt::BasisGeneratorMacroDef { .. }
             | qpu::MetaStmt::VectorSymbolDef { .. }
             | qpu::MetaStmt::BasisAliasDef { .. }
-            | qpu::MetaStmt::BasisAliasRecDef { .. } => (self.clone(), f),
+            | qpu::MetaStmt::BasisAliasRecDef { .. }
+            | qpu::MetaStmt::ClassicalLambdaDef { .. } => (self.clone(), f),
         })
     }
 }
@@ -517,7 +518,7 @@ impl qpu::MetaStmt {
         self,
         init_env: &mut MacroEnv,
         plain_ty_env: &typecheck::TypeEnv,
-    ) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
+    ) -> Result<qpu::LoweredStmt, LowerError> {
         let mut dv_assign = init_env.to_dv_assign();
         let (mut stmt, _expand_progress) = self.expand(&mut init_env.clone())?;
 

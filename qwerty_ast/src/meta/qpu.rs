@@ -1,8 +1,8 @@
 use crate::{
-    ast::{self, Trivializable, qpu::EmbedKind},
+    ast::{self, RegKind, Trivializable, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind},
-    meta::{DimExpr, DimVar, Progress, expand::MacroEnv},
+    meta::{DimExpr, DimVar, Progress, classical, expand::MacroEnv},
 };
 use dashu::integer::{IBig, UBig};
 use itertools::Itertools;
@@ -1166,6 +1166,24 @@ impl fmt::Display for RecDefParam {
     }
 }
 
+/// A `@qpu` metaQwerty statement can produce either a `@qpu` plain-Qwerty
+/// statement:
+/// ```text
+/// return '0'   ==>  return __SYM_STD0__()
+/// ```
+/// ...or an entire `@classical` function in the case of inline
+/// `@classical` function declarations:
+/// ```text
+/// f: cfunc = lambda x: ~x    ==>   @classical
+///                                  def f(x: bit) -> bit:
+///                                      return ~x
+/// ```
+#[derive(Debug, Clone)]
+pub enum LoweredStmt {
+    QpuStmt(ast::Stmt<ast::qpu::Expr>),
+    ClassicalFunc(ast::FunctionDef<ast::classical::Expr>),
+}
+
 #[gen_rebuild {
     substitute_dim_var(
         more_copied_args(dim_var: &DimVar, new_dim_expr: &DimExpr),
@@ -1181,8 +1199,10 @@ impl fmt::Display for RecDefParam {
     extract(
         rewrite(extract_rewriter),
         rewrite_to(
-            MetaStmt => ast::Stmt<ast::qpu::Expr>,
+            MetaStmt => LoweredStmt,
             MetaExpr => ast::qpu::Expr,
+            classical::MetaExpr => ast::classical::Expr,
+            DimExpr => usize,
         ),
         result_err(LowerError),
         recurse_attrs,
@@ -1271,6 +1291,19 @@ pub enum MetaStmt {
         dbg: Option<DebugLoc>,
     },
 
+    /// An inline classical function definition. Example syntax:
+    /// ```text
+    /// f: cfunc[N,1] = lambda x: (x & secret_string).xor_reduce()
+    /// ```
+    ClassicalLambdaDef {
+        name: String,
+        arg_name: String,
+        in_dim: DimExpr,
+        out_dim: DimExpr,
+        body: classical::MetaExpr,
+        dbg: Option<DebugLoc>,
+    },
+
     /// An expression statement. Example syntax:
     /// ```text
     /// f(x)
@@ -1309,27 +1342,41 @@ pub enum MetaStmt {
 
 impl MetaStmt {
     /// Extracts a plain-AST `@qpu` statement from this metaQwerty statement.
-    pub fn extract(self) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
+    pub fn extract(self) -> Result<LoweredStmt, LowerError> {
         rebuild!(MetaStmt, self, extract)
     }
 
     pub(crate) fn extract_rewriter(
         rewritten: rewrite_ty!(MetaStmt, extract),
-    ) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
+    ) -> Result<LoweredStmt, LowerError> {
         Ok(rewrite_match! {MetaStmt, extract, rewritten,
             // TODO: don't duplicate this part with classical.rs
             Expr { expr } => {
                 let dbg = expr.get_dbg();
-                ast::Stmt::Expr(ast::StmtExpr { expr, dbg })
+                LoweredStmt::QpuStmt(ast::Stmt::Expr(ast::StmtExpr { expr, dbg }))
             }
             Assign { lhs, rhs, dbg } => {
-                ast::Stmt::Assign(ast::Assign { lhs, rhs, dbg })
+                LoweredStmt::QpuStmt(ast::Stmt::Assign(ast::Assign { lhs, rhs, dbg }))
             }
             UnpackAssign { lhs, rhs, dbg } => {
-                ast::Stmt::UnpackAssign(ast::UnpackAssign { lhs, rhs, dbg })
+                LoweredStmt::QpuStmt(ast::Stmt::UnpackAssign(ast::UnpackAssign { lhs, rhs, dbg }))
             }
             Return { val, dbg } => {
-                ast::Stmt::Return(ast::Return { val, dbg })
+                LoweredStmt::QpuStmt(ast::Stmt::Return(ast::Return { val, dbg }))
+            }
+
+            ClassicalLambdaDef { name, arg_name, in_dim, out_dim, body, dbg } => {
+                let arg_type = ast::Type::RegType { elem_ty: RegKind::Bit, dim: in_dim };
+                let ret_type = ast::Type::RegType { elem_ty: RegKind::Bit, dim: out_dim };
+
+                LoweredStmt::ClassicalFunc(ast::FunctionDef {
+                    name,
+                    args: vec![(arg_type, arg_name)],
+                    ret_type,
+                    body: vec![ast::Stmt::Return(ast::Return { val: body, dbg: dbg.clone(), })],
+                    is_rev: false,
+                    dbg,
+                })
             }
 
             // Definition of macros does not present any problem in conversion;
@@ -1339,7 +1386,7 @@ impl MetaStmt {
             | BasisGeneratorMacroDef { dbg, .. }
             | VectorSymbolDef { dbg, .. }
             | BasisAliasDef { dbg, .. }
-            | BasisAliasRecDef { dbg, .. } => ast::Stmt::trivial(dbg),
+            | BasisAliasRecDef { dbg, .. } => LoweredStmt::QpuStmt(ast::Stmt::trivial(dbg)),
         })
     }
 }
@@ -1381,6 +1428,20 @@ impl fmt::Display for MetaStmt {
             MetaStmt::BasisAliasRecDef {
                 lhs, param, rhs, ..
             } => write!(f, "{}[{}] = {}", lhs, param, rhs),
+            MetaStmt::ClassicalLambdaDef {
+                name,
+                arg_name,
+                in_dim,
+                out_dim,
+                body,
+                ..
+            } => {
+                write!(
+                    f,
+                    "{}: cfunc[{},{}] = lambda {}: {}",
+                    name, in_dim, out_dim, arg_name, body
+                )
+            }
             MetaStmt::Expr { expr, .. } => write!(f, "{}", expr),
             MetaStmt::Assign { lhs, rhs, .. } => write!(f, "{} = {}", lhs, rhs),
             MetaStmt::UnpackAssign { lhs, rhs, .. } => {

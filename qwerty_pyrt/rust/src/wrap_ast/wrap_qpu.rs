@@ -1,13 +1,17 @@
 use crate::{
     wrap_ast::{
         py_glue::{IBigWrap, ProgErrKind, UBigWrap, get_err},
+        wrap_classical::{ClassicalExpr, PlainClassicalFunctionDef},
         wrap_dim_expr::DimExpr,
         wrap_type::{DebugLoc, MacroEnv, Type, TypeEnv},
     },
     wrap_repl::SparseReplState,
 };
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::{ast, meta};
+use qwerty_ast::{
+    ast::{self, Trivializable},
+    meta,
+};
 use std::fmt;
 
 /// A "plain" Qwerty expression AST node, that is, an expression without any
@@ -20,6 +24,14 @@ pub struct PlainQpuExpr {
 
 #[pymethods]
 impl PlainQpuExpr {
+    #[classmethod]
+    pub fn trivial(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
+        let dbg = dbg.map(|dbg| dbg.dbg);
+        PlainQpuExpr {
+            expr: ast::qpu::Expr::trivial(dbg),
+        }
+    }
+
     pub fn render(&self, state: &SparseReplState) -> String {
         self.expr.clone().render(&state.state)
     }
@@ -1013,6 +1025,28 @@ impl QpuStmt {
     }
 
     #[classmethod]
+    fn new_classical_lambda_def(
+        _cls: &Bound<'_, PyType>,
+        name: String,
+        arg_name: String,
+        in_dim: DimExpr,
+        out_dim: DimExpr,
+        body: ClassicalExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            stmt: meta::qpu::MetaStmt::ClassicalLambdaDef {
+                name,
+                arg_name,
+                in_dim: in_dim.dim_expr,
+                out_dim: out_dim.dim_expr,
+                body: body.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_expr(_cls: &Bound<'_, PyType>, expr: QpuExpr) -> Self {
         Self {
             stmt: meta::qpu::MetaStmt::Expr { expr: expr.expr },
@@ -1061,17 +1095,29 @@ impl QpuStmt {
         }
     }
 
+    /// Returns either a `PlainQpuStmt` or a `PlainClassicalFunctionDef`.
     pub fn lower<'py>(
         &self,
         py: Python<'py>,
         env: &mut MacroEnv,
         plain_ty_env: &TypeEnv,
-    ) -> PyResult<PlainQpuStmt> {
-        self.stmt
+    ) -> PyResult<PyObject> {
+        let lowered_stmt = self
+            .stmt
             .clone()
             .lower(&mut env.env, &plain_ty_env.env)
-            .map(|ast_stmt| PlainQpuStmt { stmt: ast_stmt })
-            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))
+            .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))?;
+
+        Ok(match lowered_stmt {
+            meta::qpu::LoweredStmt::QpuStmt(ast_stmt) => {
+                PlainQpuStmt { stmt: ast_stmt }.into_pyobject(py)?.into()
+            }
+            meta::qpu::LoweredStmt::ClassicalFunc(function_def) => {
+                PlainClassicalFunctionDef { function_def }
+                    .into_pyobject(py)?
+                    .into()
+            }
+        })
     }
 
     /// Return the Debug form of this Stmt from __repr__(). By contrast,

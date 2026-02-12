@@ -669,6 +669,7 @@ impl TypeVarAllocator {
     }
 }
 
+#[derive(Debug)]
 pub struct TypeEnv {
     bindings: HashMap<String, InferType>,
     cfuncs: HashMap<String, (Option<DimExpr>, Option<DimExpr>)>,
@@ -708,7 +709,31 @@ impl TypeEnv {
                 .all_vars()
                 .map(|(name, ty)| (name.to_string(), InferType::from_plain_type(ty)))
                 .collect(),
-            cfuncs: HashMap::new(),
+            cfuncs: plain_ty_env
+                .all_classical_funcs()
+                .map(|(func_name, (_is_rev, in_dim, out_dim))| {
+                    let in_dim_expr = DimExpr::DimConst {
+                        val: (*in_dim).into(),
+                        dbg: None,
+                    };
+                    let out_dim_expr = DimExpr::DimConst {
+                        val: (*out_dim).into(),
+                        dbg: None,
+                    };
+                    (
+                        func_name.to_string(),
+                        (Some(in_dim_expr), Some(out_dim_expr)),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn new_cfunc_lambda_env(&self, arg_name: String, arg_ty: InferType) -> Self {
+        let bindings = HashMap::from([(arg_name, arg_ty)]);
+        TypeEnv {
+            bindings,
+            cfuncs: self.cfuncs.clone(),
         }
     }
 
@@ -1592,6 +1617,7 @@ impl StmtConstrainable for qpu::MetaStmt {
             | qpu::MetaStmt::VectorSymbolDef { dbg, .. }
             | qpu::MetaStmt::BasisAliasDef { dbg, .. }
             | qpu::MetaStmt::BasisAliasRecDef { dbg, .. }
+            | qpu::MetaStmt::ClassicalLambdaDef { dbg, .. }
             | qpu::MetaStmt::Assign { dbg, .. }
             | qpu::MetaStmt::UnpackAssign { dbg, .. }
             | qpu::MetaStmt::Return { dbg, .. } => dbg.clone(),
@@ -1608,6 +1634,39 @@ impl StmtConstrainable for qpu::MetaStmt {
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError> {
         match self {
+            qpu::MetaStmt::ClassicalLambdaDef {
+                name,
+                arg_name,
+                in_dim,
+                out_dim,
+                body,
+                dbg,
+            } => {
+                let in_ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: in_dim.clone(),
+                };
+                let mut lambda_env = env.new_cfunc_lambda_env(arg_name.to_string(), in_ty);
+                let body_ty = body.build_type_constraints(
+                    tv_allocator,
+                    &mut lambda_env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+                let out_ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: out_dim.clone(),
+                };
+                ty_constraints.insert(TypeConstraint::new(body_ty, out_ty, dbg.clone()));
+
+                env.insert_cfunc(
+                    name.to_string(),
+                    Some(in_dim.clone()),
+                    Some(out_dim.clone()),
+                )?;
+                Ok(None)
+            }
+
             qpu::MetaStmt::Return { val, .. } => {
                 let val_ty =
                     val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
