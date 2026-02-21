@@ -3,6 +3,7 @@ use proc_macro2::Span;
 use syn::{
     Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprMacro, ExprPath, ExprUnary, Ident, LitStr,
     Macro, Stmt, Token, Type,
+    Local, LocalInit,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
@@ -382,6 +383,53 @@ fn parse_visitor_expr_arm_expr_helper(
                 visit_exprs_out,
             )?);
             Ok(Expr::Unary(ExprUnary { attrs, op, expr }))
+        }
+
+        Expr::Block(ExprBlock { attrs, label, block }) => {
+			let Block { brace_token, stmts } = block;
+			let stmts = stmts
+				.into_iter()
+				.map(|stmt| {
+					match stmt {
+						Stmt::Expr(expr, semi_token) => {
+							let expr = parse_visitor_expr_arm_expr_helper(expr, visit_var_name_gen, visit_exprs_out)?;
+							Ok(Stmt::Expr(expr, semi_token))
+						},
+						Stmt::Local(Local {attrs, let_token, pat, init, semi_token}) => {
+							// If we have a local initialization i.e let x = 3
+							let init = match init {
+								Some(LocalInit { eq_token, expr, diverge }) => {
+									let diverge = match diverge {
+										Some((else_token, diverge_expr)) => {
+											let diverge_expr = parse_visitor_expr_arm_expr_helper(*diverge_expr, visit_var_name_gen, visit_exprs_out)?;
+											Some((else_token, Box::new(diverge_expr)))
+										},
+										None => None,
+									};
+									let expr = parse_visitor_expr_arm_expr_helper(*expr, visit_var_name_gen, visit_exprs_out)?;
+									Some(LocalInit{eq_token, expr: Box::new(expr), diverge: diverge})
+								}
+								None => None,
+							};
+							Ok(Stmt::Local(Local {attrs, let_token, pat, init, semi_token}))
+						},
+						// Check to make sure someone is not trying to use the {} syntax with visit!
+						// All normal visit calls should be parsed as Expr::Macro
+						Stmt::Macro(ref stmt_mac)
+							if (paths::path_is_ident_str(&stmt_mac.mac.path, "visit")) => {
+								Err(Error::new_spanned(
+									stmt_mac,
+									"visit! {...} with braces is not supported in visitor_expr!, \
+									use visit!(...) instead"
+								))
+							}
+						passthru @ (Stmt::Item(_) | Stmt::Macro(_)) => Ok(passthru),
+					}
+				}).collect::<Result<Vec<Stmt>, Error>>()?;
+
+			let block = Block {brace_token, stmts: stmts};
+
+			Ok(Expr::Block(ExprBlock{attrs, label, block}))
         }
 
         Expr::Macro(ExprMacro {
