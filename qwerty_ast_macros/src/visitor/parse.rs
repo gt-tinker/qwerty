@@ -1,7 +1,7 @@
 use crate::syn_util::paths;
 use proc_macro2::Span;
 use syn::{
-    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprPath, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt, Token, Type, parse::{Parse, ParseStream}, punctuated::Punctuated, spanned::Spanned
+    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprParen, ExprPath, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt, Token, Type, parse::{Parse, ParseStream}, punctuated::Punctuated, spanned::Spanned
 };
 
 /// Holds the parsed arguments for a call to `visitor_write!{}` or
@@ -426,6 +426,10 @@ fn parse_visitor_expr_arm_expr_helper(
 
 			Ok(Expr::Block(ExprBlock{attrs, label, block}))
         },
+        Expr::Paren(ExprParen {attrs, paren_token, expr}) => {
+			let expr = parse_visitor_expr_arm_expr_helper(*expr, visit_var_name_gen, visit_exprs_out)?;
+			Ok(Expr::Paren(ExprParen {attrs, paren_token, expr: Box::new(expr)}))
+        }
         // Note: func is of type Box<Expr>, we do not recuse on this type
         Expr::Call(ExprCall {attrs, func, paren_token, args}) => {
 	        let args = args
