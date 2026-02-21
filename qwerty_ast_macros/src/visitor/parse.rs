@@ -1,11 +1,7 @@
 use crate::syn_util::paths;
 use proc_macro2::Span;
 use syn::{
-    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprMacro, ExprPath, ExprUnary, Ident, LitStr,
-    Macro, Stmt, Token, Type,
-    Local, LocalInit,
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
+    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprPath, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt, Token, Type, parse::{Parse, ParseStream}, punctuated::Punctuated, spanned::Spanned
 };
 
 /// Holds the parsed arguments for a call to `visitor_write!{}` or
@@ -384,7 +380,6 @@ fn parse_visitor_expr_arm_expr_helper(
             )?);
             Ok(Expr::Unary(ExprUnary { attrs, op, expr }))
         }
-
         Expr::Block(ExprBlock { attrs, label, block }) => {
 			let Block { brace_token, stmts } = block;
 			let stmts = stmts
@@ -422,7 +417,7 @@ fn parse_visitor_expr_arm_expr_helper(
 									"visit! {...} with braces is not supported in visitor_expr!, \
 									use visit!(...) instead"
 								))
-							}
+							},
 						passthru @ (Stmt::Item(_) | Stmt::Macro(_)) => Ok(passthru),
 					}
 				}).collect::<Result<Vec<Stmt>, Error>>()?;
@@ -430,8 +425,26 @@ fn parse_visitor_expr_arm_expr_helper(
 			let block = Block {brace_token, stmts: stmts};
 
 			Ok(Expr::Block(ExprBlock{attrs, label, block}))
+        },
+        // Note: func is of type Box<Expr>, we do not recuse on this type
+        Expr::Call(ExprCall {attrs, func, paren_token, args}) => {
+	        let args = args
+		        .into_iter()
+		        .map(|arg_expr| {
+					parse_visitor_expr_arm_expr_helper(arg_expr, visit_var_name_gen, visit_exprs_out)
+			    }).collect::<Result<Punctuated<Expr, Token![,]>, Error>>()?;
+			Ok(Expr::Call(ExprCall {attrs, func, paren_token, args}))
         }
+        Expr::MethodCall(ExprMethodCall {attrs, receiver, dot_token, method, turbofish, paren_token, args}) => {
+	        let receiver_expr = parse_visitor_expr_arm_expr_helper(*receiver, visit_var_name_gen, visit_exprs_out)?;
 
+	        let args = args
+		        .into_iter()
+		        .map(|arg_expr| {
+					parse_visitor_expr_arm_expr_helper(arg_expr, visit_var_name_gen, visit_exprs_out)
+			    }).collect::<Result<Punctuated<Expr, Token![,]>, Error>>()?;
+		    Ok(Expr::MethodCall(ExprMethodCall { attrs, receiver: Box::new(receiver_expr), dot_token, method, turbofish, paren_token, args }))
+        },
         Expr::Macro(ExprMacro {
             attrs,
             mac:
