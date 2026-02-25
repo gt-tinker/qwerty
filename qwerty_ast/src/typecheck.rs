@@ -1521,16 +1521,80 @@ impl TypeCheckable for classical::Expr {
 
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         match self {
-            classical::Expr::Variable(var) => var.typecheck(env),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-            classical::Expr::Slice(slice) => slice.typecheck(env),
-            classical::Expr::UnaryOp(unary_op) => unary_op.typecheck(env),
-            classical::Expr::BinaryOp(binary_op) => binary_op.typecheck(env),
-            classical::Expr::ReduceOp(reduce_op) => reduce_op.typecheck(env),
-            classical::Expr::RotateOp(rotate_op) => rotate_op.typecheck(env),
-            classical::Expr::Concat(concat) => concat.typecheck(env),
-            classical::Expr::Repeat(repeat) => repeat.typecheck(env),
-            classical::Expr::ModMul(mod_mul) => mod_mul.typecheck(env),
+            classical::Expr::Variable(var) => var.calc_type(env),
+            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
+            classical::Expr::Slice(slice) => {
+                let val_result = slice.val.typecheck(env)?;
+                slice.calc_type(&val_result)
+            }
+            classical::Expr::UnaryOp(unary_op) => {
+                let UnaryOp { val, .. } = unary_op;
+                let val_result = val.typecheck(env)?;
+                unary_op.calc_type(&val_result)
+            }
+            classical::Expr::BinaryOp(binary_op) => {
+                let BinaryOp {
+                    kind: _,
+                    left,
+                    right,
+                    dbg: _,
+                } = binary_op;
+
+                let left_result = left.typecheck(env)?;
+                let right_result = right.typecheck(env)?;
+                binary_op.calc_type(&left_result, &right_result)
+            }
+            classical::Expr::ReduceOp(reduce_op) => {
+                let ReduceOp {
+                    kind: _,
+                    val,
+                    dbg: _,
+                } = reduce_op;
+                let val_result = val.typecheck(env)?;
+                reduce_op.calc_type(&val_result)
+            }
+            classical::Expr::RotateOp(rotate_op) => {
+                let RotateOp {
+                    kind: _,
+                    val,
+                    amt,
+                    dbg: _,
+                } = rotate_op;
+                let val_result = val.typecheck(env)?;
+                let amt_result = amt.typecheck(env)?;
+                rotate_op.calc_type(&val_result, &amt_result)
+            }
+            classical::Expr::Concat(concat) => {
+                let Concat {
+                    left,
+                    right,
+                    dbg: _,
+                } = concat;
+                let left_result = left.typecheck(env)?;
+                let right_result = right.typecheck(env)?;
+
+                concat.calc_type(&left_result, &right_result)
+            }
+            classical::Expr::Repeat(repeat) => {
+                let Repeat {
+                    val,
+                    amt: _,
+                    dbg: _,
+                } = repeat;
+                let val_result = val.typecheck(env)?;
+                repeat.calc_type(&val_result)
+            }
+            classical::Expr::ModMul(mod_mul) => {
+                let ModMul {
+                    x: _,
+                    j: _,
+                    y,
+                    mod_n: _,
+                    dbg: _,
+                } = mod_mul;
+                let y_result = y.typecheck(env)?;
+                mod_mul.calc_type(&y_result)
+            }
         }
     }
 }
