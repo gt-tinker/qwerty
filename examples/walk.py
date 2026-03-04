@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import sys
+import random
 from qwerty import *
-from random import randint
 
 def quantum_walk(steps, shots):
     @qpu
     def walk_step(q):
+        '↑'.sym = '0'
+        '↓'.sym = '1'
+
         coin = std * '??' >> pm * '??'
 
         plus_one = {'00' >> '01',
@@ -19,12 +22,15 @@ def quantum_walk(steps, shots):
                      '11' >> '10'}
 
         return (q | coin
-                  | (plus_one if '1__' else id**2)
-                  | (minus_one if '0__' else id**2))
+                  | (plus_one if '↑__' else id**2)
+                  | (minus_one if '↓__' else id**2))
 
     @qpu
     def kernel():
-        return ('i00' | (walk_step for i in range(steps))
+        '↑'.sym = '0'
+        '↓'.sym = '1'
+
+        return ('↑00' | (walk_step for i in range(steps))
                       | discard * measure**2)
 
     print('Quantum walk:')
@@ -35,10 +41,10 @@ def classical_walk(steps, shots):
     for _ in range(shots):
         state = 0b00
         for i in range(steps):
-            coin_flip = randint(0, 1)
+            coin_flip = random.choice([-1, +1])
             state = (state + coin_flip) & 0b11
-        state_bits = bit[2](state)
-        histo[state_bits] = histo.get(state_bits, 0) + 1
+        state = bit[2](state)
+        histo[state] = histo.get(state, 0) + 1
 
     print('Classical walk:')
     histogram(histo)
