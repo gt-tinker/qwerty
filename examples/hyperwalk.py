@@ -7,13 +7,11 @@ from qwerty import *
 def quantum_walk(steps, shots):
     @qpu
     def walk_step(q):
-        coin = std**2 * '????' >> fourier[2] * '????'
-
-        return (q | coin
-                  | (flip if '00_???' else id)
-                  | (flip if '01?_??' else id)
-                  | (flip if '10??_?' else id)
-                  | (flip if '11???_' else id))
+        return (q | std**2 * '????' >> fourier[2] * '????'
+                  | (flip in '00_???')
+                  | (flip in '01?_??')
+                  | (flip in '10??_?')
+                  | (flip in '11???_'))
 
     @qpu
     def kernel():
@@ -37,7 +35,7 @@ def classical_walk(steps, shots):
     histogram(histo)
 
 def main(args):
-    steps = int(args[0]) if args else 32
+    steps = int(args[0]) if args else 64
     shots = int(args[1]) if len(args) > 1 else 1024
 
     quantum_walk(steps, shots)
