@@ -850,6 +850,25 @@ void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
 ROTATE_OP_VERIFY_AND_INFER(RotateLeft)
 ROTATE_OP_VERIFY_AND_INFER(RotateRight)
 
+mlir::LogicalResult AddOp::verify() {
+    if (getA().getType() != getB().getType()) {
+        return emitOpError("Both input wire sizes do not match");
+    }
+    if (getA().getType() != getSum().getType()) {
+        return emitOpError("Input and output wire sizes do not match");
+    }
+    return mlir::success();
+}
+
+mlir::LogicalResult AddOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        AddOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    inferredReturnTypes.push_back(adaptor.getA().getType());
+    return mlir::success();
+}
+
 mlir::LogicalResult ModMulOp::verify() {
     if (getY().getType() != getProduct().getType()) {
         return emitOpError("Input and output wire sizes do not match");
