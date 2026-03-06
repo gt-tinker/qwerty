@@ -144,6 +144,14 @@ def CCirc_RotateRightOp : CCirc_Op<"rotr", [Pure, InferTypeOpAdaptor]> {
     let hasVerifier = 1;
 }
 
+def CCirc_AddOp : CCirc_Op<"add", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Add two wire bundles";
+    let arguments = (ins CCirc_Wire:$a, CCirc_Wire:$b);
+    let results = (outs CCirc_Wire:$sum);
+    let assemblyFormat = "`(` $a `,` $b `)` attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
+}
+
 def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
     let summary = "Modular multiplier";
     let description = [{

@@ -40,6 +40,14 @@ void synthBitRotate(
         llvm::SmallVectorImpl<mlir::Value> &wires_k,
         llvm::SmallVectorImpl<mlir::Value> &wires_out);
 
+// Synthesize classical circuitry that achieves a + b.
+void synthAdd(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_b,
+        llvm::SmallVectorImpl<mlir::Value> &wires_sum);
+
 // Synthesize classical circuitry that achieves X * y % N, where X and N are
 // constants.
 void synthModMul(
