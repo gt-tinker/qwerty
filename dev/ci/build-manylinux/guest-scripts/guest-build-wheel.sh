@@ -18,11 +18,11 @@ pushd "$wheel_outdir" >/dev/null
 popd >/dev/null
 
 pushd "$repo_path/qwerty_pyrt" >/dev/null
-    maturin build --release --target-dir "$wheel_outdir" -vvv
+    maturin build --release --no-default-features --target-dir "$wheel_outdir" -o "$wheel_outdir" -vvv
 popd >/dev/null
 
 pushd "$wheel_outdir" >/dev/null
-    linux_wheel=$(getwheel "$wheel_outdir" qwerty-*-linux_*.whl)
+    linux_wheel=$(getwheel "$wheel_outdir" qwerty-*-manylinux_*.whl)
 
     auditwheel -vvv repair --plat "$plat" -w "$wheel_outdir" "$linux_wheel" |& tee auditwheel-log.txt
 

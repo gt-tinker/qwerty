@@ -117,6 +117,12 @@ target_link_libraries(qwutil ${TWEEDLEDUM_LIB_PATH})
 # Need tablegen-generated header files
 add_dependencies(qwutil MLIRQCircOpsIncGen MLIRCCircOpsIncGen)
 
+# CMake in unpredictable in its choice of where to install libs on Linux:
+# https://stackoverflow.com/a/76528304/321301. Let's make it predictable.
+if (CMAKE_INSTALL_LIBDIR STREQUAL "lib64")
+    set(CMAKE_INSTALL_LIBDIR "lib")
+endif()
+
 install(TARGETS qwutil)
 
 # This is a degenerate kludge needed by qwerty-mlir-sys. Although LLVM has
