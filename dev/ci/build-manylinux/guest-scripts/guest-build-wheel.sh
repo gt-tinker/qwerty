@@ -17,8 +17,8 @@ pushd "$wheel_outdir" >/dev/null
     rm -rvf *.whl
 popd >/dev/null
 
-pushd "$repo_path" >/dev/null
-    /opt/python/cp310-cp310/bin/pip wheel --no-deps -w "$wheel_outdir" -v .
+pushd "$repo_path/qwerty_pyrt" >/dev/null
+    maturin build --release --target-dir "$wheel_outdir" -vvv
 popd >/dev/null
 
 pushd "$wheel_outdir" >/dev/null

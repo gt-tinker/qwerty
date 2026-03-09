@@ -15,8 +15,10 @@ RUN tar -C /tmp -xvf /tmp/ninja-$NINJA_VERSION.tar.gz \
 RUN curl https://sh.rustup.rs -sSf | sh -s -- \
     -y \
     --profile minimal \
-    --default-toolchain "1.80.1-x86_64-unknown-linux-gnu"
+    --default-toolchain "1.89.0-x86_64-unknown-linux-gnu"
 
-ENV PATH="${PATH}:/root/.cargo/bin/"
+ENV PATH="${PATH}:/root/.cargo/bin/:/opt/python/cp310-cp310/bin/"
+
+RUN pip install maturin
 
 WORKDIR /io

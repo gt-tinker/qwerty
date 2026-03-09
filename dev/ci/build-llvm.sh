@@ -72,7 +72,7 @@ pushd "$repo_dir" >/dev/null
     rm -rf build
     mkdir build
     pushd build >/dev/null
-        cmake -G Ninja -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=TRUE -DCMAKE_INSTALL_PREFIX="$install_dir" -DLLVM_TARGETS_TO_BUILD=Native -DLLVM_INSTALL_UTILS=TRUE ../llvm
+        cmake -G Ninja -DLLVM_ENABLE_PROJECTS="mlir;clang" -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=TRUE -DCMAKE_INSTALL_PREFIX="$install_dir" -DLLVM_TARGETS_TO_BUILD=Native -DLLVM_INSTALL_UTILS=TRUE ../llvm
         time ninja install
     popd >/dev/null
 popd >/dev/null
