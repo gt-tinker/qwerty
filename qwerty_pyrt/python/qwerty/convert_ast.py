@@ -405,19 +405,29 @@ class BaseVisitor:
     def is_bit_literal(self, call: ast.Call) -> bool:
         return (isinstance(subscript := call.func, ast.Subscript)
                 and isinstance(name := subscript.value, ast.Name)
-                and name.id == 'bit')
+                and name.id == 'bit') \
+               or (isinstance(name := call.func, ast.Name)
+                   and name.id == 'bit')
 
     def extract_bit_literal(self, call: ast.Call) -> QpuExpr | ClassicalExpr:
-        subscript = call.func
-        name = subscript.value
         dbg = self.get_debug_loc(call)
 
-        if not isinstance(dim_const := subscript.slice, ast.Constant) \
-                or not isinstance(dim := dim_const.value, int):
-            dim_dbg = self.get_debug_loc(dim_const)
-            raise QwertySyntaxError('Dimension N to a bit literal '
-                                    '`bit[N](0b1101)` must be an integer '
-                                    'constant.', dim_dbg)
+        if isinstance(subscript := call.func, ast.Subscript):
+            name = subscript.value
+            if not isinstance(dim_const := subscript.slice, ast.Constant) \
+                    or not isinstance(dim := dim_const.value, int):
+                dim_dbg = self.get_debug_loc(dim_const)
+                raise QwertySyntaxError('Dimension N to a bit literal '
+                                        '`bit[N](0b1101)` must be an integer '
+                                        'constant.', dim_dbg)
+        else:
+            name = call.func
+            dim = 1
+
+        if not isinstance(name, ast.Name) or name.id != 'bit':
+            raise QwertySyntaxError('Expected the keyword "bit" in bit '
+                                    'literal `bit[N](...)`', bits_dbg)
+
         if len(call.args) != 1 \
                 or not isinstance(bits_const := call.args[0], ast.Constant) \
                 or not isinstance(bits := bits_const.value, int):
@@ -1138,10 +1148,11 @@ class QpuVisitor(BaseVisitor):
             return self.extract_vector_atom_intrinsic(node)
         elif isinstance(node, ast.Constant) and node.value == '':
             return Vector.new_vector_unit(dbg)
-        elif isinstance(node, ast.Constant):
+        elif isinstance(const := node, ast.Constant) \
+                and isinstance(const.value, str):
             return functools.reduce(
                 lambda acc, atom: Vector.new_vector_bi_tensor(acc, atom, dbg),
-                (Vector.new_vector_symbol(sym, dbg) for sym in node.value))
+                (Vector.new_vector_symbol(sym, dbg) for sym in const.value))
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
