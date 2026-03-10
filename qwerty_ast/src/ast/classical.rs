@@ -287,61 +287,6 @@ impl fmt::Display for Expr {
         }
     }
 }
-// impl fmt::Display for Expr {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             Expr::Variable(var) => write!(f, "{}", var), // Defer to impl in ast.rs
-//             Expr::Slice(Slice {
-//                 val, lower, upper, ..
-//             }) => {
-//                 write!(f, "{}[{}:", *val, lower)?;
-//                 if let Some(upper_val) = upper {
-//                     write!(f, "{}", upper_val)?;
-//                 }
-//                 write!(f, "]")
-//             }
-//             Expr::UnaryOp(UnaryOp { kind, val, .. }) => {
-//                 let kind_str = match kind {
-//                     UnaryOpKind::Not => "~",
-//                 };
-//                 write!(f, "{}({})", kind_str, *val)
-//             }
-//             Expr::BinaryOp(BinaryOp {
-//                 kind, left, right, ..
-//             }) => {
-//                 let kind_op = match kind {
-//                     BinaryOpKind::And => "&",
-//                     BinaryOpKind::Or => "|",
-//                     BinaryOpKind::Xor => "^",
-//                 };
-//                 write!(f, "({}) {} ({})", *left, kind_op, *right)
-//             }
-//             Expr::ReduceOp(ReduceOp { kind, val, .. }) => {
-//                 let kind_str = match kind {
-//                     BinaryOpKind::And => "and",
-//                     BinaryOpKind::Or => "or",
-//                     BinaryOpKind::Xor => "xor",
-//                 };
-//                 write!(f, "({}).{}_reduce()", *val, kind_str)
-//             }
-//             Expr::RotateOp(RotateOp { kind, val, amt, .. }) => {
-//                 let kind_str = match kind {
-//                     RotateOpKind::Rotr => "rotr",
-//                     RotateOpKind::Rotl => "rotl",
-//                 };
-//                 write!(f, "{}({}, {})", kind_str, *val, *amt)
-//             }
-//             Expr::Concat(Concat { left, right, .. }) => {
-//                 write!(f, "({}).concat({})", *left, *right)
-//             }
-//             Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({}).repeat({})", *val, amt),
-//             Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {
-//                 write!(f, "{}**2**{} * ({}) % {}", x, j, *y, mod_n)
-//             }
-//             Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
-//         }
-//     }
-// }
 
 impl ToPythonCode for Expr {
     fn fmt_py(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
