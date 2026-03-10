@@ -23,7 +23,7 @@ README:
    * [`docs/testing.md`](docs/testing.md): Details on our multi-faceted testing
      framework
    * [`docs/wsl-tips.md`](docs/wsl-tips.md): Recommendations for building with
-     WSL on Windows.
+     WSL on Windows
    * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
      compiler
    * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
