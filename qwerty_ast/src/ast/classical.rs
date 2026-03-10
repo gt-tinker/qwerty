@@ -231,61 +231,61 @@ impl Expr {
 }
 
 impl fmt::Display for Expr {
-     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-         visitor_write! { Expr, self,
-			Expr::Variable(var) => write!(f, "{}", var),
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        visitor_write! { Expr, self,
+           Expr::Variable(var) => write!(f, "{}", var),
 
-			Expr::Slice(Slice {val, lower, upper: Some(upper_val), ..}) => {
-				write!(f, "{!}[{}:{}]", *val, lower, upper_val)
-			},
-			Expr::Slice(Slice {val, lower, upper: None, ..}) => {
-				write!(f, "{!}[{}:]", *val, lower)
-			},
+           Expr::Slice(Slice {val, lower, upper: Some(upper_val), ..}) => {
+               write!(f, "{!}[{}:{}]", *val, lower, upper_val)
+           },
+           Expr::Slice(Slice {val, lower, upper: None, ..}) => {
+               write!(f, "{!}[{}:]", *val, lower)
+           },
 
-			Expr::UnaryOp(UnaryOp  {kind: UnaryOpKind::Not,  val, ..}) => {
-				write!(f, "{}({!}", "~", *val)
-			},
+           Expr::UnaryOp(UnaryOp  {kind: UnaryOpKind::Not,  val, ..}) => {
+               write!(f, "{}({!}", "~", *val)
+           },
 
-			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::And, left, right, ..}) => {
-				write!(f, "({!}) {} ({!})", *left, "&", *right)
-			},
-			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Or, left, right, ..}) => {
-				write!(f, "({!}) {} ({!})", *left, "|", *right)
-			},
-			Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Xor, left, right, ..}) => {
-				write!(f, "({!}) {} ({!})", *left, "^", *right)
-			},
+           Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::And, left, right, ..}) => {
+               write!(f, "({!}) {} ({!})", *left, "&", *right)
+           },
+           Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Or, left, right, ..}) => {
+               write!(f, "({!}) {} ({!})", *left, "|", *right)
+           },
+           Expr::BinaryOp(BinaryOp {kind: BinaryOpKind::Xor, left, right, ..}) => {
+               write!(f, "({!}) {} ({!})", *left, "^", *right)
+           },
 
-			Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::And, val, ..}) => {
-				write!(f, "({!}).{}_reduce()", *val, "and")
-			},
-			Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::Or, val, ..}) => {
-				write!(f, "({!}).{}_reduce()", *val, "or")
-			},
-			Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::Xor, val, ..}) => {
-				write!(f, "({!}).{}_reduce()", *val, "xor")
-			},
+           Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::And, val, ..}) => {
+               write!(f, "({!}).{}_reduce()", *val, "and")
+           },
+           Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::Or, val, ..}) => {
+               write!(f, "({!}).{}_reduce()", *val, "or")
+           },
+           Expr::ReduceOp(ReduceOp {kind: BinaryOpKind::Xor, val, ..}) => {
+               write!(f, "({!}).{}_reduce()", *val, "xor")
+           },
 
-			Expr::RotateOp(RotateOp {kind: RotateOpKind::Rotr, val, amt, ..}) => {
-				write!(f, "{}({!}, {!})", "rotr", *val, *amt)
-			}
-			Expr::RotateOp(RotateOp {kind: RotateOpKind::Rotl, val, amt, ..}) => {
-				write!(f, "{}({!}, {!})", "rotl", *val, *amt)
-			}
+           Expr::RotateOp(RotateOp {kind: RotateOpKind::Rotr, val, amt, ..}) => {
+               write!(f, "{}({!}, {!})", "rotr", *val, *amt)
+           }
+           Expr::RotateOp(RotateOp {kind: RotateOpKind::Rotl, val, amt, ..}) => {
+               write!(f, "{}({!}, {!})", "rotl", *val, *amt)
+           }
 
-			Expr::Concat(Concat { left, right, .. }) => {
-                write!(f, "({!}).concat({!})", *left, *right)
-            }
+           Expr::Concat(Concat { left, right, .. }) => {
+               write!(f, "({!}).concat({!})", *left, *right)
+           }
 
-			Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({!}).repeat({})", *val, amt),
+           Expr::Repeat(Repeat { val, amt, .. }) => write!(f, "({!}).repeat({})", *val, amt),
 
-            Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {
-                write!(f, "{}**2**{} * ({!}) % {}", x, j, *y, mod_n)
-            }
+           Expr::ModMul(ModMul { x, j, y, mod_n, .. }) => {
+               write!(f, "{}**2**{} * ({!}) % {}", x, j, *y, mod_n)
+           }
 
-            Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
-         }
-     }
+           Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
+        }
+    }
 }
 // impl fmt::Display for Expr {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

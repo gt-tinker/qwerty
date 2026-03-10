@@ -6,10 +6,12 @@ use super::{
 };
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
-use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty, visitor_write};
+use itertools::Itertools;
+use qwerty_ast_macros::{
+    gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty, visitor_write,
+};
 use std::cmp::Ordering;
 use std::fmt;
-use itertools::{Itertools};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmbedKind {
@@ -374,7 +376,7 @@ impl fmt::Display for Expr {
             Expr::Measure(Measure { basis, .. }) => write!(f, "({}).measure", basis),
             Expr::Discard(Discard { .. }) => write!(f, "discard"),
             Expr::Tensor(Tensor { vals, ..}) => {
-				write!(f, "({!:,})", vals.iter(), '*')
+                write!(f, "({!:,})", vals.iter(), '*')
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
@@ -386,7 +388,7 @@ impl fmt::Display for Expr {
                 ..
             }) => write!(f, "({!}) if ({}) else ({!})", then_func, pred, else_func),
             Expr::NonUniformSuperpos(NonUniformSuperpos{ pairs, ..}) => {
-				write!(f, "{}",
+                write!(f, "{}",
                         pairs.iter()
                         .format_with(
                             " + ",
@@ -394,18 +396,18 @@ impl fmt::Display for Expr {
                                 f(&format_args!("{}*({})", prob, qlit))
                             }
                         )
-					  )
+                      )
             }
             Expr::Ensemble(Ensemble {pairs, ..} ) => {
-	            write!(
-		            f, "{}",
-	            		pairs.iter()
-	            		.format_with(
-		            		"+",
-		            		|(prob, qlit), f | {
-								f(&format_args!("{}*({})",  prob, qlit))
-		            		}
-	            		))
+                write!(
+                    f, "{}",
+                        pairs.iter()
+                        .format_with(
+                            "+",
+                            |(prob, qlit), f | {
+                                f(&format_args!("{}*({})",  prob, qlit))
+                            }
+                        ))
             }
             Expr::Conditional(Conditional {
                 then_expr,
@@ -419,7 +421,6 @@ impl fmt::Display for Expr {
         }
     }
 }
-
 
 /* impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
