@@ -26,6 +26,8 @@ README:
      WSL on Windows.
    * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
      compiler
+   * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
+     compiler itself
    * [`docs/build-llvm.md`](docs/build-llvm.md): Steps to build LLVM yourself
    * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
      semi-automated process for upgrading the version of LLVM used by the Qwerty
@@ -33,15 +35,13 @@ README:
  * Integration with other tools:
    * [`docs/qiree.md`](docs/qiree.md): Shows how to build the Qwerty compiler
      with [QIR-EE][4] support
- * Advanced compiler development documentation:
+ * Compiler code documentation:
    * [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
      interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
      one of our MLIR dialects
    * [`docs/state-prep.md`](docs/state-prep.md): Describes the arbitrary state
      preparation technique by Shende et al. that we use to synthesize circuits for
      superposition literals
-   * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
-     compiler itself
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
