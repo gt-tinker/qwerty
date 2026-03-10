@@ -7,12 +7,13 @@ boot or a virtual machine. Additionally, both WSL and Windows can interact with
 each other's file systems. The reason we recommend WSL is that our support and
 testing on Linux is far more extensive than on Windows.
 
-**Install WSL**: Follow this guide on [installing WSL][2].
+First, **install WSL** by following this guide on [installing WSL][2].
 
 Once you have WSL installed, you may follow this guide and others as if you
 were on a Linux distro, with a couple of suggestions.
 
-# WSL Filesystem versus Windows Filesystem
+WSL Filesystem versus Windows Filesystem
+----------------------------------------
 
 Earlier we stated that WSL and Windows have access to each other file systems.
 This is 100% true, with the caveat that it is [far, far slower][3] than
@@ -26,7 +27,8 @@ filesystem, where running a build was a multiday (>8 hrs) task. When the Qwerty
 compiler source code was moved to the WSL filesystem, the build took at most 10
 minutes.
 
-# WSL Ram Usage
+WSL Ram Usage
+-------------
 
 By default, WSL is allocated **half** of the machine's RAM. If you'd like to
 increase this limit, [this guide][5] is a nice and simple walkthrough.
@@ -49,7 +51,8 @@ This tells CMake to tell Ninja to limit the number of linking and compilation
 jobs done in parallel to 1 and 4 respectively, although this can be changed by
 changing the above parameters.
 
-# Additional Troubleshooting
+Additional Troubleshooting
+--------------------------
 
 For more general issues with WSL, here is the [official troubleshooting
 guide][6].
