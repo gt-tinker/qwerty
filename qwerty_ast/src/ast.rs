@@ -217,7 +217,11 @@ macro_rules! impl_display {
             impl fmt::Display for $bit_literal_ty {
                 fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     let Self { n_bits, val, .. } = self;
-                    write!(f, "bit[{}](0b{:b})", n_bits, val)
+                    if *n_bits == 1 {
+                        write!(f, "bit({:b})", val)
+                    } else {
+                        write!(f, "bit[{}](0b{:b})", n_bits, val)
+                    }
                 }
             }
         )+
