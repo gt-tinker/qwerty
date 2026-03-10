@@ -15,11 +15,17 @@ import math
 from argparse import ArgumentParser
 from qwerty import *
 
-def grover(oracle, num_iter, shots=None, acc=None):
+def get_grover_iter(oracle):
     @qpu[[N]]
+    @reversible
     def grover_iter(q):
         return (q | oracle.sign
                   | 'p'**N >> -'p'**N)
+
+    return grover_iter
+
+def grover(oracle, num_iter, shots=None, acc=None):
+    grover_iter = get_grover_iter(oracle)
 
     @qpu[[N]]
     def kernel():

@@ -21,8 +21,9 @@ def qpe(prec, get_init_state, op, shots, acc=None):
     @qpu[[M]]
     def kernel():
         return ('p'**prec * get_init_state()
-                | (op[[prec-1-j]]
-                   in '?'**j * '1' * '?'**(prec-1-j) * '_'**M
+                | ((op[[prec-1-j]]
+                   if '?'**j * '1' * '?'**(prec-1-j) * '_'**M
+                   else id**M)
                    for j in range(prec))
                 | fourier[prec].measure
                   * discard**M)
