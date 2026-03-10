@@ -22,8 +22,12 @@ README:
      Qwerty compiler when working on particular components
    * [`docs/testing.md`](docs/testing.md): Details on our multi-faceted testing
      framework
+   * [`docs/wsl-tips.md`](docs/wsl-tips.md): Recommendations for building with
+     WSL on Windows
    * [`docs/debugging.md`](docs/debugging.md): Tricks for debugging the Qwerty
      compiler
+   * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
+     compiler itself
    * [`docs/build-llvm.md`](docs/build-llvm.md): Steps to build LLVM yourself
    * [`docs/upgrading-llvm.md`](docs/upgrading-llvm.md): Describes the
      semi-automated process for upgrading the version of LLVM used by the Qwerty
@@ -31,15 +35,13 @@ README:
  * Integration with other tools:
    * [`docs/qiree.md`](docs/qiree.md): Shows how to build the Qwerty compiler
      with [QIR-EE][4] support
- * Compiler development documentation:
+ * Compiler code documentation:
    * [`docs/new-mlir-attr-rust.md`](docs/new-mlir-attr-rust.md): Demonstrates the
      interplay betwen Tablegen, C++, C, and Rust needed to add a new attribute to
      one of our MLIR dialects
    * [`docs/state-prep.md`](docs/state-prep.md): Describes the arbitrary state
      preparation technique by Shende et al. that we use to synthesize circuits for
      superposition literals
-   * [`docs/profiling.md`](docs/profiling.md): Shows how to profile the Qwerty
-     compiler itself
 
 The rest of this README is dedicated to installation, basic testing, and
 troubleshooting.
@@ -105,26 +107,13 @@ To run _all_ tests across the compiler, run the following:
 
     $ ../dev/run-tests.sh
 
-Troubleshooting
----------------
+Troubleshooting WSL Issues
+--------------------------
 
-If your compilation process keeps getting sniped by the OOM killer, as seen
-below:
-
-    c++: fatal error: Killed signal terminated program cc1plus
-      compilation terminated.
-
-Then a potential fix is to add the following code near the top of your
-`CMakeLists.txt` both in `/` and  `/tweedledum`:
-
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=1)
-    set(CMAKE_JOB_POOL_LINK link_job_pool)
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS compile_job_pool=1)
-    set(CMAKE_JOB_POOL_COMPILE compile_job_pool)
-
-This tells CMake to tell Ninja to limit the number of linking and compilation
-jobs done in parallel to just 1 each, although this can be changed by changing
-the above parameters.
+If you are working on Windows, we recommend building with [Windows Subsystem
+for Linux (WSL)][5]. However, the default (low) memory allocation for WSL and
+slow access to Windows filesystems can cause issues. Please see
+[`docs/wsl-tips.md`](docs/wsl-tips.md) for more information.
 
 Citation
 --------
@@ -162,3 +151,4 @@ artifact][3] or on the `cgo25-artifact` branch.
 [2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [3]: https://doi.org/10.5281/zenodo.14080494
 [4]: https://arxiv.org/abs/2404.14299
+[5]: https://learn.microsoft.com/en-us/windows/wsl/about
