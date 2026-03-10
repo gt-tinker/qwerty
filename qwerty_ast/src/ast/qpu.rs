@@ -6,7 +6,10 @@ use super::{
 };
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
-use qwerty_ast_macros::{gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty};
+use itertools::Itertools;
+use qwerty_ast_macros::{
+    gen_rebuild, gen_rebuild_structs, rebuild, rewrite_match, rewrite_ty, visitor_write,
+};
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -344,33 +347,36 @@ impl Canonicalizable for Expr {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        visitor_write! { Expr, self,
             Expr::Variable(var) => write!(f, "{}", var), // Defer to impl in ast.rs
             Expr::UnitLiteral(UnitLiteral { .. }) => write!(f, "[]"),
             Expr::EmbedClassical(EmbedClassical {
                 func_name,
-                embed_kind,
+                embed_kind: EmbedKind::Sign,
                 ..
             }) => {
-                let embed_kind_str = match embed_kind {
-                    EmbedKind::Sign => "sign",
-                    EmbedKind::Xor => "xor",
-                    EmbedKind::InPlace => "inplace",
-                };
-                write!(f, "{}.{}", func_name, embed_kind_str)
+                write!(f, "{}.{}", func_name, "sign")
             }
-            Expr::Adjoint(Adjoint { func, .. }) => write!(f, "~({})", *func),
-            Expr::Pipe(Pipe { lhs, rhs, .. }) => write!(f, "({}) | ({})", *lhs, *rhs),
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind: EmbedKind::Xor,
+                ..
+            }) => {
+                write!(f, "{}.{}", func_name, "xor")
+            }
+            Expr::EmbedClassical(EmbedClassical {
+                func_name,
+                embed_kind: EmbedKind::InPlace,
+                ..
+            }) => {
+                write!(f, "{}.{}", func_name, "inplace")
+            }
+            Expr::Adjoint(Adjoint { func, .. }) => write!(f, "~({!})", *func),
+            Expr::Pipe(Pipe { lhs, rhs, .. }) => write!(f, "({!}) | ({!})", *lhs, *rhs),
             Expr::Measure(Measure { basis, .. }) => write!(f, "({}).measure", basis),
             Expr::Discard(Discard { .. }) => write!(f, "discard"),
-            Expr::Tensor(Tensor { vals, .. }) => {
-                for (i, val) in vals.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, "*")?;
-                    }
-                    write!(f, "({})", val)?;
-                }
-                Ok(())
+            Expr::Tensor(Tensor { vals, ..}) => {
+                write!(f, "({!:,})", vals.iter(), '*')
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
@@ -380,31 +386,35 @@ impl fmt::Display for Expr {
                 else_func,
                 pred,
                 ..
-            }) => write!(f, "({}) if ({}) else ({})", then_func, pred, else_func),
-            Expr::NonUniformSuperpos(NonUniformSuperpos { pairs, .. }) => {
-                for (i, (prob, qlit)) in pairs.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " + ")?;
-                    }
-                    write!(f, "{}*({})", prob, qlit)?;
-                }
-                Ok(())
+            }) => write!(f, "({!}) if ({}) else ({!})", then_func, pred, else_func),
+            Expr::NonUniformSuperpos(NonUniformSuperpos{ pairs, ..}) => {
+                write!(f, "{}",
+                        pairs.iter()
+                        .format_with(
+                            " + ",
+                            |(prob, qlit), f| {
+                                f(&format_args!("{}*({})", prob, qlit))
+                            }
+                        )
+                      )
             }
-            Expr::Ensemble(Ensemble { pairs, .. }) => {
-                for (i, (prob, qlit)) in pairs.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, " ^ ")?;
-                    }
-                    write!(f, "{}*({})", prob, qlit)?;
-                }
-                Ok(())
+            Expr::Ensemble(Ensemble {pairs, ..} ) => {
+                write!(
+                    f, "{}",
+                        pairs.iter()
+                        .format_with(
+                            "+",
+                            |(prob, qlit), f | {
+                                f(&format_args!("{}*({})",  prob, qlit))
+                            }
+                        ))
             }
             Expr::Conditional(Conditional {
                 then_expr,
                 else_expr,
                 cond,
                 ..
-            }) => write!(f, "({}) if ({}) else ({})", then_expr, cond, else_expr),
+            }) => write!(f, "({!}) if ({!}) else ({!})", then_expr, cond, else_expr),
             Expr::QLitExpr(QLitExpr { qlit, .. }) => write!(f, "{}", qlit),
             Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
             Expr::QubitRef(QubitRef { index }) => write!(f, "q[{}]", index),
