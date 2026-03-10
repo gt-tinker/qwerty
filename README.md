@@ -107,35 +107,13 @@ To run _all_ tests across the compiler, run the following:
 
     $ ../dev/run-tests.sh
 
-Troubleshooting
----------------
+Troubleshooting WSL Issues
+--------------------------
 
-If your compilation process keeps getting sniped by the OOM killer, as seen
-below:
-
-    c++: fatal error: Killed signal terminated program cc1plus
-      compilation terminated.
-
-Then a potential fix is to add the following code near the top of your
-`CMakeLists.txt` both in `/` and  `/tweedledum`:
-
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=1)
-    set(CMAKE_JOB_POOL_LINK link_job_pool)
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS compile_job_pool=1)
-    set(CMAKE_JOB_POOL_COMPILE compile_job_pool)
-
-This tells CMake to tell Ninja to limit the number of linking and compilation
-jobs done in parallel to just 1 each, although this can be changed by changing
-the above parameters.
-
-WSL Tips
---------
-If you are working on Windows, we recommend using [WSL](https://learn.microsoft.com/en-us/windows/wsl/about). We present here some common issues with WSL to watch out for. Please consult [./docs/wsl-tips.md](./docs/wsl-tips.md) for a more detailed guide on working with WSL.
-
-### Common Problems
- - Interacting with the Windows filesystem (i.e /mnt/c) through WSL. File reads and writes will be **orders of magnitude** slower than using WSL's filesystem.    
- - WSL has a small RAM configuration by default, though this may be modified. 
- 
+If you are working on Windows, we recommend building with [Windows Subsystem
+for Linux (WSL)][5]. However, the default (low) memory allocation for WSL and
+slow access to Windows filesystems can cause issues. Please see
+[`docs/wsl-tips.md`](docs/wsl-tips.md) for more information.
 
 Citation
 --------
@@ -173,3 +151,4 @@ artifact][3] or on the `cgo25-artifact` branch.
 [2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
 [3]: https://doi.org/10.5281/zenodo.14080494
 [4]: https://arxiv.org/abs/2404.14299
+[5]: https://learn.microsoft.com/en-us/windows/wsl/about
