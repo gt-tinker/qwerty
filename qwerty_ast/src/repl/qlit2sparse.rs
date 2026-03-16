@@ -6,10 +6,10 @@ use num_complex::Complex64;
 
 impl QLit {
 
-    pub fn to_sparse(&self) -> SparseVec {
+    pub(super) fn to_sparse(&self) -> SparseVec {
         match &self {
-            QLit::ZeroQubit { .. } => SparseVec::newZero(),
-            QLit::OneQubit { .. } => SparseVec::newOne(),
+            QLit::ZeroQubit { .. } => SparseVec::new_zero(),
+            QLit::OneQubit { .. } => SparseVec::new_one(),
             QLit::QubitTilt { q, angle_deg, .. } => {
                 let z = Complex64::cis(*angle_deg * PI / 180.0);
                 q.to_sparse().scale(z)
@@ -21,29 +21,29 @@ impl QLit {
                 qs.iter()
                     .map(|x| x.to_sparse())
                     .reduce(|v1, v2| v1.kron(v2))
-                    .unwrap_or_else(SparseVec::newZero)
+                    .unwrap_or_else(SparseVec::new_zero)
             }
-            QLit::QubitUnit { .. } => { SparseVec::newEmpty() }
+            QLit::QubitUnit { .. } => { SparseVec::new_empty() }
         }
     }
 }
 
 // Invariant: Vec is sorted by UBig
 #[derive(Debug, Clone)]
-struct SparseVec {
-    v: Vec<(UBig, Complex64)>,
-    num_qbits: usize
+pub(super) struct SparseVec {
+    pub(super) v: Vec<(UBig, Complex64)>,
+    pub(super) num_qbits: usize
 }
 impl SparseVec {
-    pub fn newEmpty() -> Self {
+    pub fn new_empty() -> Self {
         SparseVec { v: vec![], num_qbits: 0 }
     }
 
-    pub fn newZero() -> Self {
+    pub fn new_zero() -> Self {
         SparseVec { v: vec![(UBig::ZERO, Complex64::ONE)], num_qbits: 1 }
     }
 
-    pub fn newOne() -> Self {
+    pub fn new_one() -> Self {
         SparseVec { v: vec![(UBig::ONE, Complex64::ONE)], num_qbits: 1 }
     }
 
