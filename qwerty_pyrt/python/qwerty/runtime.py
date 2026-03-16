@@ -114,14 +114,11 @@ class bit:
 
     def __init__(self, as_int: int, n_bits: Optional[int] = None):
         if n_bits is None:
-            # This is a bit hairy: if you write bit[4] as a type annotation
-            # somewhere and then write bit(x) later, then this will behave
-            # unexpectedly
+            # Interpret `bit(0)` as `bit[1](0b0)`
             if type(self)._n_bits_hack is None:
-                raise ValueError('Not specifying n_bits (the second argument '
-                                 'to bit()) requires writing the number of '
-                                 'bits in brackets, like bit[4](0b0011)')
-            n_bits = type(self)._n_bits_hack
+                n_bits = 1
+            else:
+                n_bits = type(self)._n_bits_hack
             type(self)._n_bits_hack = None
 
         if not isinstance(as_int, int):
@@ -134,6 +131,14 @@ class bit:
         if n_bits <= 0:
             raise ValueError('Expected positive number of bits but got '
                              + str(n_bits))
+
+        # TODO: It could be useful to say bit[4](-1) for all 1s someday.
+        if as_int < 0:
+            raise ValueError('Value {:b} cannot be negative'.format(as_int))
+
+        if (min_len := as_int.bit_length()) > n_bits:
+            raise ValueError('Value 0b{:b} requires {} bits but only {} given'
+                             .format(as_int, min_len, n_bits))
 
         self.as_int = as_int
         self.n_bits = n_bits
@@ -163,9 +168,12 @@ class bit:
         return '{:0{n}b}'.format(self._official_int(), n=self.n_bits)
 
     def __repr__(self):
-        return 'qwerty.bit[{}](0b{:0{}b})'.format(self.n_bits,
-                                                  self._official_int(),
-                                                  self.n_bits)
+        if self.n_bits == 1:
+            return 'qwerty.bit({:b})'.format(self._official_int())
+        else:
+            return 'qwerty.bit[{}](0b{:0{}b})'.format(self.n_bits,
+                                                      self._official_int(),
+                                                      self.n_bits)
 
     def __bool__(self):
         return bool(self._official_int())
