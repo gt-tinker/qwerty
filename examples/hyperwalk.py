@@ -19,8 +19,7 @@ def quantum_walk(steps, shots):
         return ('00'*'0000' | (walk_step for i in range(steps))
                             | discard**2 * measure**4)
 
-    print('Quantum walk:')
-    histogram(kernel(shots=shots))
+    return kernel(shots=shots)
 
 def classical_walk(steps, shots):
     histo = {}
@@ -32,16 +31,17 @@ def classical_walk(steps, shots):
         state = bit[4](state)
         histo[state] = histo.get(state, 0) + 1
 
-    print('Classical walk:')
-    histogram(histo)
+    return histo
 
 def main(args):
     steps = int(args[0]) if args else 64
     shots = int(args[1]) if len(args) > 1 else 1024
 
-    quantum_walk(steps, shots)
+    print('Quantum walk:')
+    histogram(quantum_walk(steps, shots))
     print()
-    classical_walk(steps, shots)
+    print('Classical walk:')
+    histogram(classical_walk(steps, shots))
 
     return 0
 
