@@ -473,6 +473,14 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_result = slice.test(shots)
         self.assertEqual(expected_result, actual_result)
 
+    def test_neg_sign(self):
+        from .integ.meta import neg_sign
+        shots = 1024
+        x = bit[2](0b10)
+        expected_result = ({x: shots}, {x: shots})
+        actual_result = neg_sign.test(shots)
+        self.assertEqual(expected_result, actual_result)
+
     def test_qasm_ghz(self):
         from .integ.meta import qasm_ghz
 

@@ -17,7 +17,7 @@ use crate::ast::{
     qpu::{
         self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
         EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated, QLit,
-        QLitExpr, QubitRef, Tensor, UnitLiteral, Vector, VectorAtomKind,
+        QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Vector, VectorAtomKind,
     },
 };
 
@@ -879,6 +879,37 @@ impl Tensor {
     }
 }
 
+impl Tilt {
+    pub fn calc_type(
+        &self,
+        (val_ty, val_compute_kind): &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Tilt { dbg, .. } = self;
+
+        match val_ty {
+            Type::RegType {
+                elem_ty: RegKind::Qubit,
+                dim,
+            } if *dim > 0 => Ok((val_ty.clone(), *val_compute_kind)),
+
+            Type::RevFuncType { in_out_ty } if matches!(&**in_out_ty, Type::RegType { elem_ty: RegKind::Qubit, dim } if *dim > 0) => {
+                Ok((val_ty.clone(), *val_compute_kind))
+            }
+
+            invalid_ty => Err(TypeError {
+                kind: TypeErrorKind::UnsupportedTilt(invalid_ty.to_string()),
+                dbg: dbg.clone(),
+            }),
+        }
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Tilt { val, .. } = self;
+        let val_result = val.typecheck(env)?;
+        self.calc_type(&val_result)
+    }
+}
+
 impl BasisTranslation {
     pub fn calc_type(
         &self,
@@ -1446,6 +1477,7 @@ impl TypeCheckable for qpu::Expr {
             qpu::Expr::Measure(measure) => measure.typecheck(),
             qpu::Expr::Discard(discard) => discard.typecheck(),
             qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
+            qpu::Expr::Tilt(tilt) => tilt.typecheck(env),
             qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
             qpu::Expr::Predicated(pred) => pred.typecheck(env),
             qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),

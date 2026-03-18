@@ -1464,26 +1464,26 @@ class QpuVisitor(BaseVisitor):
         factor = self.extract_dimvar_expr(binOp.right)
         return QpuExpr.new_broadcast_tensor(val, factor, dbg)
 
-    #def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
-    #    if isinstance(unaryOp.op, ast.USub):
-    #        return self.visit_UnaryOp_USub(unaryOp)
-    #    elif isinstance(unaryOp.op, ast.Invert):
-    #        return self.visit_UnaryOp_Invert(unaryOp)
-    #    else:
-    #        op_name = type(unaryOp.op).__name__
-    #        raise QwertySyntaxError('Unknown unary operation {}'
-    #                                .format(op_name),
-    #                                self.get_debug_loc(unaryOp))
+    def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
+        if isinstance(unaryOp.op, ast.USub):
+            return self.visit_UnaryOp_USub(unaryOp)
+        #elif isinstance(unaryOp.op, ast.Invert):
+        #    return self.visit_UnaryOp_Invert(unaryOp)
+        else:
+            op_name = type(unaryOp.op).__name__
+            raise QwertySyntaxError('Unknown unary operation {}'
+                                    .format(op_name),
+                                    self.get_debug_loc(unaryOp))
 
-    #def visit_UnaryOp_USub(self, unaryOp: ast.UnaryOp):
-    #    """
-    #    Convert a Python unary negation AST node into a Qwerty AST node tilting
-    #    the operand by 180 degrees. For example, ``-f`` or ``-'0'``.
-    #    """
-    #    dbg = self.get_debug_loc(unaryOp)
-    #    value = self.visit(unaryOp.operand)
-    #    # Euler's identity, e^{iπ} = -1
-    #    return Phase(dbg, FloatLiteral(dbg.copy(), math.pi), value)
+    def visit_UnaryOp_USub(self, unaryOp: ast.UnaryOp):
+        """
+        Convert a Python unary negation AST node into a Qwerty AST node tilting
+        the operand by 180 degrees. For example, ``-f`` or ``-'0'``.
+        """
+        dbg = self.get_debug_loc(unaryOp)
+        val = self.visit(unaryOp.operand)
+        angle_deg = FloatExpr.new_const(180.0, dbg)
+        return QpuExpr.new_tilt(val, angle_deg, dbg)
 
     #def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
     #    """
@@ -1852,8 +1852,8 @@ class QpuVisitor(BaseVisitor):
         #elif isinstance(node, ast.BinOp):
         elif isinstance(node, ast.BinOp):
             return self.visit_BinOp(node)
-        #elif isinstance(node, ast.UnaryOp):
-        #    return self.visit_UnaryOp(node)
+        elif isinstance(node, ast.UnaryOp):
+            return self.visit_UnaryOp(node)
         elif isinstance(node, ast.Set):
             return self.visit_Set(node)
         elif isinstance(node, ast.GeneratorExp):

@@ -51,6 +51,7 @@ impl Expr {
             Expr::Tensor(Tensor { vals, .. }) => vals
                 .iter()
                 .all(|v| v.is_value() && !matches!(v, Expr::UnitLiteral(_))),
+            Expr::Tilt(_) => false,
             Expr::BasisTranslation(_) => true,
             Expr::Predicated(Predicated {
                 then_func,

@@ -624,6 +624,22 @@ impl QpuExpr {
     }
 
     #[classmethod]
+    fn new_tilt(
+        _cls: &Bound<'_, PyType>,
+        val: QpuExpr,
+        angle_deg: FloatExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::Tilt {
+                val: Box::new(val.expr),
+                angle_deg: angle_deg.expr,
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_basis_translation(
         _cls: &Bound<'_, PyType>,
         bin: Basis,

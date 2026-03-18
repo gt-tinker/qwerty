@@ -86,6 +86,14 @@ gen_rebuild_structs! {
             pub dbg: Option<DebugLoc>,
         }
 
+        /// See [`Expr::Tilt`].
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct Tilt {
+            pub val: Box<Expr>,
+            pub angle_deg: f64,
+            pub dbg: Option<DebugLoc>,
+        }
+
         /// See [`Expr::BasisTranslation`].
         #[derive(Debug, Clone, PartialEq)]
         pub struct BasisTranslation {
@@ -197,6 +205,12 @@ gen_rebuild_structs! {
             /// ```
             Tensor(Tensor),
 
+            /// Tilt a qubit register or function. Example syntax:
+            /// ```text
+            /// q @ 90
+            /// ```
+            Tilt(Tilt),
+
             /// The mighty basis translation. Example syntax:
             /// ```text
             /// {'0','1'} >> {'0',-'1'}
@@ -269,6 +283,7 @@ impl Expr {
             | Expr::Measure(Measure { dbg, .. })
             | Expr::Discard(Discard { dbg, .. })
             | Expr::Tensor(Tensor { dbg, .. })
+            | Expr::Tilt(Tilt { dbg, .. })
             | Expr::BasisTranslation(BasisTranslation { dbg, .. })
             | Expr::Predicated(Predicated { dbg, .. })
             | Expr::NonUniformSuperpos(NonUniformSuperpos { dbg, .. })
@@ -301,6 +316,23 @@ impl Expr {
                     Expr::UnitLiteral(UnitLiteral { dbg })
                 } else {
                     Expr::Tensor(Tensor { vals, dbg })
+                }
+            }
+
+            Expr::Tilt(Tilt {
+                val,
+                angle_deg,
+                dbg,
+            }) => {
+                let angle_deg = canon_angle(angle_deg);
+                if angle_is_approx_zero(angle_deg) {
+                    *val
+                } else {
+                    Expr::Tilt(Tilt {
+                        val,
+                        angle_deg,
+                        dbg,
+                    })
                 }
             }
 
@@ -377,6 +409,9 @@ impl fmt::Display for Expr {
             Expr::Discard(Discard { .. }) => write!(f, "discard"),
             Expr::Tensor(Tensor { vals, ..}) => {
                 write!(f, "({!:,})", vals.iter(), '*')
+            }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                write!(f, "({}) @ {}", *val, *angle_deg)
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
@@ -467,6 +502,11 @@ impl ToPythonCode for Expr {
                     write!(f, ")")?;
                 }
                 Ok(())
+            }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
+                write!(f, "(")?;
+                val.fmt_py(f)?;
+                write!(f, ") @ {}", angle_deg)
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "(")?;

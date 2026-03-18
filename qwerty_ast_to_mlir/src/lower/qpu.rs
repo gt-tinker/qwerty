@@ -24,7 +24,7 @@ use qwerty_ast::{
         qpu::{
             self, Adjoint, Basis, BasisGenerator, BasisTranslation, BitLiteral, Conditional,
             Discard, EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe,
-            Predicated, QLit, QLitExpr, Tensor, Variable, Vector, VectorAtomKind,
+            Predicated, QLit, QLitExpr, Tensor, Tilt, Variable, Vector, VectorAtomKind,
         },
     },
     typecheck::{ComputeKind, FuncsAvailable},
@@ -1214,6 +1214,88 @@ fn ast_qpu_expr_to_mlir(
                 ast::Type::TupleType { .. } => panic!("cannot tensor tuples together"),
                 ast::Type::UnitType => vec![],
             };
+            (ty, compute_kind, mlir_vals)
+        }
+
+        qpu::Expr::Tilt(
+            tilt @ Tilt {
+                val,
+                angle_deg,
+                dbg,
+            },
+        ) => {
+            let loc = dbg_to_loc(dbg.clone());
+
+            let (val_ty, val_compute_kind, val_vals) = ast_qpu_expr_to_mlir(&**val, ctx, block);
+
+            let (ty, compute_kind) = tilt
+                .calc_type(&(val_ty, val_compute_kind))
+                .expect("Tilt failed typechecking");
+
+            assert_eq!(val_vals.len(), 1, "Expected 1 MLIR value for tilt operand");
+            let val_val = val_vals
+                .into_iter()
+                .next()
+                .expect("Just verified length is 1, now empty, how?");
+
+            let mlir_vals = vec![match &ty {
+                ast::Type::RevFuncType { in_out_ty } => {
+                    let arg_res_tys = ast_ty_to_mlir_tys::<qpu::Expr>(&**in_out_ty);
+                    assert_eq!(arg_res_tys.len(), 1);
+                    let arg_res_ty = arg_res_tys
+                        .into_iter()
+                        .next()
+                        .expect("Just verified length is 1, now empty, how?");
+
+                    mlir_wrap_lambda(
+                        &[val_val],
+                        &[arg_res_ty],
+                        &[arg_res_ty],
+                        /*is_rev*/ true,
+                        loc,
+                        block,
+                        |lambda_block| {
+                            // First is captured func, second is the input qbundle
+                            assert_eq!(lambda_block.argument_count(), 2);
+
+                            let func_val = lambda_block.argument(0).unwrap().into();
+                            let qbundle_in = lambda_block.argument(1).unwrap().into();
+                            let theta_val =
+                                mlir_f64_const(deg_to_rad(*angle_deg), loc, lambda_block);
+
+                            let tilted_qbundle = lambda_block
+                                .append_operation(qwerty::qbphase(theta_val, qbundle_in, loc))
+                                .result(0)
+                                .unwrap()
+                                .into();
+
+                            vec![
+                                lambda_block
+                                    .append_operation(qwerty::call_indirect(
+                                        func_val,
+                                        &[tilted_qbundle],
+                                        loc,
+                                    ))
+                                    .result(0)
+                                    .unwrap()
+                                    .into(),
+                            ]
+                        },
+                    )
+                }
+
+                ast::Type::RegType { .. } => {
+                    let theta_val = mlir_f64_const(deg_to_rad(*angle_deg), loc, block);
+                    block
+                        .append_operation(qwerty::qbphase(theta_val, val_val, loc))
+                        .result(0)
+                        .unwrap()
+                        .into()
+                }
+
+                _ => unreachable!("type checking requires either a rev func or reg"),
+            }];
+
             (ty, compute_kind, mlir_vals)
         }
 

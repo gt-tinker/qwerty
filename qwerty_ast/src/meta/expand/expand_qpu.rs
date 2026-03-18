@@ -765,6 +765,7 @@ impl MetaExpr {
             | MetaExpr::Adjoint { .. }
             | MetaExpr::Measure { .. }
             | MetaExpr::BiTensor { .. }
+            | MetaExpr::Tilt { .. }
             | MetaExpr::BasisTranslation { .. }
             | MetaExpr::Predicated { .. }
             | MetaExpr::NonUniformSuperpos { .. }
