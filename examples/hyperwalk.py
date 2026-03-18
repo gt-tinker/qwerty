@@ -7,7 +7,8 @@ from qwerty import *
 def quantum_walk(steps, shots):
     @qpu
     def walk_step(q):
-        return (q | std**2 * '????' >> fourier[2] * '????'
+        coin = -('pp' >> -'pp')
+        return (q | coin * id**4
                   | (flip in '00_???')
                   | (flip in '01?_??')
                   | (flip in '10??_?')
