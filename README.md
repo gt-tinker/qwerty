@@ -68,12 +68,21 @@ You need to install [Rust][1] _and_ the following:
    ```
    You should set these persistently, e.g., in your `~/.bashrc` or `~/.zshrc`.
 
-2. The following Debian/Ubuntu packages are also needed to build:
-   ```
+2. The following packages are also needed to build:
+
+   **Debian/Ubuntu:**
+```
    $ sudo apt install build-essential cmake ninja-build zlib1g-dev libclang-dev
-   ```
-   If you are on macOS, installing the XCode developer tools is enough and the
-   command above is not needed.
+```
+**macOS (Homebrew):**
+```
+   $ xcode-select --install
+   $ brew install cmake ninja zlib llvm
+```
+If you are on macOS, the XCode developer tools (`xcode-select --install`) are required in place of `build-essential`. You may also need to export the Homebrew LLVM path:
+```
+   $ export PATH="$(brew --prefix llvm)/bin:$PATH"
+```
 
 ### Building
 
@@ -84,10 +93,10 @@ To generate the Python extension, run the following:
     $ . venv/bin/activate
     $ cd qwerty_pyrt
     $ pip install maturin numpy
-    $ maturin develop -vvv
+    $ maturin develop -vv
 
-The last command will (re)build _everything_. Passing `-vvv` to
-`maturin develop` helps to give you an idea of what is going on.
+The last command will (re)build _everything_. If you need additional verbosity for troubleshooting, passing `-vvv` to
+`maturin develop` helps to give you a better idea of what is going on.
 
 ### Testing
 
