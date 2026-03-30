@@ -1,5 +1,17 @@
 // RUN: qwerty-opt -convert-ccirc-to-xag -split-input-file %s | FileCheck %s
 
+// Single-bit Constant test
+// CHECK-LABEL: ccirc.circuit @single_bit_constant() irrev {
+//  CHECK-NEXT:   %0 = ccirc.constant true : !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @single_bit_constant() irrev {
+  %0 = ccirc.constant true : !ccirc<wire[1]>
+  ccirc.return %0 : !ccirc<wire[1]>
+}
+
+// -----
+
 // Single-bit XOR test
 // CHECK-LABEL: ccirc.circuit @single_bit_xor(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>) irrev {
 //  CHECK-NEXT:   %0 = ccirc.parity(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
@@ -35,6 +47,21 @@ ccirc.circuit @single_bit_or(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>) irr
 ccirc.circuit @single_bit_and(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>) irrev {
   %0 = ccirc.and(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
   ccirc.return %0 : !ccirc<wire[1]>
+}
+
+// -----
+
+// Multi-bit Constant (5 = 0b101) test
+// CHECK-LABEL: ccirc.circuit @multi_bit_constant() irrev {
+//  CHECK-NEXT:   %0 = ccirc.constant true : !ccirc<wire[1]>
+//  CHECK-NEXT:   %1 = ccirc.constant false : !ccirc<wire[1]>
+//  CHECK-NEXT:   %2 = ccirc.constant true : !ccirc<wire[1]>
+//  CHECK-NEXT:   %3 = ccirc.wirepack(%0, %1, %2) : (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[3]>
+//  CHECK-NEXT:   ccirc.return %3 : !ccirc<wire[3]>
+//  CHECK-NEXT: }
+ccirc.circuit @multi_bit_constant() irrev {
+  %0 = ccirc.constant 5 : i3 : !ccirc<wire[3]>
+  ccirc.return %0 : !ccirc<wire[3]>
 }
 
 // -----
@@ -149,4 +176,68 @@ ccirc.circuit private @foo_0(%arg0: !ccirc<wire[3]>, %arg1: !ccirc<wire[3]>, %ar
   %2 = ccirc.constant 1 : i3 : !ccirc<wire[3]>
   %3 = ccirc.or(%1, %2) : (!ccirc<wire[3]>, !ccirc<wire[3]>) -> !ccirc<wire[3]>
   ccirc.return %3 : !ccirc<wire[3]>
+}
+
+// -----
+
+// Single-bit NOT is already legal — passes through unchanged.
+// CHECK-LABEL: ccirc.circuit @single_bit_not(%arg0: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.not(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @single_bit_not(%arg0: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.not(%arg0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %0 : !ccirc<wire[1]>
+}
+
+// -----
+
+// not(xor(a, b)) test
+// CHECK-LABEL: ccirc.circuit @not_of_xor(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.parity(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %1 = ccirc.not(%0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %1 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @not_of_xor(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.xor(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %1 = ccirc.not(%0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %1 : !ccirc<wire[1]>
+}
+
+// -----
+
+// or(and(a, b), and(c, d)) test
+// CHECK-LABEL: ccirc.circuit @or_of_and(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>, %arg3: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.and(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %1 = ccirc.and(%arg2, %arg3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %2 = ccirc.not(%0) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %3 = ccirc.not(%1) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %4 = ccirc.and(%2, %3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %5 = ccirc.not(%4) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %5 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @or_of_and(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>, %arg3: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.and(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %1 = ccirc.and(%arg2, %arg3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %2 = ccirc.or(%0, %1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %2 : !ccirc<wire[1]>
+}
+
+// -----
+
+// and(xor(a, b), or(c, d)) test
+// CHECK-LABEL: ccirc.circuit @and_of_xor_or(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>, %arg3: !ccirc<wire[1]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.parity(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %1 = ccirc.not(%arg2) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %2 = ccirc.not(%arg3) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %3 = ccirc.and(%1, %2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %4 = ccirc.not(%3) : (!ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %5 = ccirc.and(%0, %4) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %5 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+ccirc.circuit @and_of_xor_or(%arg0: !ccirc<wire[1]>, %arg1: !ccirc<wire[1]>, %arg2: !ccirc<wire[1]>, %arg3: !ccirc<wire[1]>) irrev {
+  %0 = ccirc.xor(%arg0, %arg1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %1 = ccirc.or(%arg2, %arg3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %2 = ccirc.and(%0, %1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %2 : !ccirc<wire[1]>
 }
