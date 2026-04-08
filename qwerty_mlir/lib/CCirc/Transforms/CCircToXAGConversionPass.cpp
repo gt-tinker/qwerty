@@ -12,20 +12,20 @@
 // 1. Semantics are identical to the original circuit
 // 2. Every child ops is either structural (ccirc.return, ccirc.wirepack,
 //    ccirc.wireunpack)
-// 3. ...or every child op is one of the following logical ops with 1-bit
-//    operands and 1-bit results:
+// 3. ...or every child op is one of the following logical ops with Single-bit
+//    operands and Single-bit results:
 //    a) ccirc.not
 //    b) ccirc.and
 //    c) ccirc.parity
 //    d) ccirc.constant
 // Other logic ops (e.g., ccirc.or) are initially decomposed into intermediate
-// multi-bit versions of the above ops, which are then decomposed into
+// Multi-bit versions of the above ops, which are then decomposed into
 // structural ops and logical ops (a)-(d) above.
 // Running the canonicalizer after this pass will remove redundant
 // packing/unpacking, deduplicate constant ops, simplify idioms such as
 // `x XOR 0`, merge parity ops, and propagate not ops through parity ops,
 // producing a high-level XAG [1]. That is, a digital logic circuit containing
-// only 1-bit ANDs, 1-bit parity ops whose results may be negated, and an
+// only Single-bit ANDs, Single-bit parity ops whose results may be negated, and an
 // optional final NOT on outputs [1].
 //
 // [1]: https://doi.org/10.23919/DATE51398.2021.9474163
@@ -67,7 +67,7 @@ struct SplitMultiBitConstant
     }
 };
 
-// Split multi-bit AND into element-wise 1-bit ANDs.
+// Split Multi-bit AND into element-wise Single-bit ANDs.
 struct SplitMultiBitAnd
         : public mlir::OpConversionPattern<ccirc::AndOp> {
     using mlir::OpConversionPattern<ccirc::AndOp>::OpConversionPattern;
@@ -97,7 +97,7 @@ struct SplitMultiBitAnd
     }
 };
 
-// Split multi-bit NOT into element-wise 1-bit NOTs.
+// Split Multi-bit NOT into element-wise Single-bit NOTs.
 struct SplitMultiBitNot
         : public mlir::OpConversionPattern<ccirc::NotOp> {
     using mlir::OpConversionPattern<ccirc::NotOp>::OpConversionPattern;
@@ -125,7 +125,7 @@ struct SplitMultiBitNot
     }
 };
 
-// Split multi-bit PARITY into per-bit 1-bit parities.
+// Split Multi-bit PARITY into per-bit Single-bit parities.
 // parity(a[N], b[N], ...) becomes wirepack of parity(a[i], b[i], ...) for each i.
 struct SplitMultiBitParity
         : public mlir::OpConversionPattern<ccirc::ParityOp> {
@@ -164,7 +164,7 @@ struct SplitMultiBitParity
     }
 };
 
-// Split multi-bit OR into element-wise 1-bit ORs.
+// Split Multi-bit OR into element-wise Single-bit ORs.
 // Single-bit ORs are then handled by DecomposeOrToDeMorgan.
 struct SplitMultiBitOr
         : public mlir::OpConversionPattern<ccirc::OrOp> {
@@ -195,7 +195,7 @@ struct SplitMultiBitOr
     }
 };
 
-// Split multi-bit XOR into element-wise 1-bit XORs.
+// Split Multi-bit XOR into element-wise Single-bit XORs.
 // Single-bit XORs are then handled by DecomposeXorToParity.
 struct SplitMultiBitXor
         : public mlir::OpConversionPattern<ccirc::XorOp> {
@@ -286,7 +286,7 @@ struct CCircToXAGConversionPass
                           // these guys
                           ccirc::WirePackOp,
                           ccirc::WireUnpackOp>();
-        // A XAG should not have any multi-bit bitwise operations
+        // A XAG should not have any Multi-bit bitwise operations
         target.addDynamicallyLegalOp<ccirc::AndOp,
                                      ccirc::NotOp,
                                      ccirc::ParityOp,
