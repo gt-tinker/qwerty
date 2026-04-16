@@ -12,64 +12,50 @@ func.func @check_modmul(%n: i32) -> () {
     return
 }
 
-//  run in qwery/build to test this file: python ../qwerty_mlir/tests/filecheck_tests.py -k synth_arith
-
+// run in qwery/build to test this file: python3 ../qwerty_mlir/tests/filecheck_tests.py -k synth_arith
+// bin/qwerty-opt -convert-ccirc-to-func-arith -canonicalize -convert-vector-to-llvm -convert-func-to-llvm -convert-arith-to-llvm ../qwerty_mlir/tests/CCirc/Synth/synth-arith.mlir | mlir-runner -e test -entry-point-result=void --shared-libs=$HOME/bin/llvm21/lib/libmlir_c_runner_utils.so
 
 func.func @test() {
-    %cst0 = arith.constant 0 : i32
-    %cst1 = arith.constant 1 : i32
-    %cst2 = arith.constant 2 : i32
-    %cst3 = arith.constant 3 : i32
-    %cst4 = arith.constant 4 : i32
-    %cst5 = arith.constant 5 : i32
-    %cst6 = arith.constant 6 : i32
-    %cst7 = arith.constant 7 : i32
+    %a0 = arith.constant 0 : i32
+    %a1 = arith.constant 257 : i32
+    %a2 = arith.constant 514 : i32
+    %a10 = arith.constant 6168 : i32
+    %a100 = arith.constant 25700 : i32
+    %a103 = arith.constant 74563 : i32
+    %aff = arith.constant 65535 : i32
+    %acff = arith.constant 131071 : i32
 
-    //      
-    // tests for fullAddr1:
-    // add  a + b + cin
-    //
-
-    // synthModMul(0x00000000) == 0x00000000
+    // 0 + 0 = 0
     // CHECK: 0
-    func.call @check_modmul(%cst0) : (i32) -> ()
+    func.call @check_modmul(%a0) : (i32) -> ()
 
-    // synthModMul(0x00000001) == 0x00000002
+    // 1 + 1 = 2
+    // binary: 0 + 10
     // CHECK: 2
-    func.call @check_modmul(%cst1) : (i32) -> ()
+    func.call @check_modmul(%a1) : (i32) -> ()
 
-    // synthModMul(0x00000002) == 0x00000002
-    // CHECK: 2
-    func.call @check_modmul(%cst2) : (i32) -> ()
+    // 2 + 2 = 4
+    // binary: 0 + 100
+    // CHECK: 4
+    func.call @check_modmul(%a2) : (i32) -> ()
 
-    // synthModMul(0x00000003) == 0x00000001
-    // CHECK: 1
-    func.call @check_modmul(%cst3) : (i32) -> ()
+    // 0x18 + 0x18 = 48
+    // binary: 0 + 10100
+    // CHECK: 48
+    func.call @check_modmul(%a10) : (i32) -> ()
 
-    // synthModMul(0x00000004) == 0x00000002
-    // CHECK: 2
-    func.call @check_modmul(%cst4) : (i32) -> ()
+    // 100 + 100 = 200
+    // binary: 0 + 11001000
+    // CHECK: 200
+    func.call @check_modmul(%a100) : (i32) -> ()
 
-    // synthModMul(0x00000005) == 0x00000001
-    // CHECK: 1
-    func.call @check_modmul(%cst5) : (i32) -> ()
+    // 0x23 + 0x43 = 103
+    // CHECK: 103
+    func.call @check_modmul(%a103) : (i32) -> ()
 
-    // synthModMul(0x00000006) == 0x00000001
-    // CHECK: 1
-    func.call @check_modmul(%cst6) : (i32) -> ()
-
-    // synthModMul(0x00000007) == 0x00000003
-    // CHECK: 3
-    func.call @check_modmul(%cst7) : (i32) -> ()
-
-
+    // 0x1 + 0xff + 0xff = 511
+    // CHECK: 511
+    func.call @check_modmul(%acff) : (i32) -> ()
     return
-
-
-
-
-    
-    
-
 
 }

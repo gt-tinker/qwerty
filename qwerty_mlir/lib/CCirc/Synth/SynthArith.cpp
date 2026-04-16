@@ -31,15 +31,15 @@ namespace {
 
         // n bit addr of a and b
         // loop through every bit returning full added value and carry out
-        
         assert(a.size() == b.size() && "a and b must be same size");
 
         mlir::Value carry = carry_in;
         returnSum.clear();
+        returnSum.append(a.size(), nullptr);
 
         for(size_t i = 0; i < a.size(); i++){
-            auto [sum, cnext] = fullAddr1(builder, loc, a[i], b[i], carry);
-            returnSum.push_back(sum);
+            auto [sum, cnext] = fullAddr1(builder, loc, a[a.size()-1-i], b[b.size()-1-i], carry);
+            returnSum[a.size()-1-i] = sum;
             carry = cnext;
         }
         return carry;
@@ -57,54 +57,47 @@ namespace ccirc {
             llvm::SmallVectorImpl<mlir::Value> &wires_y,
             llvm::SmallVectorImpl<mlir::Value> &wires_out) {
             
-                // wires_y = cin, a, b
-                mlir::Value b = wires_y[wires_y.size() - 1];
-                mlir::Value a = wires_y[wires_y.size() - 2];
-                mlir::Value cin = wires_y[wires_y.size() - 3];
-                mlir::Value zero = builder.create<ccirc::ConstantOp>(loc, llvm::APInt(1, 0)).getResult();
                 
-                auto [sum, carry_out] = fullAddr1(builder, loc, a, b, cin);
-                wires_out.clear();
-                for(size_t i = 0; i < wires_y.size() - 2; i++){
+
+                // for testing fullAddrN
+                // wires_y = cin, a, b
+
+
+                llvm::SmallVector<mlir::Value> aBits;
+                llvm::SmallVector<mlir::Value> bBits;
+                mlir::Value cin = wires_y[15];
+                mlir::Value zero = builder.create<ccirc::ConstantOp>(loc, llvm::APInt(1, 0)).getResult();
+                mlir::Value one = builder.create<ccirc::ConstantOp>(loc, llvm::APInt(1, 1)).getResult();
+
+                // set aBits and bBits
+                for (size_t i = 0; i < 8; i++){
+                    aBits.push_back(wires_y[i+16]);
+                    bBits.push_back(wires_y[i+24]);
+                }
+
+
+                for(size_t i = 0; i < wires_y.size() - 9; i++){
                     wires_out.push_back(zero);
                 }
-                wires_out.push_back(sum);
-                wires_out.push_back(carry_out);
-                
+            
+                // call full addr
+                llvm::SmallVector<mlir::Value> sumBits;
+                auto carryOut = fullAddrN(builder, loc, aBits, bBits, cin, sumBits);
 
-                /* For testing fullAddrN
-                    // wires_y = cin, a, b
-
-
-                    llvm::SmallVector<mlir::Value> aBits;
-                    llvm::SmallVector<mlir::Value> bBits;
-                    mlir::Value cin = wires_y[16];
-                    mlir::Value zero = builder.create<ccirc::ConstantOp>(loc, llvm::APInt(1, 0)).getResult();
+                // clear output and push sum then carryout
+                wires_out.push_back(carryOut);
+                wires_out.append(sumBits.begin(), sumBits.end());
 
 
-                    // set aBits and bBits
-                    for (size_t i = 0; i < 8; i++){
-                        aBits.push_back(wires_y[i]);
-                    }
-                    for (size_t i = 0; i < 8; i++){
-                        bBits.push_back(wires_y[8 + i]);
-                    }
-                
-                    // call full addr
-                    auto [sumBits, carryOut] = fullAddrN(builder, loc, aBits, bBits, cin);
-
-                    // clear output and push sum then carryout
-                    wires_out.clear();
-                    for(auto s : sumBits){
-                        wires_out.push_back(s);
-                    }
-                    
-                    wires_out.push_back(carryOut);
-                
-                
+                /*
+                for(size_t i = 0; i < 7; i++){
+                    wires_out.push_back(zero);
+                }
+                wires_out.push_back(one);
+                wires_out.push_back(zero);
                 */
-
-
+                
+                
             }
 
     /*
