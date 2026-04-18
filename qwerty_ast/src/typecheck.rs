@@ -586,30 +586,29 @@ macro_rules! impl_typecheck {
     (Variable => [$($variable_ty:ty),+]) => {
         $(
             impl $variable_ty {
-                pub fn calc_type(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+                pub fn calc_type(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
                     let Self { name, dbg } = self;
-                    let (var_ty, compute_kind) = if let Some(var_ty) = env.get_var(name) {
+                    let (var_ty, compute_kind, mut env) = if let Some(var_ty) = env.get_var(name) {
                         // Surprisingly, referencing a variable is always reversible.
                         // How you use the variable is what determines reversibility.
-                        Ok((var_ty.clone(), ComputeKind::Rev))
+                        Ok((var_ty.clone(), ComputeKind::Rev, env))
                     } else {
                         Err(TypeError {
                             kind: TypeErrorKind::UndefinedVariable(name.to_string()),
                             dbg: dbg.clone(),
                         })
                     }?;
-
                     if var_ty.is_linear() && !env.linear_vars_used.insert(name.to_string()) {
                         Err(TypeError {
                             kind: TypeErrorKind::LinearVariableUsedTwice(name.to_string()),
                             dbg: dbg.clone(),
                         })
                     } else {
-                        Ok((var_ty, compute_kind))
+                        Ok((var_ty, compute_kind, env))
                     }
                 }
 
-                pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+                pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
                     self.calc_type(env)
                 }
             }
@@ -711,11 +710,11 @@ impl Adjoint {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let Adjoint { func, .. } = self;
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
+	    let Adjoint { func, .. } = self;
         // Adjoint should be a function type (unitary/quantum), not classical.
-        let func_result = func.typecheck(env)?;
-        self.calc_type(&func_result)
+        let (ty, kind, env) = func.typecheck(env)?;
+        self.calc_type(&(ty, kind))
     }
 }
 
@@ -768,7 +767,8 @@ impl Pipe {
         Ok((ty, compute_kind))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
+	    let env = &mut env;
         let Pipe { lhs, rhs, .. } = self;
         // Typing rule: lhs type must match rhs function input type.
         let lhs_result = lhs.typecheck(env)?;
@@ -870,13 +870,20 @@ impl Tensor {
         Ok((ty, compute_kind))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        let Tensor { vals, .. } = self;
-        let val_results = vals
-            .iter()
-            .map(|val| val.typecheck(env))
-            .collect::<Result<Vec<_>, TypeError>>()?;
-        self.calc_type(&val_results)
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
+	   let Tensor { vals, .. } = self;
+	   let (val_results, env) = vals
+		   .iter()
+		   .try_fold(
+			   (Vec::new(), env),
+			   |(mut results, env), val| {
+					let (ty, compute_kind, env) = val.typecheck(env)?;
+					results.push((ty, compute_kind));
+					Ok((results, env))
+			   }
+		   )?;
+		let (ty, compute_kind) = self.calc_type(&val_results)?;
+		Ok((ty, compute_kind, env))
     }
 }
 
@@ -1109,17 +1116,18 @@ impl Predicated {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, mut env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let Predicated {
             then_func,
             else_func,
             pred,
             ..
         } = self;
-        let t_result = then_func.typecheck(env)?;
-        let e_result = else_func.typecheck(env)?;
+        let t_result = then_func.typecheck(&mut env)?;
+        let e_result = else_func.typecheck(&mut env)?;
         let pred_ty = pred.typecheck()?;
-        self.calc_type(&t_result, &e_result, &pred_ty)
+        let (ty, kind) = self.calc_type(&t_result, &e_result, &pred_ty)?;
+        Ok((ty, kind, env))
     }
 }
 
@@ -1238,31 +1246,32 @@ pub struct ConditionalTypeCtx {
 
 impl Conditional {
     /// Must run before the 'then' branch is type checked.
-    pub fn linearity_check_before_then(&self, env: &TypeEnv) -> ConditionalTypeCtx {
-        ConditionalTypeCtx {
+    pub fn linearity_check_before_then(&self, env: TypeEnv) -> (ConditionalTypeCtx, TypeEnv) {
+        (ConditionalTypeCtx {
             backup_linear_vars_used: env.linear_vars_used.clone(),
-        }
+        }, env)
     }
 
     /// Must run after the 'then' branch is type checked but before the 'else'
     /// branch is type checked.
     pub fn linearity_check_after_then_before_else(
         &self,
-        env: &mut TypeEnv,
+        mut env: TypeEnv,
         ctx: &mut ConditionalTypeCtx,
-    ) {
+    ) -> TypeEnv {
         // Restore the linear_vars_used in the TypeEnv from before typechecking
         // the 'then' branch and backup the linear_vars_used from typechecking
         // the 'then' branch.
         std::mem::swap(&mut env.linear_vars_used, &mut ctx.backup_linear_vars_used);
+        env
     }
 
     /// Must run after the 'else' branch is type checked.
     pub fn linearity_check_after_else(
         &self,
-        env: &TypeEnv,
+        env: TypeEnv,
         ctx: &ConditionalTypeCtx,
-    ) -> Result<(), TypeError> {
+    ) -> Result<TypeEnv, TypeError> {
         if let Some(mismatch_var) = env
             .linear_vars_used
             .symmetric_difference(&ctx.backup_linear_vars_used)
@@ -1274,7 +1283,7 @@ impl Conditional {
                 dbg: self.dbg.clone(),
             })
         } else {
-            Ok(())
+            Ok(env)
         }
     }
 
@@ -1323,20 +1332,21 @@ impl Conditional {
         Ok((t_ty.clone(), ComputeKind::Irrev))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, mut env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let Conditional {
             then_expr,
             else_expr,
             cond,
             ..
         } = self;
-        let mut ctx = self.linearity_check_before_then(env);
+        let (mut ctx, env) = self.linearity_check_before_then(env);
         let t_result = then_expr.typecheck(env)?;
         self.linearity_check_after_then_before_else(env, &mut ctx);
         let e_result = else_expr.typecheck(env)?;
         self.linearity_check_after_else(env, &ctx)?;
         let c_result = cond.typecheck(env)?;
-        self.calc_type(&t_result, &e_result, &c_result)
+        let (ty, kind) = self.calc_type(&t_result, &e_result, &c_result)?;
+        Ok((ty, kind, env))
     }
 }
 
@@ -1432,29 +1442,59 @@ pub trait TypeCheckable {
         Ok(())
     }
 
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
+    fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError>;
 }
 
 // --- EXPRESSIONS (QPU IMPLEMENTATION) ---
 impl TypeCheckable for qpu::Expr {
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         match self {
             qpu::Expr::Variable(var) => var.typecheck(env),
-            qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
-            qpu::Expr::EmbedClassical(embed) => embed.typecheck(env),
+            qpu::Expr::UnitLiteral(unit_lit) => {
+	            let (ty, kind) = unit_lit.typecheck()?
+		        Ok((ty, kind, env))
+		    },
+            qpu::Expr::EmbedClassical(embed) => {
+	           let (ty, kind) = embed.typecheck(&env)?;
+	           Ok((ty, kind, env))
+            },
             qpu::Expr::Adjoint(adj) => adj.typecheck(env),
             qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
-            qpu::Expr::Measure(measure) => measure.typecheck(),
-            qpu::Expr::Discard(discard) => discard.typecheck(),
+            qpu::Expr::Measure(measure) => {
+	            let (ty, kind) = measure.typecheck()?;
+	            Ok((ty, kind, env))
+		    },
+            qpu::Expr::Discard(discard) => {
+	            let (ty, kind) = discard.typecheck()?;
+	            Ok((ty, kind, env))
+            },
             qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
-            qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
+            qpu::Expr::BasisTranslation(btrans) => {
+	            let (ty, compute_kind) = btrans.typecheck()?;
+	            Ok((ty, compute_kind, env))
+		    },
             qpu::Expr::Predicated(pred) => pred.typecheck(env),
-            qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
-            qpu::Expr::Ensemble(ensemble) => ensemble.typecheck(),
+            qpu::Expr::NonUniformSuperpos(superpos) => {
+	            let (ty, compute_kind) = superpos.typecheck()?;
+	            Ok((ty, compute_kind, env))
+			},
+            qpu::Expr::Ensemble(ensemble) => {
+	            let (ty, compute_kind) = ensemble.typecheck()?;
+	            Ok((ty, compute_kind, env))
+		    },
             qpu::Expr::Conditional(cond) => cond.typecheck(env),
-            qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.typecheck(),
-            qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-            qpu::Expr::QubitRef(qref) => qref.typecheck(),
+            qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => {
+	            let (ty, compute_kind) = qlit.typecheck()?;
+	            Ok((ty, compute_kind, env))
+            },
+            qpu::Expr::BitLiteral(bit_lit) => {
+	            let (ty, compute_kind) = bit_lit.typecheck()?;
+	            Ok((ty, compute_kind, env))
+	        },
+            qpu::Expr::QubitRef(qref) => {
+	        	let (ty, compute_kind) = qref.typecheck()?;
+	        	Ok((ty, compute_kind, env))
+		    },
         }
     }
 }
