@@ -1,12 +1,7 @@
 use crate::syn_util::paths;
 use proc_macro2::Span;
 use syn::{
-    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprParen,
-    ExprPath, ExprReference, ExprTry, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt,
-    Token, Type,
-    parse::{Parse, ParseStream},
-    punctuated::Punctuated,
-    spanned::Spanned,
+    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprParen, ExprPath, ExprReference, ExprTry, ExprTuple, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt, Token, Type, parse::{Parse, ParseStream}, punctuated::{Pair, Punctuated}, spanned::Spanned
 };
 
 /// Holds the parsed arguments for a call to `visitor_write!{}` or
@@ -612,6 +607,27 @@ fn parse_visitor_expr_arm_expr_helper(
                 expr,
             }))
         }
+
+        Expr::Tuple(ExprTuple {
+			attrs,
+			paren_token,
+			elems
+        }) => {
+			let elems = elems
+				.into_pairs()
+				.try_fold(
+					Punctuated::new(),
+					|mut acc, pair| -> Result<Punctuated<Expr, Token![,]>, Error> {
+						let expr = match pair {
+							Pair::Punctuated(expr, _) => parse_visitor_expr_arm_expr_helper(expr, visit_var_name_gen, visit_exprs_out)?,
+							Pair::End(expr) => parse_visitor_expr_arm_expr_helper(expr, visit_var_name_gen, visit_exprs_out)?
+						};
+						acc.push(expr);
+						Ok(acc)
+					})?;
+			Ok(Expr::Tuple(ExprTuple {attrs, paren_token, elems} ))
+        }
+
         passthru @ (Expr::Lit(_) | Expr::Path(_)) => Ok(passthru),
 
         other_expr => {

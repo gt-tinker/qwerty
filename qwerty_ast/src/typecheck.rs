@@ -302,7 +302,7 @@ impl<E: TypeCheckable> FunctionDef<E> {
         // Single Pass: For each statement, check reversibility BEFORE updating environment
         for stmt in &self.body {
             // Then typecheck the statement and update the environment
-            let compute_kind = stmt.typecheck(&mut env, self.get_expected_ret_type())?;
+            let (compute_kind, env) = stmt.typecheck(env, self.get_expected_ret_type())?;
             self.check_stmt_compute_kind(compute_kind)?;
         }
 
@@ -317,19 +317,23 @@ impl<E: TypeCheckable> FunctionDef<E> {
 impl<E: TypeCheckable> Assign<E> {
     pub fn finish_type_checking(
         &self,
-        env: &mut TypeEnv,
+        mut env: TypeEnv,
         rhs_result: &(Type, ComputeKind),
-    ) -> Result<ComputeKind, TypeError> {
+    ) -> Result<(ComputeKind, TypeEnv), TypeError> {
         let Assign { lhs, dbg, .. } = self;
         let (rhs_ty, result_compute_kind) = rhs_result;
         env.insert_var(lhs, rhs_ty.clone(), dbg)?;
-        Ok(*result_compute_kind)
+        Ok((*result_compute_kind, env))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(ComputeKind, TypeEnv), TypeError> {
         let Assign { rhs, .. } = self;
-        let rhs_result = rhs.typecheck(env)?;
-        self.finish_type_checking(env, &rhs_result)
+        let (rhs_result, env) = {
+	        let (ty, compute_kind, env) = rhs.typecheck(env)?;
+		    ((ty, compute_kind), env)
+        };
+        let (compute_kind, env) = self.finish_type_checking(env, &rhs_result)?;
+        Ok((compute_kind, env))
     }
 }
 
@@ -340,9 +344,9 @@ impl<E: TypeCheckable> Assign<E> {
 impl<E: TypeCheckable> UnpackAssign<E> {
     pub fn finish_type_checking(
         &self,
-        env: &mut TypeEnv,
+        mut env: TypeEnv,
         rhs_result: &(Type, ComputeKind),
-    ) -> Result<ComputeKind, TypeError> {
+    ) -> Result<(ComputeKind, TypeEnv), TypeError> {
         let UnpackAssign { lhs, dbg, .. } = self;
         let (rhs_ty, compute_kind) = rhs_result;
 
@@ -367,7 +371,7 @@ impl<E: TypeCheckable> UnpackAssign<E> {
                         dbg,
                     )?;
                 }
-                Ok(*compute_kind)
+                Ok((*compute_kind, env))
             }
             _ => Err(TypeError {
                 kind: TypeErrorKind::InvalidType(format!(
@@ -379,9 +383,12 @@ impl<E: TypeCheckable> UnpackAssign<E> {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<ComputeKind, TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(ComputeKind, TypeEnv), TypeError> {
         let UnpackAssign { rhs, .. } = self;
-        let rhs_result = rhs.typecheck(env)?;
+        let (rhs_result, env) = {
+	        let (ty, compute_kind, env) = rhs.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
         self.finish_type_checking(env, &rhs_result)
     }
 }
@@ -416,12 +423,16 @@ impl<E: TypeCheckable> Return<E> {
 
     pub fn typecheck(
         &self,
-        env: &mut TypeEnv,
+        env: TypeEnv,
         expected_ret_type: Option<Type>,
-    ) -> Result<ComputeKind, TypeError> {
+    ) -> Result<(ComputeKind, TypeEnv), TypeError> {
         let Return { val, .. } = self;
-        let val_result = val.typecheck(env)?;
-        self.finish_type_checking(&val_result, expected_ret_type)
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+        let compute_kind = self.finish_type_checking(&val_result, expected_ret_type)?;
+        Ok((compute_kind, env))
     }
 }
 
@@ -432,12 +443,12 @@ impl<E: TypeCheckable> Stmt<E> {
     ///   outside a function and returns should nto be allowed.
     pub fn typecheck(
         &self,
-        env: &mut TypeEnv,
+        mut env: TypeEnv,
         expected_ret_type: Option<Type>,
-    ) -> Result<ComputeKind, TypeError> {
+    ) -> Result<(ComputeKind, TypeEnv), TypeError> {
         match self {
             Stmt::Expr(StmtExpr { expr, .. }) => {
-                expr.typecheck(env).map(|(_ty, compute_kind)| compute_kind)
+                expr.typecheck(env).map(|(_, compute_kind, env)| (compute_kind, env))
             }
             Stmt::Assign(assign) => assign.typecheck(env),
             Stmt::UnpackAssign(unpack) => unpack.typecheck(env),
@@ -713,8 +724,13 @@ impl Adjoint {
     pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
 	    let Adjoint { func, .. } = self;
         // Adjoint should be a function type (unitary/quantum), not classical.
-        let (ty, kind, env) = func.typecheck(env)?;
-        self.calc_type(&(ty, kind))
+        let (func_result, env) = {
+	        let (ty, compute_kind, env) = func.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&func_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -768,12 +784,20 @@ impl Pipe {
     }
 
     pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
-	    let env = &mut env;
         let Pipe { lhs, rhs, .. } = self;
         // Typing rule: lhs type must match rhs function input type.
-        let lhs_result = lhs.typecheck(env)?;
-        let rhs_result = rhs.typecheck(env)?;
-        self.calc_type(&lhs_result, &rhs_result)
+        let (lhs_result, env) = {
+	        let (ty, compute_kind, env) = lhs.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (rhs_result, env) = {
+	        let (ty, compute_kind, env) = rhs.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&lhs_result, &rhs_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -877,8 +901,11 @@ impl Tensor {
 		   .try_fold(
 			   (Vec::new(), env),
 			   |(mut results, env), val| {
-					let (ty, compute_kind, env) = val.typecheck(env)?;
-					results.push((ty, compute_kind));
+					let (val_result, env) = {
+						let (ty, compute_kind, env) = val.typecheck(env)?;
+						((ty, compute_kind), env)
+					};
+					results.push(val_result);
 					Ok((results, env))
 			   }
 		   )?;
@@ -1123,9 +1150,19 @@ impl Predicated {
             pred,
             ..
         } = self;
-        let t_result = then_func.typecheck(&mut env)?;
-        let e_result = else_func.typecheck(&mut env)?;
+
+        let (t_result, env) = {
+	        let (ty, compute_kind, env) = then_func.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (e_result, env) = {
+	        let (ty, compute_kind, env) = else_func.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
         let pred_ty = pred.typecheck()?;
+
         let (ty, kind) = self.calc_type(&t_result, &e_result, &pred_ty)?;
         Ok((ty, kind, env))
     }
@@ -1332,7 +1369,7 @@ impl Conditional {
         Ok((t_ty.clone(), ComputeKind::Irrev))
     }
 
-    pub fn typecheck(&self, mut env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let Conditional {
             then_expr,
             else_expr,
@@ -1340,11 +1377,26 @@ impl Conditional {
             ..
         } = self;
         let (mut ctx, env) = self.linearity_check_before_then(env);
-        let t_result = then_expr.typecheck(env)?;
-        self.linearity_check_after_then_before_else(env, &mut ctx);
-        let e_result = else_expr.typecheck(env)?;
-        self.linearity_check_after_else(env, &ctx)?;
-        let c_result = cond.typecheck(env)?;
+
+        let (t_result, env) = {
+	        let (ty, compute_kind, env) = then_expr.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let env = self.linearity_check_after_then_before_else(env, &mut ctx);
+
+        let (e_result, env) = {
+	        let (ty, compute_kind, env) = else_expr.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let env = self.linearity_check_after_else(env, &ctx)?;
+
+        let (c_result, env) = {
+	        let (ty, compute_kind, env) = cond.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
         let (ty, kind) = self.calc_type(&t_result, &e_result, &c_result)?;
         Ok((ty, kind, env))
     }
@@ -1451,7 +1503,7 @@ impl TypeCheckable for qpu::Expr {
         match self {
             qpu::Expr::Variable(var) => var.typecheck(env),
             qpu::Expr::UnitLiteral(unit_lit) => {
-	            let (ty, kind) = unit_lit.typecheck()?
+	            let (ty, kind) = unit_lit.typecheck()?;
 		        Ok((ty, kind, env))
 		    },
             qpu::Expr::EmbedClassical(embed) => {
@@ -1560,13 +1612,19 @@ impl TypeCheckable for classical::Expr {
         }
     }
 
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         visitor_expr! {classical::Expr, self,
             classical::Expr::Variable(var) => var.calc_type(env),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
+            classical::Expr::BitLiteral(bit_lit) => {
+	            let (ty, compute_kind) = bit_lit.calc_type()?;
+		       	Ok((ty, compute_kind, env))
+            },
             classical::Expr::Slice(slice) => {
-                let val_result = visit!(*slice.val)?;
-                slice.calc_type(&val_result)
+                let (ty, compute_kind, env) = visit!(*slice.val)?;
+                let val_result = (ty, compute_kind);
+                let (ty, compute_kind) = slice.calc_type(&val_result)?;
+                let result = (ty, compute_kind, env);
+				Ok(result)
             },
             classical::Expr::UnaryOp(unary_op) => {
                 let val_result = visit!(*unary_op.val)?;
@@ -1683,10 +1741,14 @@ impl Slice {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         // Typecheck the value being sliced
-        let val_result = self.val.typecheck(env)?;
-        self.calc_type(&val_result)
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = self.val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+        let (ty, compute_kind) = self.calc_type(&val_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -1726,11 +1788,16 @@ impl UnaryOp {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let UnaryOp { val, .. } = self;
 
-        let val_result = val.typecheck(env)?;
-        self.calc_type(&val_result)
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&val_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -1796,7 +1863,7 @@ impl BinaryOp {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let BinaryOp {
             kind: _,
             left,
@@ -1804,9 +1871,17 @@ impl BinaryOp {
             dbg: _,
         } = self;
 
-        let left_result = left.typecheck(env)?;
-        let right_result = right.typecheck(env)?;
-        self.calc_type(&left_result, &right_result)
+        let (left_result, env) = {
+	        let (ty, compute_kind, env) = left.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+        let (right_result, env) = {
+	        let (ty, compute_kind, env) = right.typecheck(env)?;
+	        ((ty, compute_kind), env)
+		};
+
+        let (ty, compute_kind) = self.calc_type(&left_result, &right_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -1853,14 +1928,19 @@ impl ReduceOp {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let ReduceOp {
             kind: _,
             val,
             dbg: _,
         } = self;
-        let val_result = val.typecheck(env)?;
-        self.calc_type(&val_result)
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&val_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -1910,16 +1990,26 @@ impl RotateOp {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let RotateOp {
             kind: _,
             val,
             amt,
             dbg: _,
         } = self;
-        let val_result = val.typecheck(env)?;
-        let amt_result = amt.typecheck(env)?;
-        self.calc_type(&val_result, &amt_result)
+
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (amt_result, env) = {
+	        let (ty, compute_kind, env) = amt.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&val_result, &amt_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -1968,16 +2058,25 @@ impl Concat {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let Concat {
             left,
             right,
             dbg: _,
         } = self;
-        let left_result = left.typecheck(env)?;
-        let right_result = right.typecheck(env)?;
 
-        self.calc_type(&left_result, &right_result)
+        let (left_result, env) = {
+	        let (ty, compute_kind, env) = left.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (right_result, env) = {
+	        let (ty, compute_kind, env) = right.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&left_result, &right_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
@@ -2033,14 +2132,20 @@ impl Repeat {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let Repeat {
             val,
             amt: _,
             dbg: _,
         } = self;
-        let val_result = val.typecheck(env)?;
-        self.calc_type(&val_result)
+
+        let (val_result, env) = {
+	        let (ty, compute_kind, env) = val.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&val_result)?;
+		Ok((ty, compute_kind, env))
     }
 }
 
@@ -2144,7 +2249,7 @@ impl ModMul {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub fn typecheck(&self, env: TypeEnv) -> Result<(Type, ComputeKind, TypeEnv), TypeError> {
         let ModMul {
             x: _,
             j: _,
@@ -2152,8 +2257,14 @@ impl ModMul {
             mod_n: _,
             dbg: _,
         } = self;
-        let y_result = y.typecheck(env)?;
-        self.calc_type(&y_result)
+
+        let (y_result, env) = {
+	        let (ty, compute_kind, env) = y.typecheck(env)?;
+	        ((ty, compute_kind), env)
+        };
+
+        let (ty, compute_kind) = self.calc_type(&y_result)?;
+        Ok((ty, compute_kind, env))
     }
 }
 
