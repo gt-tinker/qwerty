@@ -385,6 +385,7 @@ fn parse_visitor_expr_arm_expr_helper(
             )?);
             Ok(Expr::Unary(ExprUnary { attrs, op, expr }))
         }
+
         Expr::Block(ExprBlock {
             attrs,
             label,
@@ -449,15 +450,13 @@ fn parse_visitor_expr_arm_expr_helper(
                                 semi_token,
                             }))
                         }
-                        // Check to make sure someone is not trying to use the {} syntax with visit!
-                        // All normal visit calls should be parsed as Expr::Macro
+                        // All visit calls should be parsed as Expr::Macro
                         Stmt::Macro(ref stmt_mac)
                             if (paths::path_is_ident_str(&stmt_mac.mac.path, "visit")) =>
                         {
                             Err(Error::new_spanned(
                                 stmt_mac,
-                                "visit! {...} with braces is not supported in visitor_expr!, \
-									use visit!(...) instead",
+                                "visit!(...) as statement not yet supported",
                             ))
                         }
                         passthru @ (Stmt::Item(_) | Stmt::Macro(_)) => Ok(passthru),
@@ -476,6 +475,7 @@ fn parse_visitor_expr_arm_expr_helper(
                 block,
             }))
         }
+
         Expr::Paren(ExprParen {
             attrs,
             paren_token,
@@ -489,13 +489,18 @@ fn parse_visitor_expr_arm_expr_helper(
                 expr: Box::new(expr),
             }))
         }
-        // Note: func is of type Box<Expr>, we do not recurse on this type
+
         Expr::Call(ExprCall {
             attrs,
             func,
             paren_token,
             args,
         }) => {
+            let func = Box::new(parse_visitor_expr_arm_expr_helper(
+                *func,
+                visit_var_name_gen,
+                visit_exprs_out,
+            )?);
             let args = args
                 .into_iter()
                 .map(|arg_expr| {
@@ -513,6 +518,7 @@ fn parse_visitor_expr_arm_expr_helper(
                 args,
             }))
         }
+
         Expr::MethodCall(ExprMethodCall {
             attrs,
             receiver,
@@ -545,6 +551,7 @@ fn parse_visitor_expr_arm_expr_helper(
                 args,
             }))
         }
+
         Expr::Macro(ExprMacro {
             attrs,
             mac:
@@ -577,6 +584,7 @@ fn parse_visitor_expr_arm_expr_helper(
                 Ok(var_name_expr)
             }
         }
+
         Expr::Try(ExprTry {
             attrs,
             expr,
@@ -612,6 +620,7 @@ fn parse_visitor_expr_arm_expr_helper(
                 expr,
             }))
         }
+
         passthru @ (Expr::Lit(_) | Expr::Path(_)) => Ok(passthru),
 
         other_expr => {
