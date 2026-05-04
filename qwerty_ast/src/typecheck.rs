@@ -4,6 +4,7 @@ use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
 use num_integer::gcd;
+use qwerty_ast_macros::visitor_expr;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
@@ -1552,81 +1553,44 @@ impl TypeCheckable for classical::Expr {
     }
 
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        match self {
+        visitor_expr! {classical::Expr, self,
             classical::Expr::Variable(var) => var.calc_type(env),
             classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
             classical::Expr::Slice(slice) => {
-                let val_result = slice.val.typecheck(env)?;
+                let val_result = visit!(*slice.val)?;
                 slice.calc_type(&val_result)
-            }
+            },
             classical::Expr::UnaryOp(unary_op) => {
-                let UnaryOp { val, .. } = unary_op;
-                let val_result = val.typecheck(env)?;
+                let val_result = visit!(*unary_op.val)?;
                 unary_op.calc_type(&val_result)
-            }
+            },
             classical::Expr::BinaryOp(binary_op) => {
-                let BinaryOp {
-                    kind: _,
-                    left,
-                    right,
-                    dbg: _,
-                } = binary_op;
-
-                let left_result = left.typecheck(env)?;
-                let right_result = right.typecheck(env)?;
+                let left_result = visit!(*binary_op.left)?;
+                let right_result = visit!(*binary_op.right)?;
                 binary_op.calc_type(&left_result, &right_result)
-            }
+            },
             classical::Expr::ReduceOp(reduce_op) => {
-                let ReduceOp {
-                    kind: _,
-                    val,
-                    dbg: _,
-                } = reduce_op;
-                let val_result = val.typecheck(env)?;
+                let val_result = visit!(*reduce_op.val)?;
                 reduce_op.calc_type(&val_result)
-            }
+            },
             classical::Expr::RotateOp(rotate_op) => {
-                let RotateOp {
-                    kind: _,
-                    val,
-                    amt,
-                    dbg: _,
-                } = rotate_op;
-                let val_result = val.typecheck(env)?;
-                let amt_result = amt.typecheck(env)?;
+                let val_result = visit!(*rotate_op.val)?;
+                let amt_result = visit!(*rotate_op.amt)?;
                 rotate_op.calc_type(&val_result, &amt_result)
-            }
+            },
             classical::Expr::Concat(concat) => {
-                let Concat {
-                    left,
-                    right,
-                    dbg: _,
-                } = concat;
-                let left_result = left.typecheck(env)?;
-                let right_result = right.typecheck(env)?;
-
+                let left_result = visit!(*concat.left)?;
+                let right_result = visit!(*concat.right)?;
                 concat.calc_type(&left_result, &right_result)
-            }
+            },
             classical::Expr::Repeat(repeat) => {
-                let Repeat {
-                    val,
-                    amt: _,
-                    dbg: _,
-                } = repeat;
-                let val_result = val.typecheck(env)?;
+                let val_result = visit!(*repeat.val)?;
                 repeat.calc_type(&val_result)
-            }
+            },
             classical::Expr::ModMul(mod_mul) => {
-                let ModMul {
-                    x: _,
-                    j: _,
-                    y,
-                    mod_n: _,
-                    dbg: _,
-                } = mod_mul;
-                let y_result = y.typecheck(env)?;
+                let y_result = visit!(*mod_mul.y)?;
                 mod_mul.calc_type(&y_result)
-            }
+            },
         }
     }
 }

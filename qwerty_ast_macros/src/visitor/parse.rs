@@ -1,9 +1,11 @@
 use crate::syn_util::paths;
 use proc_macro2::Span;
 use syn::{
-    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprMacro, ExprPath, ExprUnary, Ident, LitStr,
-    Macro, Stmt, Token, Type,
+    Arm, Block, Error, Expr, ExprBinary, ExprBlock, ExprCall, ExprMacro, ExprMethodCall, ExprParen,
+    ExprPath, ExprReference, ExprTry, ExprUnary, Ident, LitStr, Local, LocalInit, Macro, Stmt,
+    Token, Type,
     parse::{Parse, ParseStream},
+    punctuated::Punctuated,
     spanned::Spanned,
 };
 
@@ -384,6 +386,172 @@ fn parse_visitor_expr_arm_expr_helper(
             Ok(Expr::Unary(ExprUnary { attrs, op, expr }))
         }
 
+        Expr::Block(ExprBlock {
+            attrs,
+            label,
+            block,
+        }) => {
+            let Block { brace_token, stmts } = block;
+            let stmts = stmts
+                .into_iter()
+                .map(|stmt| {
+                    match stmt {
+                        Stmt::Expr(expr, semi_token) => {
+                            let expr = parse_visitor_expr_arm_expr_helper(
+                                expr,
+                                visit_var_name_gen,
+                                visit_exprs_out,
+                            )?;
+                            Ok(Stmt::Expr(expr, semi_token))
+                        }
+                        Stmt::Local(Local {
+                            attrs,
+                            let_token,
+                            pat,
+                            init,
+                            semi_token,
+                        }) => {
+                            // If we have a local initialization i.e let x = 3
+                            let init = match init {
+                                Some(LocalInit {
+                                    eq_token,
+                                    expr,
+                                    diverge,
+                                }) => {
+                                    let diverge = match diverge {
+                                        Some((else_token, diverge_expr)) => {
+                                            let diverge_expr = parse_visitor_expr_arm_expr_helper(
+                                                *diverge_expr,
+                                                visit_var_name_gen,
+                                                visit_exprs_out,
+                                            )?;
+                                            Some((else_token, Box::new(diverge_expr)))
+                                        }
+                                        None => None,
+                                    };
+                                    let expr = parse_visitor_expr_arm_expr_helper(
+                                        *expr,
+                                        visit_var_name_gen,
+                                        visit_exprs_out,
+                                    )?;
+                                    Some(LocalInit {
+                                        eq_token,
+                                        expr: Box::new(expr),
+                                        diverge: diverge,
+                                    })
+                                }
+                                None => None,
+                            };
+                            Ok(Stmt::Local(Local {
+                                attrs,
+                                let_token,
+                                pat,
+                                init,
+                                semi_token,
+                            }))
+                        }
+                        // All visit calls should be parsed as Expr::Macro
+                        Stmt::Macro(ref stmt_mac)
+                            if (paths::path_is_ident_str(&stmt_mac.mac.path, "visit")) =>
+                        {
+                            Err(Error::new_spanned(
+                                stmt_mac,
+                                "visit!(...) as statement not yet supported",
+                            ))
+                        }
+                        passthru @ (Stmt::Item(_) | Stmt::Macro(_)) => Ok(passthru),
+                    }
+                })
+                .collect::<Result<Vec<Stmt>, Error>>()?;
+
+            let block = Block {
+                brace_token,
+                stmts: stmts,
+            };
+
+            Ok(Expr::Block(ExprBlock {
+                attrs,
+                label,
+                block,
+            }))
+        }
+
+        Expr::Paren(ExprParen {
+            attrs,
+            paren_token,
+            expr,
+        }) => {
+            let expr =
+                parse_visitor_expr_arm_expr_helper(*expr, visit_var_name_gen, visit_exprs_out)?;
+            Ok(Expr::Paren(ExprParen {
+                attrs,
+                paren_token,
+                expr: Box::new(expr),
+            }))
+        }
+
+        Expr::Call(ExprCall {
+            attrs,
+            func,
+            paren_token,
+            args,
+        }) => {
+            let func = Box::new(parse_visitor_expr_arm_expr_helper(
+                *func,
+                visit_var_name_gen,
+                visit_exprs_out,
+            )?);
+            let args = args
+                .into_iter()
+                .map(|arg_expr| {
+                    parse_visitor_expr_arm_expr_helper(
+                        arg_expr,
+                        visit_var_name_gen,
+                        visit_exprs_out,
+                    )
+                })
+                .collect::<Result<Punctuated<Expr, Token![,]>, Error>>()?;
+            Ok(Expr::Call(ExprCall {
+                attrs,
+                func,
+                paren_token,
+                args,
+            }))
+        }
+
+        Expr::MethodCall(ExprMethodCall {
+            attrs,
+            receiver,
+            dot_token,
+            method,
+            turbofish,
+            paren_token,
+            args,
+        }) => {
+            let receiver_expr =
+                parse_visitor_expr_arm_expr_helper(*receiver, visit_var_name_gen, visit_exprs_out)?;
+
+            let args = args
+                .into_iter()
+                .map(|arg_expr| {
+                    parse_visitor_expr_arm_expr_helper(
+                        arg_expr,
+                        visit_var_name_gen,
+                        visit_exprs_out,
+                    )
+                })
+                .collect::<Result<Punctuated<Expr, Token![,]>, Error>>()?;
+            Ok(Expr::MethodCall(ExprMethodCall {
+                attrs,
+                receiver: Box::new(receiver_expr),
+                dot_token,
+                method,
+                turbofish,
+                paren_token,
+                args,
+            }))
+        }
+
         Expr::Macro(ExprMacro {
             attrs,
             mac:
@@ -417,12 +585,51 @@ fn parse_visitor_expr_arm_expr_helper(
             }
         }
 
+        Expr::Try(ExprTry {
+            attrs,
+            expr,
+            question_token,
+        }) => {
+            let expr = Box::new(parse_visitor_expr_arm_expr_helper(
+                *expr,
+                visit_var_name_gen,
+                visit_exprs_out,
+            )?);
+            Ok(Expr::Try(ExprTry {
+                attrs,
+                expr,
+                question_token,
+            }))
+        }
+
+        Expr::Reference(ExprReference {
+            attrs,
+            and_token,
+            mutability,
+            expr,
+        }) => {
+            let expr = Box::new(parse_visitor_expr_arm_expr_helper(
+                *expr,
+                visit_var_name_gen,
+                visit_exprs_out,
+            )?);
+            Ok(Expr::Reference(ExprReference {
+                attrs,
+                and_token,
+                mutability,
+                expr,
+            }))
+        }
+
         passthru @ (Expr::Lit(_) | Expr::Path(_)) => Ok(passthru),
 
-        other_expr => Err(Error::new_spanned(
-            other_expr,
-            "Unknown expression inside visitor_expr! arm",
-        )),
+        other_expr => {
+            let err_msg = format!(
+                "Unknown expression inside visitor_expr! arm: {:?}",
+                other_expr
+            );
+            Err(Error::new_spanned(other_expr, err_msg))
+        }
     }
 }
 
