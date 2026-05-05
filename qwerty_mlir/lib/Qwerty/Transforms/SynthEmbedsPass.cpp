@@ -1,12 +1,15 @@
 #include <queue>
 
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Synth/QCircSynth.h"
 #include "CCirc/IR/CCircOps.h"
+#include "CCirc/Transforms/CCircPasses.h"
 #include "PassDetail.h"
 
 // This is a pass that converts all qwerty.embed_* ops that reference classical
@@ -14,6 +17,26 @@
 // quantum circuits.
 
 namespace {
+
+// Create the pass pipeline that should run on a ccirc.circuit op before
+// running XAG synthesis.
+mlir::OpPassManager buildPreXAGSynthPipeline() {
+    mlir::OpPassManager pm;
+    pm.addPass(ccirc::createCCircToXAGConversionPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    return pm;
+}
+
+// For a classical circuit `mycirc`, create a new circuit op `mycirc__inv` that
+// is the inverse.
+ccirc::CircuitOp reverseCircuit(
+        mlir::RewriterBase &rewriter,
+        ccirc::CircuitOp fwd_circ,
+        mlir::Location loc) {
+    rewriter.setInsertionPointAfter(fwd_circ);
+    std::string inv_circ_name = fwd_circ.getSymName().str() + "__inv";
+    return fwd_circ.buildInverseCircuit(rewriter, loc, inv_circ_name);
+}
 
 // Create an XOR embedding of a classical circuit.
 qwerty::FuncOp synthXor(mlir::RewriterBase &rewriter,
@@ -110,15 +133,9 @@ qwerty::FuncOp synthInPlace(
         mlir::RewriterBase &rewriter,
         ccirc::CircuitOp fwd_circ,
         qwerty::FuncOp fwd_xor_func,
+        qwerty::FuncOp rev_xor_func,
         mlir::Location loc) {
-    // Step one: we need an inverse function
-    rewriter.setInsertionPointAfter(fwd_xor_func);
-    std::string inv_circ_name = fwd_circ.getSymName().str() + "__inv";
-    ccirc::CircuitOp inv_circ = fwd_circ.buildInverseCircuit(rewriter, loc, inv_circ_name);
-    qwerty::FuncOp inv_xor_func = synthXor(rewriter, inv_circ, loc);
-
-    // Step two: we need to create a new function that uses Bennett's trick
-
+    // We need to create a new function that uses Bennett's trick
     size_t dim = fwd_circ.inDim();
     assert(dim == fwd_circ.outDim()
            && "Reversible function's input dimension must match its output "
@@ -135,7 +152,7 @@ qwerty::FuncOp synthInPlace(
     std::string embed_func_name = fwd_circ.getSymName().str() + "__inplace";
 
     // This will just be a stub function that calls the XOR embedding
-    rewriter.setInsertionPointAfter(inv_xor_func);
+    rewriter.setInsertionPointAfter(rev_xor_func);
     qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, new_func_ty);
     // Sets insert point to end of this block
     mlir::Block *block = rewriter.createBlock(&new_func.getBody(), {}, {qbundle_type}, {loc});
@@ -169,7 +186,7 @@ qwerty::FuncOp synthInPlace(
     }
     mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
 
-    mlir::ValueRange inv = rewriter.create<qwerty::CallOp>(loc, inv_xor_func, swapped_repacked).getResults();
+    mlir::ValueRange inv = rewriter.create<qwerty::CallOp>(loc, rev_xor_func, swapped_repacked).getResults();
     assert(inv.size() == 1 && "XOR embedding should return 1 value");
     mlir::ValueRange inv_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, inv[0]).getQubits();
 
@@ -186,12 +203,10 @@ qwerty::FuncOp synthInPlace(
     return new_func;
 }
 
-// TODO: needs to run run ccirctoxag & canonicalization on every circuit before
-//       it runs synth on it. we can do this similarly to how inlining runs the
-//       canonicalizer
 struct SynthEmbedsPass
         : public qwerty::SynthEmbedsBase<SynthEmbedsPass> {
     void runOnOperation() override {
+        mlir::OpPassManager pre_xag_synth_pipeline = buildPreXAGSynthPipeline();
         mlir::ModuleOp mod = getOperation();
 
         llvm::SmallVector<ccirc::CircuitOp> worklist;
@@ -222,32 +237,56 @@ struct SynthEmbedsPass
         mlir::IRRewriter rewriter(&getContext());
         for (auto [circ, users] : modify_queues) {
             mlir::Location loc = circ.getLoc();
-            qwerty::FuncOp xor_func, sign_func, inplace_func;
 
+            // Before anything else, we need to generate the reverse circuit if
+            // needed. We are doing this upfront because XAG synth involves
+            // mangling the original forward circuit. If we try to reverse the
+            // circuit after that manging, we will get a needlessly ugly
+            // reversed circuit.
+
+            bool rev_circ_needed = false;
+            for (mlir::Operation *user : users) {
+                if (llvm::isa<qwerty::EmbedInPlaceOp>(user)) {
+                    rev_circ_needed = true;
+                    break;
+                }
+            }
+
+            qwerty::FuncOp rev_xor_func;
+            if (rev_circ_needed) {
+                ccirc::CircuitOp rev_circ = reverseCircuit(rewriter, circ, loc);
+                // Prepare reverse circuit for XAG synth
+                if (mlir::failed(runPipeline(pre_xag_synth_pipeline, rev_circ))) {
+                    return signalPassFailure();
+                }
+                rev_xor_func = synthXor(rewriter, rev_circ, loc);
+            }
+            // Prepare forward circuit for XAG synth
+            if (mlir::failed(runPipeline(pre_xag_synth_pipeline, circ))) {
+                return signalPassFailure();
+            }
+            // Go ahead and generate the XOR embedding since anything since
+            // anything we do below will need it.
+            qwerty::FuncOp fwd_xor_func = synthXor(rewriter, circ, loc);
+
+            // Now we can walk through the IR, replacing embed_X ops with
+            // function pointers and creating sign/inplace ops as needed.
+
+            qwerty::FuncOp sign_func, inplace_func;
             for (mlir::Operation *user : users) {
                 if (qwerty::EmbedXorOp embed_xor = llvm::dyn_cast<qwerty::EmbedXorOp>(user)) {
-                    if (!xor_func) {
-                        xor_func = synthXor(rewriter, circ, loc);
-                    }
                     rewriter.setInsertionPoint(embed_xor);
-                    rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_xor, xor_func);
+                    rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_xor, fwd_xor_func);
                 } else if (qwerty::EmbedSignOp embed_sign = llvm::dyn_cast<qwerty::EmbedSignOp>(user)) {
                     if (!sign_func) {
-                        // We still need the XOR embedding
-                        if (!xor_func) {
-                            xor_func = synthXor(rewriter, circ, loc);
-                        }
-                        sign_func = synthSign(rewriter, circ, xor_func, loc);
+                        sign_func = synthSign(rewriter, circ, fwd_xor_func, loc);
                     }
                     rewriter.setInsertionPoint(embed_sign);
                     rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_sign, sign_func);
                 } else if (qwerty::EmbedInPlaceOp embed_inplace = llvm::dyn_cast<qwerty::EmbedInPlaceOp>(user)) {
                     if (!inplace_func) {
                         // We use the XOR embedding as the forward func
-                        if (!xor_func) {
-                            xor_func = synthXor(rewriter, circ, loc);
-                        }
-                        inplace_func = synthInPlace(rewriter, circ, xor_func, loc);
+                        inplace_func = synthInPlace(rewriter, circ, fwd_xor_func, rev_xor_func, loc);
                     }
                     rewriter.setInsertionPoint(embed_inplace);
                     rewriter.replaceOpWithNewOp<qwerty::FuncConstOp>(embed_inplace, inplace_func);
