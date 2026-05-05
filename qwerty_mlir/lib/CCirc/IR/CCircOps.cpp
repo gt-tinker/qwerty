@@ -443,7 +443,24 @@ struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
         if (!pack) {
             return mlir::failure();
         }
-        rewriter.replaceOp(unpack, pack.getWires());
+
+        // Can't directly replace the result of this unpack with the pack
+        // operands because you could have a case like unpack(pack(a, b)) where
+        // a is a two-wire bundle.
+        llvm::SmallVector<mlir::Value> replace_with;
+        mlir::Location loc = unpack.getLoc();
+        for (mlir::Value pack_wire : pack.getWires()) {
+            ccirc::WireType ty = llvm::cast<ccirc::WireType>(pack_wire.getType());
+            if (ty.getDim() == 1) {
+                replace_with.push_back(pack_wire);
+            } else {
+                mlir::ValueRange unpacked = rewriter.create<ccirc::WireUnpackOp>(
+                    loc, pack_wire).getWires();
+                replace_with.append(unpacked.begin(), unpacked.end());
+            }
+        }
+
+        rewriter.replaceOp(unpack, replace_with);
         return mlir::success();
     }
 };
