@@ -160,18 +160,18 @@ struct Synthesizer {
         assert(val_dim == 1
                && "Can only synthesize a 1-bit wire to a single qubit");
 
+        // Strip off initial NOT op
+        if (ccirc::NotOp not_op = wire.getDefiningOp<ccirc::NotOp>()) {
+            parity.complemented = true;
+            wire = not_op.getOperand();
+        }
+
         // Already synthesized (or it's an input)
         if (auto wire_iter = wire_qubits.find(wire);
                 wire_iter != wire_qubits.end()) {
             parity.qubits.push_back(wire_iter->getSecond());
         // Not yet synthesized
         } else {
-            // Strip off initial NOT op
-            if (ccirc::NotOp not_op = wire.getDefiningOp<ccirc::NotOp>()) {
-                parity.complemented = true;
-                wire = not_op.getOperand();
-            }
-
             if (ccirc::AndOp and_op = wire.getDefiningOp<ccirc::AndOp>()) {
                 parity.qubits.push_back(synthAndIfNeeded(and_op));
             } else if (ccirc::ParityOp parity_op =
@@ -180,6 +180,8 @@ struct Synthesizer {
                     parity.join(parityQubitsForWire(operand));
                 }
             } else {
+                llvm::errs() << "Offending value: ";
+                wire.dump();
                 assert(0 && "Purported XAG not in canon XAG form");
             }
         }
@@ -486,6 +488,8 @@ struct Synthesizer {
                 // Nothing to do
             }
         } else {
+            llvm::errs() << "Offending value: ";
+            wire.dump();
             assert(0 && "Purported XAG not in canon XAG form");
         }
     }

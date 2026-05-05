@@ -433,6 +433,33 @@ struct MergeParityOps : public mlir::OpRewritePattern<ccirc::ParityOp> {
     }
 };
 
+struct SimplifyPackPack : public mlir::OpRewritePattern<ccirc::WirePackOp> {
+    using OpRewritePattern<ccirc::WirePackOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::WirePackOp pack,
+                                        mlir::PatternRewriter &rewriter) const override {
+        llvm::SmallVector<mlir::Value> new_operands;
+        bool ir_would_change = false;
+
+        for (mlir::Value wire : pack.getWires()) {
+            if (ccirc::WirePackOp pack = wire.getDefiningOp<ccirc::WirePackOp>()) {
+                ir_would_change = true;
+                mlir::ValueRange pack_wires = pack.getWires();
+                new_operands.append(pack_wires.begin(), pack_wires.end());
+            } else {
+                new_operands.push_back(wire);
+            }
+        }
+
+        if (!ir_would_change) {
+            return mlir::failure();
+        }
+
+        rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(pack, new_operands);
+        return mlir::success();
+    }
+};
+
 struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
     using OpRewritePattern<ccirc::WireUnpackOp>::OpRewritePattern;
 
@@ -955,7 +982,7 @@ mlir::LogicalResult WireUnpackOp::inferReturnTypes(
 
 void WireUnpackOp::getCanonicalizationPatterns(
         mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
-    results.add<SimplifyPackUnpack, SimplifyTrivialUnpack>(context);
+    results.add<SimplifyPackPack, SimplifyPackUnpack, SimplifyTrivialUnpack>(context);
 }
 
 mlir::LogicalResult FuncPtrOp::verifySymbolUses(

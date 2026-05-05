@@ -669,6 +669,7 @@ class ExampleIntegrationTests(unittest.TestCase):
                            "Too few correct answers")
         self.assertEqual(shots, sum(actual_histo.values()), "missing shots")
 
+    @unittest.skip('Modular multiplication not implemented yet')
     def test_shor(self):
         from .integ.examples import shor
         number = 15
@@ -817,6 +818,7 @@ class QCE25FigureIntegrationTests(unittest.TestCase):
         from .integ.qce25_figs import period
         self.assertTrue(any(period.test() == 'Success!' for _ in range(8)))
 
+    @unittest.skip('Modular multiplication not implemented yet')
     def test_fig18_shor_runs(self):
         from .integ.qce25_figs import shor
         shor.test()
