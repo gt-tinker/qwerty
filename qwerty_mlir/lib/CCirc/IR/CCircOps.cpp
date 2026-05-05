@@ -448,6 +448,20 @@ struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
     }
 };
 
+struct SimplifyTrivialUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
+    using OpRewritePattern<ccirc::WireUnpackOp>::OpRewritePattern;
+
+    mlir::LogicalResult matchAndRewrite(ccirc::WireUnpackOp unpack,
+                                        mlir::PatternRewriter &rewriter) const override {
+        if (unpack.getWire().getType().getDim() != 1) {
+            return mlir::failure();
+        }
+
+        rewriter.replaceOp(unpack, unpack.getWire());
+        return mlir::success();
+    }
+};
+
 struct SimplifyTrivialPack : public mlir::OpRewritePattern<ccirc::WirePackOp> {
     using OpRewritePattern<ccirc::WirePackOp>::OpRewritePattern;
 
@@ -924,7 +938,7 @@ mlir::LogicalResult WireUnpackOp::inferReturnTypes(
 
 void WireUnpackOp::getCanonicalizationPatterns(
         mlir::RewritePatternSet &results, mlir::MLIRContext *context) {
-    results.add<SimplifyPackUnpack>(context);
+    results.add<SimplifyPackUnpack, SimplifyTrivialUnpack>(context);
 }
 
 mlir::LogicalResult FuncPtrOp::verifySymbolUses(
