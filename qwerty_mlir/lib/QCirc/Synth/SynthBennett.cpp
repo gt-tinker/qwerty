@@ -412,13 +412,20 @@ struct Synthesizer {
                           shared_indices.rbegin(), shared_indices.rend()-1);
         }
 
-        // Just an aesthetic tweak: uncompute in the opposite order that we
-        // compute. This makes the circuit symmetrical.
-        for (WireQubit &qubit : right_parity.qubits) {
-            freeAncillaForAnd(qubit);
-        }
-        for (WireQubit &qubit : left_parity.qubits) {
-            freeAncillaForAnd(qubit);
+        // Only free qubits when we are actually done with them. If this is a
+        // forward computation that will be undone later, we should not free
+        // the operands yet, for instance. But if we are undoing an earlier
+        // temporary computation, or if we are XORing directly into an output
+        // qubits, we are truly done, and we should free the operand qubits.
+        if ((flags & (FLAG_OUT | FLAG_REV))) {
+            // Just an aesthetic tweak: uncompute in the opposite order that we
+            // compute. This makes the circuit symmetrical.
+            for (WireQubit &qubit : right_parity.qubits) {
+                freeAncillaForAnd(qubit);
+            }
+            for (WireQubit &qubit : left_parity.qubits) {
+                freeAncillaForAnd(qubit);
+            }
         }
     }
 
@@ -454,7 +461,7 @@ struct Synthesizer {
                 xorWireInto(operand, tgt_qubit_start_idx, flags);
             }
         // An AND is complicated enough where it deserves its own function,
-        // xorAndWireInto()`, but there is still one tricky case to handle
+        // `xorAndWireInto()`, but there is still one tricky case to handle
         // here: what if this output wire is also used as an input to other
         // logic (or perhaps another output)? If so, we should allocate an
         // ancilla to store the AND result so that we can copy it to this

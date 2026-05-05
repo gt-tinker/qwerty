@@ -173,3 +173,70 @@ qwerty.func @embed_inplace[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle
   %1 = qwerty.call_indirect %0(%arg0) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
   qwerty.return %1 : !qwerty<qbundle[4]>
 }
+
+// -----
+
+// CHECK-LABEL: ccirc.circuit private @all_ones_0(%arg0: !ccirc<wire[4]>) irrev {
+//  CHECK-NEXT:   %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+//  CHECK-NEXT:   %1 = ccirc.and(%0#0, %0#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %2 = ccirc.and(%1, %0#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   %3 = ccirc.and(%2, %0#3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+//  CHECK-NEXT:   ccirc.return %3 : !ccirc<wire[1]>
+//  CHECK-NEXT: }
+//  CHECK-NEXT: qwerty.func private @all_ones_0__xor[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
+//  CHECK-NEXT:   %0:5 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %1 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %2 = qcirc.qalloc : () -> !qcirc.qubit
+//  CHECK-NEXT:   %3 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant 3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults:2, %result = qcirc.gate1q1p[%0#0, %0#1]:Rx(%3) %2 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_0:2, %result_1 = qcirc.gate1q1p[%result, %0#2]:Rx(%3) %1 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_2:2, %result_3 = qcirc.gate1q[%result_1, %0#3]:X %0#4 : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %4 = qcirc.calc() : () -> f64 {
+//  CHECK-NEXT:     %cst = arith.constant -3.1415926535897931 : f64
+//  CHECK-NEXT:     qcirc.calc_yield(%cst) : f64
+//  CHECK-NEXT:   }
+//  CHECK-NEXT:   %controlResults_4:2, %result_5 = qcirc.gate1q1p[%controlResults_0#0, %controlResults_0#1]:Rx(%4) %controlResults_2#0 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %controlResults_6:2, %result_7 = qcirc.gate1q1p[%controlResults#0, %controlResults#1]:Rx(%4) %controlResults_4#0 : (f64, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   qcirc.qfreez %result_7 : (!qcirc.qubit) -> ()
+//  CHECK-NEXT:   qcirc.qfreez %result_5 : (!qcirc.qubit) -> ()
+//  CHECK-NEXT:   %5 = qwerty.qbpack(%controlResults_6#0, %controlResults_6#1, %controlResults_4#1, %controlResults_2#1, %result_3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   qwerty.return %5 : !qwerty<qbundle[5]>
+//  CHECK-NEXT: }
+//  CHECK-NEXT: qwerty.func private @all_ones_0__sign[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]> {
+//  CHECK-NEXT:   %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   %1 = qwerty.qbinit %0 as {list:{"|m>"}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   %2 = qwerty.qbunpack %1 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
+//  CHECK-NEXT:   %3:4 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[4]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %4 = qwerty.qbpack(%3#0, %3#1, %3#2, %3#3, %2) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   %5 = qwerty.call @all_ones_0__xor(%4) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   %6:5 = qwerty.qbunpack %5 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
+//  CHECK-NEXT:   %7 = qwerty.qbpack(%6#0, %6#1, %6#2, %6#3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[4]>
+//  CHECK-NEXT:   %8 = qwerty.qbpack(%6#4) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   %9 = qwerty.qbdeinit %8 as {list:{"|m>"}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   qwerty.qbdiscardz %9 : (!qwerty<qbundle[1]>) -> ()
+//  CHECK-NEXT:   qwerty.return %7 : !qwerty<qbundle[4]>
+//  CHECK-NEXT: }
+//  CHECK-NEXT: qwerty.func @grover_iter_1[]() irrev-> !qwerty<bitbundle[4]> {
+//  CHECK-NEXT:   %0 = qwerty.qbprep Z<PLUS>[4] : () -> !qwerty<qbundle[4]>
+//  CHECK-NEXT:   %1 = qwerty.func_const @all_ones_0__sign[] : () -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+//  CHECK-NEXT:   %2 = qwerty.call_indirect %1(%0) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
+//  CHECK-NEXT:   %3 = qwerty.qbmeas %2 by {std: Z[4]} : !qwerty<qbundle[4]> -> !qwerty<bitbundle[4]>
+//  CHECK-NEXT:   qwerty.return %3 : !qwerty<bitbundle[4]>
+//  CHECK-NEXT: }
+ccirc.circuit private @all_ones_0(%arg0: !ccirc<wire[4]>) irrev {
+  %0:4 = ccirc.wireunpack %arg0 : (!ccirc<wire[4]>) -> (!ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>, !ccirc<wire[1]>)
+  %1 = ccirc.and(%0#0, %0#1) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %2 = ccirc.and(%1, %0#2) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  %3 = ccirc.and(%2, %0#3) : (!ccirc<wire[1]>, !ccirc<wire[1]>) -> !ccirc<wire[1]>
+  ccirc.return %3 : !ccirc<wire[1]>
+}
+qwerty.func @grover_iter_1[]() irrev-> !qwerty<bitbundle[4]> {
+  %0 = qwerty.qbprep Z<PLUS>[4] : () -> !qwerty<qbundle[4]>
+  %1 = qwerty.embed_sign @all_ones_0 : !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %2 = qwerty.call_indirect %1(%0) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
+  %3 = qwerty.qbmeas %2 by {std: Z[4]} : !qwerty<qbundle[4]> -> !qwerty<bitbundle[4]>
+  qwerty.return %3 : !qwerty<bitbundle[4]>
+}
