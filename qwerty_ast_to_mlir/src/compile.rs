@@ -4,7 +4,7 @@ use crate::{
 };
 use melior::{
     Error,
-    dialect::{ccirc, qcirc, qwerty},
+    dialect::{qcirc, qwerty},
     ir::{Module, OperationLike, operation::OperationPrintingFlags, symbol_table::SymbolTable},
     pass::{PassIrPrintingOptions, PassManager, transform},
     target::llvm_ir::{LLVMModule, translate_module},
@@ -62,11 +62,6 @@ fn run_passes(module: &mut Module, cfg: &CompileConfig) -> Result<(), Error> {
     // Running the canonicalizer may introduce lambdas, so run it once first
     // before the lambda lifter. Also will optimize ccirc
     pm.add_pass(transform::create_canonicalizer());
-    {
-        let circ_pm = pm.nested_under("ccirc.circuit");
-        circ_pm.add_pass(ccirc::create_c_circ_to_xag_conversion());
-        circ_pm.add_pass(transform::create_canonicalizer());
-    }
     pm.add_pass(qwerty::create_synth_embeds());
     pm.add_pass(qwerty::create_lift_lambdas());
     // Will turn qwerty.call_indirects into qwerty.calls
