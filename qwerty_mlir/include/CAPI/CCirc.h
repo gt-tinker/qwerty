@@ -22,4 +22,6 @@ MLIR_CAPI_EXPORTED bool mlirTypeIsACCircWire(MlirType type);
 }
 #endif
 
+#include "CCirc/Transforms/CCircPasses.capi.h.inc"
+
 #endif // QWERTY_MLIR_C_DIALECT_CCIRC_H
