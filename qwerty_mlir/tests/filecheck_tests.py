@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+Runs the FileCheck tests (``*.mlir`` files in this directory or
+subdirectories). This is essentially a custom version of LLVM lit, the LLVM
+unit testing framework, based on Python's ``unittest` module. We use this
+because using the real lit out of tree appears to be painful.
+"""
+
 import os
 import re
 import glob
