@@ -383,6 +383,12 @@ class MetaNoInferIntegrationTests(unittest.TestCase):
         output = arith_select.test()
         self.assertIn(output, [bit[1](0b0), bit[1](0b1)], "Final output was not in the select options!")
 
+    def test_undo(self):
+        from .integ.meta_noinfer import undo
+        shots = 1024
+        expected_histo = {bit[1](0b0): shots}
+        self.assertEqual(expected_histo, undo.test(shots))
+
 @unittest.skipIf(should_skip, skip_msg)
 class MetaInferIntegrationTests(unittest.TestCase):
     """

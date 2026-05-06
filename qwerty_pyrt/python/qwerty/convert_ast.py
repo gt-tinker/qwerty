@@ -1467,8 +1467,8 @@ class QpuVisitor(BaseVisitor):
     def visit_UnaryOp(self, unaryOp: ast.UnaryOp):
         if isinstance(unaryOp.op, ast.USub):
             return self.visit_UnaryOp_USub(unaryOp)
-        #elif isinstance(unaryOp.op, ast.Invert):
-        #    return self.visit_UnaryOp_Invert(unaryOp)
+        elif isinstance(unaryOp.op, ast.Invert):
+            return self.visit_UnaryOp_Invert(unaryOp)
         else:
             op_name = type(unaryOp.op).__name__
             raise QwertySyntaxError('Unknown unary operation {}'
@@ -1485,16 +1485,16 @@ class QpuVisitor(BaseVisitor):
         angle_deg = FloatExpr.new_const(180.0, dbg)
         return QpuExpr.new_tilt(val, angle_deg, dbg)
 
-    #def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
-    #    """
-    #    Convert a Python unary bitwise complement AST node into a Qwerty
-    #    ``Adjoint`` AST node. For example, ``~f`` becomes an ``Adjoint`` node
-    #    with 1 child (``f``).
-    #    """
-    #    unary_operand = unaryOp.operand
-    #    dbg = self.get_debug_loc(unaryOp)
-    #    operand = self.visit(unary_operand)
-    #    return Adjoint(dbg, operand)
+    def visit_UnaryOp_Invert(self, unaryOp: ast.UnaryOp):
+        """
+        Convert a Python unary bitwise complement AST node into a Qwerty
+        ``Adjoint`` AST node. For example, ``~f`` becomes an ``Adjoint`` node
+        with 1 child (the ``Variable`` node ``f``).
+        """
+        dbg = self.get_debug_loc(unaryOp)
+        operand = unaryOp.operand
+        func = self.visit(operand)
+        return QpuExpr.new_adjoint(func, dbg)
 
     def visit_Set(self, set_: ast.Set):
         """

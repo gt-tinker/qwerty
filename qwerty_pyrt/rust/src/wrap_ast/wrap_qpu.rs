@@ -583,6 +583,20 @@ impl QpuExpr {
     }
 
     #[classmethod]
+    fn new_adjoint(
+        _cls: &Bound<'_, PyType>,
+        func: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::Adjoint {
+                func: Box::new(func.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_pipe(
         _cls: &Bound<'_, PyType>,
         lhs: QpuExpr,
