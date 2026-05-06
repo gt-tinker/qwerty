@@ -71,6 +71,63 @@ void synthModMul(
         llvm::SmallVectorImpl<mlir::Value> &wires_out) {
     // TODO: implement me
     assert(0 && "Mod mul not implemented");
+
+    // Suggested pseudocode:
+    // ---------------------
+    // size_t bitsize = wires_y.size();
+    // assert(bitsize > 0);
+    // ssize_t x_idx = bitsize-1
+    // if x[x_idx] == 1 {
+    //   acc = y
+    // } else {
+    //   acc = 0
+    // }
+    //
+    // while (--x_idx >= 0) {
+    //   doubled = doubleMod(acc, modN)
+    //   if x[x_idx] == 1 {
+    //     acc = addMod(doubled, y, modN)
+    //   }
+    // }
+    // Reference:
+    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L486
+
+    // TODO: Verify the carry_out condition on the muxes at the end of both
+    //       helper pseudocode snippets below. Do I have them backwards?
+    // Helpers:
+    // --------
+    // doubleMod(wires_a, modN) {
+    //     bitsize = wires_a.size()
+    //     assert(modN.getBitWidth() == bitsize);
+    //     shifted = [wires_a, constant(0)] (aka wires_a << 1 in C syntax)
+    //     // Below, [1]+ is sign extension
+    //     not_n_wires = [1] + [NOT(constant(modN[bitsize-1-i]))
+    //                          for i in range(bitsize)]
+    //     // 2*a - N
+    //     sum, carry_out = synthesize adder(a=shifted, b=not_n_wires,
+    //                                       carry_in=constant(1))
+    //     // Remove MSB in order to return bitsize bits
+    //     return carry_out? shifted[1:] : sum[1:]
+    // }
+    // Reference:
+    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L385
+    //
+    // addMod(wires_a, wires_b, modN) {
+    //     bitsize = wires_a.size()
+    //     assert(modN.getBitWidth() == bitsize && wires_b.size() == bitsize);
+    //     sum, carry_out = synthesize adder(a=wires_a, b=wires_b,
+    //                                       carry_in=constant(0))
+    //     bigsum = [carry_out] + sum // bigsum is bitsize+1 bits
+    //     // Below, [1]+ is sign extension
+    //     not_n_wires = [1] + [NOT(constant(modN[bitsize-1-i]))
+    //                          for i in range(bitsize)]
+    //     diff, carry_out = synthesize adder(a=bigsum, b=not_n_wires,
+    //                                        carry_in=constant(1)) // (a+b)-N
+    //     // Remove MSB of diff in order to return bitsize bits
+    //     return carry_out? sum : diff[1:]
+    // }
+    // Reference:
+    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L125
 }
 
 } // namespace ccirc
