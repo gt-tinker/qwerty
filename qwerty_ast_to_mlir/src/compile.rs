@@ -38,6 +38,8 @@ pub enum Target {
 pub struct CompileConfig {
     pub target: Target,
     pub dump: bool,
+    /// Print debug information for inference & expansion
+    pub debug_lowering: bool,
 }
 
 fn run_passes(module: &mut Module, cfg: &CompileConfig) -> Result<(), Error> {
@@ -171,7 +173,7 @@ pub fn compile_meta_ast(
     func_name: &str,
     cfg: &CompileConfig,
 ) -> Result<Module<'static>, CompileError> {
-    let plain_ast = prog.lower()?;
+    let plain_ast = prog.lower(cfg.debug_lowering)?;
     plain_ast.typecheck()?;
     let canon_ast = plain_ast.canonicalize();
 
@@ -227,6 +229,7 @@ pub fn meta_ast_to_qasm(
     let cfg = CompileConfig {
         target: Target::OpenQasm,
         dump: debug,
+        debug_lowering: debug,
     };
     let module = compile_meta_ast(prog.clone(), func_name, &cfg)?;
     let sym_table = SymbolTable::new(module.as_operation()).ok_or_else(|| {

@@ -31,6 +31,7 @@ fn run_qiree(
     let cfg = CompileConfig {
         target: Target::Qir(QirProfile::Base),
         dump: debug,
+        debug_lowering: debug,
     };
     let mlir_module = compile_meta_ast(prog.clone(), func_name, &cfg)?;
     let llvm_module = translate_to_llvm_ir(mlir_module, debug)?;
@@ -64,6 +65,7 @@ pub fn run_meta_ast(
             let cfg = CompileConfig {
                 target: Target::Qir(QirProfile::Unrestricted),
                 dump: debug,
+                debug_lowering: debug,
             };
             let module = compile_meta_ast(prog.clone(), func_name, &cfg)?;
             Ok(backend::qir_runner::run_mlir_module(

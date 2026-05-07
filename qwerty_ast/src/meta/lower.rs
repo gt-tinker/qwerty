@@ -468,12 +468,13 @@ impl MetaProgram {
     fn round_of_lowering(
         self,
         init_dv_assign: DimVarAssignments,
+        debug: bool,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
         let mut dv_assign = init_dv_assign;
         let (mut program, _expand_progress) = self.expand(&dv_assign)?;
 
         loop {
-            let (new_program, new_dv_assign, infer_progress) = program.infer(dv_assign)?;
+            let (new_program, new_dv_assign, infer_progress) = program.infer(dv_assign, debug)?;
             let (new_program, expand_progress) = new_program.expand(&new_dv_assign)?;
             let progress = infer_progress.join(expand_progress);
 
@@ -487,12 +488,12 @@ impl MetaProgram {
         }
     }
 
-    pub fn lower(self) -> Result<ast::Program, LowerError> {
+    pub fn lower(self, debug: bool) -> Result<ast::Program, LowerError> {
         let dbg = self.dbg.clone();
         let init_dv_assign = DimVarAssignments::empty();
-        let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign)?;
+        let (new_prog, dv_assign, _progress) = self.round_of_lowering(init_dv_assign, debug)?;
         let (new_prog, dv_assign) = new_prog.do_instantiations(dv_assign)?;
-        let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign)?;
+        let (new_prog, dv_assign, progress) = new_prog.round_of_lowering(dv_assign, debug)?;
 
         if let Some((func, missing_dvs)) = new_prog.missing_dim_vars(&dv_assign).next() {
             Err(LowerError {
@@ -517,12 +518,13 @@ impl qpu::MetaStmt {
         self,
         init_env: &mut MacroEnv,
         plain_ty_env: &typecheck::TypeEnv,
+        debug: bool,
     ) -> Result<ast::Stmt<ast::qpu::Expr>, LowerError> {
         let mut dv_assign = init_env.to_dv_assign();
         let (mut stmt, _expand_progress) = self.expand(&mut init_env.clone())?;
 
         loop {
-            let new_dv_assign = stmt.infer(dv_assign, plain_ty_env)?;
+            let new_dv_assign = stmt.infer(dv_assign, plain_ty_env, debug)?;
             let mut env = init_env.clone();
             env.update_from_dv_assign(&new_dv_assign)?;
             let old_stmt = stmt;

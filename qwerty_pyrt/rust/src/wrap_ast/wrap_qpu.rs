@@ -1069,7 +1069,7 @@ impl QpuStmt {
     ) -> PyResult<PlainQpuStmt> {
         self.stmt
             .clone()
-            .lower(&mut env.env, &plain_ty_env.env)
+            .lower(&mut env.env, &plain_ty_env.env, /*debug=*/ false)
             .map(|ast_stmt| PlainQpuStmt { stmt: ast_stmt })
             .map_err(|err| get_err(py, ProgErrKind::Expand, err.kind.to_string(), err.dbg))
     }

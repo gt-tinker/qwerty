@@ -1996,6 +1996,7 @@ fn unify_ty(
 fn unify_dv(
     old_dv_assign: DimVarAssignments,
     dv_constraints: DimVarConstraints,
+    debug: bool,
 ) -> Result<DimVarAssignments, LowerError> {
     let mut constraints: Vec<_> = dv_constraints
         .into_iter()
@@ -2008,6 +2009,13 @@ fn unify_dv(
             }
         })
         .collect();
+
+    if debug {
+        eprintln!("Dimension variable constraints:");
+        for DimVarConstraint(left, right) in &constraints {
+            eprintln!("{} = {}", left, right);
+        }
+    }
 
     let mut dv_assign = old_dv_assign;
 
@@ -2199,19 +2207,21 @@ impl MetaProgram {
     fn find_assignments(
         &self,
         old_dv_assign: DimVarAssignments,
+        debug: bool,
     ) -> Result<(TypeAssignments, DimVarAssignments), LowerError> {
         let (mut ty_constraints, mut dv_constraints, mut ty_assign) =
             self.build_type_constraints()?;
         unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
-        let new_dv_assign = unify_dv(old_dv_assign, dv_constraints)?;
+        let new_dv_assign = unify_dv(old_dv_assign, dv_constraints, debug)?;
         Ok((ty_assign, new_dv_assign))
     }
 
     pub fn infer(
         &self,
         old_dv_assign: DimVarAssignments,
+        debug: bool,
     ) -> Result<(MetaProgram, DimVarAssignments, Progress), LowerError> {
-        let (ty_assign, new_dv_assign) = self.find_assignments(old_dv_assign)?;
+        let (ty_assign, new_dv_assign) = self.find_assignments(old_dv_assign, debug)?;
 
         let new_funcs = ty_assign
             .into_iter_stripped(&new_dv_assign)
@@ -2233,6 +2243,7 @@ impl qpu::MetaStmt {
         &self,
         old_dv_assign: DimVarAssignments,
         plain_ty_env: &typecheck::TypeEnv,
+        debug: bool,
     ) -> Result<DimVarAssignments, LowerError> {
         let mut tv_allocator = TypeVarAllocator::new();
         let mut env = TypeEnv::from_plain_ty_env(plain_ty_env);
@@ -2247,7 +2258,7 @@ impl qpu::MetaStmt {
             &mut dv_constraints,
         )?;
         unify_ty(&mut ty_constraints, &mut dv_constraints, &mut ty_assign)?;
-        let new_dv_assign = unify_dv(old_dv_assign, dv_constraints)?;
+        let new_dv_assign = unify_dv(old_dv_assign, dv_constraints, debug)?;
         Ok(new_dv_assign)
     }
 }
