@@ -14,13 +14,13 @@ std::pair<mlir::Value, mlir::Value> fullAdder1(
     // sum = a ^ b ^ carry_in
     // carry out = (a & b) | (a & carry_in) | (b & carry_in)
 
-    mlir::Value sum = builder.create<ccirc::ParityOp>(loc, std::initializer_list<mlir::Value>{
+    mlir::Value sum = ccirc::ParityOp::create(builder, loc, std::initializer_list<mlir::Value>{
         a, b, carry_in}).getResult();
-    mlir::Value carry_out1 = builder.create<ccirc::OrOp>(loc,
-        builder.create<ccirc::AndOp>(loc, a, b).getResult(),
-        builder.create<ccirc::AndOp>(loc, a, carry_in).getResult());
-    mlir::Value carry_out2 = builder.create<ccirc::OrOp>(loc,
-        builder.create<ccirc::AndOp>(loc, b, carry_in).getResult(), carry_out1);
+    mlir::Value carry_out1 = ccirc::OrOp::create(builder, loc,
+        ccirc::AndOp::create(builder, loc, a, b).getResult(),
+        ccirc::AndOp::create(builder, loc, a, carry_in).getResult());
+    mlir::Value carry_out2 = ccirc::OrOp::create(builder, loc,
+        ccirc::AndOp::create(builder, loc, b, carry_in).getResult(), carry_out1);
     return {sum, carry_out2};
 }
 
@@ -57,7 +57,7 @@ void synthAdd(
         llvm::SmallVectorImpl<mlir::Value> &wires_a,
         llvm::SmallVectorImpl<mlir::Value> &wires_b,
         llvm::SmallVectorImpl<mlir::Value> &wires_sum) {
-    mlir::Value zero = builder.create<ccirc::ConstantOp>(
+    mlir::Value zero = ccirc::ConstantOp::create(builder,
         loc, llvm::APInt(/*numBits=*/1, /*val=*/0)).getResult();
     fullAdderN(builder, loc, wires_a, wires_b, zero, wires_sum);
 }

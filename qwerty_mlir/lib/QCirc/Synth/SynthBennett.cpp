@@ -92,7 +92,7 @@ struct Synthesizer {
                 // Undo computation on this ancilla now that we're done with it
                 xorWireInto(qubit.wire, qubit.qubit_idx,
                             static_cast<SynthFlags>(FLAG_TMP | FLAG_REV));
-                builder.create<qcirc::QfreeZeroOp>(
+                qcirc::QfreeZeroOp::create(builder,
                     loc, qubits[qubit.qubit_idx]);
                 // We don't delete this from the array because we may be
                 // freeing qubits out of order. But we can at least set it to a
@@ -138,7 +138,7 @@ struct Synthesizer {
         } else {
             size_t ancilla_idx = qubits.size();
             mlir::Value ancilla =
-                builder.create<qcirc::QallocOp>(loc).getResult();
+                qcirc::QallocOp::create(builder, loc).getResult();
             qubits.push_back(ancilla);
 
             xorWireInto(wire, ancilla_idx,
@@ -190,7 +190,7 @@ struct Synthesizer {
     }
 
     void runXGate(size_t qubit_idx) {
-        qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+        qcirc::Gate1QOp x = qcirc::Gate1QOp::create(builder,
             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]);
         assert(x.getControlResults().empty()
                && "Expected no control results for X gate");
@@ -198,7 +198,7 @@ struct Synthesizer {
     }
 
     void runCNOTGate(size_t ctrl_idx, size_t tgt_idx) {
-        qcirc::Gate1QOp cnot = builder.create<qcirc::Gate1QOp>(
+        qcirc::Gate1QOp cnot = qcirc::Gate1QOp::create(builder,
             loc, qcirc::Gate1Q::X,
             std::initializer_list<mlir::Value>{qubits[ctrl_idx]},
             qubits[tgt_idx]);
@@ -210,7 +210,7 @@ struct Synthesizer {
 
     void runToffoliGate(size_t ctrl1_idx, size_t ctrl2_idx, size_t tgt_idx) {
         qcirc::Gate1QOp toffoli =
-            builder.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp::create(builder,
                 loc, qcirc::Gate1Q::X,
                 std::initializer_list<mlir::Value>{
                     qubits[ctrl1_idx], qubits[ctrl2_idx]},
@@ -243,7 +243,7 @@ struct Synthesizer {
     void runSelingerToffoliGate(size_t ctrl1_idx, size_t ctrl2_idx,
                                 size_t tgt_idx, bool rev) {
         qcirc::Gate1Q1POp ccrx =
-            builder.create<qcirc::Gate1Q1POp>(
+            qcirc::Gate1Q1POp::create(builder,
                 loc, qcirc::Gate1Q1P::Rx,
                 rev? getNegPi() : getPi(),
                 std::initializer_list<mlir::Value>{
