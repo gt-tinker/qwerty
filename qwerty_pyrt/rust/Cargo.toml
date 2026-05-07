@@ -14,7 +14,7 @@ pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py310"] }
 qwerty_ast = { version = "0.1.0", path = "../../qwerty_ast" }
 qwerty_ast_to_mlir = { version = "0.1.0", path = "../../qwerty_ast_to_mlir" }
 # See build.rs for why this dependency is here
-qwerty-mlir-sys = { version = "210.0.0", path = "../../qwerty_mlir_sys", optional = true }
+qwerty-mlir-sys = { version = "220.0.2", path = "../../qwerty_mlir_sys", optional = true }
 
 [features]
 # Enable QIR-EE support

@@ -9,7 +9,7 @@ use std::{
     process::{Command, exit},
 };
 
-const LLVM_MAJOR_VERSION: usize = 21;
+const LLVM_MAJOR_VERSION: usize = 22;
 // Found in the qiree repo in src/qiree/CMakeLists.txt
 const LLVM_COMPONENTS: &str = "Core irreader MCJIT native";
 

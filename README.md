@@ -57,14 +57,14 @@ independently, see [`docs/build.md`](docs/build.md).)
 
 You need to install [Rust][1] _and_ the following:
 
-1. LLVM 21.1.1 (with MLIR). First, download the LLVM build archive that is
+1. LLVM 22.1.5 (with MLIR). First, download the LLVM build archive that is
    appropriate for your OS and architecture [from our repository][2]. (If you
    want to build LLVM yourself, see [this guide](docs/build-llvm.md).) Then you
    need to set both of the following environment variables (assuming
    `$HOME/bin` is where you extracted the LLVM archive, for example):
    ```
-   $ export PATH=$PATH:$HOME/bin/llvm21/bin/
-   $ export MLIR_DIR=$HOME/bin/llvm21/lib/cmake/mlir/
+   $ export PATH=$PATH:$HOME/bin/llvm22/bin/
+   $ export MLIR_DIR=$HOME/bin/llvm22/lib/cmake/mlir/
    ```
    You should set these persistently, e.g., in your `~/.bashrc` or `~/.zshrc`.
 
@@ -148,7 +148,7 @@ branch of this repository. You can find that evaluation code in [the Zenodo
 artifact][3] or on the `cgo25-artifact` branch.
 
 [1]: https://www.rust-lang.org/tools/install
-[2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v21.1.1
+[2]: https://github.com/gt-tinker/qwerty-llvm-builds/releases/tag/v22.1.5
 [3]: https://doi.org/10.5281/zenodo.14080494
 [4]: https://arxiv.org/abs/2404.14299
 [5]: https://learn.microsoft.com/en-us/windows/wsl/about

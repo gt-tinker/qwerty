@@ -1,22 +1,27 @@
 Upgrading LLVM
 ==============
 
-Upgrading LLVM often provides bugfixes and improved APIs.
+This document describes how to upgrade the version of LLVM used by the Qwerty
+compiler/runtime. Upgrading LLVM often provides bugfixes and improved APIs, but
+more importantly, it helps us to keep treading water amidst the deluge of
+changes to upstream LLVM.
 
 Step 1: Building LLVM
 ---------------------
 
 The first step of upgrading LLVM is building it. To do this, create a new
-release named "LLVM XX.Y.Z" and with the tag `vXX.Y.Z` [in the `gt-tinker/qwerty-llvm-builds` repository][4]. GitHub Actions should build the tarballs automatically; you can track the [progress under the Actions tab][5].
+release named "LLVM XX.Y.Z" and with the tag `vXX.Y.Z` [in the
+`gt-tinker/qwerty-llvm-builds` repository][4]. GitHub Actions should build the
+tarballs automatically; you can track the [progress under the Actions tab][5].
 
 Step 2: Replacing Occurrences of the Old Version
 ------------------------------------------------
 
-The next step is replacing every occurrence of `llvm21`, `21_1_1`, and `21.1.1`
+The next step is replacing every occurrence of `llvm22`, `22_1_5`, and `22.1.5`
 throughout this repository. This command is useful for this task (but make sure
 to check the results are right with `git diff`):
 
-    $ git sed 's/\<llvm21\>/llvmXX/g ; s/v21_1_1/vXX_Y_Z/g ; s/\<21_1_1\>/XX_Y_Z/g ; s/21\.1\.1/XX.Y.Z/g'
+    $ git sed 's/\<llvm22\>/llvmXX/g ; s/v22_1_5/vXX_Y_Z/g ; s/\<22_1_5\>/XX_Y_Z/g ; s/21\.1\.1/XX.Y.Z/g'
 
 The `git sed` command used above is a custom alias. To use it, you need to
 define the alias yourself. Here’s how to set it up:
