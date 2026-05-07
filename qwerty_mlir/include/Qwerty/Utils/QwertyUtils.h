@@ -183,15 +183,15 @@ mlir::LogicalResult predicateBlockInPlaceFixTerm(
     rewriter.setInsertionPoint(term);
 
     mlir::ValueRange pred_unpacked =
-        rewriter.create<QBundleUnpackOp>(
+        QBundleUnpackOp::create(rewriter,
             term->getLoc(), pred_qbundle).getQubits();
     mlir::ValueRange ret_unpacked =
-        rewriter.create<QBundleUnpackOp>(
+        QBundleUnpackOp::create(rewriter,
             term->getLoc(), ret_qbundle).getQubits();
     llvm::SmallVector<mlir::Value> all_qubits(pred_unpacked);
     all_qubits.append(ret_unpacked.begin(), ret_unpacked.end());
     mlir::Value repacked =
-        rewriter.create<QBundlePackOp>(
+        QBundlePackOp::create(rewriter,
             term->getLoc(), all_qubits).getQbundle();
     rewriter.replaceOpWithNewOp<TerminatorType>(term, repacked);
     return mlir::success();

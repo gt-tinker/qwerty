@@ -35,7 +35,7 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
         qwerty::FunctionType func_type = pred.getResult().getType();
         mlir::FunctionType inner_func_type = func_type.getFunctionType();
         qwerty::LambdaOp lambda =
-            rewriter.create<qwerty::LambdaOp>(
+            qwerty::LambdaOp::create(rewriter,
                 loc, func_type, pred.getCallee());
         mlir::Region &lambda_region = lambda.getRegion();
 
@@ -62,7 +62,7 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
             mlir::Value og_func = block->getArgument(0);
             mlir::Value qbundle_in = block->getArgument(1);
             mlir::ValueRange qubits_in =
-                rewriter.create<qwerty::QBundleUnpackOp>(
+                qwerty::QBundleUnpackOp::create(rewriter,
                     loc, qbundle_in).getQubits();
 
             llvm::SmallVector<mlir::Value> pred_qubits(
@@ -81,15 +81,15 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
                     if (controls.empty()) {
                         // This code will run only once
                         mlir::Value args_packed =
-                            rewriter.create<qwerty::QBundlePackOp>(
+                            qwerty::QBundlePackOp::create(rewriter,
                                 loc, func_args).getQbundle();
                         mlir::ValueRange func_results =
-                            rewriter.create<qwerty::CallIndirectOp>(
+                            qwerty::CallIndirectOp::create(rewriter,
                                 loc, og_func, args_packed).getResults();
                         assert(func_results.size() == 1);
                         mlir::Value func_result = func_results[0];
                         mlir::ValueRange result_unpacked =
-                            rewriter.create<qwerty::QBundleUnpackOp>(
+                            qwerty::QBundleUnpackOp::create(rewriter,
                                 loc, func_result).getQubits();
                         func_args.clear();
                         func_args.append(result_unpacked.begin(),
@@ -101,7 +101,7 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
                                 qwerty::BasisAttr::getAllOnesBasis(
                                     getContext(), controls_dim);
                             pred_func =
-                                rewriter.create<qwerty::FuncPredOp>(
+                                qwerty::FuncPredOp::create(rewriter,
                                     loc, all_ones, og_func).getResult();
                         }
 
@@ -109,15 +109,15 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
                             controls.begin(), controls.end());
                         args.append(func_args);
                         mlir::Value args_packed =
-                            rewriter.create<qwerty::QBundlePackOp>(
+                            qwerty::QBundlePackOp::create(rewriter,
                                 loc, args).getQbundle();
                         mlir::ValueRange func_results =
-                            rewriter.create<qwerty::CallIndirectOp>(
+                            qwerty::CallIndirectOp::create(rewriter,
                                 loc, pred_func, args_packed).getResults();
                         assert(func_results.size() == 1);
                         mlir::Value func_result = func_results[0];
                         mlir::ValueRange result_unpacked =
-                            rewriter.create<qwerty::QBundleUnpackOp>(
+                            qwerty::QBundleUnpackOp::create(rewriter,
                                 loc, func_result).getQubits();
 
                         controls.clear();
@@ -134,9 +134,9 @@ class FuncPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::FuncPredOp>
             llvm::SmallVector<mlir::Value> final_qubits(pred_qubits);
             final_qubits.append(func_args);
             mlir::Value final_packed =
-                rewriter.create<qwerty::QBundlePackOp>(
+                qwerty::QBundlePackOp::create(rewriter,
                     loc, final_qubits).getQbundle();
-            rewriter.create<qwerty::ReturnOp>(loc, final_packed);
+            qwerty::ReturnOp::create(rewriter, loc, final_packed);
         }
 
         rewriter.replaceOp(pred, lambda.getResult());
@@ -172,7 +172,7 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
         assert(llvm::isa<qwerty::QBundleType>(qbundle_arg.getType()));
 
         mlir::ValueRange unpacked =
-            rewriter.create<qwerty::QBundleUnpackOp>(
+            qwerty::QBundleUnpackOp::create(rewriter,
                 loc, qbundle_arg).getQubits();
         llvm::SmallVector<mlir::Value> pred_qubits(
             unpacked.begin(), unpacked.begin() + pred_dim);
@@ -195,10 +195,10 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
                 if (!controls_dim) {
                     // This code will run only once
                     mlir::Value args_packed =
-                        rewriter.create<qwerty::QBundlePackOp>(
+                        qwerty::QBundlePackOp::create(rewriter,
                             loc, func_args).getQbundle();
                     mlir::ValueRange func_results =
-                        rewriter.create<qwerty::CallOp>(
+                        qwerty::CallOp::create(rewriter,
                             loc,
                             new_qbundle_arg_ty,
                             call.getCalleeAttr(),
@@ -208,7 +208,7 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
                     assert(func_results.size() == 1);
                     mlir::Value func_result = func_results[0];
                     mlir::ValueRange result_unpacked =
-                        rewriter.create<qwerty::QBundleUnpackOp>(
+                        qwerty::QBundleUnpackOp::create(rewriter,
                             loc, func_result).getQubits();
                     func_args.clear();
                     func_args.append(result_unpacked.begin(),
@@ -224,10 +224,10 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
                         controls.begin(), controls.end());
                     args.append(func_args);
                     mlir::Value args_packed =
-                        rewriter.create<qwerty::QBundlePackOp>(
+                        qwerty::QBundlePackOp::create(rewriter,
                             loc, args).getQbundle();
                     mlir::ValueRange func_results =
-                        rewriter.create<qwerty::CallOp>(
+                        qwerty::CallOp::create(rewriter,
                             loc,
                             new_qbundle_arg_ty,
                             call.getCalleeAttr(),
@@ -237,7 +237,7 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
                     assert(func_results.size() == 1);
                     mlir::Value func_result = func_results[0];
                     mlir::ValueRange result_unpacked =
-                        rewriter.create<qwerty::QBundleUnpackOp>(
+                        qwerty::QBundleUnpackOp::create(rewriter,
                             loc, func_result).getQubits();
                     controls.clear();
                     controls.append(
@@ -253,7 +253,7 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
         llvm::SmallVector<mlir::Value> final_qubits(pred_qubits);
         final_qubits.append(func_args);
         mlir::Value final_packed =
-            rewriter.create<qwerty::QBundlePackOp>(
+            qwerty::QBundlePackOp::create(rewriter,
                 loc, final_qubits).getQbundle();
 
         rewriter.replaceOp(call, final_packed);

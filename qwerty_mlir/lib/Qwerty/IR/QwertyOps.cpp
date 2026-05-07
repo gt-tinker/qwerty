@@ -68,14 +68,14 @@ void buildPredicatedInit(
     assert(!predBasis.hasPhases());
     size_t pred_dim = predBasis.getDim();
 
-    mlir::ValueRange unpacked_pred = rewriter.create<qwerty::QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = qwerty::QBundleUnpackOp::create(rewriter,
         loc, predIn).getQubits();
-    mlir::ValueRange unpacked_in = rewriter.create<qwerty::QBundleUnpackOp>(
+    mlir::ValueRange unpacked_in = qwerty::QBundleUnpackOp::create(rewriter,
         loc, qbundle_in).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_in.begin(), unpacked_in.end());
-    mlir::Value repacked = rewriter.create<qwerty::QBundlePackOp>(
+    mlir::Value repacked = qwerty::QBundlePackOp::create(rewriter,
         loc, merged_qubits).getQbundle();
 
     // Convert pred & (theta1*'1' + theta2*'0').prep to the following
@@ -119,21 +119,21 @@ void buildPredicatedInit(
         }
     }
 
-    mlir::Value res = rewriter.create<qwerty::QBundleBasisTranslationOp>(loc,
+    mlir::Value res = qwerty::QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<qwerty::BasisAttr>(reverse? rhs_elems : lhs_elems),
         rewriter.getAttr<qwerty::BasisAttr>(reverse? lhs_elems : rhs_elems),
         basis_phases,
         repacked).getQbundleOut();
 
-    mlir::ValueRange res_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(
+    mlir::ValueRange res_unpacked = qwerty::QBundleUnpackOp::create(rewriter,
         loc, res).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         res_unpacked.begin(), res_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         res_unpacked.begin() + pred_dim, res_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<qwerty::QBundlePackOp>(
+    mlir::Value pred_repacked = qwerty::QBundlePackOp::create(rewriter,
         loc, pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<qwerty::QBundlePackOp>(
+    mlir::Value res_repacked = qwerty::QBundlePackOp::create(rewriter,
         loc, res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -279,7 +279,7 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
 
         rewriter.setInsertionPoint(call);
         mlir::scf::IfOp new_if_op =
-            rewriter.create<mlir::scf::IfOp>(
+            mlir::scf::IfOp::create(rewriter,
                 if_op.getLoc(), call.getResultTypes(), if_op.getCondition());
         rewriter.cloneRegionBefore(if_op.getThenRegion(),
                                    new_if_op.getThenRegion(),
@@ -299,20 +299,20 @@ struct CallIndirectIf : public mlir::OpRewritePattern<qwerty::CallIndirectOp> {
         rewriter.setInsertionPoint(then_yield);
         mlir::Value then_callee = then_yield.getResults()[0];
         mlir::ValueRange then_call_results =
-            rewriter.create<qwerty::CallIndirectOp>(
+            qwerty::CallIndirectOp::create(rewriter,
                 call.getLoc(), then_callee,
                 call.getCallOperands()).getResults();
-        rewriter.create<mlir::scf::YieldOp>(then_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, then_yield.getLoc(),
                                             then_call_results);
         rewriter.eraseOp(then_yield);
 
         rewriter.setInsertionPoint(else_yield);
         mlir::Value else_callee = else_yield.getResults()[0];
         mlir::ValueRange else_call_results =
-            rewriter.create<qwerty::CallIndirectOp>(
+            qwerty::CallIndirectOp::create(rewriter,
                 call.getLoc(), else_callee,
                 call.getCallOperands()).getResults();
-        rewriter.create<mlir::scf::YieldOp>(else_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, else_yield.getLoc(),
                                             else_call_results);
         rewriter.eraseOp(else_yield);
 
@@ -397,7 +397,7 @@ struct PointlessPred : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
         qwerty::FunctionType func_type = pred.getResult().getType();
         mlir::FunctionType inner_func_type = func_type.getFunctionType();
         qwerty::LambdaOp lambda =
-            rewriter.create<qwerty::LambdaOp>(
+            qwerty::LambdaOp::create(rewriter,
                 loc, func_type, pred.getCallee());
         mlir::Region &lambda_region = lambda.getRegion();
 
@@ -424,7 +424,7 @@ struct PointlessPred : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
             mlir::Value og_func = block->getArgument(0);
             mlir::Value qbundle_in = block->getArgument(1);
             mlir::ValueRange qubits_in =
-                rewriter.create<qwerty::QBundleUnpackOp>(
+                qwerty::QBundleUnpackOp::create(rewriter,
                     loc, qbundle_in).getQubits();
 
             llvm::SmallVector<mlir::Value> func_args;
@@ -450,20 +450,20 @@ struct PointlessPred : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
             }
 
             mlir::Value func_args_packed =
-                rewriter.create<qwerty::QBundlePackOp>(
+                qwerty::QBundlePackOp::create(rewriter,
                     loc, func_args).getQbundle();
             mlir::Value new_func = og_func;
             if (new_basis) {
-                new_func = rewriter.create<qwerty::FuncPredOp>(
+                new_func = qwerty::FuncPredOp::create(rewriter,
                     loc, new_basis, new_func).getResult();
             }
             mlir::ValueRange func_results =
-                rewriter.create<qwerty::CallIndirectOp>(
+                qwerty::CallIndirectOp::create(rewriter,
                     loc, new_func, func_args_packed).getResults();
             assert(func_results.size() == 1);
             mlir::Value func_result = func_results[0];
             mlir::ValueRange result_qubits =
-                rewriter.create<qwerty::QBundleUnpackOp>(
+                qwerty::QBundleUnpackOp::create(rewriter,
                     loc, func_result).getQubits();
 
             llvm::SmallVector<mlir::Value> final_qubits;
@@ -490,9 +490,9 @@ struct PointlessPred : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
                                 result_qubits.end());
 
             mlir::Value final_packed =
-                rewriter.create<qwerty::QBundlePackOp>(
+                qwerty::QBundlePackOp::create(rewriter,
                     loc, final_qubits).getQbundle();
-            rewriter.create<qwerty::ReturnOp>(loc, final_packed);
+            qwerty::ReturnOp::create(rewriter, loc, final_packed);
         }
 
         rewriter.replaceOp(pred, lambda.getResult());
@@ -521,7 +521,7 @@ struct CallWithPointlessPred : public mlir::OpRewritePattern<qwerty::CallOp> {
         assert(!call_operands.empty());
         mlir::Value qbundle_in = call_operands[call_operands.size()-1];
         mlir::ValueRange qubits_in =
-            rewriter.create<qwerty::QBundleUnpackOp>(
+            qwerty::QBundleUnpackOp::create(rewriter,
                 loc, qbundle_in).getQubits();
 
         llvm::SmallVector<mlir::Value> func_args;
@@ -550,7 +550,7 @@ struct CallWithPointlessPred : public mlir::OpRewritePattern<qwerty::CallOp> {
         }
 
         mlir::Value func_args_packed =
-            rewriter.create<qwerty::QBundlePackOp>(
+            qwerty::QBundlePackOp::create(rewriter,
                 loc, func_args).getQbundle();
         // Keep whatever captures we were passing before
         llvm::SmallVector<mlir::Value> new_call_operands(
@@ -559,13 +559,13 @@ struct CallWithPointlessPred : public mlir::OpRewritePattern<qwerty::CallOp> {
         new_call_operands.push_back(func_args_packed);
 
         mlir::ValueRange func_results =
-            rewriter.create<qwerty::CallOp>(
+            qwerty::CallOp::create(rewriter,
                 loc, func_arg_type, call.getCalleeAttr(), call.getAdj(),
                 new_basis, new_call_operands).getResults();
         assert(func_results.size() == 1);
         mlir::Value func_result = func_results[0];
         mlir::ValueRange result_qubits =
-            rewriter.create<qwerty::QBundleUnpackOp>(
+            qwerty::QBundleUnpackOp::create(rewriter,
                 loc, func_result).getQubits();
 
         llvm::SmallVector<mlir::Value> final_qubits;
@@ -592,7 +592,7 @@ struct CallWithPointlessPred : public mlir::OpRewritePattern<qwerty::CallOp> {
                             result_qubits.end());
 
         mlir::Value final_packed =
-            rewriter.create<qwerty::QBundlePackOp>(
+            qwerty::QBundlePackOp::create(rewriter,
                 loc, final_qubits).getQbundle();
         rewriter.replaceOp(call, final_packed);
         return mlir::success();
@@ -619,7 +619,7 @@ struct AdjIf : public mlir::OpRewritePattern<qwerty::FuncAdjointOp> {
 
         rewriter.setInsertionPoint(if_op);
         mlir::scf::IfOp new_if_op =
-            rewriter.create<mlir::scf::IfOp>(
+            mlir::scf::IfOp::create(rewriter,
                 if_op.getLoc(), func_adj_op.getResult().getType(),
                 if_op.getCondition());
         rewriter.inlineRegionBefore(if_op.getThenRegion(),
@@ -640,18 +640,18 @@ struct AdjIf : public mlir::OpRewritePattern<qwerty::FuncAdjointOp> {
         rewriter.setInsertionPoint(then_yield);
         mlir::Value then_func = then_yield.getResults()[0];
         mlir::Value then_adj =
-            rewriter.create<qwerty::FuncAdjointOp>(
+            qwerty::FuncAdjointOp::create(rewriter,
                 func_adj_op.getLoc(), then_func).getResult();
-        rewriter.create<mlir::scf::YieldOp>(then_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, then_yield.getLoc(),
                                             then_adj);
         rewriter.eraseOp(then_yield);
 
         rewriter.setInsertionPoint(else_yield);
         mlir::Value else_func = else_yield.getResults()[0];
         mlir::Value else_adj =
-            rewriter.create<qwerty::FuncAdjointOp>(
+            qwerty::FuncAdjointOp::create(rewriter,
                 func_adj_op.getLoc(), else_func).getResult();
-        rewriter.create<mlir::scf::YieldOp>(else_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, else_yield.getLoc(),
                                             else_adj);
         rewriter.eraseOp(else_yield);
 
@@ -682,7 +682,7 @@ struct PredIf : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
 
         rewriter.setInsertionPoint(if_op);
         mlir::scf::IfOp new_if_op =
-            rewriter.create<mlir::scf::IfOp>(
+            mlir::scf::IfOp::create(rewriter,
                 if_op.getLoc(), func_pred_op.getResult().getType(),
                 if_op.getCondition());
         rewriter.inlineRegionBefore(if_op.getThenRegion(),
@@ -703,20 +703,20 @@ struct PredIf : public mlir::OpRewritePattern<qwerty::FuncPredOp> {
         rewriter.setInsertionPoint(then_yield);
         mlir::Value then_func = then_yield.getResults()[0];
         mlir::Value then_pred =
-            rewriter.create<qwerty::FuncPredOp>(
+            qwerty::FuncPredOp::create(rewriter,
                 func_pred_op.getLoc(), func_pred_op.getPred(),
                 then_func).getResult();
-        rewriter.create<mlir::scf::YieldOp>(then_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, then_yield.getLoc(),
                                             then_pred);
         rewriter.eraseOp(then_yield);
 
         rewriter.setInsertionPoint(else_yield);
         mlir::Value else_func = else_yield.getResults()[0];
         mlir::Value else_pred =
-            rewriter.create<qwerty::FuncPredOp>(
+            qwerty::FuncPredOp::create(rewriter,
                 func_pred_op.getLoc(), func_pred_op.getPred(),
                 else_func).getResult();
-        rewriter.create<mlir::scf::YieldOp>(else_yield.getLoc(),
+        mlir::scf::YieldOp::create(rewriter, else_yield.getLoc(),
                                             else_pred);
         rewriter.eraseOp(else_yield);
 
@@ -1223,7 +1223,7 @@ void CallOp::buildAdjoint(
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     CallOpAdaptor adaptor(newInputs);
     CallOp new_call =
-        rewriter.create<CallOp>(getLoc(), getResultTypes(), getCallee(),
+        CallOp::create(rewriter, getLoc(), getResultTypes(), getCallee(),
                                !getAdj(), getPredAttr(),
                                adaptor.getCapturesAndOperands());
     newOutputs.clear();
@@ -1253,14 +1253,14 @@ void CallOp::buildPredicated(
         captures_and_operands.begin()+n_captures);
     mlir::Value arg_qbundle = captures_and_operands[n_captures];
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         getLoc(), predIn).getQubits();
-    mlir::ValueRange unpacked_args = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_args = QBundleUnpackOp::create(rewriter,
         getLoc(), arg_qbundle).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_args.begin(), unpacked_args.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         getLoc(), merged_qubits).getQbundle();
     mlir::SmallVector<mlir::Value> new_captures_and_operands(captures);
     new_captures_and_operands.push_back(repacked);
@@ -1284,20 +1284,20 @@ void CallOp::buildPredicated(
     }
 
     CallOp new_call =
-        rewriter.create<CallOp>(getLoc(), new_result, getCallee(),
+        CallOp::create(rewriter, getLoc(), new_result, getCallee(),
                                 getAdj(), pred, new_captures_and_operands);
 
     assert(new_call.getResults().size() == 1);
     mlir::Value qbundle_out = new_call.getResults()[0];
-    mlir::ValueRange out_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange out_unpacked = QBundleUnpackOp::create(rewriter,
         getLoc(), qbundle_out).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         out_unpacked.begin(), out_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         out_unpacked.begin() + pred_dim, out_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         getLoc(), pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         getLoc(), res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -1456,10 +1456,10 @@ void CallIndirectOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     CallIndirectOpAdaptor adaptor(newInputs);
-    mlir::Value func_adj = rewriter.create<FuncAdjointOp>(
+    mlir::Value func_adj = FuncAdjointOp::create(rewriter,
         getLoc(), adaptor.getCallee()).getResult();
     CallIndirectOp new_call =
-        rewriter.create<CallIndirectOp>(getLoc(), getResultTypes(), func_adj,
+        CallIndirectOp::create(rewriter, getLoc(), getResultTypes(), func_adj,
                                        adaptor.getCallOperands());
     newOutputs.clear();
     newOutputs.append(new_call.getResults().begin(),
@@ -1482,32 +1482,32 @@ void CallIndirectOp::buildPredicated(
     assert(call_operands.size() == 1);
     mlir::Value arg_qbundle = call_operands[0];
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         getLoc(), predIn).getQubits();
-    mlir::ValueRange unpacked_args = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_args = QBundleUnpackOp::create(rewriter,
         getLoc(), arg_qbundle).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_args.begin(), unpacked_args.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         getLoc(), merged_qubits).getQbundle();
 
-    mlir::Value func = rewriter.create<FuncPredOp>(
+    mlir::Value func = FuncPredOp::create(rewriter,
         getLoc(), predBasis, adaptor.getCallee()).getResult();
     CallIndirectOp new_call =
-        rewriter.create<CallIndirectOp>(getLoc(), func, repacked);
+        CallIndirectOp::create(rewriter, getLoc(), func, repacked);
 
     assert(new_call.getResults().size() == 1);
     mlir::Value qbundle_out = new_call.getResults()[0];
-    mlir::ValueRange out_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange out_unpacked = QBundleUnpackOp::create(rewriter,
         getLoc(), qbundle_out).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         out_unpacked.begin(), out_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         out_unpacked.begin() + pred_dim, out_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         getLoc(), pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         getLoc(), res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -1838,7 +1838,7 @@ void PredOp::buildAdjoint(
             rewriter, block, loc);
     assert(mlir::succeeded(res) && "taking adjoint of PredOp failed");
 
-    PredOp new_pred = rewriter.create<PredOp>(
+    PredOp new_pred = PredOp::create(rewriter,
         loc, getPredBundleOut().getType(), getRegionResult().getType(),
         getBasis(), adaptor.getPredBundleIn(), adaptor.getRegionArg());
 
@@ -1869,20 +1869,20 @@ void PredOp::buildPredicated(
     assert(region.hasOneBlock());
 
     mlir::ValueRange new_pred_qubits =
-        rewriter.create<QBundleUnpackOp>(loc, predIn).getQubits();
+        QBundleUnpackOp::create(rewriter, loc, predIn).getQubits();
     mlir::ValueRange old_pred_qubits =
-        rewriter.create<QBundleUnpackOp>(
+        QBundleUnpackOp::create(rewriter,
             loc, adaptor.getPredBundleIn()).getQubits();
     llvm::SmallVector<mlir::Value> pred_qubits(new_pred_qubits);
     pred_qubits.append(old_pred_qubits.begin(), old_pred_qubits.end());
     mlir::Value pred_qbundle =
-        rewriter.create<QBundlePackOp>(loc, pred_qubits).getQbundle();
+        QBundlePackOp::create(rewriter, loc, pred_qubits).getQbundle();
 
     llvm::SmallVector<BasisElemAttr> elems(predBasis.getElems());
     elems.append(getBasis().getElems().begin(), getBasis().getElems().end());
     BasisAttr basis = rewriter.getAttr<BasisAttr>(elems);
 
-    PredOp new_pred = rewriter.create<PredOp>(
+    PredOp new_pred = PredOp::create(rewriter,
         loc, pred_qbundle.getType(), getRegionResult().getType(),
         basis, pred_qbundle, adaptor.getRegionArg());
 
@@ -1893,7 +1893,7 @@ void PredOp::buildPredicated(
     rewriter.inlineRegionBefore(region, new_region, new_region.end());
 
     mlir::ValueRange post_pred_qubits =
-        rewriter.create<QBundleUnpackOp>(
+        QBundleUnpackOp::create(rewriter,
             loc, new_pred.getPredBundleOut()).getQubits();
     llvm::SmallVector<mlir::Value> new_post_pred_qubits(
         post_pred_qubits.begin(),
@@ -1902,9 +1902,9 @@ void PredOp::buildPredicated(
         post_pred_qubits.begin() + predBasis.getDim(),
         post_pred_qubits.end());
     mlir::Value new_post_pred_qbundle =
-        rewriter.create<QBundlePackOp>(loc, new_post_pred_qubits).getQbundle();
+        QBundlePackOp::create(rewriter, loc, new_post_pred_qubits).getQbundle();
     mlir::Value old_post_pred_qbundle =
-        rewriter.create<QBundlePackOp>(loc, old_post_pred_qubits).getQbundle();
+        QBundlePackOp::create(rewriter, loc, old_post_pred_qubits).getQbundle();
 
     predOut = new_post_pred_qbundle;
     newOutputs.clear();
@@ -1960,7 +1960,7 @@ void QBundlePrepOp::buildAdjoint(
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     assert(isAdjointable());
     QBundleDiscardZeroOpAdaptor adaptor(newInputs);
-    rewriter.create<QBundleDiscardZeroOp>(getLoc(), adaptor.getQbundle());
+    QBundleDiscardZeroOp::create(rewriter, getLoc(), adaptor.getQbundle());
     newOutputs.clear();
 }
 
@@ -1995,7 +1995,7 @@ void QBundlePackOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QBundleUnpackOpAdaptor adaptor(newInputs);
-    QBundleUnpackOp unpack = rewriter.create<QBundleUnpackOp>(getLoc(), adaptor.getQbundle());
+    QBundleUnpackOp unpack = QBundleUnpackOp::create(rewriter, getLoc(), adaptor.getQbundle());
     newOutputs.clear();
     newOutputs.append(unpack.getQubits().begin(), unpack.getQubits().end());
 }
@@ -2039,7 +2039,7 @@ void QBundleUnpackOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QBundlePackOpAdaptor adaptor(newInputs);
-    QBundlePackOp pack = rewriter.create<QBundlePackOp>(getLoc(), adaptor.getQubits());
+    QBundlePackOp pack = QBundlePackOp::create(rewriter, getLoc(), adaptor.getQubits());
     newOutputs.clear();
     newOutputs.push_back(pack.getQbundle());
 }
@@ -2073,7 +2073,7 @@ void BitInitOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     BitInitOpAdaptor adaptor(newInputs);
-    BitInitOp init = rewriter.create<BitInitOp>(
+    BitInitOp init = BitInitOp::create(rewriter,
         getLoc(), adaptor.getBitBundle(), adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(init.getQbundleOut());
@@ -2107,7 +2107,7 @@ void QBundleInitOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QBundleDeinitOpAdaptor adaptor(newInputs);
-    QBundleDeinitOp deinit = rewriter.create<QBundleDeinitOp>(getLoc(),
+    QBundleDeinitOp deinit = QBundleDeinitOp::create(rewriter, getLoc(),
         getBasis(), adaptor.getBasisPhases(), adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(deinit.getQbundleOut());
@@ -2154,7 +2154,7 @@ void QBundleDeinitOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QBundleInitOpAdaptor adaptor(newInputs);
-    QBundleInitOp init = rewriter.create<QBundleInitOp>(getLoc(),
+    QBundleInitOp init = QBundleInitOp::create(rewriter, getLoc(),
         getBasis(), adaptor.getBasisPhases(), adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(init.getQbundleOut());
@@ -2184,7 +2184,7 @@ void QBundleDiscardZeroOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     assert(newInputs.empty());
-    mlir::Value qbundle = rewriter.create<QBundlePrepOp>(
+    mlir::Value qbundle = QBundlePrepOp::create(rewriter,
             getLoc(), PrimitiveBasis::Z, Eigenstate::PLUS, getQbundle().getType().getDim()
         ).getResult();
 
@@ -2208,7 +2208,7 @@ void QBundleIdentityOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QBundleIdentityOpAdaptor adaptor(newInputs);
-    QBundleIdentityOp id = rewriter.create<QBundleIdentityOp>(getLoc(), adaptor.getQbundleIn());
+    QBundleIdentityOp id = QBundleIdentityOp::create(rewriter, getLoc(), adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(id.getQbundleOut());
 }
@@ -2244,7 +2244,7 @@ void QBundlePhaseOp::buildAdjoint(
     QBundlePhaseOpAdaptor adaptor(newInputs);
     mlir::Value neg_theta = qcirc::stationaryF64Negate(
         rewriter, getLoc(), adaptor.getTheta());
-    QBundlePhaseOp phase = rewriter.create<QBundlePhaseOp>(
+    QBundlePhaseOp phase = QBundlePhaseOp::create(rewriter,
         getLoc(), neg_theta, adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(phase.getQbundleOut());
@@ -2263,14 +2263,14 @@ void QBundlePhaseOp::buildPredicated(
     size_t pred_dim = predBasis.getDim();
     size_t dim = getQbundleIn().getType().getDim();
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         loc, predIn).getQubits();
-    mlir::ValueRange unpacked_in = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_in = QBundleUnpackOp::create(rewriter,
         loc, adaptor.getQbundleIn()).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_in.begin(), unpacked_in.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         loc, merged_qubits).getQbundle();
 
     // Convert pred & @theta to the following
@@ -2304,22 +2304,22 @@ void QBundlePhaseOp::buildPredicated(
                         PrimitiveBasis::Z, Eigenstate::MINUS,
                         /*dim=*/1, /*hasPhase=*/true)})));
 
-    mlir::Value res = rewriter.create<QBundleBasisTranslationOp>(loc,
+    mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
         std::initializer_list<mlir::Value>{
             adaptor.getTheta(), adaptor.getTheta()},
         repacked).getQbundleOut();
 
-    mlir::ValueRange res_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
         loc, res).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         res_unpacked.begin(), res_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         res_unpacked.begin() + pred_dim, res_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         loc, pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         loc, res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -2389,7 +2389,7 @@ void QBundleBasisTranslationOp::buildAdjoint(
         adaptor.getBasisPhases().begin(),
         adaptor.getBasisPhases().begin() + getBasisIn().getNumPhases());
     QBundleBasisTranslationOp flipped =
-        rewriter.create<QBundleBasisTranslationOp>(getLoc(),
+        QBundleBasisTranslationOp::create(rewriter, getLoc(),
             getBasisOut(), getBasisIn(), basis_phases, adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(flipped.getQbundleOut());
@@ -2407,14 +2407,14 @@ void QBundleBasisTranslationOp::buildPredicated(
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         loc, predIn).getQubits();
-    mlir::ValueRange unpacked_in = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_in = QBundleUnpackOp::create(rewriter,
         loc, adaptor.getQbundleIn()).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_in.begin(), unpacked_in.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         loc, merged_qubits).getQbundle();
 
     // Convert pred & (b1 >> b2) into the following basis translation:
@@ -2431,21 +2431,21 @@ void QBundleBasisTranslationOp::buildPredicated(
     rhs_elems.append(getBasisOut().getElems().begin(),
                      getBasisOut().getElems().end());
 
-    mlir::Value res = rewriter.create<QBundleBasisTranslationOp>(loc,
+    mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
         adaptor.getBasisPhases(),
         repacked).getQbundleOut();
 
-    mlir::ValueRange res_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
         loc, res).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         res_unpacked.begin(), res_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         res_unpacked.begin() + pred_dim, res_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         loc, pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         loc, res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -2556,7 +2556,7 @@ void QBundleFlipOp::buildAdjoint(
     QBundleFlipOpAdaptor adaptor(newInputs);
     // Recreate ourself again, since ~b.flip is equivalent to b.flip
     QBundleFlipOp flip =
-        rewriter.create<QBundleFlipOp>(getLoc(),
+        QBundleFlipOp::create(rewriter, getLoc(),
             getBasis(), adaptor.getBasisPhases(), adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(flip.getQbundleOut());
@@ -2574,14 +2574,14 @@ void QBundleFlipOp::buildPredicated(
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         loc, predIn).getQubits();
-    mlir::ValueRange unpacked_in = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_in = QBundleUnpackOp::create(rewriter,
         loc, adaptor.getQbundleIn()).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_in.begin(), unpacked_in.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         loc, merged_qubits).getQbundle();
 
     // Convert pred & {v1,v2}.flip into the following basis translation:
@@ -2611,21 +2611,21 @@ void QBundleFlipOp::buildPredicated(
     auto rev_phases = llvm::reverse(adaptor.getBasisPhases());
     phases.append(rev_phases.begin(), rev_phases.end());
 
-    mlir::Value res = rewriter.create<QBundleBasisTranslationOp>(loc,
+    mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
         phases,
         repacked).getQbundleOut();
 
-    mlir::ValueRange res_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
         loc, res).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         res_unpacked.begin(), res_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         res_unpacked.begin() + pred_dim, res_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         loc, pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         loc, res_bundle).getQbundle();
 
     predOut = pred_repacked;
@@ -2706,7 +2706,7 @@ void QBundleRotateOp::buildAdjoint(
     mlir::Value neg_theta = qcirc::stationaryF64Negate(
         rewriter, getLoc(), adaptor.getTheta());
     QBundleRotateOp rot =
-        rewriter.create<QBundleRotateOp>(
+        QBundleRotateOp::create(rewriter,
             getLoc(), getBasis(), neg_theta, adaptor.getQbundleIn());
     newOutputs.clear();
     newOutputs.push_back(rot.getQbundleOut());
@@ -2725,14 +2725,14 @@ void QBundleRotateOp::buildPredicated(
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
 
-    mlir::ValueRange unpacked_pred = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_pred = QBundleUnpackOp::create(rewriter,
         loc, predIn).getQubits();
-    mlir::ValueRange unpacked_in = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange unpacked_in = QBundleUnpackOp::create(rewriter,
         loc, adaptor.getQbundleIn()).getQubits();
     llvm::SmallVector<mlir::Value> merged_qubits(unpacked_pred.begin(),
                                                  unpacked_pred.end());
     merged_qubits.append(unpacked_in.begin(), unpacked_in.end());
-    mlir::Value repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value repacked = QBundlePackOp::create(rewriter,
         loc, merged_qubits).getQbundle();
 
     // Convert pred & {v1,v2}.rotate(theta) into the following basis translation:
@@ -2768,9 +2768,9 @@ void QBundleRotateOp::buildPredicated(
         [&](mlir::ValueRange args) {
             assert(args.size() == 1);
             mlir::Value theta_arg = args[0];
-            mlir::Value const_2 = rewriter.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(rewriter,
                     loc, rewriter.getF64FloatAttr(2.0)).getResult();
-            return rewriter.create<mlir::arith::DivFOp>(
+            return mlir::arith::DivFOp::create(rewriter,
                 loc, theta_arg, const_2).getResult();
         });
     mlir::Value neg_theta_by_2 = qcirc::wrapStationaryF64Ops(
@@ -2778,25 +2778,25 @@ void QBundleRotateOp::buildPredicated(
         [&](mlir::ValueRange args) {
             assert(args.size() == 1);
             mlir::Value theta_by_2_arg = args[0];
-            return rewriter.create<mlir::arith::NegFOp>(
+            return mlir::arith::NegFOp::create(rewriter,
                 loc, theta_by_2_arg).getResult();
         });
 
-    mlir::Value res = rewriter.create<QBundleBasisTranslationOp>(loc,
+    mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
         std::initializer_list<mlir::Value>{neg_theta_by_2, theta_by_2},
         repacked).getQbundleOut();
 
-    mlir::ValueRange res_unpacked = rewriter.create<QBundleUnpackOp>(
+    mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
         loc, res).getQubits();
     llvm::SmallVector<mlir::Value> pred_bundle(
         res_unpacked.begin(), res_unpacked.begin() + pred_dim);
     llvm::SmallVector<mlir::Value> res_bundle(
         res_unpacked.begin() + pred_dim, res_unpacked.end());
-    mlir::Value pred_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value pred_repacked = QBundlePackOp::create(rewriter,
         loc, pred_bundle).getQbundle();
-    mlir::Value res_repacked = rewriter.create<QBundlePackOp>(
+    mlir::Value res_repacked = QBundlePackOp::create(rewriter,
         loc, res_bundle).getQbundle();
 
     predOut = pred_repacked;

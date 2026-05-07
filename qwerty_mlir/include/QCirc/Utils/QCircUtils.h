@@ -123,7 +123,7 @@ mlir::LogicalResult takeAdjointOfBlockInPlace(
         return mlir::failure();
     }
     rewriter.setInsertionPointToEnd(&fwd_block);
-    rewriter.create<TerminatorType>(term_loc, mlir::TypeRange(), term_args);
+    TerminatorType::create(rewriter, term_loc, mlir::TypeRange(), term_args);
     return mlir::success();
 }
 

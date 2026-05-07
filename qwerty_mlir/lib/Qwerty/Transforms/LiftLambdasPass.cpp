@@ -49,7 +49,7 @@ struct LiftLambdasPass
 
                 rewriter.setInsertionPoint(funcop);
                 qwerty::FuncOp new_funcop =
-                    rewriter.create<qwerty::FuncOp>(lambda.getLoc(),
+                    qwerty::FuncOp::create(rewriter, lambda.getLoc(),
                         new_func_name, lambda.getResult().getType());
                 new_funcop.setPrivate();
 

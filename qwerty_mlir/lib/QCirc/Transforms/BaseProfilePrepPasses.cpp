@@ -45,11 +45,11 @@ struct BaseProfileModulePrepPass
 
         // We want these to be converted to array constants
         rewriter.setInsertionPointToStart(mod.getBody());
-        rewriter.create<qcirc::UglyLabelOp>(
+        qcirc::UglyLabelOp::create(rewriter,
             rewriter.getUnknownLoc(),
             rewriter.getStringAttr(TAG_RET),
             rewriter.getStringAttr("ret"));
-        rewriter.create<qcirc::UglyLabelOp>(
+        qcirc::UglyLabelOp::create(rewriter,
             rewriter.getUnknownLoc(),
             rewriter.getStringAttr(TAG_DISCARDED),
             rewriter.getStringAttr("discarded"));
@@ -220,7 +220,7 @@ struct BaseProfileFuncPrepPass
 
         // Need to initialize the runtime
         rewriter.setInsertionPoint(&block.front());
-        rewriter.create<qcirc::InitOp>(rewriter.getUnknownLoc());
+        qcirc::InitOp::create(rewriter, rewriter.getUnknownLoc());
 
         for (auto [op, qubit_idx] : pending_replacement) {
             if (qubit_idx == (size_t)-1) {
@@ -283,17 +283,17 @@ struct BaseProfileFuncPrepPass
         }
 
         rewriter.setInsertionPoint(bitpack);
-        rewriter.create<qcirc::UglyMeasureOp>(bitpack.getLoc(),
+        qcirc::UglyMeasureOp::create(rewriter, bitpack.getLoc(),
             0, qubits_to_measure);
-        rewriter.create<qcirc::UglyMeasureOp>(rewriter.getUnknownLoc(),
+        qcirc::UglyMeasureOp::create(rewriter, rewriter.getUnknownLoc(),
             qubits_to_measure.size(), qubits_to_discard);
 
-        rewriter.create<qcirc::UglyRecordOp>(rewriter.getUnknownLoc(),
+        qcirc::UglyRecordOp::create(rewriter, rewriter.getUnknownLoc(),
             TAG_DISCARDED, qubits_to_measure.size(), qubits_to_discard.size());
-        rewriter.create<qcirc::UglyRecordOp>(bitpack.getLoc(),
+        qcirc::UglyRecordOp::create(rewriter, bitpack.getLoc(),
             TAG_RET, 0, qubits_to_measure.size());
 
-        mlir::Value success = rewriter.create<mlir::arith::ConstantOp>(
+        mlir::Value success = mlir::arith::ConstantOp::create(rewriter,
             rewriter.getUnknownLoc(),
             rewriter.getI64IntegerAttr(0));
         rewriter.replaceOpWithNewOp<mlir::func::ReturnOp>(ret, success);

@@ -26,22 +26,22 @@ qwerty::FuncOp synthXor(
     std::string embed_func_name = circ.getSymName().str() + "__xor";
 
     rewriter.setInsertionPointAfter(circ);
-    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, func_ty);
+    qwerty::FuncOp new_func = qwerty::FuncOp::create(rewriter, loc, embed_func_name, func_ty);
     new_func.setPrivate();
     mlir::Block *block = rewriter.createBlock(
         &new_func.getBody(), {}, func_ty.getFunctionType().getInputs(), {loc});
 
     assert(block->getNumArguments() == 1
            && "Wrong number of arguments for embed block");
-    qwerty::QBundleUnpackOp unpack = rewriter.create<qwerty::QBundleUnpackOp>(
+    qwerty::QBundleUnpackOp unpack = qwerty::QBundleUnpackOp::create(rewriter,
         loc, block->getArgument(0));
     llvm::SmallVector<mlir::Value> qubits(unpack.getQubits());
 
     TweedledumCircuit::fromCCirc(circ).toQCircInline(rewriter, loc, qubits, 0);
 
     mlir::Value packed =
-        rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
-    rewriter.create<qwerty::ReturnOp>(loc, packed);
+        qwerty::QBundlePackOp::create(rewriter, loc, qubits).getQbundle();
+    qwerty::ReturnOp::create(rewriter, loc, packed);
     return new_func;
 }
 
@@ -64,7 +64,7 @@ qwerty::FuncOp synthSign(
     std::string embed_func_name = circ.getSymName().str() + "__sign";
 
     rewriter.setInsertionPointAfter(xor_func);
-    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, embed_func_ty);
+    qwerty::FuncOp new_func = qwerty::FuncOp::create(rewriter, loc, embed_func_name, embed_func_ty);
     // Sets insert point to end of this block
     mlir::Block *block = rewriter.createBlock(&new_func.getBody(), {}, {qbundle_type}, {loc});
     assert(block->getNumArguments() == 1 && "Expected 1 argument to sign block");
@@ -77,30 +77,30 @@ qwerty::FuncOp synthSign(
                         rewriter.getAttr<qwerty::BasisVectorAttr>(
                             qwerty::PrimitiveBasis::X, qwerty::Eigenstate::MINUS,
                             out_dim, /*hasPhase=*/false)}))});
-    mlir::Value zero = rewriter.create<qwerty::QBundlePrepOp>(
+    mlir::Value zero = qwerty::QBundlePrepOp::create(rewriter,
         loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, out_dim).getResult();
-    mlir::Value minus = rewriter.create<qwerty::QBundleInitOp>(
+    mlir::Value minus = qwerty::QBundleInitOp::create(rewriter,
         loc, basis, mlir::ValueRange(), zero).getQbundleOut();
-    mlir::ValueRange minus_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, minus).getQubits();
+    mlir::ValueRange minus_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, minus).getQubits();
 
     mlir::Value qbundle_arg = block->getArgument(0);
-    mlir::ValueRange arg_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, qbundle_arg).getQubits();
+    mlir::ValueRange arg_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, qbundle_arg).getQubits();
     llvm::SmallVector<mlir::Value> all_merged(arg_unpacked.begin(), arg_unpacked.end());
     all_merged.append(minus_unpacked.begin(), minus_unpacked.end());
-    mlir::Value repacked = rewriter.create<qwerty::QBundlePackOp>(loc, all_merged).getQbundle();
+    mlir::Value repacked = qwerty::QBundlePackOp::create(rewriter, loc, all_merged).getQbundle();
 
-    mlir::ValueRange results = rewriter.create<qwerty::CallOp>(loc, xor_func, repacked).getResults();
-    mlir::ValueRange results_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, results).getQubits();
+    mlir::ValueRange results = qwerty::CallOp::create(rewriter, loc, xor_func, repacked).getResults();
+    mlir::ValueRange results_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, results).getQubits();
 
     llvm::SmallVector<mlir::Value> output_qubits(results_unpacked.begin(), results_unpacked.begin()+in_dim);
-    mlir::Value output = rewriter.create<qwerty::QBundlePackOp>(loc, output_qubits).getQbundle();
+    mlir::Value output = qwerty::QBundlePackOp::create(rewriter, loc, output_qubits).getQbundle();
     llvm::SmallVector<mlir::Value> uncompute_qubits(results_unpacked.begin()+in_dim, results_unpacked.end());
-    mlir::Value to_uncompute = rewriter.create<qwerty::QBundlePackOp>(loc, uncompute_qubits).getQbundle();
+    mlir::Value to_uncompute = qwerty::QBundlePackOp::create(rewriter, loc, uncompute_qubits).getQbundle();
 
-    mlir::Value to_discard = rewriter.create<qwerty::QBundleDeinitOp>(
+    mlir::Value to_discard = qwerty::QBundleDeinitOp::create(rewriter,
         loc, basis, mlir::ValueRange(), to_uncompute).getQbundleOut();
-    rewriter.create<qwerty::QBundleDiscardZeroOp>(loc, to_discard);
-    rewriter.create<qwerty::ReturnOp>(loc, output);
+    qwerty::QBundleDiscardZeroOp::create(rewriter, loc, to_discard);
+    qwerty::ReturnOp::create(rewriter, loc, output);
 
     // Has non-classical inputs
     new_func.setPrivate();
@@ -137,50 +137,50 @@ qwerty::FuncOp synthInPlace(
 
     // This will just be a stub function that calls the XOR embedding
     rewriter.setInsertionPointAfter(inv_xor_func);
-    qwerty::FuncOp new_func = rewriter.create<qwerty::FuncOp>(loc, embed_func_name, new_func_ty);
+    qwerty::FuncOp new_func = qwerty::FuncOp::create(rewriter, loc, embed_func_name, new_func_ty);
     // Sets insert point to end of this block
     mlir::Block *block = rewriter.createBlock(&new_func.getBody(), {}, {qbundle_type}, {loc});
     assert(block->getNumArguments() == 1 && "Wrong number of arguments to inplace block");
 
-    mlir::Value zeros = rewriter.create<qwerty::QBundlePrepOp>(
+    mlir::Value zeros = qwerty::QBundlePrepOp::create(rewriter,
             loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, dim).getResult();
-    mlir::ValueRange zeros_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, zeros).getQubits();
+    mlir::ValueRange zeros_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, zeros).getQubits();
     mlir::Value qbundle_arg = block->getArgument(0);
-    mlir::ValueRange arg_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, qbundle_arg).getQubits();
+    mlir::ValueRange arg_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, qbundle_arg).getQubits();
     llvm::SmallVector<mlir::Value> all_merged(arg_unpacked.begin(), arg_unpacked.end());
     all_merged.append(zeros_unpacked.begin(), zeros_unpacked.end());
-    mlir::Value repacked = rewriter.create<qwerty::QBundlePackOp>(loc, all_merged).getQbundle();
+    mlir::Value repacked = qwerty::QBundlePackOp::create(rewriter, loc, all_merged).getQbundle();
 
-    mlir::ValueRange results = rewriter.create<qwerty::CallOp>(loc, fwd_xor_func, repacked).getResults();
-    mlir::ValueRange results_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, results).getQubits();
+    mlir::ValueRange results = qwerty::CallOp::create(rewriter, loc, fwd_xor_func, repacked).getResults();
+    mlir::ValueRange results_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, results).getQubits();
 
     //llvm::SmallVector<mlir::Value> qubits(results_unpacked);
     //for (size_t i = 0; i < dim; i++) {
     //    // Swap by renaming
     //    std::swap(qubits[i], qubits[i + dim]);
     //}
-    //mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+    //mlir::Value swapped_repacked = qwerty::QBundlePackOp::create(rewriter, loc, qubits).getQbundle();
 
     llvm::SmallVector<mlir::Value> qubits(results_unpacked);
     for (size_t i = 0; i < dim; i++) {
-        qcirc::Gate2QOp swap = rewriter.create<qcirc::Gate2QOp>(
+        qcirc::Gate2QOp swap = qcirc::Gate2QOp::create(rewriter,
             loc, qcirc::Gate2Q::Swap, mlir::ValueRange(), qubits[i], qubits[i + dim]);
         qubits[i] = swap.getLeftResult();
         qubits[i + dim] = swap.getRightResult();
     }
-    mlir::Value swapped_repacked = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+    mlir::Value swapped_repacked = qwerty::QBundlePackOp::create(rewriter, loc, qubits).getQbundle();
 
-    mlir::ValueRange inv = rewriter.create<qwerty::CallOp>(loc, inv_xor_func, swapped_repacked).getResults();
+    mlir::ValueRange inv = qwerty::CallOp::create(rewriter, loc, inv_xor_func, swapped_repacked).getResults();
     assert(inv.size() == 1 && "XOR embedding should return 1 value");
-    mlir::ValueRange inv_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, inv[0]).getQubits();
+    mlir::ValueRange inv_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, inv[0]).getQubits();
 
     llvm::SmallVector<mlir::Value> discard_qubits(inv_unpacked.begin()+dim, inv_unpacked.end());
-    mlir::Value to_discard = rewriter.create<qwerty::QBundlePackOp>(loc, discard_qubits).getQbundle();
-    rewriter.create<qwerty::QBundleDiscardZeroOp>(loc, to_discard);
+    mlir::Value to_discard = qwerty::QBundlePackOp::create(rewriter, loc, discard_qubits).getQbundle();
+    qwerty::QBundleDiscardZeroOp::create(rewriter, loc, to_discard);
 
     llvm::SmallVector<mlir::Value> output_qubits(inv_unpacked.begin(), inv_unpacked.begin()+dim);
-    mlir::Value output = rewriter.create<qwerty::QBundlePackOp>(loc, output_qubits).getQbundle();
-    rewriter.create<qwerty::ReturnOp>(loc, output);
+    mlir::Value output = qwerty::QBundlePackOp::create(rewriter, loc, output_qubits).getQbundle();
+    qwerty::ReturnOp::create(rewriter, loc, output);
 
     // Has non-classical inputs
     new_func.setPrivate();

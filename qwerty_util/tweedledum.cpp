@@ -25,16 +25,16 @@ namespace {
 mlir::Value wrapFloatConst(mlir::OpBuilder &builder,
                            mlir::Location loc,
                            double theta) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), mlir::ValueRange());
+    qcirc::CalcOp calc = qcirc::CalcOp::create(builder, loc, builder.getF64Type(), mlir::ValueRange());
     {
         mlir::OpBuilder::InsertionGuard guard(builder);
         // Sets insertion point to end of this block
         mlir::Block *calc_block = builder.createBlock(
             &calc.getRegion(), {}, mlir::TypeRange(), {});
         assert(!calc_block->getNumArguments());
-        mlir::Value ret = builder.create<mlir::arith::ConstantOp>(
+        mlir::Value ret = mlir::arith::ConstantOp::create(builder,
             loc, builder.getF64FloatAttr(theta)).getResult();
-        builder.create<qcirc::CalcYieldOp>(loc, ret);
+        qcirc::CalcYieldOp::create(builder, loc, ret);
     }
     mlir::ValueRange calc_results = calc.getResults();
     assert(calc_results.size() == 1);
@@ -237,7 +237,7 @@ void TweedledumCircuit::toQCircInline(
         raw_qubits.begin() + qubit_idx + n_data_qubits);
 
     for (size_t i = 0; i < n_ancilla_qubits; i++) {
-        qubits.push_back(builder.create<qcirc::QallocOp>(loc).getResult());
+        qubits.push_back(qcirc::QallocOp::create(builder, loc).getResult());
     }
 
     circ.foreach_instruction([&](const tweedledum::Instruction &inst) {
@@ -249,7 +249,7 @@ void TweedledumCircuit::toQCircInline(
             size_t qubit_idx = qubit.uid();
             if (qubit.polarity() == tweedledum::Qubit::Polarity::negative) {
                 // Controlled-on-zero
-                qubits[qubit_idx] = builder.create<qcirc::Gate1QOp>(
+                qubits[qubit_idx] = qcirc::Gate1QOp::create(builder,
                     loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                     qubits[qubit_idx]).getResult();
             }
@@ -261,7 +261,7 @@ void TweedledumCircuit::toQCircInline(
             if (inst.name() == "swap") {
                 uint64_t leftIdx = inst.target(0).uid();
                 uint64_t rightIdx = inst.target(1).uid();
-                auto output = builder.create<qcirc::Gate2QOp>(
+                auto output = qcirc::Gate2QOp::create(builder,
                     loc, qcirc::Gate2Q::Swap, controls,
                     qubits[leftIdx], qubits[rightIdx]);
                 qubits[leftIdx] = output.getLeftResult();
@@ -314,7 +314,7 @@ void TweedledumCircuit::toQCircInline(
                     llvm::SmallVector<mlir::Value> this_controls(fixed_controls);
                     this_controls.push_back(individual_controls[i]);
 
-                    auto output = builder.create<qcirc::Gate1QOp>(
+                    auto output = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::X, this_controls, inputQubit);
                     inputQubit = output.getResult();
 
@@ -335,13 +335,13 @@ void TweedledumCircuit::toQCircInline(
                 mlir::ValueRange controlResults;
 
                 if (gate != (qcirc::Gate1Q)-1) {
-                    auto output = builder.create<qcirc::Gate1QOp>(
+                    auto output = qcirc::Gate1QOp::create(builder,
                         loc, gate, controls, inputQubit);
                     outputQubit = output.getResult();
                     controlResults = output.getControlResults();
                 } else if (gate1p != (qcirc::Gate1Q1P)-1) {
                     mlir::Value param = wrapFloatConst(builder, loc, tweedledum::rotation_angle(inst).value());
-                    auto output = builder.create<qcirc::Gate1Q1POp>(
+                    auto output = qcirc::Gate1Q1POp::create(builder,
                         loc, gate1p, param, controls, inputQubit);
                     outputQubit = output.getResult();
                     controlResults = output.getControlResults();
@@ -351,7 +351,7 @@ void TweedledumCircuit::toQCircInline(
                     mlir::Value secondParam = wrapFloatConst(builder, loc, u.phi());
                     mlir::Value thirdParam = wrapFloatConst(builder, loc, u.lambda());
 
-                    auto output = builder.create<qcirc::Gate1Q3POp>(
+                    auto output = qcirc::Gate1Q3POp::create(builder,
                         loc, gate3p, firstParam, secondParam, thirdParam,
                         controls, inputQubit);
                     outputQubit = output.getResult();
@@ -378,7 +378,7 @@ void TweedledumCircuit::toQCircInline(
             size_t qubit_idx = qubit.uid();
             if (qubit.polarity() == tweedledum::Qubit::Polarity::negative) {
                 // Controlled-on-zero, so undo the X we added earlier
-                qubits[qubit_idx] = builder.create<qcirc::Gate1QOp>(
+                qubits[qubit_idx] = qcirc::Gate1QOp::create(builder,
                     loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                     controls[n_fixed_controls + i]).getResult();
             } else {
@@ -395,16 +395,16 @@ void TweedledumCircuit::toQCircInline(
         mlir::Value phase_val = wrapFloatConst(builder, loc, phase);
         if (control_qubits.empty()) {
             // Adjust 1 amplitude
-            qubits[0] = builder.create<qcirc::Gate1Q1POp>(loc, qcirc::Gate1Q1P::P, phase_val, mlir::ValueRange(), qubits[0]).getResult();
+            qubits[0] = qcirc::Gate1Q1POp::create(builder, loc, qcirc::Gate1Q1P::P, phase_val, mlir::ValueRange(), qubits[0]).getResult();
             // Adjust 0 amplitude
-            qubits[0] = builder.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[0]).getResult();
-            qubits[0] = builder.create<qcirc::Gate1Q1POp>(loc, qcirc::Gate1Q1P::P, phase_val, mlir::ValueRange(), qubits[0]).getResult();
-            qubits[0] = builder.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[0]).getResult();
+            qubits[0] = qcirc::Gate1QOp::create(builder, loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[0]).getResult();
+            qubits[0] = qcirc::Gate1Q1POp::create(builder, loc, qcirc::Gate1Q1P::P, phase_val, mlir::ValueRange(), qubits[0]).getResult();
+            qubits[0] = qcirc::Gate1QOp::create(builder, loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[0]).getResult();
         } else {
             llvm::SmallVector<mlir::Value> gp_controls(
                 control_qubits.begin()+1,
                 control_qubits.end());
-            qcirc::Gate1Q1POp gp = builder.create<qcirc::Gate1Q1POp>(
+            qcirc::Gate1Q1POp gp = qcirc::Gate1Q1POp::create(builder,
                 loc, qcirc::Gate1Q1P::P, phase_val,
                 gp_controls, control_qubits[0]);
             control_qubits.clear();
@@ -415,7 +415,7 @@ void TweedledumCircuit::toQCircInline(
     }
 
     for (size_t i = 0; i < n_ancilla_qubits; i++) {
-        builder.create<qcirc::QfreeZeroOp>(loc, qubits[n_data_qubits + i]);
+        qcirc::QfreeZeroOp::create(builder, loc, qubits[n_data_qubits + i]);
     }
     qubits.pop_back_n(n_ancilla_qubits);
 

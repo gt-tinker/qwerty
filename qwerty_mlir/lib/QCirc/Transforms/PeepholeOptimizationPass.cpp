@@ -112,7 +112,7 @@ class ReplaceZPattern : public mlir::OpRewritePattern<qcirc::QfreeOp> {
             llvm::SmallVector<mlir::Value> tempVector(gateX.getControls().begin(), secondLast);
             // Insertion point needs to be moved before every replacement instruction
             rewriter.setInsertionPoint(gateX);
-            qcirc::Gate1QOp gateZ = rewriter.create<qcirc::Gate1QOp>(gateX.getLoc(), qcirc::Gate1Q::Z, tempVector, controlQubit);
+            qcirc::Gate1QOp gateZ = qcirc::Gate1QOp::create(rewriter, gateX.getLoc(), qcirc::Gate1Q::Z, tempVector, controlQubit);
 
             llvm::SmallVector<mlir::Value> newValues(gateZ->result_begin(), gateZ->result_end());
             newValues.push_back(gateX.getQubit());
@@ -212,7 +212,7 @@ class ReplaceZZeroPattern : public mlir::OpRewritePattern<qcirc::QfreeZeroOp> {
             llvm::SmallVector<mlir::Value> tempVector(gateX.getControls().begin(), secondLast);
             // Insertion point needs to be moved before every replacement instruction
             rewriter.setInsertionPoint(gateX);
-            qcirc::Gate1QOp gateZ = rewriter.create<qcirc::Gate1QOp>(gateX.getLoc(), qcirc::Gate1Q::Z, tempVector, controlQubit);
+            qcirc::Gate1QOp gateZ = qcirc::Gate1QOp::create(rewriter, gateX.getLoc(), qcirc::Gate1Q::Z, tempVector, controlQubit);
 
             llvm::SmallVector<mlir::Value> newValues(gateZ->result_begin(), gateZ->result_end());
             newValues.push_back(gateX.getQubit());
@@ -524,9 +524,9 @@ class ReplaceRyQallocWithHQalloc :
                     gate, qcirc::Gate1Q::H, mlir::ValueRange(), qalloc.getResult());
                 return mlir::success();
             } else if (std::abs(theta - (-M_PI_2)) <= ATOL) {
-                qcirc::Gate1QOp X = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp X = qcirc::Gate1QOp::create(rewriter,
                     gate.getLoc(), qcirc::Gate1Q::X, mlir::ValueRange(), qalloc.getResult());
-                qcirc::Gate1QOp H = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp H = qcirc::Gate1QOp::create(rewriter,
                     gate.getLoc(), qcirc::Gate1Q::H, mlir::ValueRange(), X.getResult());
 
                 rewriter.replaceOp(gate, H.getResult());

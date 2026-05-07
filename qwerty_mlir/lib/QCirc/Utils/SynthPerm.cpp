@@ -131,7 +131,7 @@ void synthPermutationSlow(
                 continue;
             }
 
-            qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp x = qcirc::Gate1QOp::create(builder,
                 loc, qcirc::Gate1Q::X, this_control_qubits, qubits[qubit_idx + t]);
             mlir::ValueRange control_results = x.getControlResults();
             this_control_qubits.clear();
@@ -194,7 +194,7 @@ void synthPermutationFast(
     // Allocate ancilla
     llvm::SmallVector<mlir::Value> ancillas;
     for (size_t i = 0; i < mask_vecs.size(); i++) {
-        ancillas.push_back(builder.create<qcirc::QallocOp>(loc).getResult());
+        ancillas.push_back(qcirc::QallocOp::create(builder, loc).getResult());
     }
 
     // Flip ancilla bits in subspaces
@@ -215,14 +215,14 @@ void synthPermutationFast(
                 bool bit = vec[vec.getBitWidth()-1-j];
                 if (!bit) {
                     // Controlled-on-zero
-                    ctrl = builder.create<qcirc::Gate1QOp>(
+                    ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                         ctrl).getResult();
                 }
                 controls.push_back(ctrl);
             }
 
-            qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp x = qcirc::Gate1QOp::create(builder,
                 loc, qcirc::Gate1Q::X, controls, ancilla);
             ancilla = x.getResult();
 
@@ -239,7 +239,7 @@ void synthPermutationFast(
                 bool bit = vec[vec.getBitWidth()-1-j];
                 if (!bit) {
                     // Undo bit flip above
-                    ctrl = builder.create<qcirc::Gate1QOp>(
+                    ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                         ctrl).getResult();
                 }
@@ -259,7 +259,7 @@ void synthPermutationFast(
         for (size_t j = 0; j < mask.getBitWidth(); j++) {
             bool bit = mask[mask.getBitWidth()-1-j];
             if (bit) {
-                qcirc::Gate1QOp cnot = builder.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cnot = qcirc::Gate1QOp::create(builder,
                     loc, qcirc::Gate1Q::X, ancilla, qubits[qubit_idx + j]);
                 assert(cnot.getControlResults().size() == 1
                        && "expected one control result from cnot");
@@ -284,14 +284,14 @@ void synthPermutationFast(
             bool bit = vec[vec.getBitWidth()-1-j];
             if (!bit) {
                 // Controlled-on-zero
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                     loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                     ctrl).getResult();
             }
             controls.push_back(ctrl);
         }
 
-        qcirc::Gate1QOp x = builder.create<qcirc::Gate1QOp>(
+        qcirc::Gate1QOp x = qcirc::Gate1QOp::create(builder,
             loc, qcirc::Gate1Q::X, controls, ancilla);
         ancilla = x.getResult();
 
@@ -308,7 +308,7 @@ void synthPermutationFast(
             bool bit = vec[vec.getBitWidth()-1-j];
             if (!bit) {
                 // Undo bit flip above
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                     loc, qcirc::Gate1Q::X, mlir::ValueRange(),
                     ctrl).getResult();
             }
@@ -319,7 +319,7 @@ void synthPermutationFast(
     }
 
     for (mlir::Value ancilla : ancillas) {
-        builder.create<qcirc::QfreeZeroOp>(loc, ancilla);
+        qcirc::QfreeZeroOp::create(builder, loc, ancilla);
     }
 }
 

@@ -25,40 +25,40 @@ namespace {
 // x and y are controls, and z is the target
 std::tuple<mlir::Value, mlir::Value, mlir::Value> ccxphase(
         mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value x, mlir::Value y, mlir::Value z) {
-    qcirc::Gate1QOp h1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
+    qcirc::Gate1QOp h1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
     z = h1.getResult();
 
-    qcirc::Gate1QOp cx1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, y);
+    qcirc::Gate1QOp cx1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, y);
     z = cx1.getControlResults()[0];
     y = cx1.getResult();
 
-    qcirc::Gate1QOp cx2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, y, x);
+    qcirc::Gate1QOp cx2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, y, x);
     y = cx2.getControlResults()[0];
     x = cx2.getResult();
 
-    qcirc::Gate1QOp t1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::T, mlir::ValueRange(), x);
+    qcirc::Gate1QOp t1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::T, mlir::ValueRange(), x);
     x = t1.getResult();
-    qcirc::Gate1QOp tdg1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), y);
+    qcirc::Gate1QOp tdg1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), y);
     y = tdg1.getResult();
-    qcirc::Gate1QOp t2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::T, mlir::ValueRange(), z);
+    qcirc::Gate1QOp t2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::T, mlir::ValueRange(), z);
     z = t2.getResult();
 
-    qcirc::Gate1QOp cx3 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, y);
+    qcirc::Gate1QOp cx3 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, y);
     z = cx3.getControlResults()[0];
     y = cx3.getResult();
 
-    qcirc::Gate1QOp cx4 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, y, x);
+    qcirc::Gate1QOp cx4 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, y, x);
     y = cx4.getControlResults()[0];
     x = cx4.getResult();
 
-    qcirc::Gate1QOp tdg2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), x);
+    qcirc::Gate1QOp tdg2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), x);
     x = tdg2.getResult();
 
-    qcirc::Gate1QOp cx5 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, x);
+    qcirc::Gate1QOp cx5 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, x);
     z = cx5.getControlResults()[0];
     x = cx5.getResult();
 
-    qcirc::Gate1QOp h2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
+    qcirc::Gate1QOp h2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
     z = h2.getResult();
 
     return {x, y, z};
@@ -67,40 +67,40 @@ std::tuple<mlir::Value, mlir::Value, mlir::Value> ccxphase(
 // This is the adjoint of ccxphase() above
 std::tuple<mlir::Value, mlir::Value, mlir::Value> ccxphase_adj(
         mlir::RewriterBase &rewriter, mlir::Location loc, mlir::Value x, mlir::Value y, mlir::Value z) {
-    qcirc::Gate1QOp h2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
+    qcirc::Gate1QOp h2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
     z = h2.getResult();
 
-    qcirc::Gate1QOp cx5 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, x);
+    qcirc::Gate1QOp cx5 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, x);
     z = cx5.getControlResults()[0];
     x = cx5.getResult();
 
-    qcirc::Gate1QOp t2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::T, mlir::ValueRange(), x);
+    qcirc::Gate1QOp t2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::T, mlir::ValueRange(), x);
     x = t2.getResult();
 
-    qcirc::Gate1QOp cx4 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, y, x);
+    qcirc::Gate1QOp cx4 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, y, x);
     y = cx4.getControlResults()[0];
     x = cx4.getResult();
 
-    qcirc::Gate1QOp cx3 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, y);
+    qcirc::Gate1QOp cx3 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, y);
     z = cx3.getControlResults()[0];
     y = cx3.getResult();
 
-    qcirc::Gate1QOp t1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::T, mlir::ValueRange(), y);
+    qcirc::Gate1QOp t1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::T, mlir::ValueRange(), y);
     y = t1.getResult();
-    qcirc::Gate1QOp tdg2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), z);
+    qcirc::Gate1QOp tdg2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), z);
     z = tdg2.getResult();
-    qcirc::Gate1QOp tdg1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), x);
+    qcirc::Gate1QOp tdg1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), x);
     x = tdg1.getResult();
 
-    qcirc::Gate1QOp cx2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, y, x);
+    qcirc::Gate1QOp cx2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, y, x);
     y = cx2.getControlResults()[0];
     x = cx2.getResult();
 
-    qcirc::Gate1QOp cx1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, z, y);
+    qcirc::Gate1QOp cx1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, z, y);
     z = cx1.getControlResults()[0];
     y = cx1.getResult();
 
-    qcirc::Gate1QOp h1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
+    qcirc::Gate1QOp h1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::H, mlir::ValueRange(), z);
     z = h1.getResult();
 
     return {x, y, z};
@@ -119,7 +119,7 @@ void ccxphaseLadder(
     size_t n_ancilla = controls.size()-2;
     llvm::SmallVector<mlir::Value> ancillas;
     for (size_t i = 0; i < n_ancilla; i++) {
-        ancillas.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
+        ancillas.push_back(qcirc::QallocOp::create(rewriter, loc).getResult());
     }
 
     std::tie(controls[0], controls[1], ancillas[0]) =
@@ -143,7 +143,7 @@ void ccxphaseLadder(
         ccxphase_adj(rewriter, loc, controls[0], controls[1], ancillas[0]);
 
     for (mlir::Value ancilla : ancillas) {
-        rewriter.create<qcirc::QfreeZeroOp>(loc, ancilla);
+        qcirc::QfreeZeroOp::create(rewriter, loc, ancilla);
     }
 
     result_out = controls;
@@ -168,7 +168,7 @@ class ReplaceGate1QManyControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
             [&](mlir::Value ctrl1, mlir::Value ctrl2) {
                 mlir::Value tgt = gate.getQubit();
                 qcirc::Gate1QOp ccu =
-                    rewriter.create<qcirc::Gate1QOp>(loc,
+                    qcirc::Gate1QOp::create(rewriter, loc,
                         gate.getGate(),
                         std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
                 assert(ccu.getControlResults().size() == 2
@@ -204,7 +204,7 @@ class ReplaceGate1Q1PManyControlsPattern : public mlir::OpRewritePattern<qcirc::
             [&](mlir::Value ctrl1, mlir::Value ctrl2) {
                 mlir::Value tgt = gate.getQubit();
                 qcirc::Gate1Q1POp ccu =
-                    rewriter.create<qcirc::Gate1Q1POp>(loc,
+                    qcirc::Gate1Q1POp::create(rewriter, loc,
                         gate.getGate(), gate.getParam(),
                         std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
                 assert(ccu.getControlResults().size() == 2
@@ -240,7 +240,7 @@ class ReplaceGate1Q3PManyControlsPattern : public mlir::OpRewritePattern<qcirc::
             [&](mlir::Value ctrl1, mlir::Value ctrl2) {
                 mlir::Value tgt = gate.getQubit();
                 qcirc::Gate1Q3POp ccu =
-                    rewriter.create<qcirc::Gate1Q3POp>(loc,
+                    qcirc::Gate1Q3POp::create(rewriter, loc,
                         gate.getGate(), gate.getFirstParam(),
                         gate.getSecondParam(), gate.getThirdParam(),
                         std::initializer_list<mlir::Value>{ctrl1, ctrl2}, tgt);
@@ -276,7 +276,7 @@ class ReplaceGate2QManyControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
         ccxphaseLadder(rewriter, loc, gate.getControls(), replace_with,
             [&](mlir::Value ctrl1, mlir::Value ctrl2) {
                 qcirc::Gate2QOp ccu =
-                    rewriter.create<qcirc::Gate2QOp>(loc,
+                    qcirc::Gate2QOp::create(rewriter, loc,
                         gate.getGate(),
                         std::initializer_list<mlir::Value>{ctrl1, ctrl2},
                         gate.getLeftQubit(), gate.getRightQubit());

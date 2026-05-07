@@ -88,10 +88,10 @@ mlir::Value copyRefCounted(mlir::OpBuilder &builder, mlir::Location loc,
     mlir::Value copied;
 
     if (llvm::isa<qcirc::ArrayType>(rc_ty)) {
-        copied = builder.create<qcirc::ArrayCopyOp>(loc, rc_val)
+        copied = qcirc::ArrayCopyOp::create(builder, loc, rc_val)
                         .getArrayOut();
     } else if (llvm::isa<qcirc::CallableType>(rc_ty)) {
-        copied = builder.create<qcirc::CallableCopyOp>(loc, rc_val)
+        copied = qcirc::CallableCopyOp::create(builder, loc, rc_val)
                         .getCallableOut();
     } else {
         assert(0 && "copyRefCounted() called on non-refcounted value");
@@ -109,9 +109,9 @@ void freeRefCounted(mlir::OpBuilder &builder,
     mlir::Type rc_ty = rc_val.getType();
 
     if (llvm::isa<qcirc::ArrayType>(rc_ty)) {
-        builder.create<qcirc::ArrayFreeOp>(loc, rc_val);
+        qcirc::ArrayFreeOp::create(builder, loc, rc_val);
     } else if (llvm::isa<qcirc::CallableType>(rc_ty)) {
-        builder.create<qcirc::CallableFreeOp>(loc, rc_val);
+        qcirc::CallableFreeOp::create(builder, loc, rc_val);
     } else {
         assert(0 && "freeRefCounted() called on non-refcounted value");
     }
@@ -295,7 +295,7 @@ mlir::LLVM::GlobalOp createStringConstant(
                                     builder.getI8Type()),
         bytes);
 
-    mlir::LLVM::GlobalOp global = builder.create<mlir::LLVM::GlobalOp>(
+    mlir::LLVM::GlobalOp global = mlir::LLVM::GlobalOp::create(builder,
         loc, type, /*isConstant=*/true,
         mlir::LLVM::Linkage::Internal, sym_name, array);
     global.setPrivate();
@@ -456,7 +456,7 @@ struct IntrinsicStubsFactory {
 
     mlir::LLVM::LLVMFuncOp stubIntrinsic(llvm::StringRef name, mlir::LLVM::LLVMFunctionType funcType) {
         builder.setInsertionPointToEnd(module.getBody());
-        return builder.create<mlir::LLVM::LLVMFuncOp>(builder.getUnknownLoc(), name, funcType);
+        return mlir::LLVM::LLVMFuncOp::create(builder, builder.getUnknownLoc(), name, funcType);
     }
 
     mlir::LLVM::GlobalOp createMessage(llvm::StringRef sym_name, llvm::StringRef message) {
@@ -833,13 +833,13 @@ struct IntrinsicStubsFactory {
 mlir::Value sizeofHack(mlir::Location loc, mlir::OpBuilder &builder, mlir::Type T, mlir::Type sizeType) {
     // Clever hack to get calculate sizeof(T) in LLVM IR
     // Based on: https://stackoverflow.com/a/30830445/321301
-    mlir::Value hack = builder.create<mlir::LLVM::GEPOp>(
+    mlir::Value hack = mlir::LLVM::GEPOp::create(builder,
             loc,
             builder.getType<mlir::LLVM::LLVMPointerType>(),
             T,
-            builder.create<mlir::LLVM::ZeroOp>(loc, builder.getType<mlir::LLVM::LLVMPointerType>()).getRes(),
+            mlir::LLVM::ZeroOp::create(builder, loc, builder.getType<mlir::LLVM::LLVMPointerType>()).getRes(),
             std::initializer_list<mlir::LLVM::GEPArg>{1}).getRes();
-    mlir::Value sizeof_T = builder.create<mlir::LLVM::PtrToIntOp>(loc, sizeType, hack).getRes();
+    mlir::Value sizeof_T = mlir::LLVM::PtrToIntOp::create(builder, loc, sizeType, hack).getRes();
     return sizeof_T;
 }
 
@@ -855,12 +855,12 @@ struct Gate1QOpLowering : public mlir::OpConversionPattern<qcirc::Gate1QOp> {
         GateStubs &gate_stubs = stubs.gates1q[gate_op.getGate()];
 
         if (gate_op.getControls().empty()) {
-            rewriter.create<mlir::LLVM::CallOp>(gate_op.getLoc(), gate_stubs.stub_1q, adaptor.getQubit());
+            mlir::LLVM::CallOp::create(rewriter, gate_op.getLoc(), gate_stubs.stub_1q, adaptor.getQubit());
             // Replace any uses with the qubit we took as input
             rewriter.replaceOp(gate_op, adaptor.getQubit());
             return mlir::success();
         } else if (gate_op.getControls().size() == 1 && qirSupportsC(gate_op.getGate())) {
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     gate_stubs.stub_c1q,
                     mlir::ValueRange({adaptor.getControls()[0], adaptor.getQubit()}));
@@ -868,7 +868,7 @@ struct Gate1QOpLowering : public mlir::OpConversionPattern<qcirc::Gate1QOp> {
             rewriter.replaceOp(gate_op, {adaptor.getControls()[0], adaptor.getQubit()});
             return mlir::success();
         } else if (gate_op.getControls().size() == 2 && qirSupportsCC(gate_op.getGate())) {
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     gate_stubs.stub_cc1q,
                     mlir::ValueRange({adaptor.getControls()[0],
@@ -888,39 +888,39 @@ struct Gate1QOpLowering : public mlir::OpConversionPattern<qcirc::Gate1QOp> {
                     rewriter.getI32Type());
 
             // Create array for control qubits
-            mlir::Value n_controls = rewriter.create<mlir::arith::ConstantOp>(
+            mlir::Value n_controls = mlir::arith::ConstantOp::create(rewriter,
                     gate_op.getLoc(),
                     rewriter.getI64IntegerAttr(gate_op.getControls().size())).getResult();
-            mlir::Value controls_arr = rewriter.create<mlir::LLVM::CallOp>(
+            mlir::Value controls_arr = mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.create1dArray,
                     std::initializer_list<mlir::Value>{ptr_size, n_controls}).getResult();
 
             // Add all the controls into the array
             for (size_t i = 0; i < gate_op.getControls().size(); i++) {
-                mlir::Value i_val = rewriter.create<mlir::arith::ConstantOp>(
+                mlir::Value i_val = mlir::arith::ConstantOp::create(rewriter,
                         gate_op.getLoc(),
                         rewriter.getI64IntegerAttr(i)).getResult();
-                mlir::Value elem_ptr = rewriter.create<mlir::LLVM::CallOp>(
+                mlir::Value elem_ptr = mlir::LLVM::CallOp::create(rewriter,
                         gate_op.getLoc(),
                         stubs.gep1dArray,
                         std::initializer_list<mlir::Value>{controls_arr, i_val}).getResult();
-                rewriter.create<mlir::LLVM::StoreOp>(gate_op.getLoc(), adaptor.getControls()[i], elem_ptr);
+                mlir::LLVM::StoreOp::create(rewriter, gate_op.getLoc(), adaptor.getControls()[i], elem_ptr);
             }
 
             // Finally, invoke the multi-control stub!
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     gate_stubs.stub_mc1q,
                     mlir::ValueRange({controls_arr, adaptor.getQubit()}));
 
             // free() the array
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.arrayUpdateRc,
                     std::initializer_list<mlir::Value>{
                         controls_arr,
-                        rewriter.create<mlir::arith::ConstantOp>(gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
+                        mlir::arith::ConstantOp::create(rewriter, gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
 
             // Replace any uses with the qubits we took as input
             llvm::SmallVector<mlir::Value> new_outputs;
@@ -944,7 +944,7 @@ struct Gate1Q1POpLowering : public mlir::OpConversionPattern<qcirc::Gate1Q1POp> 
         GateStubs &gate_stubs = stubs.gates1q1p[gate_op.getGate()];
 
         if (gate_op.getControls().empty()) {
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     gate_stubs.stub_1q,
                     std::initializer_list<mlir::Value>{adaptor.getParam(), adaptor.getQubit()});
@@ -960,24 +960,24 @@ struct Gate1Q1POpLowering : public mlir::OpConversionPattern<qcirc::Gate1Q1POp> 
                     rewriter.getI32Type());
 
             // Create array for control qubits
-            mlir::Value n_controls = rewriter.create<mlir::arith::ConstantOp>(
+            mlir::Value n_controls = mlir::arith::ConstantOp::create(rewriter,
                     gate_op.getLoc(),
                     rewriter.getI64IntegerAttr(gate_op.getControls().size())).getResult();
-            mlir::Value controls_arr = rewriter.create<mlir::LLVM::CallOp>(
+            mlir::Value controls_arr = mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.create1dArray,
                     std::initializer_list<mlir::Value>{ptr_size, n_controls}).getResult();
 
             // Add all the controls into the array
             for (size_t i = 0; i < gate_op.getControls().size(); i++) {
-                mlir::Value i_val = rewriter.create<mlir::arith::ConstantOp>(
+                mlir::Value i_val = mlir::arith::ConstantOp::create(rewriter,
                         gate_op.getLoc(),
                         rewriter.getI64IntegerAttr(i)).getResult();
-                mlir::Value elem_ptr = rewriter.create<mlir::LLVM::CallOp>(
+                mlir::Value elem_ptr = mlir::LLVM::CallOp::create(rewriter,
                         gate_op.getLoc(),
                         stubs.gep1dArray,
                         std::initializer_list<mlir::Value>{controls_arr, i_val}).getResult();
-                rewriter.create<mlir::LLVM::StoreOp>(gate_op.getLoc(), adaptor.getControls()[i], elem_ptr);
+                mlir::LLVM::StoreOp::create(rewriter, gate_op.getLoc(), adaptor.getControls()[i], elem_ptr);
             }
 
             // A little extra trolling for multi-controlled gates with an angle
@@ -993,50 +993,50 @@ struct Gate1Q1POpLowering : public mlir::OpConversionPattern<qcirc::Gate1Q1POp> 
                     rewriter,
                     rot_args_struct,
                     rewriter.getI64Type());
-            mlir::Value rot_args_buf = rewriter.create<mlir::LLVM::CallOp>(
+            mlir::Value rot_args_buf = mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(), stubs.tupleCreate, rot_args_size).getResult();
-            mlir::Value theta_ptr = rewriter.create<mlir::LLVM::GEPOp>(
+            mlir::Value theta_ptr = mlir::LLVM::GEPOp::create(rewriter,
                     gate_op.getLoc(),
                     rewriter.getType<mlir::LLVM::LLVMPointerType>(),
                     rot_args_struct,
                     rot_args_buf,
                     std::initializer_list<mlir::LLVM::GEPArg>{0, 0});
-            rewriter.create<mlir::LLVM::StoreOp>(
+            mlir::LLVM::StoreOp::create(rewriter,
                     gate_op.getLoc(),
                     adaptor.getParam(),
                     theta_ptr);
-            mlir::Value target_ptr = rewriter.create<mlir::LLVM::GEPOp>(
+            mlir::Value target_ptr = mlir::LLVM::GEPOp::create(rewriter,
                     gate_op.getLoc(),
                     rewriter.getType<mlir::LLVM::LLVMPointerType>(),
                     rot_args_struct,
                     rot_args_buf,
                     std::initializer_list<mlir::LLVM::GEPArg>{0, 1});
-            rewriter.create<mlir::LLVM::StoreOp>(
+            mlir::LLVM::StoreOp::create(rewriter,
                     gate_op.getLoc(),
                     adaptor.getQubit(),
                     target_ptr);
 
             // Finally, invoke the multi-control stub!
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     gate_stubs.stub_mc1q,
                     mlir::ValueRange({controls_arr, rot_args_buf}));
 
             // free() the array
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.arrayUpdateRc,
                     std::initializer_list<mlir::Value>{
                         controls_arr,
-                        rewriter.create<mlir::arith::ConstantOp>(gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
+                        mlir::arith::ConstantOp::create(rewriter, gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
 
             // free() the rotation arguments buffer
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.tupleUpdateRc,
                     std::initializer_list<mlir::Value>{
                         rot_args_buf,
-                        rewriter.create<mlir::arith::ConstantOp>(gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
+                        mlir::arith::ConstantOp::create(rewriter, gate_op.getLoc(), rewriter.getI32IntegerAttr(-1)).getResult()});
 
             // Replace any uses with the qubits we took as input
             llvm::SmallVector<mlir::Value> new_outputs;
@@ -1058,7 +1058,7 @@ struct Gate2QOpLowering : public mlir::OpConversionPattern<qcirc::Gate2QOp> {
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         if (gate_op.getControls().empty()) {
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                     gate_op.getLoc(),
                     stubs.gates2q[gate_op.getGate()],
                     std::initializer_list<mlir::Value>{adaptor.getLeftQubit(), adaptor.getRightQubit()});
@@ -1094,7 +1094,7 @@ struct QfreeOpLowering : public mlir::OpConversionPattern<qcirc::QfreeOp> {
     mlir::LogicalResult matchAndRewrite(qcirc::QfreeOp qfree_op,
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
-        rewriter.create<mlir::LLVM::CallOp>(qfree_op.getLoc(), stubs.reset, adaptor.getQubit());
+        mlir::LLVM::CallOp::create(rewriter, qfree_op.getLoc(), stubs.reset, adaptor.getQubit());
         rewriter.replaceOpWithNewOp<mlir::LLVM::CallOp>(qfree_op, stubs.qfree, adaptor.getQubit());
         return mlir::success();
     }
@@ -1123,9 +1123,9 @@ struct MeasureOpLowering : public mlir::OpConversionPattern<qcirc::MeasureOp> {
     mlir::LogicalResult matchAndRewrite(qcirc::MeasureOp meas_op,
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
-        mlir::Value result = rewriter.create<mlir::LLVM::CallOp>(meas_op.getLoc(), stubs.measure, adaptor.getQubit()).getResult();
-        mlir::Value one = rewriter.create<mlir::LLVM::CallOp>(meas_op.getLoc(), stubs.resultGetOne, mlir::ValueRange()).getResult();
-        mlir::Value bit = rewriter.create<mlir::LLVM::CallOp>(meas_op.getLoc(), stubs.resultEqual, mlir::ValueRange({result, one})).getResult();
+        mlir::Value result = mlir::LLVM::CallOp::create(rewriter, meas_op.getLoc(), stubs.measure, adaptor.getQubit()).getResult();
+        mlir::Value one = mlir::LLVM::CallOp::create(rewriter, meas_op.getLoc(), stubs.resultGetOne, mlir::ValueRange()).getResult();
+        mlir::Value bit = mlir::LLVM::CallOp::create(rewriter, meas_op.getLoc(), stubs.resultEqual, mlir::ValueRange({result, one})).getResult();
         rewriter.replaceOp(meas_op, {adaptor.getQubit(), bit});
         return mlir::success();
     }
@@ -1152,16 +1152,16 @@ struct ArrayPackOpLowering : public mlir::OpConversionPattern<qcirc::ArrayPackOp
         mlir::Location loc = pack_op.getLoc();
         mlir::Value sizeof_elem = sizeofHack(loc, rewriter, llvm_elem_type, rewriter.getI32Type());
         uint64_t dim = arr_type.getDim();
-        mlir::Value dim_const = rewriter.create<mlir::arith::ConstantOp>(loc, rewriter.getI64IntegerAttr(dim)).getResult();
-        mlir::Value array_ptr = rewriter.create<mlir::LLVM::CallOp>(
+        mlir::Value dim_const = mlir::arith::ConstantOp::create(rewriter, loc, rewriter.getI64IntegerAttr(dim)).getResult();
+        mlir::Value array_ptr = mlir::LLVM::CallOp::create(rewriter,
                 loc, stubs.create1dArray, mlir::ValueRange({sizeof_elem, dim_const})).getResult();
 
         for (uint64_t i = 0; i < dim; i++) {
-            mlir::Value idx = rewriter.create<mlir::arith::ConstantOp>(loc, rewriter.getI64IntegerAttr(i)).getResult();
-            mlir::Value elem_ptr = rewriter.create<mlir::LLVM::CallOp>(
+            mlir::Value idx = mlir::arith::ConstantOp::create(rewriter, loc, rewriter.getI64IntegerAttr(i)).getResult();
+            mlir::Value elem_ptr = mlir::LLVM::CallOp::create(rewriter,
                     loc, stubs.gep1dArray, mlir::ValueRange({array_ptr, idx})
                 ).getResult();
-            rewriter.create<mlir::LLVM::StoreOp>(loc, adaptor.getElems()[i], elem_ptr);
+            mlir::LLVM::StoreOp::create(rewriter, loc, adaptor.getElems()[i], elem_ptr);
         }
 
         rewriter.replaceOp(pack_op, array_ptr);
@@ -1193,11 +1193,11 @@ struct ArrayUnpackOpLowering : public mlir::OpConversionPattern<qcirc::ArrayUnpa
         elems.reserve(dim);
 
         for (uint64_t i = 0; i < dim; i++) {
-            mlir::Value idx = rewriter.create<mlir::arith::ConstantOp>(loc, rewriter.getI64IntegerAttr(i)).getResult();
-            mlir::Value elem_ptr = rewriter.create<mlir::LLVM::CallOp>(
+            mlir::Value idx = mlir::arith::ConstantOp::create(rewriter, loc, rewriter.getI64IntegerAttr(i)).getResult();
+            mlir::Value elem_ptr = mlir::LLVM::CallOp::create(rewriter,
                     loc, stubs.gep1dArray, mlir::ValueRange({adaptor.getArray(), idx})
                 ).getResult();
-            elems.push_back(rewriter.create<mlir::LLVM::LoadOp>(loc, llvm_elem_type, elem_ptr).getRes());
+            elems.push_back(mlir::LLVM::LoadOp::create(rewriter, loc, llvm_elem_type, elem_ptr).getRes());
         }
 
         rewriter.replaceOp(unpack_op, elems);
@@ -1217,7 +1217,7 @@ struct InitOpLowering : public mlir::OpConversionPattern<qcirc::InitOp> {
         rewriter.replaceOpWithNewOp<mlir::LLVM::CallOp>(
             init_op, stubs.initialize,
             // Pass NULL because I have no clue what this pointer is
-            rewriter.create<mlir::LLVM::ZeroOp>(init_op.getLoc(),
+            mlir::LLVM::ZeroOp::create(rewriter, init_op.getLoc(),
                 rewriter.getType<mlir::LLVM::LLVMPointerType>()).getRes());
         return mlir::success();
     }
@@ -1230,7 +1230,7 @@ struct QubitIndexOpLowering : public mlir::OpConversionPattern<qcirc::QubitIndex
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Value qubit_idx_val =
-            rewriter.create<mlir::arith::ConstantOp>(
+            mlir::arith::ConstantOp::create(rewriter,
                 qidx_op.getLoc(),
                 rewriter.getI64IntegerAttr(qidx_op.getIndex())).getResult();
         mlir::Type qubit_ptr_type =
@@ -1253,13 +1253,13 @@ struct UglyMeasureOpLowering : public mlir::OpConversionPattern<qcirc::UglyMeasu
         auto loc = ugly_meas.getLoc();
         size_t result_idx = ugly_meas.getResultOffset();
         for (mlir::Value qubit : adaptor.getQubits()) {
-            rewriter.create<mlir::LLVM::CallOp>(loc,
+            mlir::LLVM::CallOp::create(rewriter, loc,
                 stubs.measureInPlace,
                 std::initializer_list<mlir::Value>{
                     qubit,
-                    rewriter.create<mlir::LLVM::IntToPtrOp>(loc,
+                    mlir::LLVM::IntToPtrOp::create(rewriter, loc,
                         rewriter.getType<mlir::LLVM::LLVMPointerType>(),
-                        rewriter.create<mlir::arith::ConstantOp>(loc,
+                        mlir::arith::ConstantOp::create(rewriter, loc,
                             rewriter.getI64IntegerAttr(result_idx)).getResult()
                     ).getRes()});
             result_idx++;
@@ -1281,30 +1281,30 @@ struct UglyRecordOpLowering : public mlir::OpConversionPattern<qcirc::UglyRecord
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         auto loc = ugly_rec.getLoc();
         size_t n_results = ugly_rec.getNumResults();
-        rewriter.create<mlir::LLVM::CallOp>(loc,
+        mlir::LLVM::CallOp::create(rewriter, loc,
             stubs.tupleRecord,
             std::initializer_list<mlir::Value>{
-                rewriter.create<mlir::arith::ConstantOp>(loc,
+                mlir::arith::ConstantOp::create(rewriter, loc,
                     rewriter.getI64IntegerAttr(n_results)).getResult(),
-                rewriter.create<mlir::LLVM::GEPOp>(loc,
+                mlir::LLVM::GEPOp::create(rewriter, loc,
                     rewriter.getType<mlir::LLVM::LLVMPointerType>(),
                     rewriter.getI8Type(),
-                    rewriter.create<mlir::LLVM::AddressOfOp>(loc,
+                    mlir::LLVM::AddressOfOp::create(rewriter, loc,
                         rewriter.getType<mlir::LLVM::LLVMPointerType>(),
                         ugly_rec.getUglyLabelAttr()).getRes(),
                     std::initializer_list<mlir::LLVM::GEPArg>{0}).getRes()});
 
         size_t result_idx = ugly_rec.getResultOffset();
         for (size_t i = 0; i < n_results; i++) {
-            rewriter.create<mlir::LLVM::CallOp>(loc,
+            mlir::LLVM::CallOp::create(rewriter, loc,
                 stubs.resultRecord,
                 std::initializer_list<mlir::Value>{
-                    rewriter.create<mlir::LLVM::IntToPtrOp>(loc,
+                    mlir::LLVM::IntToPtrOp::create(rewriter, loc,
                         rewriter.getType<mlir::LLVM::LLVMPointerType>(),
-                        rewriter.create<mlir::arith::ConstantOp>(loc,
+                        mlir::arith::ConstantOp::create(rewriter, loc,
                             rewriter.getI64IntegerAttr(result_idx)).getResult()
                     ).getRes(),
-                    rewriter.create<mlir::LLVM::ZeroOp>(loc,
+                    mlir::LLVM::ZeroOp::create(rewriter, loc,
                         rewriter.getType<mlir::LLVM::LLVMPointerType>()).getRes()});
             result_idx++;
         }
@@ -1353,12 +1353,12 @@ mlir::Type pointerType(mlir::Builder &builder) {
 }
 
 mlir::Value nullPointer(mlir::OpBuilder &builder, mlir::Location loc) {
-    return builder.create<mlir::LLVM::ZeroOp>(
+    return mlir::LLVM::ZeroOp::create(builder,
         loc, pointerType(builder)).getRes();
 }
 
 mlir::Value funcPtr(mlir::OpBuilder &builder, mlir::Location loc, mlir::FlatSymbolRefAttr sym) {
-    return builder.create<mlir::LLVM::AddressOfOp>(
+    return mlir::LLVM::AddressOfOp::create(builder,
         loc, pointerType(builder), sym).getRes();
 }
 
@@ -1412,7 +1412,7 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
             /*result=*/builder.getType<mlir::LLVM::LLVMVoidType>(),
             /*params=*/entry_block_arg_types);
     mlir::LLVM::LLVMFuncOp stub_func =
-        builder.create<mlir::LLVM::LLVMFuncOp>(
+        mlir::LLVM::LLVMFuncOp::create(builder,
             loc, stub_name, stub_func_type, mlir::LLVM::Linkage::Internal);
     stub_func.setPrivate();
 
@@ -1452,13 +1452,13 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
 
             for (auto [i, capture_type] : llvm::enumerate(capture_types)) {
                 mlir::Value gep =
-                    builder.create<mlir::LLVM::GEPOp>(
+                    mlir::LLVM::GEPOp::create(builder,
                         loc, pointerType(builder), capture_tuple, capture_arg,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
                         mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 mlir::Value loaded =
-                    builder.create<mlir::LLVM::LoadOp>(
+                    mlir::LLVM::LoadOp::create(builder,
                         loc, capture_type, gep).getRes();
                 args.push_back(loaded);
             }
@@ -1485,13 +1485,13 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
 
             for (auto [i, arg_type] : llvm::enumerate(arg_types)) {
                 mlir::Value gep =
-                    builder.create<mlir::LLVM::GEPOp>(
+                    mlir::LLVM::GEPOp::create(builder,
                         loc, pointerType(builder), arg_tuple, args_arg,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
                         mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
                 mlir::Value loaded =
-                    builder.create<mlir::LLVM::LoadOp>(
+                    mlir::LLVM::LoadOp::create(builder,
                         loc, arg_type, gep).getRes();
                 args.push_back(loaded);
             }
@@ -1502,10 +1502,10 @@ mlir::FlatSymbolRefAttr generateStubSkeleton(
         mlir::Value call_res = callback(func_type, args);
 
         if (call_res) {
-            builder.create<mlir::LLVM::StoreOp>(loc, call_res, result_arg);
+            mlir::LLVM::StoreOp::create(builder, loc, call_res, result_arg);
         }
 
-        builder.create<mlir::LLVM::ReturnOp>(loc, mlir::ValueRange());
+        mlir::LLVM::ReturnOp::create(builder, loc, mlir::ValueRange());
     }
 
     return builder.getAttr<mlir::FlatSymbolRefAttr>(stub_name);
@@ -1521,7 +1521,7 @@ mlir::FlatSymbolRefAttr generateStub(
             mlir::LLVM::LLVMFunctionType func_type,
             mlir::ValueRange args) -> mlir::Value {
         // Now call the actual function!
-        mlir::LLVM::CallOp call = builder.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp call = mlir::LLVM::CallOp::create(builder,
             loc, func_type, spec.getSymbol(), args);
         if (llvm::isa<mlir::LLVM::LLVMVoidType>(func_type.getReturnType())) {
             return nullptr;
@@ -1565,10 +1565,10 @@ mlir::FlatSymbolRefAttr generateControlStub(
 
         mlir::Block *fallthrough_block = builder.createBlock(ret_block);
         mlir::Value bad_spec_msg_addr =
-            builder.create<mlir::LLVM::AddressOfOp>(
+            mlir::LLVM::AddressOfOp::create(builder,
                 loc, stubs.badSpecMsg).getRes();
-        builder.create<mlir::LLVM::CallOp>(loc, stubs.fail, bad_spec_msg_addr);
-        builder.create<mlir::LLVM::ReturnOp>(loc, mlir::ValueRange());
+        mlir::LLVM::CallOp::create(builder, loc, stubs.fail, bad_spec_msg_addr);
+        mlir::LLVM::ReturnOp::create(builder, loc, mlir::ValueRange());
 
         llvm::SmallVector<int32_t> case_vals;
         llvm::SmallVector<mlir::Block *> spec_blocks;
@@ -1590,21 +1590,21 @@ mlir::FlatSymbolRefAttr generateControlStub(
             case_vals.push_back(spec_dim);
             spec_blocks.push_back(builder.createBlock(ret_block));
             mlir::LLVM::CallOp spec_call =
-                builder.create<mlir::LLVM::CallOp>(
+                mlir::LLVM::CallOp::create(builder,
                     loc, func_type, spec.getSymbol(), args);
             if (is_void) {
-                builder.create<mlir::LLVM::BrOp>(loc, ret_block);
+                mlir::LLVM::BrOp::create(builder, loc, ret_block);
             } else {
-                builder.create<mlir::LLVM::BrOp>(loc, spec_call.getResult(), ret_block);
+                mlir::LLVM::BrOp::create(builder, loc, spec_call.getResult(), ret_block);
             }
         }
 
         builder.restoreInsertionPoint(old_insertpt);
         assert(!args.empty());
         mlir::Value qbundle_arg = args[args.size()-1];
-        mlir::Value actual_dim = builder.create<mlir::LLVM::CallOp>(
+        mlir::Value actual_dim = mlir::LLVM::CallOp::create(builder,
             loc, stubs.size1dArray, qbundle_arg).getResult();
-        builder.create<mlir::LLVM::SwitchOp>(
+        mlir::LLVM::SwitchOp::create(builder,
             loc, actual_dim, fallthrough_block, mlir::ValueRange(),
             case_vals, spec_blocks);
 
@@ -1627,18 +1627,18 @@ void updateRefOrAliasCount(
         mlir::Location loc, mlir::Type qcirc_capture_type,
         mlir::Value capture_val, mlir::Value delta) {
     if (llvm::isa<qcirc::ArrayType>(qcirc_capture_type)) {
-        builder.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(builder,
             loc, kind == Count::Ref ? stubs.arrayUpdateRc
                                     : stubs.arrayUpdateAlias,
             std::initializer_list<mlir::Value>{
                 capture_val, delta});
     } else if (llvm::isa<qcirc::CallableType>(qcirc_capture_type)) {
-        builder.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(builder,
             loc, kind == Count::Ref ? stubs.callableCaptureUpdateRc
                                     : stubs.callableCaptureUpdateAlias,
             std::initializer_list<mlir::Value>{
                 capture_val, delta});
-        builder.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(builder,
             loc, kind == Count::Ref ? stubs.callableUpdateRc
                                     : stubs.callableUpdateAlias,
             std::initializer_list<mlir::Value>{
@@ -1653,7 +1653,7 @@ void updateRefOrAliasCount(
         mlir::Location loc, mlir::Type qcirc_capture_type,
         mlir::Value capture_val, int32_t delta) {
     mlir::Value const_delta =
-        builder.create<mlir::arith::ConstantOp>(
+        mlir::arith::ConstantOp::create(builder,
             loc, builder.getI32IntegerAttr(delta)).getResult();
     updateRefOrAliasCount(kind, builder, stubs, loc, qcirc_capture_type,
                           capture_val, const_delta);
@@ -1703,12 +1703,12 @@ void createCaptureRefcountFuncs(
                 pointerType(builder), builder.getI32Type()});
 
     mlir::LLVM::LLVMFuncOp refcount_func =
-        builder.create<mlir::LLVM::LLVMFuncOp>(
+        mlir::LLVM::LLVMFuncOp::create(builder,
             loc, refcount_func_name, refcount_func_ty,
             mlir::LLVM::Linkage::Internal);
     refcount_func.setPrivate();
     mlir::LLVM::LLVMFuncOp alias_count_func =
-        builder.create<mlir::LLVM::LLVMFuncOp>(
+        mlir::LLVM::LLVMFuncOp::create(builder,
             loc, alias_count_func_name, refcount_func_ty,
             mlir::LLVM::Linkage::Internal);
     alias_count_func.setPrivate();
@@ -1735,23 +1735,23 @@ void createCaptureRefcountFuncs(
             llvm::enumerate(qcirc_capture_types, capture_types)) {
         builder.setInsertionPointToEnd(ref_entry_block);
         mlir::Value ref_gep =
-            builder.create<mlir::LLVM::GEPOp>(
+            mlir::LLVM::GEPOp::create(builder,
                 loc, pointerType(builder), capture_tuple_type,
                 ref_tuple_arg,
                 std::initializer_list<mlir::LLVM::GEPArg>{
                     0, static_cast<int32_t>(i)},
                 mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
-        mlir::Value ref_val = builder.create<mlir::LLVM::LoadOp>(
+        mlir::Value ref_val = mlir::LLVM::LoadOp::create(builder,
             loc, capture_type, ref_gep).getRes();
         builder.setInsertionPointToEnd(alias_entry_block);
         mlir::Value alias_gep =
-            builder.create<mlir::LLVM::GEPOp>(
+            mlir::LLVM::GEPOp::create(builder,
                 loc, pointerType(builder), capture_tuple_type,
                 alias_tuple_arg,
                 std::initializer_list<mlir::LLVM::GEPArg>{
                     0, static_cast<int32_t>(i)},
                 mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
-        mlir::Value alias_val = builder.create<mlir::LLVM::LoadOp>(
+        mlir::Value alias_val = mlir::LLVM::LoadOp::create(builder,
             loc, capture_type, alias_gep).getRes();
 
         builder.setInsertionPointToEnd(ref_entry_block);
@@ -1765,18 +1765,18 @@ void createCaptureRefcountFuncs(
     }
 
     builder.setInsertionPointToEnd(ref_entry_block);
-    builder.create<mlir::LLVM::CallOp>(
+    mlir::LLVM::CallOp::create(builder,
         loc, stubs.tupleUpdateRc,
         std::initializer_list<mlir::Value>{
             ref_tuple_arg, ref_delta_arg});
-    builder.create<mlir::LLVM::ReturnOp>(loc, mlir::ValueRange());
+    mlir::LLVM::ReturnOp::create(builder, loc, mlir::ValueRange());
 
     builder.setInsertionPointToEnd(alias_entry_block);
-    builder.create<mlir::LLVM::CallOp>(
+    mlir::LLVM::CallOp::create(builder,
         loc, stubs.tupleUpdateAlias,
         std::initializer_list<mlir::Value>{
             alias_tuple_arg, alias_delta_arg});
-    builder.create<mlir::LLVM::ReturnOp>(loc, mlir::ValueRange());
+    mlir::LLVM::ReturnOp::create(builder, loc, mlir::ValueRange());
 
     captures_update_refcount_out =
         builder.getAttr<mlir::FlatSymbolRefAttr>(refcount_func_name);
@@ -1844,7 +1844,7 @@ struct CallableMetadataOpLowering : public mlir::OpConversionPattern<qcirc::Call
             rewriter.getType<mlir::LLVM::LLVMArrayType>(
                 pointerType(rewriter), 4);
         mlir::LLVM::GlobalOp func_table =
-            rewriter.create<mlir::LLVM::GlobalOp>(loc,
+            mlir::LLVM::GlobalOp::create(rewriter, loc,
                 func_table_ty, /*isConstant=*/true,
                 mlir::LLVM::Linkage::Internal, func_table_name,
                 /*value=*/nullptr);
@@ -1865,9 +1865,9 @@ struct CallableMetadataOpLowering : public mlir::OpConversionPattern<qcirc::Call
             };
 
             mlir::Value arr =
-                rewriter.create<qcirc::LLVMConstantArrayOp>(loc,
+                qcirc::LLVMConstantArrayOp::create(rewriter, loc,
                     func_table_ty, spec_ptrs).getResult();
-            rewriter.create<mlir::LLVM::ReturnOp>(loc, arr);
+            mlir::LLVM::ReturnOp::create(rewriter, loc, arr);
         }
 
         // Now build memory table (if there are any captures)
@@ -1877,7 +1877,7 @@ struct CallableMetadataOpLowering : public mlir::OpConversionPattern<qcirc::Call
                 rewriter.getType<mlir::LLVM::LLVMArrayType>(
                     pointerType(rewriter), 2);
             mlir::LLVM::GlobalOp mem_table =
-                rewriter.create<mlir::LLVM::GlobalOp>(loc,
+                mlir::LLVM::GlobalOp::create(rewriter, loc,
                     mem_table_ty, /*isConstant=*/true,
                     mlir::LLVM::Linkage::Internal, mem_table_name,
                     /*value=*/nullptr);
@@ -1903,9 +1903,9 @@ struct CallableMetadataOpLowering : public mlir::OpConversionPattern<qcirc::Call
                 };
 
                 mlir::Value arr =
-                    rewriter.create<qcirc::LLVMConstantArrayOp>(loc,
+                    qcirc::LLVMConstantArrayOp::create(rewriter, loc,
                         mem_table_ty, mem_ptrs).getResult();
-                rewriter.create<mlir::LLVM::ReturnOp>(loc, arr);
+                mlir::LLVM::ReturnOp::create(rewriter, loc, arr);
             }
         }
 
@@ -1944,7 +1944,7 @@ struct CallableCreateOpLowering : public mlir::OpConversionPattern<qcirc::Callab
             mlir::Value capture_tuple_size = sizeofHack(
                 loc, rewriter, capture_struct_type, rewriter.getI64Type());
             captures =
-                rewriter.create<mlir::LLVM::CallOp>(
+                mlir::LLVM::CallOp::create(rewriter,
                     loc, stubs.tupleCreate, capture_tuple_size).getResult();
 
             assert(adaptor.getCaptures().size()
@@ -1953,13 +1953,13 @@ struct CallableCreateOpLowering : public mlir::OpConversionPattern<qcirc::Callab
                     llvm::enumerate(adaptor.getCaptures(),
                                     create.getCaptures().getTypes())) {
                 mlir::Value gep =
-                    rewriter.create<mlir::LLVM::GEPOp>(
+                    mlir::LLVM::GEPOp::create(rewriter,
                         loc, pointerType(rewriter), capture_struct_type,
                         captures,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
                         mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
-                rewriter.create<mlir::LLVM::StoreOp>(loc, capture_val, gep);
+                mlir::LLVM::StoreOp::create(rewriter, loc, capture_val, gep);
             }
         }
 
@@ -1985,7 +1985,7 @@ struct CallableAdjointOpLowering : public mlir::OpConversionPattern<qcirc::Calla
         // preprocessing as already happened, which will copy the operand to
         // this op automatically (unless it can safely guarantee that isn't
         // necessary). So we are okay to modify the callable in-place.
-        rewriter.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(rewriter,
             loc, stubs.callableAdjoint, adaptor.getCallableIn()).getResult();
         rewriter.replaceOp(adj, adaptor.getCallableIn());
         return mlir::success();
@@ -2004,7 +2004,7 @@ struct CallableControlOpLowering : public mlir::OpConversionPattern<qcirc::Calla
         mlir::Location loc = ctrl.getLoc();
         // copyAndFreeHeapAllocatedObjects() makes this valid. See comment
         // above in CallableAdjointOpLowering.
-        rewriter.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(rewriter,
             loc, stubs.callableControl, adaptor.getCallableIn()).getResult();
         rewriter.replaceOp(ctrl, adaptor.getCallableIn());
         return mlir::success();
@@ -2039,7 +2039,7 @@ struct CallableInvokeOpLowering : public mlir::OpConversionPattern<qcirc::Callab
                     getContext(), func_type.getParams());
             mlir::Value arg_size = sizeofHack(
                 loc, rewriter, arg_struct_type, rewriter.getI64Type());
-            arg_ptr = rewriter.create<mlir::LLVM::CallOp>(
+            arg_ptr = mlir::LLVM::CallOp::create(rewriter,
                 loc, stubs.tupleCreate, arg_size).getResult();
 
             assert(adaptor.getCallOperands().size()
@@ -2047,13 +2047,13 @@ struct CallableInvokeOpLowering : public mlir::OpConversionPattern<qcirc::Callab
             for (auto [i, arg_val] :
                     llvm::enumerate(adaptor.getCallOperands())) {
                 mlir::Value gep =
-                    rewriter.create<mlir::LLVM::GEPOp>(
+                    mlir::LLVM::GEPOp::create(rewriter,
                         loc, pointerType(rewriter), arg_struct_type,
                         arg_ptr,
                         std::initializer_list<mlir::LLVM::GEPArg>{
                             0, static_cast<int32_t>(i)},
                         mlir::LLVM::GEPNoWrapFlags::inbounds).getRes();
-                rewriter.create<mlir::LLVM::StoreOp>(loc, arg_val, gep);
+                mlir::LLVM::StoreOp::create(rewriter, loc, arg_val, gep);
             }
         }
 
@@ -2065,20 +2065,20 @@ struct CallableInvokeOpLowering : public mlir::OpConversionPattern<qcirc::Callab
             mlir::Type ret_type = func_type.getReturnType();
             mlir::Value ret_size = sizeofHack(
                 loc, rewriter, ret_type, rewriter.getI64Type());
-            result_ptr = rewriter.create<mlir::LLVM::CallOp>(
+            result_ptr = mlir::LLVM::CallOp::create(rewriter,
                 loc, stubs.tupleCreate, ret_size).getResult();
         }
 
-        rewriter.create<mlir::LLVM::CallOp>(
+        mlir::LLVM::CallOp::create(rewriter,
             loc, stubs.callableInvoke,
             std::initializer_list<mlir::Value>{
                 adaptor.getCallable(), arg_ptr, result_ptr});
 
         if (!no_inputs) {
             mlir::Value const_neg_one =
-                rewriter.create<mlir::arith::ConstantOp>(
+                mlir::arith::ConstantOp::create(rewriter,
                     loc, rewriter.getI32IntegerAttr(-1)).getResult();
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                 loc, stubs.tupleUpdateRc,
                 std::initializer_list<mlir::Value>{
                     arg_ptr, const_neg_one});
@@ -2088,13 +2088,13 @@ struct CallableInvokeOpLowering : public mlir::OpConversionPattern<qcirc::Callab
             rewriter.eraseOp(invoke);
         } else {
             mlir::Value result =
-                rewriter.create<mlir::LLVM::LoadOp>(
+                mlir::LLVM::LoadOp::create(rewriter,
                     loc, func_type.getReturnType(), result_ptr).getRes();
 
             mlir::Value const_neg_one =
-                rewriter.create<mlir::arith::ConstantOp>(
+                mlir::arith::ConstantOp::create(rewriter,
                     loc, rewriter.getI32IntegerAttr(-1)).getResult();
-            rewriter.create<mlir::LLVM::CallOp>(
+            mlir::LLVM::CallOp::create(rewriter,
                 loc, stubs.tupleUpdateRc,
                 std::initializer_list<mlir::Value>{
                     result_ptr, const_neg_one});
@@ -2117,18 +2117,18 @@ struct CallableCopyOpLowering : public mlir::OpConversionPattern<qcirc::Callable
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = copy.getLoc();
         mlir::Value const_true =
-            rewriter.create<mlir::arith::ConstantOp>(loc,
+            mlir::arith::ConstantOp::create(rewriter, loc,
                 rewriter.getIntegerAttr(rewriter.getI1Type(), 1)).getResult();
-        mlir::Value copied = rewriter.create<mlir::LLVM::CallOp>(loc,
+        mlir::Value copied = mlir::LLVM::CallOp::create(rewriter, loc,
             stubs.callableCopy, std::initializer_list<mlir::Value>{
                 adaptor.getCallableIn(), /*force_copy=*/const_true
             }).getResult();
         // Whenever we copy the callable, we also need to increment the
         // refcount of its capture tuple
         mlir::Value const_one =
-            rewriter.create<mlir::arith::ConstantOp>(
+            mlir::arith::ConstantOp::create(rewriter,
                 loc, rewriter.getI32IntegerAttr(1)).getResult();
-        rewriter.create<mlir::LLVM::CallOp>(loc,
+        mlir::LLVM::CallOp::create(rewriter, loc,
             stubs.callableCaptureUpdateRc, std::initializer_list<mlir::Value>{
                 copied, /*delta=*/const_one});
         rewriter.replaceOp(copy, copied);
@@ -2164,7 +2164,7 @@ struct ArrayCopyOpLowering : public mlir::OpConversionPattern<qcirc::ArrayCopyOp
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = copy.getLoc();
         mlir::Value const_true =
-            rewriter.create<mlir::arith::ConstantOp>(loc,
+            mlir::arith::ConstantOp::create(rewriter, loc,
                 rewriter.getIntegerAttr(rewriter.getI1Type(), 1)).getResult();
         rewriter.replaceOpWithNewOp<mlir::LLVM::CallOp>(copy,
             stubs.arrayCopy, std::initializer_list<mlir::Value>{

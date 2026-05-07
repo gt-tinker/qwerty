@@ -152,9 +152,9 @@ struct EulerAngles {
                 builder, loc,
                 [](double theta) { return theta/2.0; },
                 [&](mlir::Value theta) {
-                    mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+                    mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                             loc, builder.getF64FloatAttr(2.0)).getResult();
-                    return builder.create<mlir::arith::DivFOp>(
+                    return mlir::arith::DivFOp::create(builder,
                         loc, theta, const_2).getResult();
                 });
             //                      ϕ        α  θ    β
@@ -179,11 +179,11 @@ struct EulerAngles {
                 builder, loc, u_phi, u_lambda,
                 [](double phi, double lambda) { return (phi + lambda)/2.0; },
                 [&](mlir::Value phi, mlir::Value lambda) {
-                    mlir::Value sum = builder.create<mlir::arith::AddFOp>(
+                    mlir::Value sum = mlir::arith::AddFOp::create(builder,
                         loc, phi, lambda).getResult();
-                    mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+                    mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                             loc, builder.getF64FloatAttr(2.0)).getResult();
-                    return builder.create<mlir::arith::DivFOp>(
+                    return mlir::arith::DivFOp::create(builder,
                         loc, sum, const_2).getResult();
                 });
             return EulerAngles(phi_plus_lambda_over_2, u_phi, u_theta, u_lambda);
@@ -205,7 +205,7 @@ mlir::ValueRange globalPhase(mlir::Location loc,
     second_to_last -= 1;
     llvm::SmallVector<mlir::Value> phase_controls(controls.begin(), second_to_last);
     // New control inputs for the adjusted gate
-    return builder.create<qcirc::Gate1Q1POp>(
+    return qcirc::Gate1Q1POp::create(builder,
             loc,
             qcirc::Gate1Q1P::P,
             phase,
@@ -231,18 +231,18 @@ void barenco(mlir::OpBuilder &builder,
             return (beta - alpha) / 2.0;
         },
         [&](mlir::Value beta, mlir::Value alpha) {
-            mlir::Value beta_minus_alpha = builder.create<mlir::arith::SubFOp>(
+            mlir::Value beta_minus_alpha = mlir::arith::SubFOp::create(builder,
                 loc, beta, alpha).getResult();
-            mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                     loc, builder.getF64FloatAttr(2.0)).getResult();
-            return builder.create<mlir::arith::DivFOp>(
+            return mlir::arith::DivFOp::create(builder,
                 loc, beta_minus_alpha, const_2).getResult();
         });
 
     if (!beta_minus_alpha_over_2.isZero()) {
         mlir::Value beta_minus_alpha_over_2_val =
             beta_minus_alpha_over_2.asValue(builder, loc);
-        qcirc::Gate1Q1POp rz1 = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp rz1 = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::Rz, beta_minus_alpha_over_2_val,
             mlir::ValueRange(), target);
         assert(rz1.getControlResults().empty());
@@ -251,7 +251,7 @@ void barenco(mlir::OpBuilder &builder,
 
     // Rz(α) Ry(θ/2) X Ry(-θ/2) Rz(-(α + β)/2) X Rz((β - α)/2)
     //                                         ^
-    qcirc::Gate1QOp cnot1 = builder.create<qcirc::Gate1QOp>(
+    qcirc::Gate1QOp cnot1 = qcirc::Gate1QOp::create(builder,
         loc, qcirc::Gate1Q::X, control_qubits, target);
     assert(cnot1.getControlResults().size() == control_qubits.size());
     control_qubits = cnot1.getControlResults();
@@ -268,20 +268,20 @@ void barenco(mlir::OpBuilder &builder,
             return -(alpha + beta) / 2.0;
         },
         [&](mlir::Value alpha, mlir::Value beta) {
-            mlir::Value alpha_plus_beta = builder.create<mlir::arith::AddFOp>(
+            mlir::Value alpha_plus_beta = mlir::arith::AddFOp::create(builder,
                 loc, alpha, beta).getResult();
-            mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                     loc, builder.getF64FloatAttr(2.0)).getResult();
-            mlir::Value div_by_2 = builder.create<mlir::arith::DivFOp>(
+            mlir::Value div_by_2 = mlir::arith::DivFOp::create(builder,
                 loc, alpha_plus_beta, const_2).getResult();
-            return builder.create<mlir::arith::NegFOp>(
+            return mlir::arith::NegFOp::create(builder,
                 loc, div_by_2).getResult();
         });
 
     if (!neg_alpha_plus_beta_over_2.isZero()) {
         mlir::Value neg_alpha_plus_beta_over_2_val =
             neg_alpha_plus_beta_over_2.asValue(builder, loc);
-        qcirc::Gate1Q1POp rz2 = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp rz2 = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::Rz, neg_alpha_plus_beta_over_2_val,
             mlir::ValueRange(), target);
         assert(rz2.getControlResults().empty());
@@ -296,18 +296,18 @@ void barenco(mlir::OpBuilder &builder,
             return -theta/2.0;
         },
         [&](mlir::Value theta) {
-            mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                     loc, builder.getF64FloatAttr(2.0)).getResult();
-            mlir::Value div_by_2 = builder.create<mlir::arith::DivFOp>(
+            mlir::Value div_by_2 = mlir::arith::DivFOp::create(builder,
                 loc, theta, const_2).getResult();
-            return builder.create<mlir::arith::NegFOp>(
+            return mlir::arith::NegFOp::create(builder,
                 loc, div_by_2).getResult();
         });
 
     if (!neg_theta_over_2.isZero()) {
         mlir::Value neg_theta_over_2_val = neg_theta_over_2.asValue(
             builder, loc);
-        qcirc::Gate1Q1POp ry1 = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp ry1 = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::Ry, neg_theta_over_2_val, mlir::ValueRange(),
             target);
         assert(ry1.getControlResults().empty());
@@ -316,7 +316,7 @@ void barenco(mlir::OpBuilder &builder,
 
     // Rz(α) Ry(θ/2) X Ry(-θ/2) Rz(-(α + β)/2) X Rz((β - α)/2)
     //               ^
-    qcirc::Gate1QOp cnot2 = builder.create<qcirc::Gate1QOp>(
+    qcirc::Gate1QOp cnot2 = qcirc::Gate1QOp::create(builder,
         loc, qcirc::Gate1Q::X, control_qubits, target);
     assert(cnot2.getControlResults().size() == control_qubits.size());
     control_qubits = cnot2.getControlResults();
@@ -333,15 +333,15 @@ void barenco(mlir::OpBuilder &builder,
             return theta/2.0;
         },
         [&](mlir::Value theta) {
-            mlir::Value const_2 = builder.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(builder,
                     loc, builder.getF64FloatAttr(2.0)).getResult();
-            return builder.create<mlir::arith::DivFOp>(
+            return mlir::arith::DivFOp::create(builder,
                 loc, theta, const_2).getResult();
         });
 
     if (!theta_over_2.isZero()) {
         mlir::Value theta_over_2_val = theta_over_2.asValue(builder, loc);
-        qcirc::Gate1Q1POp ry2 = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp ry2 = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::Ry, theta_over_2_val, mlir::ValueRange(), target);
         assert(ry2.getControlResults().empty());
         target = ry2.getResult();
@@ -351,7 +351,7 @@ void barenco(mlir::OpBuilder &builder,
     // ^^^^^
     if (!angles.alpha.isZero()) {
         mlir::Value alpha_val = angles.alpha.asValue(builder, loc);
-        qcirc::Gate1Q1POp rz2 = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp rz2 = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::Rz, alpha_val, mlir::ValueRange(),
             target);
         assert(rz2.getControlResults().empty());
@@ -361,7 +361,7 @@ void barenco(mlir::OpBuilder &builder,
     // Now need to deal with global phase
     if (!angles.phi.isZero()) {
         mlir::Value phi_val = angles.phi.asValue(builder, loc);
-        qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+        qcirc::Gate1Q1POp cp = qcirc::Gate1Q1POp::create(builder,
             loc, qcirc::Gate1Q1P::P, phi_val,
             llvm::iterator_range(control_qubits.begin(), control_qubits.end()-1),
             *(control_qubits.end()-1));
@@ -398,11 +398,11 @@ class ReplaceGate1QOpNoControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
 
         case qcirc::Gate1Q::Sx: {
             // HSH = Sx
-            mlir::Value h = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            mlir::Value s = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value s = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::S, mlir::ValueRange(), h
                 ).getResult();
             rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
@@ -411,11 +411,11 @@ class ReplaceGate1QOpNoControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
         }
         case qcirc::Gate1Q::Sxdg: {
             // HSdgH = Sxdg
-            mlir::Value h = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            mlir::Value sdg = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value sdg = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(), h
                 ).getResult();
             rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(
@@ -454,13 +454,13 @@ class ReplaceSxWithControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q
         // Create a Hadmard-conjugated controlled-controlled-S and let
         // another iteration of this pattern take care of the CCS.
         case qcirc::Gate1Q::Sx: {
-            mlir::Value x_to_z = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_z = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            qcirc::Gate1QOp ccs = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccs = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::S, gate.getControls(), x_to_z);
-            mlir::Value z_to_x = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value z_to_x = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     ccs.getResult()
                 ).getResult();
@@ -472,13 +472,13 @@ class ReplaceSxWithControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q
 
         // Same as above for Sx, except the S is Sdg instead
         case qcirc::Gate1Q::Sxdg: {
-            mlir::Value x_to_z = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_z = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            qcirc::Gate1QOp ccsdg = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccsdg = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Sdg, gate.getControls(), x_to_z);
-            mlir::Value z_to_x = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value z_to_x = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     ccsdg.getResult()
                 ).getResult();
@@ -515,26 +515,26 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 // https://doi.org/10.1103/PhysRevA.87.042302
 
                 // First layer: I ⊗ I ⊗ H
-                mlir::Value h1 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value h1 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                         gate.getQubit()
                     ).getResult();
 
                 // Second layer: Tdg ⊗ T ⊗ T
-                mlir::Value tdg1 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value tdg1 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(),
                         gate.getControls()[0]
                     ).getResult();
-                mlir::Value t1 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value t1 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::T, mlir::ValueRange(),
                         gate.getControls()[1]
                     ).getResult();
-                mlir::Value t2 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value t2 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::T, mlir::ValueRange(), h1
                     ).getResult();
 
                 // Second layer: (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I) ⊗ I
-                qcirc::Gate1QOp cx1 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx1 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, tdg1, t1);
                 assert(cx1.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -542,7 +542,7 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx1_tgt = cx1.getResult();
 
                 // Second layer: ((X ⊗ I) ⊗ |1⟩⟨1| + (I ⊗ I) ⊗ |0⟩⟨0|)
-                qcirc::Gate1QOp cx2 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx2 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, t2, cx1_ctrl);
                 assert(cx2.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -550,11 +550,11 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx2_tgt = cx2.getResult();
 
                 // Third layer: Tdg ⊗ (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I)
-                mlir::Value tdg2 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value tdg2 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx2_tgt
                     ).getResult();
 
-                qcirc::Gate1QOp cx3 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx3 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, cx1_tgt, cx2_ctrl);
                 assert(cx3.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -562,7 +562,7 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx3_tgt = cx3.getResult();
 
                 // Fourth layer: (X ⊗ |1⟩⟨1| + I ⊗ |0⟩⟨0|) ⊗ I
-                qcirc::Gate1QOp cx4 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx4 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, cx3_ctrl, tdg2);
                 assert(cx4.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -570,18 +570,18 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx4_tgt = cx4.getResult();
 
                 // Fifth layer: Tdg ⊗ Tdg ⊗ T
-                mlir::Value tdg3 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value tdg3 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx4_tgt
                     ).getResult();
-                mlir::Value tdg4 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value tdg4 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), cx4_ctrl
                     ).getResult();
-                mlir::Value t3 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value t3 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::T, mlir::ValueRange(), cx3_tgt
                     ).getResult();
 
                 // Sixth layer: ((X ⊗ I) ⊗ |1⟩⟨1| + (I ⊗ I) ⊗ |0⟩⟨0|)
-                qcirc::Gate1QOp cx5 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx5 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, t3, tdg3);
                 assert(cx5.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -589,11 +589,11 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx5_tgt = cx5.getResult();
 
                 // Seventh layer: S ⊗ (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I)
-                mlir::Value s = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value s = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::S, mlir::ValueRange(), cx5_tgt
                     ).getResult();
 
-                qcirc::Gate1QOp cx6 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx6 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, tdg4, cx5_ctrl);
                 assert(cx6.getControlResults().size() == 1
                        && "Wrong number of controls");
@@ -601,14 +601,14 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
                 mlir::Value cx6_tgt = cx6.getResult();
 
                 // Eighth layer: (|1⟩⟨1| ⊗ X + |0⟩⟨0| ⊗ I) ⊗ H
-                qcirc::Gate1QOp cx7 = rewriter.create<qcirc::Gate1QOp>(
+                qcirc::Gate1QOp cx7 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::X, s, cx6_ctrl);
                 assert(cx7.getControlResults().size() == 1
                        && "Wrong number of controls");
                 mlir::Value cx7_ctrl = cx7.getControlResults()[0];
                 mlir::Value cx7_tgt = cx7.getResult();
 
-                mlir::Value h2 = rewriter.create<qcirc::Gate1QOp>(
+                mlir::Value h2 = qcirc::Gate1QOp::create(rewriter,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(), cx6_tgt
                     ).getResult();
 
@@ -621,13 +621,13 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
             }
 
         case qcirc::Gate1Q::Y: {
-            mlir::Value y_to_x = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value y_to_x = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            qcirc::Gate1QOp ccx = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::X, gate.getControls(), y_to_x);
-            mlir::Value x_to_y = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_y = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::S, mlir::ValueRange(),
                     ccx.getResult()
                 ).getResult();
@@ -638,13 +638,13 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         }
 
         case qcirc::Gate1Q::Z: {
-            mlir::Value z_to_x = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value z_to_x = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            qcirc::Gate1QOp ccx = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::X, gate.getControls(), z_to_x);
-            mlir::Value x_to_z = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_z = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(),
                     ccx.getResult()
                 ).getResult();
@@ -678,40 +678,40 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         // The last step still holds when the middle X is controlled.
         // [1]: https://meirizarrygelpi.github.io/posts/physics/hadamard-eigen-basis/index.html
         case qcirc::Gate1Q::H: {
-            mlir::Value h_to_x1 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h_to_x1 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(),
                     gate.getQubit()
                 ).getResult();
-            mlir::Value h_to_x2 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h_to_x2 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(), h_to_x1
                 ).getResult();
-            mlir::Value h_to_x3 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h_to_x3 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::T, mlir::ValueRange(), h_to_x2
                 ).getResult();
-            mlir::Value h_to_x4 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h_to_x4 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(), h_to_x3
                 ).getResult();
-            mlir::Value h_to_x5 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value h_to_x5 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::S, mlir::ValueRange(), h_to_x4
                 ).getResult();
 
-            qcirc::Gate1QOp ccx = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::X, gate.getControls(), h_to_x5);
 
-            mlir::Value x_to_h1 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_h1 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(),
                     ccx.getResult()
                 ).getResult();
-            mlir::Value x_to_h2 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_h2 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(), x_to_h1
                 ).getResult();
-            mlir::Value x_to_h3 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_h3 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(), x_to_h2
                 ).getResult();
-            mlir::Value x_to_h4 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_h4 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::H, mlir::ValueRange(), x_to_h3
                 ).getResult();
-            mlir::Value x_to_h5 = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value x_to_h5 = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::S, mlir::ValueRange(), x_to_h4
                 ).getResult();
 
@@ -729,25 +729,25 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         // Hand-tuned Barenco. The insight here is that because
         // XRz(θ)X = Rz(-θ), we have S = e^(iπ/4)XRz(-π/4)XRz(π/4).
         case qcirc::Gate1Q::S: {
-            qcirc::Gate1QOp ccx1 = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx1 = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::X, gate.getControls(), gate.getQubit());
 
-            mlir::Value tdg = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value tdg = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(),
                     ccx1.getResult()
                 ).getResult();
 
-            qcirc::Gate1QOp ccx2 = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx2 = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::X, ccx1.getControlResults(), tdg);
 
-            mlir::Value t = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value t = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::T, mlir::ValueRange(),
                     ccx2.getResult()
                 ).getResult();
 
             auto last_ctrl = ccx2.getControlResults().end();
             last_ctrl--;
-            qcirc::Gate1QOp global_phase = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp global_phase = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::T,
                 llvm::iterator_range(ccx2.getControlResults().begin(),
                                      last_ctrl),
@@ -761,25 +761,25 @@ class ReplaceGate1QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
 
         // Very similar to S above
         case qcirc::Gate1Q::Sdg: {
-            qcirc::Gate1QOp ccx1 = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx1 = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::X, gate.getControls(), gate.getQubit());
 
-            mlir::Value t = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value t = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::T, mlir::ValueRange(),
                     ccx1.getResult()
                 ).getResult();
 
-            qcirc::Gate1QOp ccx2 = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp ccx2 = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::X, ccx1.getControlResults(), t);
 
-            mlir::Value tdg = rewriter.create<qcirc::Gate1QOp>(
+            mlir::Value tdg = qcirc::Gate1QOp::create(rewriter,
                     loc, qcirc::Gate1Q::Tdg, mlir::ValueRange(),
                     ccx2.getResult()
                 ).getResult();
 
             auto last_ctrl = ccx2.getControlResults().end();
             last_ctrl--;
-            qcirc::Gate1QOp global_phase = rewriter.create<qcirc::Gate1QOp>(
+            qcirc::Gate1QOp global_phase = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::Tdg,
                 llvm::iterator_range(ccx2.getControlResults().begin(),
                                      last_ctrl),
@@ -888,9 +888,9 @@ class ReplacePWithControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q1
             return mlir::failure();
 
         case qcirc::Gate1Q1P::P: {
-            mlir::Value const_2 = rewriter.create<mlir::arith::ConstantOp>(
+            mlir::Value const_2 = mlir::arith::ConstantOp::create(rewriter,
                 loc, rewriter.getF64FloatAttr(2.0)).getResult();
-            mlir::Value theta_div_2 = rewriter.create<mlir::arith::DivFOp>(
+            mlir::Value theta_div_2 = mlir::arith::DivFOp::create(rewriter,
                 loc, gate.getParam(), const_2).getResult();
             mlir::ValueRange next_controls = globalPhase(
                 loc, rewriter, theta_div_2, gate.getControls());
@@ -919,8 +919,8 @@ class ReplaceGate1Q3POpNoControlsPattern : public mlir::OpRewritePattern<qcirc::
         switch (gate.getGate()) {
         case qcirc::Gate1Q3P::U: {
             // Global phase is ok because this is not controlled
-            mlir::Value rz_lambda = rewriter.create<qcirc::Gate1Q1POp>(gate.getLoc(), qcirc::Gate1Q1P::Rz, gate.getThirdParam(), mlir::ValueRange(), gate.getQubit()).getResult();
-            mlir::Value ry_phi = rewriter.create<qcirc::Gate1Q1POp>(gate.getLoc(), qcirc::Gate1Q1P::Ry, gate.getSecondParam(), mlir::ValueRange(), rz_lambda).getResult();
+            mlir::Value rz_lambda = qcirc::Gate1Q1POp::create(rewriter, gate.getLoc(), qcirc::Gate1Q1P::Rz, gate.getThirdParam(), mlir::ValueRange(), gate.getQubit()).getResult();
+            mlir::Value ry_phi = qcirc::Gate1Q1POp::create(rewriter, gate.getLoc(), qcirc::Gate1Q1P::Ry, gate.getSecondParam(), mlir::ValueRange(), rz_lambda).getResult();
             // rz_theta
             rewriter.replaceOpWithNewOp<qcirc::Gate1Q1POp>(gate, qcirc::Gate1Q1P::Rz, gate.getFirstParam(), mlir::ValueRange(), ry_phi);
             return mlir::success();
@@ -973,20 +973,20 @@ class ReplaceUWithControlsPattern : public mlir::OpRewritePattern<qcirc::Gate1Q3
             mlir::Value lambda = gate.getThirdParam();
 
             mlir::Value theta_plus_lambda =
-                rewriter.create<mlir::arith::AddFOp>(
+                mlir::arith::AddFOp::create(rewriter,
                     loc, theta, lambda).getResult();
-            mlir::Value two = rewriter.create<mlir::arith::ConstantOp>(
+            mlir::Value two = mlir::arith::ConstantOp::create(rewriter,
                 loc, rewriter.getF64FloatAttr(2)).getResult();
             mlir::Value theta_plus_lambda_div_2 =
-                rewriter.create<mlir::arith::DivFOp>(
+                mlir::arith::DivFOp::create(rewriter,
                     loc, theta_plus_lambda, two).getResult();
             mlir::ValueRange next_controls = globalPhase(
                 loc, rewriter, theta_plus_lambda_div_2, gate.getControls());
 
-            qcirc::Gate1Q1POp rz_lambda = rewriter.create<qcirc::Gate1Q1POp>(
+            qcirc::Gate1Q1POp rz_lambda = qcirc::Gate1Q1POp::create(rewriter,
                 loc, qcirc::Gate1Q1P::Rz, lambda, next_controls,
                 gate.getQubit());
-            qcirc::Gate1Q1POp ry_phi = rewriter.create<qcirc::Gate1Q1POp>(
+            qcirc::Gate1Q1POp ry_phi = qcirc::Gate1Q1POp::create(rewriter,
                 loc, qcirc::Gate1Q1P::Ry, phi, rz_lambda.getControlResults(),
                 rz_lambda.getResult());
             // rz_theta
@@ -1015,8 +1015,8 @@ class ReplaceGate2QOpNoControlsPattern : public mlir::OpRewritePattern<qcirc::Ga
 
         switch (gate.getGate()) {
         case qcirc::Gate2Q::Swap: {
-            qcirc::Gate1QOp cnot1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, gate.getLeftQubit(), gate.getRightQubit());
-            qcirc::Gate1QOp cnot2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, cnot1.getResult(), cnot1.getControlResults()[0]);
+            qcirc::Gate1QOp cnot1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, gate.getLeftQubit(), gate.getRightQubit());
+            qcirc::Gate1QOp cnot2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, cnot1.getResult(), cnot1.getControlResults()[0]);
             rewriter.replaceOpWithNewOp<qcirc::Gate1QOp>(gate, qcirc::Gate1Q::X, cnot2.getResult(), cnot2.getControlResults()[0]);
             return mlir::success();
         }
@@ -1042,14 +1042,14 @@ class ReplaceGate2QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
         case qcirc::Gate2Q::Swap: {
             llvm::SmallVector<mlir::Value> cnot1_controls(gate.getControls().begin(), gate.getControls().end());
             cnot1_controls.push_back(gate.getLeftQubit());
-            qcirc::Gate1QOp cnot1 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, cnot1_controls, gate.getRightQubit());
+            qcirc::Gate1QOp cnot1 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, cnot1_controls, gate.getRightQubit());
 
             auto second_to_last = cnot1.getControlResults().end();
             second_to_last -= 1;
             llvm::SmallVector<mlir::Value> cnot2_controls(cnot1.getControlResults().begin(), second_to_last);
             cnot2_controls.push_back(cnot1.getResult());
             mlir::Value cnot2_target = cnot1.getControlResults()[cnot1.getControlResults().size()-1];
-            qcirc::Gate1QOp cnot2 = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, cnot2_controls, cnot2_target);
+            qcirc::Gate1QOp cnot2 = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, cnot2_controls, cnot2_target);
 
             second_to_last = cnot2.getControlResults().end();
             second_to_last -= 1;

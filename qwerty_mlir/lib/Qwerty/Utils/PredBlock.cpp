@@ -88,14 +88,14 @@ void standardizeAndFlip(mlir::OpBuilder &builder,
             mlir::Value ctrl = controls[offset + k];
 
             if (vec.getPrimBasis() == qwerty::PrimitiveBasis::X) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(), ctrl
                     ).getResult();
             } else if (vec.getPrimBasis() == qwerty::PrimitiveBasis::Y) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(), ctrl
                     ).getResult();
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(), ctrl
                     ).getResult();
             } else {
@@ -105,7 +105,7 @@ void standardizeAndFlip(mlir::OpBuilder &builder,
 
             bool bit = vec.getEigenbits()[vec.getDim()-1-k];
             if (!bit) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::X, mlir::ValueRange(), ctrl
                     ).getResult();
             }
@@ -130,20 +130,20 @@ void unflipAndDestandardize(mlir::OpBuilder &builder,
 
             bool bit = vec.getEigenbits()[vec.getDim()-1-k];
             if (!bit) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::X, mlir::ValueRange(), ctrl
                     ).getResult();
             }
 
             if (vec.getPrimBasis() == qwerty::PrimitiveBasis::X) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(), ctrl
                     ).getResult();
             } else if (vec.getPrimBasis() == qwerty::PrimitiveBasis::Y) {
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::H, mlir::ValueRange(), ctrl
                     ).getResult();
-                ctrl = builder.create<qcirc::Gate1QOp>(
+                ctrl = qcirc::Gate1QOp::create(builder,
                         loc, qcirc::Gate1Q::S, mlir::ValueRange(), ctrl
                     ).getResult();
             } else {
@@ -281,10 +281,10 @@ mlir::Value rewriteWithSwaps(mlir::RewriterBase &rewriter,
     mlir::Value ret_qbundle = term->getOperand(0);
     rewriter.setInsertionPoint(term);
     qwerty::QBundleUnpackOp unpack =
-        rewriter.create<qwerty::QBundleUnpackOp>(loc, ret_qbundle);
+        qwerty::QBundleUnpackOp::create(rewriter, loc, ret_qbundle);
 
     qwerty::QBundleUnpackOp pred_unpack =
-        rewriter.create<qwerty::QBundleUnpackOp>(loc, pred_qbundle);
+        qwerty::QBundleUnpackOp::create(rewriter, loc, pred_qbundle);
 
     mlir::ValueRange unpacked = unpack.getQubits();
     llvm::SmallVector<mlir::Value> qubits(unpacked);
@@ -297,7 +297,7 @@ mlir::Value rewriteWithSwaps(mlir::RewriterBase &rewriter,
         size_t j = swap_indices.second;
 
         qcirc::Gate2QOp swap =
-            rewriter.create<qcirc::Gate2QOp>(
+            qcirc::Gate2QOp::create(rewriter,
                 loc, qcirc::Gate2Q::Swap,
                 mlir::ValueRange(), qubits[i], qubits[j]);
         qubits[i] = swap.getLeftResult();
@@ -311,7 +311,7 @@ mlir::Value rewriteWithSwaps(mlir::RewriterBase &rewriter,
             pred_qubits,
             [&](llvm::SmallVectorImpl<mlir::Value> &actual_controls) {
                 qcirc::Gate2QOp pred_swap =
-                    rewriter.create<qcirc::Gate2QOp>(
+                    qcirc::Gate2QOp::create(rewriter,
                         loc, qcirc::Gate2Q::Swap,
                         actual_controls, qubits[i], qubits[j]);
                 qubits[i] = pred_swap.getLeftResult();
@@ -323,11 +323,11 @@ mlir::Value rewriteWithSwaps(mlir::RewriterBase &rewriter,
     }
 
     mlir::Value repacked =
-        rewriter.create<qwerty::QBundlePackOp>(
+        qwerty::QBundlePackOp::create(rewriter,
             loc, qubits).getQbundle();
 
     mlir::Value pred_repacked =
-        rewriter.create<qwerty::QBundlePackOp>(
+        qwerty::QBundlePackOp::create(rewriter,
             loc, pred_qubits).getQbundle();
 
     rewriter.replaceAllUsesExcept(ret_qbundle, repacked, unpack);
@@ -486,7 +486,7 @@ mlir::LogicalResult predicateBlockInPlace(
             mlir::Location loc = op->getLoc();
             rewriter.setInsertionPoint(op);
             mlir::ValueRange unpacked =
-                rewriter.create<QBundleUnpackOp>(
+                QBundleUnpackOp::create(rewriter,
                     loc, pred_qbundle).getQubits();
 
             llvm::SmallVector<mlir::Value> stationary_operands;
@@ -524,7 +524,7 @@ mlir::LogicalResult predicateBlockInPlace(
                 });
 
             pred_qbundle =
-                rewriter.create<QBundlePackOp>(loc, controls).getQbundle();
+                QBundlePackOp::create(rewriter, loc, controls).getQbundle();
 
             // This is the last thing we do because op is the insertion point.
             // Inserting anything after this will cause a segfault

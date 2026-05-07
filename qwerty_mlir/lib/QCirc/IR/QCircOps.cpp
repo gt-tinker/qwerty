@@ -162,7 +162,7 @@ struct ChainedCalcs : public mlir::OpRewritePattern<qcirc::CalcOp> {
                           upstream.getInputs().end());
         new_input_types.append(upstream->operand_type_begin(),
                                upstream->operand_type_end());
-        qcirc::CalcOp new_calc = rewriter.create<qcirc::CalcOp>(
+        qcirc::CalcOp new_calc = qcirc::CalcOp::create(rewriter,
             calc.getLoc(), calc->getResultTypes(), new_inputs);
         llvm::SmallVector<mlir::Location> arg_locs(new_input_types.size(), calc.getLoc());
         mlir::Block *new_calc_block = rewriter.createBlock(&new_calc.getRegion(), {}, new_input_types, arg_locs);
@@ -214,7 +214,7 @@ mlir::Value stationaryF64Const(mlir::OpBuilder &builder, mlir::Location loc, dou
     return wrapStationaryF64Ops(builder, loc, mlir::ValueRange(),
         [&](mlir::ValueRange args) {
             assert(args.empty());
-            return builder.create<mlir::arith::ConstantOp>(
+            return mlir::arith::ConstantOp::create(builder,
                 loc, builder.getF64FloatAttr(theta)).getResult();
         });
 }
@@ -224,7 +224,7 @@ mlir::Value stationaryF64Negate(mlir::OpBuilder &builder, mlir::Location loc, ml
         [&](mlir::ValueRange args) {
             assert(args.size() == 1);
             mlir::Value theta_arg = args[0];
-            return builder.create<mlir::arith::NegFOp>(loc, theta_arg).getResult();
+            return mlir::arith::NegFOp::create(builder, loc, theta_arg).getResult();
         });
 }
 
@@ -233,7 +233,7 @@ mlir::Value wrapStationaryF64Ops(
         mlir::Location loc,
         mlir::ValueRange args,
         std::function<mlir::Value(mlir::ValueRange)> build_body) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(
+    qcirc::CalcOp calc = qcirc::CalcOp::create(builder,
         loc, builder.getF64Type(), args);
 
     {
@@ -244,7 +244,7 @@ mlir::Value wrapStationaryF64Ops(
             &calc.getRegion(), {}, args.getTypes(), arg_locs);
         assert(calc_block->getNumArguments() == args.size());
         mlir::Value body_ret = build_body(calc_block->getArguments());
-        builder.create<qcirc::CalcYieldOp>(loc, body_ret);
+        qcirc::CalcYieldOp::create(builder, loc, body_ret);
     }
     mlir::ValueRange calc_results = calc.getResults();
     assert(calc_results.size() == 1);
@@ -551,7 +551,7 @@ void Gate1QOp::buildAdjoint(
         adj_gate = (Gate1Q)-1;
     }
 
-    Gate1QOp adj = rewriter.create<Gate1QOp>(
+    Gate1QOp adj = Gate1QOp::create(rewriter,
         getLoc(), adj_gate, adaptor.getControls(), adaptor.getQubit());
     newOutputs.clear();
     newOutputs.append(adj->result_begin(), adj->result_end());
@@ -567,7 +567,7 @@ void Gate1QOp::buildControlled(
     llvm::SmallVector<mlir::Value> ctrls(controlsIn.begin(), controlsIn.end());
     ctrls.append(adaptor.getControls().begin(), adaptor.getControls().end());
 
-    Gate1QOp gate = rewriter.create<Gate1QOp>(
+    Gate1QOp gate = Gate1QOp::create(rewriter,
         getLoc(), getGate(), ctrls, adaptor.getQubit());
 
     size_t n_new_controls = controlsIn.size();
@@ -659,7 +659,7 @@ void Gate1Q1POp::buildAdjoint(
     mlir::Value neg_theta = stationaryF64Negate(rewriter, getLoc(),
                                                 adaptor.getParam());
 
-    Gate1Q1POp adj = rewriter.create<Gate1Q1POp>(
+    Gate1Q1POp adj = Gate1Q1POp::create(rewriter,
         getLoc(), getGate(), neg_theta, adaptor.getControls(), adaptor.getQubit());
     newOutputs.clear();
     newOutputs.append(adj->result_begin(), adj->result_end());
@@ -675,7 +675,7 @@ void Gate1Q1POp::buildControlled(
     llvm::SmallVector<mlir::Value> ctrls(controlsIn.begin(), controlsIn.end());
     ctrls.append(adaptor.getControls().begin(), adaptor.getControls().end());
 
-    Gate1Q1POp gate = rewriter.create<Gate1Q1POp>(
+    Gate1Q1POp gate = Gate1Q1POp::create(rewriter,
         getLoc(), getGate(), adaptor.getParam(), ctrls, adaptor.getQubit());
 
     size_t n_new_controls = controlsIn.size();
@@ -782,7 +782,7 @@ void Gate1Q3POp::buildAdjoint(
 
     // U(theta, phi, lambda)^dagger = U(-theta, -lambda, -phi)
     // Source: i proved it on piece of paper
-    Gate1Q3POp adj = rewriter.create<Gate1Q3POp>(
+    Gate1Q3POp adj = Gate1Q3POp::create(rewriter,
         getLoc(), getGate(), neg_theta, neg_lambda, neg_phi,
         adaptor.getControls(), adaptor.getQubit());
     newOutputs.clear();
@@ -799,7 +799,7 @@ void Gate1Q3POp::buildControlled(
     llvm::SmallVector<mlir::Value> ctrls(controlsIn.begin(), controlsIn.end());
     ctrls.append(adaptor.getControls().begin(), adaptor.getControls().end());
 
-    Gate1Q3POp gate = rewriter.create<Gate1Q3POp>(
+    Gate1Q3POp gate = Gate1Q3POp::create(rewriter,
         getLoc(), getGate(), adaptor.getFirstParam(), adaptor.getSecondParam(),
         adaptor.getThirdParam(), ctrls, adaptor.getQubit());
 
@@ -893,7 +893,7 @@ void Gate2QOp::buildAdjoint(
     Gate2QOpAdaptor adaptor(newInputs);
 
     // SWAP is Hermitian, so recreate ourself
-    Gate2QOp adj = rewriter.create<Gate2QOp>(
+    Gate2QOp adj = Gate2QOp::create(rewriter,
         getLoc(), getGate(), adaptor.getControls(),
         adaptor.getLeftQubit(), adaptor.getRightQubit());
     newOutputs.clear();
@@ -910,7 +910,7 @@ void Gate2QOp::buildControlled(
     llvm::SmallVector<mlir::Value> ctrls(controlsIn.begin(), controlsIn.end());
     ctrls.append(adaptor.getControls().begin(), adaptor.getControls().end());
 
-    Gate2QOp gate = rewriter.create<Gate2QOp>(
+    Gate2QOp gate = Gate2QOp::create(rewriter,
         getLoc(), getGate(), ctrls,
         adaptor.getLeftQubit(), adaptor.getRightQubit());
 
@@ -943,7 +943,7 @@ void QallocOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QfreeZeroOpAdaptor adaptor(newInputs);
-    rewriter.create<QfreeZeroOp>(getLoc(), adaptor.getQubit());
+    QfreeZeroOp::create(rewriter, getLoc(), adaptor.getQubit());
     newOutputs.clear();
 }
 
@@ -953,7 +953,7 @@ void QallocOp::buildControlled(
         llvm::SmallVectorImpl<mlir::Value> &controlsOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    QallocOp qalloc = rewriter.create<QallocOp>(getLoc());
+    QallocOp qalloc = QallocOp::create(rewriter, getLoc());
     controlsOut.clear();
     controlsOut.append(controlsIn.begin(), controlsIn.end());
     newOutputs.clear();
@@ -969,7 +969,7 @@ void QfreeZeroOp::buildAdjoint(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     assert(newInputs.empty());
-    QallocOp qalloc = rewriter.create<QallocOp>(getLoc());
+    QallocOp qalloc = QallocOp::create(rewriter, getLoc());
     newOutputs.clear();
     newOutputs.push_back(qalloc.getResult());
 }
@@ -981,7 +981,7 @@ void QfreeZeroOp::buildControlled(
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
     QfreeZeroOpAdaptor adaptor(newInputs);
-    rewriter.create<QfreeOp>(getLoc(), adaptor.getQubit());
+    QfreeOp::create(rewriter, getLoc(), adaptor.getQubit());
     controlsOut.clear();
     controlsOut.append(controlsIn.begin(), controlsIn.end());
     newOutputs.clear();

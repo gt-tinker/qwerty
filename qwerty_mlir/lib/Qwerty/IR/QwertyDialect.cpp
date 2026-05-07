@@ -51,7 +51,7 @@ struct QwertyInlinerInterface : public mlir::DialectInlinerInterface {
             return nullptr;
         }
 
-        return builder.create<mlir::UnrealizedConversionCastOp>(
+        return mlir::UnrealizedConversionCastOp::create(builder,
             conversionLoc, resultType, input);
     }
 
@@ -109,14 +109,14 @@ struct QwertyInlinerInterface : public mlir::DialectInlinerInterface {
                 assert(combined_qbundle == qbundle_arg);
                 size_t pred_dim = call.getPredAttr().getDim();
                 mlir::ValueRange unpacked =
-                    rewriter.create<qwerty::QBundleUnpackOp>(
+                    qwerty::QBundleUnpackOp::create(rewriter,
                         call.getLoc(), combined_qbundle).getQubits();
-                mlir::Value pred_qbundle = rewriter.create<qwerty::QBundlePackOp>(
+                mlir::Value pred_qbundle = qwerty::QBundlePackOp::create(rewriter,
                         call.getLoc(),
                         llvm::iterator_range(unpacked.begin(), unpacked.begin()+pred_dim)
                     ).getQbundle();
                 qwerty::QBundlePackOp arg_qbundle_op =
-                    rewriter.create<qwerty::QBundlePackOp>(
+                    qwerty::QBundlePackOp::create(rewriter,
                         call.getLoc(),
                         llvm::iterator_range(unpacked.begin()+pred_dim,
                                              unpacked.end()));

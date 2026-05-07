@@ -211,7 +211,7 @@ mlir::LogicalResult CircuitOp::verify() {
 CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Location loc, llvm::StringRef inv_circ_name) {
     assert(getReversible() && "Cannot take inverse of irreversible circuit");
 
-    CircuitOp inv_circ = rewriter.create<CircuitOp>(loc, true, inv_circ_name);
+    CircuitOp inv_circ = CircuitOp::create(rewriter, loc, true, inv_circ_name);
     inv_circ.setPrivate();
     mlir::Block &fwd_block = bodyBlock();
     llvm::DenseMap<mlir::Value, mlir::Value> fwd_to_inv;
@@ -252,7 +252,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
                    && "NotOp result never encountered");
 
             mlir::Value inv_in = fwd_to_inv.at(fwd_out);
-            mlir::Value inv_out = rewriter.create<NotOp>(
+            mlir::Value inv_out = NotOp::create(rewriter,
                 not_op.getLoc(), inv_in).getResult();
 
             [[maybe_unused]] bool inserted = fwd_to_inv.insert(
@@ -270,7 +270,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
             mlir::Value inv_in = fwd_to_inv.at(fwd_out);
             uint64_t x_inv = modular_inverse(mod_mul.getX(),
                                              mod_mul.getModN());
-            mlir::Value inv_out = rewriter.create<ModMulOp>(
+            mlir::Value inv_out = ModMulOp::create(rewriter,
                 mod_mul.getLoc(), x_inv, mod_mul.getJ(),
                 mod_mul.getModN(), inv_in).getResult();
 
@@ -289,7 +289,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
 
             mlir::Value inv_in = fwd_to_inv.at(fwd_out);
             mlir::ValueRange inv_unpacked =
-                rewriter.create<WireUnpackOp>(
+                WireUnpackOp::create(rewriter,
                     pack.getLoc(), inv_in).getWires();
 
             uint64_t wire_idx = 0;
@@ -302,7 +302,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
                     inv_unpacked.begin() + wire_idx,
                     inv_unpacked.begin() + (wire_idx + dim));
 
-                mlir::Value inv_out = rewriter.create<WirePackOp>(
+                mlir::Value inv_out = WirePackOp::create(rewriter,
                     loc, wires_to_repack).getWire();
                 [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                     {fwd_in, inv_out}).second;
@@ -324,7 +324,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
                        && "WireUnpackOp result never encountered");
                 inv_ins.push_back(fwd_to_inv.at(fwd_out));
             }
-            mlir::Value inv_out = rewriter.create<WirePackOp>(
+            mlir::Value inv_out = WirePackOp::create(rewriter,
                 loc, inv_ins).getWire();
             [[maybe_unused]] bool inserted = fwd_to_inv.insert(
                 {fwd_in, inv_out}).second;
@@ -342,7 +342,7 @@ CircuitOp CircuitOp::buildInverseCircuit(mlir::RewriterBase &rewriter, mlir::Loc
                && "fwd block arg never encountered");
         ret_operands.push_back(fwd_to_inv.at(fwd_block_arg));
     }
-    rewriter.create<ReturnOp>(loc, ret_operands);
+    ReturnOp::create(rewriter, loc, ret_operands);
 
     return inv_circ;
 }

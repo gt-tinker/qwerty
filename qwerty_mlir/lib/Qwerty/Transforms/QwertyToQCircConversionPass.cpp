@@ -396,7 +396,7 @@ mlir::LogicalResult generateFuncSpecs(
                 spec.getSymName(func.getSymName());
             rewriter.setInsertionPoint(func);
             qwerty::FuncOp new_func =
-                rewriter.create<qwerty::FuncOp>(loc,
+                qwerty::FuncOp::create(rewriter, loc,
                     new_func_name, new_func_type);
             // Teensy tiny optimization: steal the body of the function for the
             // last specialization instead of needlessly cloning it
@@ -440,17 +440,17 @@ mlir::LogicalResult generateFuncSpecs(
                 mlir::Value new_qbundle_arg =
                     new_block->getArgument(new_block->getNumArguments()-1);
                 mlir::ValueRange unpacked =
-                    rewriter.create<qwerty::QBundleUnpackOp>(
+                    qwerty::QBundleUnpackOp::create(rewriter,
                         loc, new_qbundle_arg).getQubits();
                 size_t pred_dim = spec.n_controls;
                 mlir::Value pred_qbundle =
-                    rewriter.create<qwerty::QBundlePackOp>(
+                    qwerty::QBundlePackOp::create(rewriter,
                         loc,
                         llvm::iterator_range(unpacked.begin(),
                                              unpacked.begin()+pred_dim)
                     ).getQbundle();
                 qwerty::QBundlePackOp arg_pack_op =
-                    rewriter.create<qwerty::QBundlePackOp>(
+                    qwerty::QBundlePackOp::create(rewriter,
                         loc,
                         llvm::iterator_range(unpacked.begin()+pred_dim,
                                              unpacked.end()));
@@ -513,7 +513,7 @@ mlir::LogicalResult generateFuncSpecs(
             }
 
             qcirc::CallableMetadataOp meta =
-                rewriter.create<qcirc::CallableMetadataOp>(loc,
+                qcirc::CallableMetadataOp::create(rewriter, loc,
                     FuncSpec::getMetadataSymName(func.getSymName()),
                     rewriter.getTypeArrayAttr(qcirc_capture_types),
                     rewriter.getArrayAttr(spec_attrs));
@@ -567,15 +567,16 @@ mlir::Value wrapStationaryFloatOps(mlir::OpBuilder &builder,
                                    mlir::Location loc,
                                    mlir::ValueRange args,
                                    std::function<mlir::Value(mlir::ValueRange)> build_body) {
-    qcirc::CalcOp calc = builder.create<qcirc::CalcOp>(loc, builder.getF64Type(), args);
+    qcirc::CalcOp calc = qcirc::CalcOp::create(builder, loc, builder.getF64Type(), args);
     {
         mlir::OpBuilder::InsertionGuard guard(builder);
         // Sets insertion point to end of this block
         llvm::SmallVector<mlir::Location> arg_locs(args.size(), loc);
-        mlir::Block *calc_block =builder.createBlock(&calc.getRegion(), {}, args.getTypes(), arg_locs);
+        mlir::Block *calc_block = builder.createBlock(
+            &calc.getRegion(), {}, args.getTypes(), arg_locs);
         assert(calc_block->getNumArguments() == args.size());
         mlir::Value body_ret = build_body(calc_block->getArguments());
-        builder.create<qcirc::CalcYieldOp>(loc, body_ret);
+        qcirc::CalcYieldOp::create(builder, loc, body_ret);
     }
     mlir::ValueRange calc_results = calc.getResults();
     assert(calc_results.size() == 1);
@@ -601,7 +602,7 @@ struct SCFIfOpTypeFix : public mlir::OpConversionPattern<mlir::scf::IfOp> {
 
         mlir::Location loc = if_op.getLoc();
         mlir::scf::IfOp new_if_op =
-            rewriter.create<mlir::scf::IfOp>(loc,
+            mlir::scf::IfOp::create(rewriter, loc,
                 new_result_types, adaptor.getCondition());
         rewriter.inlineRegionBefore(if_op.getThenRegion(),
                                     new_if_op.getThenRegion(),
@@ -669,7 +670,7 @@ struct CalcOpTypeFix : public mlir::OpConversionPattern<qcirc::CalcOp> {
 
         mlir::Location loc = calc.getLoc();
         qcirc::CalcOp new_calc =
-            rewriter.create<qcirc::CalcOp>(loc,
+            qcirc::CalcOp::create(rewriter, loc,
                 new_result_types, adaptor.getInputs());
         rewriter.inlineRegionBefore(calc.getRegion(),
                                     new_calc.getRegion(),
@@ -757,7 +758,7 @@ struct FuncOpLowering : public mlir::OpConversionPattern<qwerty::FuncOp> {
         mlir::Location loc = func.getLoc();
         mlir::FunctionType new_func_type = convertFuncType(func, *type_conv);
         mlir::func::FuncOp new_func =
-            rewriter.create<mlir::func::FuncOp>(loc,
+            mlir::func::FuncOp::create(rewriter, loc,
                 func.getSymName(), new_func_type);
         if (func.isPrivate()) {
             new_func.setPrivate();
@@ -895,8 +896,8 @@ struct BitInitOpLowering : public mlir::OpConversionPattern<qwerty::BitInitOp> {
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = prep.getLoc();
 
-        mlir::ValueRange bits = rewriter.create<qwerty::BitBundleUnpackOp>(loc, prep.getBitBundle()).getBits();
-        mlir::ValueRange input_unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, prep.getQbundleIn()).getQubits();
+        mlir::ValueRange bits = qwerty::BitBundleUnpackOp::create(rewriter, loc, prep.getBitBundle()).getBits();
+        mlir::ValueRange input_unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, prep.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(input_unpacked.begin(),
                                               input_unpacked.end());
 
@@ -904,18 +905,18 @@ struct BitInitOpLowering : public mlir::OpConversionPattern<qwerty::BitInitOp> {
             mlir::Value bit  = bits[i];
             mlir::Value qubit = qubits[i];
 
-            mlir::scf::IfOp if_op = rewriter.create<mlir::scf::IfOp>(loc, rewriter.getType<qcirc::QubitType>(), bit, true);
+            mlir::scf::IfOp if_op = mlir::scf::IfOp::create(rewriter, loc, rewriter.getType<qcirc::QubitType>(), bit, true);
             mlir::Block *then_block = if_op.thenBlock();
             mlir::Block *else_block = if_op.elseBlock();
 
             {
                 mlir::OpBuilder::InsertionGuard guard(rewriter);
                 rewriter.setInsertionPointToStart(then_block);
-                mlir::Value flipped = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubit).getResult();
-                rewriter.create<mlir::scf::YieldOp>(loc, flipped);
+                mlir::Value flipped = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubit).getResult();
+                mlir::scf::YieldOp::create(rewriter, loc, flipped);
 
                 rewriter.setInsertionPointToStart(else_block);
-                rewriter.create<mlir::scf::YieldOp>(loc, qubit);
+                mlir::scf::YieldOp::create(rewriter, loc, qubit);
             }
 
             mlir::ValueRange results = if_op.getResults();
@@ -938,7 +939,7 @@ struct QBundleInitOpLowering : public mlir::OpConversionPattern<qwerty::QBundleI
         qwerty::BasisAttr basis = init.getBasis();
         mlir::ValueRange basis_phases = init.getBasisPhases();
 
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, init.getQbundleIn()).getQubits();
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, init.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
         if (basis.getDim() != qubits.size()) {
             return rewriter.notifyMatchFailure(init, "basis size does not match input bundle size");
@@ -956,32 +957,32 @@ struct QBundleInitOpLowering : public mlir::OpConversionPattern<qwerty::QBundleI
                 }
                 qwerty::BasisVectorAttr vec = elem.getVeclist().getVectors()[0];
                 if (vec.hasPhase()) {
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1Q1POp>(
+                    qubits[qubit_idx] = qcirc::Gate1Q1POp::create(rewriter,
                             loc, qcirc::Gate1Q1P::P, basis_phases[phase_idx++], mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
                 }
                 for (uint64_t j = 0; j < vec.getDim(); j++) {
                     uint64_t bit = vec.getEigenbits()[vec.getDim()-j-1];
                     if (bit) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     }
                     if (vec.getPrimBasis() == qwerty::PrimitiveBasis::X) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     } else if (vec.getPrimBasis() == qwerty::PrimitiveBasis::Y) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::S, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     }
@@ -1008,7 +1009,7 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
         qwerty::BasisAttr basis = deinit.getBasis();
         mlir::ValueRange basis_phases = deinit.getBasisPhases();
 
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, deinit.getQbundleIn()).getQubits();
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, deinit.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
         if (basis.getDim() != qubits.size()) {
             return rewriter.notifyMatchFailure(deinit, "basis size does not match input bundle size");
@@ -1028,26 +1029,26 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                 for (uint64_t j = 0; j < vec.getDim(); j++) {
                     uint64_t bit = vec.getEigenbits()[vec.getDim()-j-1];
                     if (vec.getPrimBasis() == qwerty::PrimitiveBasis::X) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     } else if (vec.getPrimBasis() == qwerty::PrimitiveBasis::Y) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::Sdg, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     }
                     if (bit) {
-                        qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                        qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                                 loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                             ).getResult();
                     }
                     qubit_idx++;
                 }
                 if (vec.hasPhase()) {
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
                     mlir::Value neg_theta = wrapStationaryFloatOps(
@@ -1055,12 +1056,12 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                         [&](mlir::ValueRange args) {
                             assert(args.size() == 1);
                             mlir::Value theta_arg = args[0];
-                            return rewriter.create<mlir::arith::NegFOp>(loc, theta_arg).getResult();
+                            return mlir::arith::NegFOp::create(rewriter, loc, theta_arg).getResult();
                         });
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1Q1POp>(
+                    qubits[qubit_idx] = qcirc::Gate1Q1POp::create(rewriter,
                             loc, qcirc::Gate1Q1P::P, neg_theta, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
-                    qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
                 }
@@ -1088,7 +1089,7 @@ struct TrivialQBundlePrepOpLowering : public mlir::OpConversionPattern<qwerty::Q
             qubits.reserve(prep.getDim());
 
             for (uint64_t i = 0; i < prep.getDim(); i++) {
-                qubits.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
+                qubits.push_back(qcirc::QallocOp::create(rewriter, loc).getResult());
             }
 
             // Hopefully canonicalization will get rid of this guy
@@ -1116,7 +1117,7 @@ struct NontrivialQBundlePrepOpLowering : public mlir::OpConversionPattern<qwerty
                 && prep.getEigenstate() == qwerty::Eigenstate::PLUS) {
             return mlir::failure();
         } else {
-            mlir::Value zeros = rewriter.create<qwerty::QBundlePrepOp>(
+            mlir::Value zeros = qwerty::QBundlePrepOp::create(rewriter,
                     loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, prep.getDim()
                 ).getResult();
             qwerty::BasisAttr basis = rewriter.getAttr<qwerty::BasisAttr>(
@@ -1138,9 +1139,9 @@ struct QBundleDiscardOpLowering : public mlir::OpConversionPattern<qwerty::QBund
         mlir::Location loc = discard.getLoc();
         uint64_t dim = discard.getQbundle().getType().getDim();
         // Hopefully canonicalization will get rid of this guy
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, discard.getQbundle()).getQubits();
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, discard.getQbundle()).getQubits();
         for (uint64_t i = 0; i < dim; i++) {
-            rewriter.create<qcirc::QfreeOp>(loc, unpacked[i]);
+            qcirc::QfreeOp::create(rewriter, loc, unpacked[i]);
         }
         rewriter.eraseOp(discard);
         return mlir::success();
@@ -1156,9 +1157,9 @@ struct QBundleDiscardZeroOpLowering : public mlir::OpConversionPattern<qwerty::Q
         mlir::Location loc = discard.getLoc();
         uint64_t dim = discard.getQbundle().getType().getDim();
         // Hopefully canonicalization will get rid of this guy
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, discard.getQbundle()).getQubits();
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, discard.getQbundle()).getQubits();
         for (uint64_t i = 0; i < dim; i++) {
-            rewriter.create<qcirc::QfreeZeroOp>(loc, unpacked[i]);
+            qcirc::QfreeZeroOp::create(rewriter, loc, unpacked[i]);
         }
         rewriter.eraseOp(discard);
         return mlir::success();
@@ -1172,12 +1173,12 @@ struct QBundlePhaseOpLowering : public mlir::OpConversionPattern<qwerty::QBundle
                                         OpAdaptor adaptor,
                                         mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = phaseOp.getLoc();
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(loc, phaseOp.getQbundleIn()).getQubits();
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, phaseOp.getQbundleIn()).getQubits();
         mlir::Value victim = unpacked[0];
-        victim = rewriter.create<qcirc::Gate1Q1POp>(loc, qcirc::Gate1Q1P::P, phaseOp.getTheta(), mlir::ValueRange(), victim).getResult();
-        victim = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, mlir::ValueRange(), victim).getResult();
-        victim = rewriter.create<qcirc::Gate1Q1POp>(loc, qcirc::Gate1Q1P::P, phaseOp.getTheta(), mlir::ValueRange(), victim).getResult();
-        victim = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, mlir::ValueRange(), victim).getResult();
+        victim = qcirc::Gate1Q1POp::create(rewriter, loc, qcirc::Gate1Q1P::P, phaseOp.getTheta(), mlir::ValueRange(), victim).getResult();
+        victim = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, mlir::ValueRange(), victim).getResult();
+        victim = qcirc::Gate1Q1POp::create(rewriter, loc, qcirc::Gate1Q1P::P, phaseOp.getTheta(), mlir::ValueRange(), victim).getResult();
+        victim = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, mlir::ValueRange(), victim).getResult();
         llvm::SmallVector<mlir::Value> new_qubits;
         new_qubits.push_back(victim);
         new_qubits.append(unpacked.begin()+1, unpacked.end());
@@ -1350,7 +1351,7 @@ void multiplexedRyRzSynthesis(
     if (dim == 1) {
         mlir::Value theta_const =
             qcirc::stationaryF64Const(rewriter, loc, thetas.coeff(0));
-        qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(loc, rot_kind, theta_const, no_controls, qubits[0]).getResult();
+        qubits[0] = qcirc::Gate1Q1POp::create(rewriter, loc, rot_kind, theta_const, no_controls, qubits[0]).getResult();
     } else { // dim > 1
         {
             Eigen::SparseVector<double> thetas_prime(thetas.size() / 2);
@@ -1367,7 +1368,7 @@ void multiplexedRyRzSynthesis(
             qubits[qubits.size()-1] = qubits_prime[qubits_prime.size()-1];
         }
 
-        qcirc::Gate1QOp X = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
+        qcirc::Gate1QOp X = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
         qubits[dim - 2] = X.getControlResults()[0];
         qubits[dim - 1] = X.getResult();
 
@@ -1386,7 +1387,7 @@ void multiplexedRyRzSynthesis(
             qubits[qubits.size()-1] = qubits_double_prime[qubits_double_prime.size()-1];
         }
 
-        X = rewriter.create<qcirc::Gate1QOp>(loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
+        X = qcirc::Gate1QOp::create(rewriter, loc, qcirc::Gate1Q::X, qubits[dim - 2], qubits[dim - 1]);
         qubits[dim - 2] = X.getControlResults()[0];
         qubits[dim - 1] = X.getResult();
     }
@@ -1465,7 +1466,7 @@ void uniformStatePrep(mlir::RewriterBase &rewriter,
                       mlir::Location loc,
                       llvm::SmallVectorImpl<mlir::Value> &qubits) {
     for (size_t i = 0; i < qubits.size(); i++) {
-        qubits[i] = rewriter.create<qcirc::Gate1QOp>(
+        qubits[i] = qcirc::Gate1QOp::create(rewriter,
             loc, qcirc::Gate1Q::H, mlir::ValueRange(), qubits[i]).getResult();
     }
 }
@@ -1507,14 +1508,14 @@ void quasiGhzStatePrep(mlir::RewriterBase &rewriter,
     double theta = 2*std::acos(std::sqrt(elem0.getProb().getValueAsDouble()));
     mlir::Value theta_const =
         qcirc::stationaryF64Const(rewriter, loc, theta);
-    qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(
+    qubits[0] = qcirc::Gate1Q1POp::create(rewriter,
             loc, qcirc::Gate1Q1P::Ry, theta_const, mlir::ValueRange(), qubits[0]
         ).getResult();
 
     // Now entangle all the qubits
     assert(dim && "number of superpos qubits must be positive");
     for (size_t i = 0; i < dim-1; i++) {
-        qcirc::Gate1QOp cnot = rewriter.create<qcirc::Gate1QOp>(
+        qcirc::Gate1QOp cnot = qcirc::Gate1QOp::create(rewriter,
             loc, qcirc::Gate1Q::X, qubits[i], qubits[i+1]);
 
         assert(cnot.getControlResults().size() == 1);
@@ -1526,7 +1527,7 @@ void quasiGhzStatePrep(mlir::RewriterBase &rewriter,
     llvm::APInt eigenbits0 = elem0.getEigenbits();
     for (size_t i = 1; i < dim; i++) {
         if (eigenbits0[eigenbits0.getBitWidth()-1 - i]) {
-            qubits[i] = rewriter.create<qcirc::Gate1QOp>(
+            qubits[i] = qcirc::Gate1QOp::create(rewriter,
                 loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[i]).getResult();
         }
     }
@@ -1544,7 +1545,7 @@ void quasiGhzStatePrep(mlir::RewriterBase &rewriter,
     if (std::abs(relative_phase - 0.0) >= ATOL) {
         mlir::Value phi_const =
             qcirc::stationaryF64Const(rewriter, loc, relative_phase);
-        qubits[0] = rewriter.create<qcirc::Gate1Q1POp>(
+        qubits[0] = qcirc::Gate1Q1POp::create(rewriter,
                 loc, qcirc::Gate1Q1P::P, phi_const, mlir::ValueRange(), qubits[0]
             ).getResult();
     }
@@ -1563,7 +1564,7 @@ struct SuperposOpLowering : public mlir::OpConversionPattern<qwerty::SuperposOp>
 
         // Allocate zero qubits
         for (uint64_t i = 0; i < dim; i++) {
-            qubits.push_back(rewriter.create<qcirc::QallocOp>(loc).getResult());
+            qubits.push_back(qcirc::QallocOp::create(rewriter, loc).getResult());
         }
 
         qwerty::SuperposAttr superpos = superPosOp.getSuperpos();
@@ -1576,7 +1577,7 @@ struct SuperposOpLowering : public mlir::OpConversionPattern<qwerty::SuperposOp>
             arbitraryStatePrep(rewriter, loc, superpos, qubits);
         }
 
-        mlir::Value qbundle = rewriter.create<qwerty::QBundlePackOp>(loc, qubits).getQbundle();
+        mlir::Value qbundle = qwerty::QBundlePackOp::create(rewriter, loc, qubits).getQbundle();
 
         qwerty::BasisAttr std_N = rewriter.getAttr<qwerty::BasisAttr>(
             std::initializer_list<qwerty::BasisElemAttr>{
@@ -1625,10 +1626,10 @@ struct EnsembleOpLowering : public mlir::OpConversionPattern<qwerty::EnsembleOp>
 
         qwerty::SuperposAttr new_superpos_attr =
             rewriter.getAttr<qwerty::SuperposAttr>(new_superpos_elems);
-        mlir::Value superpos = rewriter.create<qwerty::SuperposOp>(
+        mlir::Value superpos = qwerty::SuperposOp::create(rewriter,
             loc, new_superpos_attr).getQbundle();
 
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter,
             loc, superpos).getQubits();
         assert(unpacked.size() > n_extra_bits
                && "Superpos bundle is too small");
@@ -1640,12 +1641,12 @@ struct EnsembleOpLowering : public mlir::OpConversionPattern<qwerty::EnsembleOp>
             unpacked.begin() + n_extra_bits,
             unpacked.end());
 
-        mlir::Value extra_qbundle = rewriter.create<qwerty::QBundlePackOp>(
+        mlir::Value extra_qbundle = qwerty::QBundlePackOp::create(rewriter,
             loc, extra_qubits).getQbundle();
-        mlir::Value ensemble_qbundle = rewriter.create<qwerty::QBundlePackOp>(
+        mlir::Value ensemble_qbundle = qwerty::QBundlePackOp::create(rewriter,
             loc, ensemble_qubits).getQbundle();
 
-        rewriter.create<qwerty::QBundleDiscardOp>(loc, extra_qbundle);
+        qwerty::QBundleDiscardOp::create(rewriter, loc, extra_qbundle);
         rewriter.replaceOp(ensemble, ensemble_qbundle);
         return mlir::success();
     }
@@ -2427,10 +2428,10 @@ void standardizeCompressed(mlir::RewriterBase &rewriter,
             llvm::SmallVector<mlir::Value> controls;
             controls.push_back(qubits[ctrl_idx]);
             controls.append(control_qubits.begin(), control_qubits.end());
-            gate = rewriter.create<qcirc::Gate1QOp>(
+            gate = qcirc::Gate1QOp::create(rewriter,
                 loc, kind, controls, qubits[idx]);
         } else {
-            gate = rewriter.create<qcirc::Gate1QOp>(
+            gate = qcirc::Gate1QOp::create(rewriter,
                 loc, kind, control_qubits, qubits[idx]);
         }
         qubits[idx] = gate.getResult();
@@ -2705,7 +2706,7 @@ void impartVecPhases(mlir::RewriterBase &rewriter,
         for (size_t bit = 0; bit < vp.eigenbits.getBitWidth(); bit++) {
             size_t qubit_idx = vec_qubits.size()-1-bit;
             if (!vp.eigenbits[bit]) {
-                vec_qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(loc,
+                vec_qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter, loc,
                     qcirc::Gate1Q::X, mlir::ValueRange(),
                     vec_qubits[qubit_idx]).getResult();
             }
@@ -2720,7 +2721,7 @@ void impartVecPhases(mlir::RewriterBase &rewriter,
                 [&](mlir::ValueRange args) {
                     assert(args.size() == 1);
                     mlir::Value theta_arg = args[0];
-                    return rewriter.create<mlir::arith::NegFOp>(loc, theta_arg).getResult();
+                    return mlir::arith::NegFOp::create(rewriter, loc, theta_arg).getResult();
                 });
         }
 
@@ -2731,7 +2732,7 @@ void impartVecPhases(mlir::RewriterBase &rewriter,
                                                           controls.end());
                 p_controls.append(vec_qubits.begin(),
                                   vec_qubits.begin()+vec_qubits.size()-1);
-                qcirc::Gate1Q1POp gate = rewriter.create<qcirc::Gate1Q1POp>(loc,
+                qcirc::Gate1Q1POp gate = qcirc::Gate1Q1POp::create(rewriter, loc,
                     qcirc::Gate1Q1P::P, theta, p_controls,
                     vec_qubits[vec_qubits.size()-1]);
                 size_t n_controls = controls.size();
@@ -2748,7 +2749,7 @@ void impartVecPhases(mlir::RewriterBase &rewriter,
         for (size_t bit = 0; bit < vp.eigenbits.getBitWidth(); bit++) {
             size_t qubit_idx = vec_qubits.size()-1-bit;
             if (!vp.eigenbits[bit]) {
-                vec_qubits[qubit_idx] = rewriter.create<qcirc::Gate1QOp>(loc,
+                vec_qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter, loc,
                     qcirc::Gate1Q::X, mlir::ValueRange(),
                     vec_qubits[qubit_idx]).getResult();
             }
@@ -2891,7 +2892,7 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
   assert(n <= qubits.size() && start_idx < qubits.size() &&
          start_idx + n <= qubits.size() && "Revolve indices out of range");
   if (!inverse) {
-    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+    qcirc::Gate1QOp h = qcirc::Gate1QOp::create(builder,
         loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
 
     qubits[start_idx] = h.getResult();
@@ -2908,7 +2909,7 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
       llvm::SmallVector<mlir::Value> p_controls(control_qubits.begin(),
                                                 control_qubits.end());
       p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
-      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+      qcirc::Gate1Q1POp cp = qcirc::Gate1Q1POp::create(builder,
           loc, qcirc::Gate1Q1P::P, phase_const, p_controls,
           qubits[start_idx]); // applied on 0th qubit
       control_qubits.clear();
@@ -2946,7 +2947,7 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
                                                 control_qubits.end());
       p_controls.push_back(qubits[start_idx + i]); // controlled on ith qubit
 
-      qcirc::Gate1Q1POp cp = builder.create<qcirc::Gate1Q1POp>(
+      qcirc::Gate1Q1POp cp = qcirc::Gate1Q1POp::create(builder,
           loc, qcirc::Gate1Q1P::P, phase_const, p_controls, qubits[start_idx]);
 
       control_qubits.clear();
@@ -2960,7 +2961,7 @@ void runRevolveCircuit(mlir::Location loc, mlir::OpBuilder &builder,
     }
 
     // final H on q<start_idx>
-    qcirc::Gate1QOp h = builder.create<qcirc::Gate1QOp>(
+    qcirc::Gate1QOp h = qcirc::Gate1QOp::create(builder,
         loc, qcirc::Gate1Q::H, control_qubits, qubits[start_idx]);
 
     qubits[start_idx] = h.getResult();
@@ -3105,11 +3106,11 @@ struct ArbitraryBasisRevolveGenerator
           phases.begin() + basis_in.getNumPhases(), phases.end());
 
       qwerty::QBundleBasisTranslationOp baz_to_std =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, baz_N, std_N, baz_phases, trans.getQbundleIn());
 
       qwerty::QBundleBasisTranslationOp recurse_case_fwd =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, std_N, revolve_basis, revolve_phases,
               baz_to_std.getQbundleOut());
 
@@ -3120,11 +3121,11 @@ struct ArbitraryBasisRevolveGenerator
       llvm::SmallVector<mlir::Value> baz_phases(
           phases.begin() + basis_in.getNumPhases(), phases.end());
       qwerty::QBundleBasisTranslationOp recurse_case_rev =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, revolve_basis, std_N, revolve_phases, trans.getQbundleIn());
 
       qwerty::QBundleBasisTranslationOp std_to_baz =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, std_N, baz_N, baz_phases, recurse_case_rev.getQbundleOut());
 
       rewriter.replaceOp(trans, std_to_baz.getQbundleOut());
@@ -3298,24 +3299,22 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // Steps:
       // 1. create qbtrans std**N >> foo // std.revolve
       qwerty::QBundleBasisTranslationOp recurse_case_fwd =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, std_N, revolve_basis, foo_phases, trans.getQbundleIn());
 
       // 2. qbunpack and get last qubit
       mlir::ValueRange fwd_unpacked =
-          rewriter
-              .create<qwerty::QBundleUnpackOp>(loc,
-                                               recurse_case_fwd.getQbundleOut())
-              .getQubits();
+          qwerty::QBundleUnpackOp::create(
+              rewriter, loc, recurse_case_fwd.getQbundleOut()).getQubits();
 
       llvm::SmallVector<mlir::Value> last_qubit(std::prev(fwd_unpacked.end()),
                                                 fwd_unpacked.end());
       auto packed_last_qubit =
-          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+          qwerty::QBundlePackOp::create(rewriter, loc, last_qubit);
 
       // 3. create std >> bar qbtrans on last qubit
       qwerty::QBundleBasisTranslationOp std_to_bar =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, std_1, bar_1, bar_phases, packed_last_qubit);
 
       // 4. qbpack resulting qubits with first N-1 qubits
@@ -3323,9 +3322,8 @@ struct ArbitraryRevolveBasisRevolveGenerator
           fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
 
       mlir::ValueRange bar_qubit =
-          rewriter
-              .create<qwerty::QBundleUnpackOp>(loc, std_to_bar.getQbundleOut())
-              .getQubits();
+          qwerty::QBundleUnpackOp::create(
+              rewriter, loc, std_to_bar.getQbundleOut()).getQubits();
       final_qubits.push_back(bar_qubit.front());
 
       // 5. replace op
@@ -3334,25 +3332,24 @@ struct ArbitraryRevolveBasisRevolveGenerator
       // id**(N-1) * (bar >> std) | foo // std.revolve >> std**N (reverse case)
       // 1. unpack input bundle to get individual qubits
       mlir::ValueRange in_unpacked =
-          rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+          qwerty::QBundleUnpackOp::create(rewriter, loc, trans.getQbundleIn())
               .getQubits();
 
       // 2. take the last qubit, apply inverse std >> bar translation
       llvm::SmallVector<mlir::Value> last_qubit(std::prev(in_unpacked.end()),
                                                 in_unpacked.end());
       mlir::Value packed_last_qubit =
-          rewriter.create<qwerty::QBundlePackOp>(loc, last_qubit);
+          qwerty::QBundlePackOp::create(rewriter, loc, last_qubit);
 
       // create inverse std >> bar
       qwerty::QBundleBasisTranslationOp bar_to_std =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, bar_1, std_1, bar_phases, packed_last_qubit);
 
       // 3. unpack the result
       mlir::ValueRange bar_std_unpacked =
-          rewriter
-              .create<qwerty::QBundleUnpackOp>(loc, bar_to_std.getQbundleOut())
-              .getQubits();
+          qwerty::QBundleUnpackOp::create(
+              rewriter, loc, bar_to_std.getQbundleOut()).getQubits();
 
       // 4. combine with first N-1 qubits
       llvm::SmallVector<mlir::Value> combined_qubits(
@@ -3361,18 +3358,16 @@ struct ArbitraryRevolveBasisRevolveGenerator
       combined_qubits.push_back(bar_std_unpacked.front());
 
       auto combined_packed =
-          rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+          qwerty::QBundlePackOp::create(rewriter, loc, combined_qubits);
 
       // 5. apply foo // std.revolve >> std**N
       qwerty::QBundleBasisTranslationOp recurse_case_rev =
-          rewriter.create<qwerty::QBundleBasisTranslationOp>(
+          qwerty::QBundleBasisTranslationOp::create(rewriter,
               loc, revolve_basis, std_N, foo_phases, combined_packed);
 
       mlir::ValueRange recurse_case_unpacked =
-          rewriter
-              .create<qwerty::QBundleUnpackOp>(loc,
-                                               recurse_case_rev.getQbundleOut())
-              .getQubits();
+          qwerty::QBundleUnpackOp::create(
+              rewriter, loc, recurse_case_rev.getQbundleOut()).getQubits();
 
       llvm::SmallVector<mlir::Value> final_qubits(recurse_case_unpacked.begin(),
                                                   recurse_case_unpacked.end());
@@ -3548,43 +3543,41 @@ struct RecurseRevolveBasisGenerator
         // which phases go in which basis
         if (!inverse) {
             qwerty::QBundleBasisTranslationOp base_case_fwd =
-                    rewriter.create<qwerty::QBundleBasisTranslationOp>(
-                            loc, std_N, revolve_basis, mlir::ValueRange(),
-                            trans.getQbundleIn());
+                qwerty::QBundleBasisTranslationOp::create(rewriter,
+                    loc, std_N, revolve_basis, mlir::ValueRange(),
+                    trans.getQbundleIn());
 
             // 1. qbunpack to get the qubits
             mlir::ValueRange fwd_unpacked =
-                    rewriter
-                            .create<qwerty::QBundleUnpackOp>(loc, base_case_fwd.getQbundleOut())
-                            .getQubits();
+                qwerty::QBundleUnpackOp::create(
+                    rewriter, loc, base_case_fwd.getQbundleOut()).getQubits();
 
             // 2. qbpack N-1 first qubits
             llvm::SmallVector<mlir::Value> first_N_minus_1(
-                    fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
+                fwd_unpacked.begin(), std::prev(fwd_unpacked.end()));
             auto packed_N_minus_1 =
-                    rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
+                qwerty::QBundlePackOp::create(rewriter, loc, first_N_minus_1);
 
             // 3. (new qbtrans) apply std**(N-1) >> foo to the first N-1 qubits
             qwerty::BasisElemAttr foo_elem;
             if (veclistAttr) {
-                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), veclistAttr);
             } else if (revolveAttr) {
-                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), revolveAttr);
             } else if (builtinAttr) {
-                    foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
+                foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
             }
             qwerty::BasisAttr foo_basis =
-                    qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+                qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
 
-            auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
-                    loc, std_N_minus_1, foo_basis, foo_phases,
-                    packed_N_minus_1);
+            auto subtrans = qwerty::QBundleBasisTranslationOp::create(rewriter,
+                loc, std_N_minus_1, foo_basis, foo_phases,
+                packed_N_minus_1);
 
             // 4. qbunpack qubits from new qbtrans
             mlir::ValueRange subtrans_unpacked =
-                    rewriter
-                            .create<qwerty::QBundleUnpackOp>(loc, subtrans.getQbundleOut())
-                            .getQubits();
+                qwerty::QBundleUnpackOp::create(
+                    rewriter, loc, subtrans.getQbundleOut()).getQubits();
 
             // 5. (re) qbpack qubits from new qbtrans with Nth qubit from original
             // qbtrans
@@ -3605,40 +3598,47 @@ struct RecurseRevolveBasisGenerator
                 foo_elem = qwerty::BasisElemAttr::get(rewriter.getContext(), builtinAttr);
             }
             qwerty::BasisAttr foo_basis =
-                    qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
+                qwerty::BasisAttr::get(rewriter.getContext(), {foo_elem});
 
             // 1. unpack the original input (N qubits)
             mlir::ValueRange rev_unpacked =
-                    rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn()).getQubits();
+                qwerty::QBundleUnpackOp::create(
+                    rewriter, loc, trans.getQbundleIn()).getQubits();
 
             // 2. pack first N-1 qubits, apply sub-translation foo -> std**(N-1)
-            llvm::SmallVector<mlir::Value> first_N_minus_1(rev_unpacked.begin(), std::prev(rev_unpacked.end()));
+            llvm::SmallVector<mlir::Value> first_N_minus_1(
+                rev_unpacked.begin(), std::prev(rev_unpacked.end()));
             auto packed_N_minus_1 =
-                    rewriter.create<qwerty::QBundlePackOp>(loc, first_N_minus_1);
+                qwerty::QBundlePackOp::create(rewriter, loc, first_N_minus_1);
 
-            auto subtrans = rewriter.create<qwerty::QBundleBasisTranslationOp>(
-                    loc, foo_basis, std_N_minus_1, foo_phases, packed_N_minus_1);
+            auto subtrans = qwerty::QBundleBasisTranslationOp::create(
+                rewriter, loc, foo_basis, std_N_minus_1, foo_phases, packed_N_minus_1);
 
             // 3. unpack outputs of subtrans (N-1 qubits in std)
             mlir::ValueRange subtrans_unpacked =
-                    rewriter.create<qwerty::QBundleUnpackOp>(loc, subtrans.getQbundleOut()).getQubits();
+                qwerty::QBundleUnpackOp::create(
+                    rewriter, loc, subtrans.getQbundleOut()).getQubits();
 
             // 4. now repack the N-1 outputs together with the original Nth qubit
-            llvm::SmallVector<mlir::Value> combined_qubits(subtrans_unpacked.begin(), subtrans_unpacked.end());
+            llvm::SmallVector<mlir::Value> combined_qubits(
+                subtrans_unpacked.begin(), subtrans_unpacked.end());
             combined_qubits.push_back(rev_unpacked.back()); // original last qubit
 
             auto combined_packed =
-                    rewriter.create<qwerty::QBundlePackOp>(loc, combined_qubits);
+                qwerty::QBundlePackOp::create(rewriter, loc, combined_qubits);
 
             // 5. apply the base-case rev: (std**(N-1) // revolve) >> std**N
             qwerty::QBundleBasisTranslationOp base_case_rev =
-                    rewriter.create<qwerty::QBundleBasisTranslationOp>(
-                            loc, revolve_basis, std_N, mlir::ValueRange(), combined_packed);
+                qwerty::QBundleBasisTranslationOp::create(
+                    rewriter, loc, revolve_basis, std_N, mlir::ValueRange(),
+                    combined_packed);
 
             mlir::ValueRange base_case_unpacked =
-                    rewriter.create<qwerty::QBundleUnpackOp>(loc, base_case_rev.getQbundleOut()).getQubits();
+                qwerty::QBundleUnpackOp::create(
+                    rewriter, loc, base_case_rev.getQbundleOut()).getQubits();
 
-            llvm::SmallVector<mlir::Value> final_qubits(base_case_unpacked.begin(), base_case_unpacked.end());
+            llvm::SmallVector<mlir::Value> final_qubits(
+                base_case_unpacked.begin(), base_case_unpacked.end());
 
             rewriter.replaceOpWithNewOp<qwerty::QBundlePackOp>(trans, final_qubits);}
 
@@ -3734,7 +3734,7 @@ struct LowerRevolveBasisGenerator
         // Now we know we've matched on the correct thing, and can make a circuit
         // for it!
         mlir::ValueRange unpacked =
-                rewriter.create<qwerty::QBundleUnpackOp>(loc, trans.getQbundleIn())
+                qwerty::QBundleUnpackOp::create(rewriter, loc, trans.getQbundleIn())
                         .getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
         llvm::SmallVector<mlir::Value> controls;
@@ -3794,7 +3794,7 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
                                   left_rebuilt, right_rebuilt);
 
         mlir::Location loc = trans.getLoc();
-        mlir::ValueRange unpacked = rewriter.create<qwerty::QBundleUnpackOp>(
+        mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter,
             loc, trans.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(),
                                               unpacked.end());
@@ -3811,18 +3811,18 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
         impartVecPhases(rewriter, loc, left_phases, /*negate=*/true, qubits,
                         left_rebuilt);
 
-        mlir::Value left_repacked = rewriter.create<qwerty::QBundlePackOp>(
+        mlir::Value left_repacked = qwerty::QBundlePackOp::create(rewriter,
             loc, qubits).getQbundle();
         qwerty::BasisAttr rebuilt_in =
             rewriter.getAttr<qwerty::BasisAttr>(left_rebuilt);
         qwerty::BasisAttr rebuilt_out =
             rewriter.getAttr<qwerty::BasisAttr>(right_rebuilt);
         mlir::Value after_rebuilt =
-            rewriter.create<qwerty::QBundleBasisTranslationOp>(
+            qwerty::QBundleBasisTranslationOp::create(rewriter,
                 loc, rebuilt_in, rebuilt_out, mlir::ValueRange(),
                 left_repacked).getQbundleOut();
         mlir::ValueRange after_rebuilt_unpacked =
-            rewriter.create<qwerty::QBundleUnpackOp>(loc, after_rebuilt)
+            qwerty::QBundleUnpackOp::create(rewriter, loc, after_rebuilt)
                     .getQubits();
         qubits = after_rebuilt_unpacked;
 
@@ -3965,7 +3965,7 @@ struct SynthesizePermutations : public mlir::OpConversionPattern<qwerty::QBundle
 
         mlir::Location loc = trans.getLoc();
         mlir::ValueRange unpacked =
-            rewriter.create<qwerty::QBundleUnpackOp>(loc,
+            qwerty::QBundleUnpackOp::create(rewriter, loc,
                 trans.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(),
                                               unpacked.end());
@@ -4051,7 +4051,7 @@ struct QBundleMeasureNonStd : public mlir::OpConversionPattern<qwerty::QBundleMe
         qwerty::BasisAttr ba1 = rewriter.getAttr<qwerty::BasisAttr>(bea1);
 
         qwerty::QBundleBasisTranslationOp btrans =
-            rewriter.create<qwerty::QBundleBasisTranslationOp>(
+            qwerty::QBundleBasisTranslationOp::create(rewriter,
                 meas.getLoc(), basisAttr, ba1, mlir::ValueRange(), bundleVal);
         rewriter.replaceOpWithNewOp<qwerty::QBundleMeasureOp>(
             meas, ba1, btrans.getQbundleOut());
@@ -4081,14 +4081,14 @@ struct QBundleMeasureOpLowering : public mlir::OpConversionPattern<qwerty::QBund
 
         mlir::Location loc = meas.getLoc();
         uint64_t dim = meas.getQbundle().getType().getDim();
-        mlir::ValueRange unpacked_range = rewriter.create<qwerty::QBundleUnpackOp>(loc, meas.getQbundle()).getQubits();
+        mlir::ValueRange unpacked_range = qwerty::QBundleUnpackOp::create(rewriter, loc, meas.getQbundle()).getQubits();
         llvm::SmallVector<mlir::Value> unpacked(unpacked_range);
 
         llvm::SmallVector<mlir::Value> bits(dim);
         for (uint64_t i = 0; i < dim; i++) {
             mlir::Value qubit = unpacked[i];
-            qcirc::MeasureOp meas = rewriter.create<qcirc::MeasureOp>(loc, qubit);
-            rewriter.create<qcirc::QfreeOp>(loc, meas.getQubitResult());
+            qcirc::MeasureOp meas = qcirc::MeasureOp::create(rewriter, loc, qubit);
+            qcirc::QfreeOp::create(rewriter, loc, meas.getQubitResult());
             bits[i] = meas.getMeasResult();
         }
 
@@ -4122,11 +4122,11 @@ struct QBundleProjectNonStd : public mlir::OpConversionPattern<qwerty::QBundlePr
         qwerty::BasisAttr ba1 = rewriter.getAttr<qwerty::BasisAttr>(bea1);
 
         qwerty::QBundleBasisTranslationOp btrans =
-            rewriter.create<qwerty::QBundleBasisTranslationOp>(
+            qwerty::QBundleBasisTranslationOp::create(rewriter,
                 proj.getLoc(), basisAttr, ba1, mlir::ValueRange(), bundleVal);
 
         qwerty::QBundleProjectOp proj2 =
-            rewriter.create<qwerty::QBundleProjectOp>(
+            qwerty::QBundleProjectOp::create(rewriter,
                 proj.getLoc(), ba1, btrans.getQbundleOut());
 
         rewriter.replaceOpWithNewOp<qwerty::QBundleBasisTranslationOp>(
@@ -4154,7 +4154,7 @@ struct QBundleProjectOpLowering : public mlir::OpConversionPattern<qwerty::QBund
 
         mlir::Location loc = proj.getLoc();
         uint64_t dim = proj.getQbundleIn().getType().getDim();
-        mlir::ValueRange unpacked_range = rewriter.create<qwerty::QBundleUnpackOp>(loc, proj.getQbundleIn()).getQubits();
+        mlir::ValueRange unpacked_range = qwerty::QBundleUnpackOp::create(rewriter, loc, proj.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> unpacked(unpacked_range);
 
         llvm::SmallVector<mlir::Value> measured;
@@ -4162,7 +4162,7 @@ struct QBundleProjectOpLowering : public mlir::OpConversionPattern<qwerty::QBund
 
         for (uint64_t i = 0; i < dim; i++) {
             mlir::Value qubit_in = unpacked[i];
-            qcirc::MeasureOp meas = rewriter.create<qcirc::MeasureOp>(loc, qubit_in);
+            qcirc::MeasureOp meas = qcirc::MeasureOp::create(rewriter, loc, qubit_in);
             measured.push_back(meas.getQubitResult());
         }
 
@@ -4248,9 +4248,9 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
             [&](mlir::ValueRange args) {
                 assert(args.size() == 1);
                 mlir::Value theta_arg = args[0];
-                mlir::Value const_2 = rewriter.create<mlir::arith::ConstantOp>(
+                mlir::Value const_2 = mlir::arith::ConstantOp::create(rewriter,
                         loc, rewriter.getF64FloatAttr(2.0)).getResult();
-                return rewriter.create<mlir::arith::DivFOp>(
+                return mlir::arith::DivFOp::create(rewriter,
                     loc, theta_arg, const_2).getResult();
             });
         mlir::Value neg_theta_by_2 = wrapStationaryFloatOps(
@@ -4258,7 +4258,7 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
             [&](mlir::ValueRange args) {
                 assert(args.size() == 1);
                 mlir::Value theta_by_2_arg = args[0];
-                return rewriter.create<mlir::arith::NegFOp>(
+                return mlir::arith::NegFOp::create(rewriter,
                     loc, theta_by_2_arg).getResult();
             });
 
