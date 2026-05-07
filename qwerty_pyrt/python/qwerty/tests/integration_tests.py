@@ -487,6 +487,13 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_result = neg_sign.test(shots)
         self.assertEqual(expected_result, actual_result)
 
+    def test_in_infer(self):
+        from .integ.meta import in_infer
+        shots = 1024
+        expected_histo = {bit[1](0b1): shots}
+        actual_histo = in_infer.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
     def test_qasm_ghz(self):
         from .integ.meta import qasm_ghz
 

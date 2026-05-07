@@ -7,7 +7,7 @@ use crate::{
     },
     typecheck,
 };
-use dashu::integer::IBig;
+use dashu::{base::DivRem, integer::IBig};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -1993,6 +1993,203 @@ fn unify_ty(
     Ok(())
 }
 
+enum DimVarConstraintUnified {
+    NewConstraint(DimExpr, DimExpr),
+    NewAssignment(DimVar, IBig, Option<DebugLoc>),
+    None,
+}
+
+fn unify_dv_constraint(
+    left: DimExpr,
+    right: DimExpr,
+) -> Result<DimVarConstraintUnified, LowerError> {
+    match (left, right) {
+        (
+            DimExpr::DimVar { var, dbg: var_dbg },
+            DimExpr::DimConst {
+                val,
+                dbg: const_dbg,
+            },
+        )
+        | (
+            DimExpr::DimConst {
+                val,
+                dbg: const_dbg,
+            },
+            DimExpr::DimVar { var, dbg: var_dbg },
+        ) => {
+            let dbg = const_dbg.or(var_dbg);
+            Ok(DimVarConstraintUnified::NewAssignment(var, val, dbg))
+        }
+
+        // a*X = b
+        // ^ ^   ^
+        // | |   |
+        // | var |
+        // |     |
+        // constants
+        (
+            DimExpr::DimProd {
+                left,
+                right,
+                dbg: prod_dbg,
+            },
+            DimExpr::DimConst {
+                val: val_rhs,
+                dbg: lhs_dbg,
+            },
+        )
+        | (
+            DimExpr::DimProd {
+                left: right,
+                right: left,
+                dbg: prod_dbg,
+            },
+            DimExpr::DimConst {
+                val: val_rhs,
+                dbg: lhs_dbg,
+            },
+        )
+        | (
+            DimExpr::DimConst {
+                val: val_rhs,
+                dbg: lhs_dbg,
+            },
+            DimExpr::DimProd {
+                left,
+                right,
+                dbg: prod_dbg,
+            },
+        )
+        | (
+            DimExpr::DimConst {
+                val: val_rhs,
+                dbg: lhs_dbg,
+            },
+            DimExpr::DimProd {
+                left: right,
+                right: left,
+                dbg: prod_dbg,
+            },
+        ) if matches!(
+            (&*left, &*right),
+            (DimExpr::DimConst { .. }, DimExpr::DimVar { .. })
+        ) =>
+        {
+            if let (
+                DimExpr::DimConst {
+                    val: val_lhs,
+                    dbg: rhs_dbg,
+                },
+                DimExpr::DimVar { var, dbg: _ },
+            ) = (*left, *right)
+            {
+                let dbg = lhs_dbg.or(rhs_dbg).or(prod_dbg);
+                // a*X = b  ==>  X = b/a
+                // or, in terms of our variable names, var = val_rhs / val_lhs.
+                let (quot, rem) = val_rhs.div_rem(val_lhs);
+                if rem.is_zero() {
+                    Ok(DimVarConstraintUnified::NewAssignment(var, quot, dbg))
+                } else {
+                    Err(LowerError {
+                        kind: LowerErrorKind::NonIntegerDivision,
+                        dbg,
+                    })
+                }
+            } else {
+                panic!("A match just unmatched. Is the computer haunted?");
+            }
+        }
+
+        // TODO: this case should not be hard-coded
+        (
+            DimExpr::DimSum {
+                left: left_left,
+                right: left_right,
+                ..
+            },
+            DimExpr::DimSum {
+                left: right_left,
+                right: right_right,
+                ..
+            },
+        ) if left_left == left_right && right_left == right_right => Ok(
+            DimVarConstraintUnified::NewConstraint(*left_left, *right_right),
+        ),
+
+        // TODO: this case should not be hard-coded
+        (
+            DimExpr::DimSum {
+                left: left_left,
+                right: left_right,
+                ..
+            },
+            DimExpr::DimSum {
+                left: right_left,
+                right: right_right,
+                ..
+            },
+        ) if left_left == right_left => Ok(DimVarConstraintUnified::NewConstraint(
+            *left_right,
+            *right_right,
+        )),
+
+        // TODO: this case should not be hard-coded
+        (
+            DimExpr::DimSum {
+                left: left_left,
+                right: left_right,
+                ..
+            },
+            DimExpr::DimSum {
+                left: right_left,
+                right: right_right,
+                ..
+            },
+        ) if left_right == right_right => Ok(DimVarConstraintUnified::NewConstraint(
+            *left_left,
+            *right_left,
+        )),
+
+        // TODO: this case should not be hard-coded
+        (
+            DimExpr::DimSum {
+                left: left_left,
+                right: left_right,
+                ..
+            },
+            DimExpr::DimSum {
+                left: right_left,
+                right: right_right,
+                ..
+            },
+        ) if left_left == right_right => Ok(DimVarConstraintUnified::NewConstraint(
+            *left_right,
+            *right_left,
+        )),
+
+        // TODO: this case should not be hard-coded
+        (
+            DimExpr::DimSum {
+                left: left_left,
+                right: left_right,
+                ..
+            },
+            DimExpr::DimSum {
+                left: right_left,
+                right: right_right,
+                ..
+            },
+        ) if left_right == right_left => Ok(DimVarConstraintUnified::NewConstraint(
+            *left_left,
+            *right_right,
+        )),
+
+        // TODO: support more cases
+        _ => Ok(DimVarConstraintUnified::None),
+    }
+}
+
 fn unify_dv(
     old_dv_assign: DimVarAssignments,
     dv_constraints: DimVarConstraints,
@@ -2019,25 +2216,14 @@ fn unify_dv(
 
     let mut dv_assign = old_dv_assign;
 
-    while let Some(constraint) = constraints.pop() {
-        match (constraint.0, constraint.1) {
-            (
-                DimExpr::DimVar { var, dbg: var_dbg },
-                DimExpr::DimConst {
-                    val,
-                    dbg: const_dbg,
-                },
-            )
-            | (
-                DimExpr::DimConst {
-                    val,
-                    dbg: const_dbg,
-                },
-                DimExpr::DimVar { var, dbg: var_dbg },
-            ) => {
+    while let Some(DimVarConstraint(left, right)) = constraints.pop() {
+        match unify_dv_constraint(left, right)? {
+            DimVarConstraintUnified::NewConstraint(left, right) => {
+                constraints.push(DimVarConstraint::new(left, right));
+            }
+            DimVarConstraintUnified::NewAssignment(var, val, dbg) => {
                 if let Some(old_val) = dv_assign.insert(var.clone(), val.clone()) {
                     if old_val != val {
-                        let dbg = const_dbg.or(var_dbg);
                         return Err(LowerError {
                             kind: LowerErrorKind::DimVarConflict {
                                 dim_var_name: var.to_string(),
@@ -2049,117 +2235,7 @@ fn unify_dv(
                     }
                 }
             }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_left == left_right && right_left == right_right => {
-                let left = *left_left;
-                let right = *right_right;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_left == left_right && right_left == right_right => {
-                let left = *left_left;
-                let right = *right_right;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_left == right_left => {
-                let left = *left_right;
-                let right = *right_right;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_right == right_right => {
-                let left = *left_left;
-                let right = *right_left;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_left == right_right => {
-                let left = *left_right;
-                let right = *right_left;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: this case should not be hard-coded
-            (
-                DimExpr::DimSum {
-                    left: left_left,
-                    right: left_right,
-                    ..
-                },
-                DimExpr::DimSum {
-                    left: right_left,
-                    right: right_right,
-                    ..
-                },
-            ) if left_right == right_left => {
-                let left = *left_left;
-                let right = *right_right;
-                constraints.push(DimVarConstraint::new(left, right));
-            }
-
-            // TODO: support more cases
-            _ => {}
+            DimVarConstraintUnified::None => {}
         }
     }
 

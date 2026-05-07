@@ -8,7 +8,10 @@ use dashu::{base::Signed, integer::IBig};
 use qwerty_ast_macros::{
     gen_rebuild, rebuild, rewrite_match, rewrite_ty, visitor_expr, visitor_write,
 };
-use std::fmt;
+use std::{
+    fmt,
+    ops::{AddAssign, MulAssign},
+};
 
 /// A dimension variable. The distinction between the two variants exists
 /// because macro parameters are distinct from function dimension variables
@@ -228,6 +231,78 @@ impl DimExpr {
         }
     }
 
+    /// Fold multiple constants in a sum or product into one constant. To be
+    /// used after [`DimExpr::flatten_sum`] and [`DimExpr::flatten_prod`].
+    fn fold_constants<F1, F2>(
+        vals: Vec<DimExpr>,
+        init_acc: IBig,
+        acc_func: F1,
+        is_ident_func: F2,
+    ) -> Vec<DimExpr>
+    where
+        F1: Fn(&mut IBig, IBig),
+        F2: Fn(&IBig) -> bool,
+    {
+        let mut acc = init_acc;
+        let mut operands = vec![];
+        for v in vals {
+            if let DimExpr::DimConst { val, .. } = v {
+                acc_func(&mut acc, val);
+            } else {
+                operands.push(v);
+            }
+        }
+        if !is_ident_func(&acc) {
+            operands.push(DimExpr::DimConst {
+                val: acc,
+                dbg: None,
+            });
+        }
+        operands
+    }
+
+    /// Find duplicate entries in the provided list of terms in a sum `N+N+N+4`
+    /// and consolidate them into `3*N + 4`.
+    fn consolidate_dupes_in_sum(mut vals: Vec<DimExpr>) -> Vec<DimExpr> {
+        vals.reverse();
+        let mut output = Vec::new();
+        let mut prev: Option<DimExpr> = None;
+        let mut count = 0;
+        loop {
+            let maybe_next = vals.pop();
+
+            if let (Some(previous), Some(next)) = (prev.as_ref(), maybe_next.as_ref())
+                && previous.clone().strip_dbg() == next.clone().strip_dbg()
+            {
+                count += 1;
+            } else {
+                if let Some(previous) = prev {
+                    let this_output = if count == 1 {
+                        previous
+                    } else {
+                        DimExpr::DimProd {
+                            left: Box::new(DimExpr::DimConst {
+                                val: count.into(),
+                                dbg: None,
+                            }),
+                            right: Box::new(previous),
+                            dbg: None,
+                        }
+                    };
+                    output.push(this_output);
+                }
+
+                if maybe_next.is_none() {
+                    break;
+                }
+
+                count = 1;
+                prev = maybe_next;
+            }
+        }
+        output
+    }
+
     /// Return a canon form of this expression in which:
     ///
     /// 1. Trees of `DimSum` and `DimProd` are rebuilt in a left-recursive
@@ -260,9 +335,15 @@ impl DimExpr {
                 let mut vals = vec![];
                 left.flatten_sum(&mut vals);
                 right.flatten_sum(&mut vals);
-                vals = vals.into_iter().filter(|v| !v.is_constant_zero()).collect();
-                vals.sort();
-                vals.into_iter()
+
+                let mut operands =
+                    Self::fold_constants(vals, IBig::ZERO, IBig::add_assign, IBig::is_zero);
+                operands.sort();
+                operands = Self::consolidate_dupes_in_sum(operands);
+                operands.sort();
+
+                operands
+                    .into_iter()
                     .reduce(|left, right| DimExpr::DimSum {
                         left: Box::new(left),
                         right: Box::new(right),
@@ -278,9 +359,12 @@ impl DimExpr {
                 let mut vals = vec![];
                 left.flatten_prod(&mut vals);
                 right.flatten_prod(&mut vals);
-                vals = vals.into_iter().filter(|v| !v.is_constant_one()).collect();
-                vals.sort();
-                vals.into_iter()
+
+                let mut operands =
+                    Self::fold_constants(vals, IBig::ONE, IBig::mul_assign, IBig::is_one);
+                operands.sort();
+                operands
+                    .into_iter()
                     .reduce(|left, right| DimExpr::DimProd {
                         left: Box::new(left),
                         right: Box::new(right),

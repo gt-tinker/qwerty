@@ -178,6 +178,7 @@ pub enum LowerErrorKind {
         offender: IBig,
     },
     DivisionByZero,
+    NonIntegerDivision,
     RepeatMustBeOnRightOfPipe,
     Stuck,
     MissingFuncTypeAnnotation,
@@ -267,6 +268,9 @@ impl fmt::Display for LowerErrorKind {
                 )
             }
             LowerErrorKind::DivisionByZero => write!(f, "Division by zero"),
+            LowerErrorKind::NonIntegerDivision => {
+                write!(f, "Division produced a non-integer value")
+            }
             LowerErrorKind::RepeatMustBeOnRightOfPipe => {
                 write!(
                     f,
