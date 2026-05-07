@@ -383,14 +383,16 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "ndarray"
-version = "0.15.6"
+version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+checksum = "520080814a7a6b4a6e9070823bb24b4531daac8c4627e08ba5de8c5ef2f2752d"
 dependencies = [
  "matrixmultiply",
  "num-complex",
  "num-integer",
  "num-traits",
+ "portable-atomic",
+ "portable-atomic-util",
  "rawpointer",
 ]
 
@@ -514,6 +516,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
 
 [[package]]
+name = "portable-atomic-util"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a106d1259c23fac8e543272398ae0e3c0b8d33c88ed73d0cc71b0f1d902618"
+dependencies = [
+ "portable-atomic",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -605,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "qir-backend"
-version = "0.8.3"
+version = "0.9.4"
 dependencies = [
  "bitvec",
  "num-bigint",
@@ -617,7 +628,7 @@ dependencies = [
 
 [[package]]
 name = "qir-stdlib"
-version = "0.8.3"
+version = "0.9.4"
 dependencies = [
  "num-bigint",
  "rand",
@@ -633,7 +644,7 @@ dependencies = [
 
 [[package]]
 name = "quantum-sparse-sim"
-version = "0.8.3"
+version = "0.9.4"
 dependencies = [
  "ndarray",
  "num-bigint",
