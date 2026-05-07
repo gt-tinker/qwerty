@@ -15,6 +15,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Support/Debug.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
@@ -29,9 +30,13 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Utils/QwertyUtils.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
-#include "PassDetail.h"
 
 #include "tweedledum.hpp"
+
+namespace qwerty {
+#define GEN_PASS_DEF_QWERTYTOQCIRCCONVERSION
+#include "Qwerty/Transforms/QwertyPasses.h.inc"
+} // namespace qwerty
 
 // This pass converts Qwerty constructs to quantum circuits. Most of Sections
 // 6.1-6.3 of the CGO paper happen in this file. Your best bet for navigating
@@ -4276,7 +4281,7 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
     }
 };
 
-struct QwertyToQCircConversionPass : public qwerty::QwertyToQCircConversionBase<QwertyToQCircConversionPass> {
+struct QwertyToQCircConversionPass : public qwerty::impl::QwertyToQCircConversionBase<QwertyToQCircConversionPass> {
     void runOnOperation() override {
         mlir::ModuleOp module_op = getOperation();
 

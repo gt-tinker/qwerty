@@ -7,7 +7,11 @@
 #include "QCirc/IR/QCircOps.h"
 #include "CCirc/IR/CCircOps.h"
 #include "tweedledum.hpp"
-#include "PassDetail.h"
+
+namespace qwerty {
+#define GEN_PASS_DEF_SYNTHEMBEDS
+#include "Qwerty/Transforms/QwertyPasses.h.inc"
+} // namespace qwerty
 
 // This is a pass that converts all qwerty.embed_* ops that reference classical
 // circuits into qwerty.func_const ops referencing qwerty.funcs that contain
@@ -184,7 +188,7 @@ qwerty::FuncOp synthInPlace(
 }
 
 struct SynthEmbedsPass
-        : public qwerty::SynthEmbedsBase<SynthEmbedsPass> {
+        : public qwerty::impl::SynthEmbedsBase<SynthEmbedsPass> {
     void runOnOperation() override {
         mlir::ModuleOp mod = getOperation();
 

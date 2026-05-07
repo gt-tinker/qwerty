@@ -3,7 +3,11 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Utils/QwertyUtils.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
-#include "PassDetail.h"
+
+namespace qwerty {
+#define GEN_PASS_DEF_ONLYPREDONES
+#include "Qwerty/Transforms/QwertyPasses.h.inc"
+} // namespace qwerty
 
 // After this pass finishes, all predications in the program will consist
 // only of 1s. This is a crucial step in lowering to a circuit (which, in our
@@ -258,7 +262,7 @@ class CallPredNotOnesPattern : public mlir::OpRewritePattern<qwerty::CallOp> {
 };
 
 struct OnlyPredOnesPass
-        : public qwerty::OnlyPredOnesBase<OnlyPredOnesPass> {
+        : public qwerty::impl::OnlyPredOnesBase<OnlyPredOnesPass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<FuncPredNotOnesPattern,

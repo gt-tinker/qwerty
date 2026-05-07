@@ -4,7 +4,11 @@
 
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
-#include "PassDetail.h"
+
+namespace qwerty {
+#define GEN_PASS_DEF_LIFTLAMBDAS
+#include "Qwerty/Transforms/QwertyPasses.h.inc"
+} // namespace qwerty
 
 // This is a pass that converts all qwerty.lambda ops into qwerty.func_const
 // ops referencing qwerty.funcs.
@@ -12,7 +16,7 @@
 namespace {
 
 struct LiftLambdasPass
-        : public qwerty::LiftLambdasBase<LiftLambdasPass> {
+        : public qwerty::impl::LiftLambdasBase<LiftLambdasPass> {
     void runOnOperation() override {
         mlir::ModuleOp mod = getOperation();
         mlir::SymbolTable symbol_table(mod);

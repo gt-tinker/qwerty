@@ -12,7 +12,12 @@
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_BARENCODECOMPOSE
+#define GEN_PASS_DEF_REPLACEUNUSUALGATES
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // Mission: get rid of any gates that will probably cause a headache when we
 // lower to QIR. The mission is to convert gates _not_ in this (apparently
@@ -1065,7 +1070,7 @@ class ReplaceGate2QOpWithControlsPattern : public mlir::OpRewritePattern<qcirc::
 
 // This preserves controls. These patterns must not do any Barenco
 // decompositions.
-struct ReplaceUnusualGatesPass : public qcirc::ReplaceUnusualGatesBase<ReplaceUnusualGatesPass> {
+struct ReplaceUnusualGatesPass : public qcirc::impl::ReplaceUnusualGatesBase<ReplaceUnusualGatesPass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<
@@ -1087,7 +1092,7 @@ struct ReplaceUnusualGatesPass : public qcirc::ReplaceUnusualGatesBase<ReplaceUn
 
 // This preserves controls only on X gates. It performs Barenco decompositions
 // to accomplish that.
-struct BarencoDecomposePass : public qcirc::BarencoDecomposeBase<BarencoDecomposePass> {
+struct BarencoDecomposePass : public qcirc::impl::BarencoDecomposeBase<BarencoDecomposePass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<

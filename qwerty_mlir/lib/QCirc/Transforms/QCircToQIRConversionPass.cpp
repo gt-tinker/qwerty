@@ -16,8 +16,11 @@
 #include "QCirc/IR/QCircTypes.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
-#include "RewriterDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_QCIRCTOQIRCONVERSION
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // This pass is responsible for converting QCirc-dialect MLIR to llvm-dialect
 // MLIR. Besides some moderately interesting pre-processing, what you will find
@@ -2188,7 +2191,7 @@ struct ArrayFreeOpLowering : public mlir::OpConversionPattern<qcirc::ArrayFreeOp
     }
 };
 
-struct QCircToQIRConversionPass : public qcirc::QCircToQIRConversionBase<QCircToQIRConversionPass> {
+struct QCircToQIRConversionPass : public qcirc::impl::QCircToQIRConversionBase<QCircToQIRConversionPass> {
     void runOnOperation() override {
         mlir::ModuleOp module_op = getOperation();
         addExtraLLVMAttrsToFuncs(module_op);

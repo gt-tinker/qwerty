@@ -9,7 +9,11 @@
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_DECOMPOSEMULTICONTROL
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // This pass decomposes multi-controlled gates using Selinger's trick
 // (https://doi.org/10.1103/PhysRevA.87.042302). When this pass finishes,
@@ -333,7 +337,7 @@ class ReplaceTweedledumCCXPhasePattern : public mlir::OpRewritePattern<qcirc::Ga
     }
 };
 
-struct DecomposeMultiControlPass : public qcirc::DecomposeMultiControlBase<DecomposeMultiControlPass> {
+struct DecomposeMultiControlPass : public qcirc::impl::DecomposeMultiControlBase<DecomposeMultiControlPass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<

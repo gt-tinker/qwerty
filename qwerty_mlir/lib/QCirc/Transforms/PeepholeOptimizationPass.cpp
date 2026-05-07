@@ -13,7 +13,11 @@
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_PEEPHOLEOPTIMIZATION
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // This pass does some gate-level peephole optimizations as described in
 // Section 6.5 of the CGO paper. This pass is written assuming that it runs
@@ -703,7 +707,7 @@ class DeleteUnusedQubitsPattern :
     }
 };
 
-struct PeepholeOptimizationPass : public qcirc::PeepholeOptimizationBase<PeepholeOptimizationPass> {
+struct PeepholeOptimizationPass : public qcirc::impl::PeepholeOptimizationBase<PeepholeOptimizationPass> {
     void runOnOperation() override {
         // As the P gate can be transformed to Z, we need to do this
         // replacement first.

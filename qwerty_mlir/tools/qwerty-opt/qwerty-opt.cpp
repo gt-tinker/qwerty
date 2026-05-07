@@ -40,7 +40,6 @@
 #include "CCirc/IR/CCircDialect.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "mlir/Dialect/Affine/Passes.h"
 
 // Just for testing
 namespace qwerty {

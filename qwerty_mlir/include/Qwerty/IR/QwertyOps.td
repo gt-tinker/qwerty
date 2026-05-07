@@ -35,7 +35,9 @@ def Qwerty_FuncOp : Qwerty_Op<"func", [
 
     let arguments = (ins SymbolNameAttr:$sym_name,
                          TypeAttrOf<Qwerty_FunctionType>:$qwerty_func_type,
-                         OptionalAttr<StrAttr>:$sym_visibility);
+                         OptionalAttr<StrAttr>:$sym_visibility,
+                         OptionalAttr<DictArrayAttr>:$arg_attrs,
+                         OptionalAttr<DictArrayAttr>:$res_attrs);
 
     let regions = (region SizedRegion<1>:$body);
 
@@ -43,7 +45,7 @@ def Qwerty_FuncOp : Qwerty_Op<"func", [
 
     let builders = [
         OpBuilder<(ins "::llvm::StringRef":$sym_name, "FunctionType":$qwerty_func_type), [{
-            build($_builder, $_state, sym_name, qwerty_func_type, nullptr);
+            build($_builder, $_state, sym_name, qwerty_func_type, nullptr, nullptr, nullptr);
         }]>
     ];
 
@@ -81,30 +83,22 @@ def Qwerty_CallOp : Qwerty_Op<"call", [
     let arguments = (ins FlatSymbolRefAttr:$callee,
                      BoolAttr:$adj,
                      OptionalAttr<Qwerty_BasisAttr>:$pred,
-                     Variadic<AnyType>:$captures_and_operands);
+                     Variadic<AnyType>:$captures_and_operands,
+                     OptionalAttr<DictArrayAttr>:$arg_attrs,
+                     OptionalAttr<DictArrayAttr>:$res_attrs);
     let results = (outs Variadic<AnyType>:$results);
 
     let builders = [
-        OpBuilder<(ins "qwerty::FuncOp":$callee, CArg<"::mlir::ValueRange", "{}">:$captures_and_operands), [{
+        OpBuilder<(ins "qwerty::FuncOp":$callee, "::mlir::ValueRange":$captures_and_operands), [{
             mlir::TypeRange results =
                 callee.getQwertyFuncType().getFunctionType().getResults();
-            build($_builder, $_state, results, callee.getSymName(), /*adj=*/false, /*pred=*/nullptr, captures_and_operands);
+            build($_builder, $_state, results, callee.getSymName(), /*adj=*/false, /*pred=*/nullptr, captures_and_operands, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
         }]>,
-        OpBuilder<(ins "::mlir::TypeRange":$result_types, "::mlir::FlatSymbolRefAttr":$callee, CArg<"mlir::ValueRange", "{}">:$captures_and_operands), [{
-            build($_builder, $_state, result_types, callee, /*adj=*/false, /*pred=*/nullptr, captures_and_operands);
+        OpBuilder<(ins "::mlir::TypeRange":$result_types, "::mlir::FlatSymbolRefAttr":$callee, "bool":$adj, "qwerty::BasisAttr":$pred, "::mlir::ValueRange":$captures_and_operands), [{
+            build($_builder, $_state, result_types, callee, $_builder.getBoolAttr(adj), pred, captures_and_operands, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
         }]>,
-        OpBuilder<(ins "qwerty::FuncOp":$callee, "bool":$adj, "qwerty::BasisAttr":$pred, CArg<"::mlir::ValueRange", "{}">:$captures_and_operands), [{
-            mlir::TypeRange results =
-                callee.getQwertyFuncType().getFunctionType().getResults();
-            if (pred) {
-                assert(results.size() == 1 && llvm::isa<qwerty::QBundleType>(results[0]));
-                qwerty::QBundleType res_type = llvm::cast<qwerty::QBundleType>(results[0]);
-                results = $_builder.getType<qwerty::QBundleType>(res_type.getDim() + pred.getDim());
-            }
-            build($_builder, $_state, results, callee.getSymName(), adj, pred, captures_and_operands);
-        }]>,
-        OpBuilder<(ins "::mlir::TypeRange":$result_types, "::mlir::FlatSymbolRefAttr":$callee, "bool":$adj, "qwerty::BasisAttr":$pred, CArg<"mlir::ValueRange", "{}">:$captures_and_operands), [{
-            build($_builder, $_state, result_types, callee, $_builder.getBoolAttr(adj), pred, captures_and_operands);
+        OpBuilder<(ins "::mlir::TypeRange":$result_types, "::llvm::StringRef":$callee, "bool":$adj, "qwerty::BasisAttr":$pred, "::mlir::ValueRange":$captures_and_operands), [{
+            build($_builder, $_state, result_types, callee, adj, pred, captures_and_operands, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
         }]>
     ];
 
@@ -171,10 +165,21 @@ def Qwerty_CallIndirectOp : Qwerty_Op<"call_indirect", [
     let summary = "Call a qwerty function pointer";
 
     let arguments = (ins Qwerty_FunctionType:$callee,
-                         Variadic<AnyType>:$call_operands);
+                         Variadic<AnyType>:$call_operands,
+                         OptionalAttr<DictArrayAttr>:$arg_attrs,
+                         OptionalAttr<DictArrayAttr>:$res_attrs);
     let results = (outs Variadic<AnyType>:$results);
 
     let hasCanonicalizer = 1;
+
+    let builders = [
+        OpBuilder<(ins "::mlir::TypeRange":$result_types, "::mlir::Value":$callee, "::mlir::ValueRange":$call_operands), [{
+            build($_builder, $_state, result_types, callee, call_operands, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
+        }]>,
+        OpBuilder<(ins "::mlir::Value":$callee, "::mlir::ValueRange":$call_operands), [{
+            build($_builder, $_state, callee, call_operands, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
+        }]>
+    ];
 
     let assemblyFormat = "$callee `(` $call_operands `)` attr-dict `:` functional-type(operands, results)";
 }
@@ -190,11 +195,19 @@ def Qwerty_LambdaOp : Qwerty_Op<"lambda", [
         type) does not include capture types, but those capture types are the
         leading block arguments.
     }];
-    let arguments = (ins Variadic<AnyType>:$captures);
+    let arguments = (ins Variadic<AnyType>:$captures,
+                         OptionalAttr<DictArrayAttr>:$arg_attrs,
+                         OptionalAttr<DictArrayAttr>:$res_attrs);
     let results = (outs Qwerty_FunctionType:$result);
     let regions = (region SizedRegion<1>:$region);
     let hasCustomAssemblyFormat = 1;
     // TODO: add verifier to sanity check things
+
+    let builders = [
+        OpBuilder<(ins "qwerty::FunctionType":$func_ty, "::mlir::ValueRange":$captures), [{
+            build($_builder, $_state, func_ty, captures, /*arg_attrs=*/nullptr, /*res_attrs=*/nullptr);
+        }]>
+    ];
 
     let extraClassDeclaration = [{
         unsigned getNumCaptures() {

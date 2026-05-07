@@ -22,6 +22,9 @@ set(LIBS
   MLIRTransformUtils
   MLIRSupport
   MLIRInferTypeOpInterface
+  MLIRRegisterAllDialects
+  MLIRRegisterAllExtensions
+  MLIRRegisterAllPasses
   MLIRQwerty
   MLIRQwertyTransforms
   MLIRQwertyTestAnalysis

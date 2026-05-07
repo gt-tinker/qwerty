@@ -2,11 +2,17 @@
 
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 
 #include "QCirc/IR/QCircDialect.h"
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_BASEPROFILEFUNCPREP
+#define GEN_PASS_DEF_BASEPROFILEMODULEPREP
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // Passes for doing static qubit allocation for the QIR Base Profile. Expects
 // code to be fully inlined and for all Qwerty kernels to end in something
@@ -31,7 +37,7 @@ const llvm::StringRef TAG_DISCARDED = "tag_discarded";
 // (And also create what will be lowered to global character arrays for the
 //  labels of tuples.)
 struct BaseProfileModulePrepPass
-        : public qcirc::BaseProfileModulePrepBase<BaseProfileModulePrepPass> {
+        : public qcirc::impl::BaseProfileModulePrepBase<BaseProfileModulePrepPass> {
     void runOnOperation() override {
         mlir::ModuleOp mod = getOperation();
 
@@ -73,7 +79,7 @@ struct BaseProfileModulePrepPass
 // base profile ops as needed to eventually (after conversion to the llvm
 // dialect and then translated to LLVM IR) produce QIR.
 struct BaseProfileFuncPrepPass
-        : public qcirc::BaseProfileFuncPrepBase<BaseProfileFuncPrepPass> {
+        : public qcirc::impl::BaseProfileFuncPrepBase<BaseProfileFuncPrepPass> {
     void runOnOperation() override {
         mlir::func::FuncOp func = getOperation();
 

@@ -9,7 +9,11 @@
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Utils/QCircUtils.h"
 #include "QCirc/Transforms/QCircPasses.h"
-#include "PassDetail.h"
+
+namespace qcirc {
+#define GEN_PASS_DEF_INLINEADJ
+#include "QCirc/Transforms/QCircPasses.h.inc"
+} // namespace qwerty
 
 // This pass replaces every qcirc.adj op with its contents (a single basic
 // block), except taking the adjoint of the block. This pass (and the
@@ -36,7 +40,7 @@ class InlineAdjointPattern : public mlir::OpRewritePattern<qcirc::AdjointOp> {
     }
 };
 
-struct InlineAdjPass : public qcirc::InlineAdjBase<InlineAdjPass> {
+struct InlineAdjPass : public qcirc::impl::InlineAdjBase<InlineAdjPass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<InlineAdjointPattern>(&getContext());

@@ -323,7 +323,7 @@ void CalcOp::getSuccessorRegions(
         return;
     }
     // Branch back into parent region
-    regions.push_back(mlir::RegionSuccessor(getResults()));
+    regions.push_back(mlir::RegionSuccessor(getOperation(), getResults()));
 }
 
 void CalcOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
@@ -420,7 +420,7 @@ void AdjointOp::getSuccessorRegions(
         return;
     }
     // Branch back into parent region
-    regions.push_back(mlir::RegionSuccessor(getResults()));
+    regions.push_back(mlir::RegionSuccessor(getOperation(), getResults()));
 }
 
 mlir::LogicalResult AdjointOp::verify() {

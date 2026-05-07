@@ -7,7 +7,11 @@
 #include "Qwerty/IR/QwertyOps.h"
 #include "Qwerty/Utils/QwertyUtils.h"
 #include "Qwerty/Transforms/QwertyPasses.h"
-#include "PassDetail.h"
+
+namespace qwerty {
+#define GEN_PASS_DEF_INLINEPRED
+#include "Qwerty/Transforms/QwertyPasses.h.inc"
+} // namespace qwerty
 
 // This is a pass that replaces every qwerty.pred op with its body (a single
 // basic block), except with every instruction predicated. This pass (and the
@@ -44,7 +48,7 @@ class InlinePredPattern : public mlir::OpRewritePattern<qwerty::PredOp> {
     }
 };
 
-struct InlinePredPass : public qwerty::InlinePredBase<InlinePredPass> {
+struct InlinePredPass : public qwerty::impl::InlinePredBase<InlinePredPass> {
     void runOnOperation() override {
         mlir::RewritePatternSet patterns(&getContext());
         patterns.add<InlinePredPattern>(&getContext());
