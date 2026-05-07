@@ -10,7 +10,10 @@
 #include "CCirc/Synth/CCircSynth.h"
 #include "CCirc/Transforms/CCircPasses.h"
 
-#include "PassDetail.h"
+namespace ccirc {
+#define GEN_PASS_DEF_CCIRCTOFUNCARITHCONVERSION
+#include "CCirc/Transforms/CCircPasses.h.inc"
+} // namespace qwerty
 
 // Convert ccirc.circuit ops into func.func ops containing arith ops.
 
@@ -119,17 +122,17 @@ struct PackToArithShiftOr
                                           adaptor.getWires()))) {
             size_t this_wire_dim = llvm::cast<ccirc::WireType>(
                 wire_val.getType()).getDim();
-            mlir::Value zext = rewriter.create<mlir::arith::ExtUIOp>(
+            mlir::Value zext = mlir::arith::ExtUIOp::create(rewriter,
                 loc, result_ty, int_val).getResult();
             if (!result) {
                 result = zext;
             } else {
-                mlir::Value amt = rewriter.create<mlir::arith::ConstantOp>(
+                mlir::Value amt = mlir::arith::ConstantOp::create(rewriter,
                     loc, rewriter.getIntegerAttr(
                         rewriter.getIntegerType(combined_wire_dim), shift_by));
-                mlir::Value shifted = rewriter.create<mlir::arith::ShLIOp>(
+                mlir::Value shifted = mlir::arith::ShLIOp::create(rewriter,
                     loc, zext, amt).getResult();
-                result = rewriter.create<mlir::arith::OrIOp>(
+                result = mlir::arith::OrIOp::create(rewriter,
                     loc, result, shifted).getResult();
             }
             shift_by += this_wire_dim;
@@ -158,15 +161,15 @@ struct UnpackToArithShiftTrunc
             size_t shift_by = in_dim - 1 - i;
             mlir::Value shifted;
             if (shift_by) {
-                mlir::Value amt = rewriter.create<mlir::arith::ConstantOp>(
+                mlir::Value amt = mlir::arith::ConstantOp::create(rewriter,
                     loc, rewriter.getIntegerAttr(
                         rewriter.getIntegerType(in_dim), shift_by));
-                shifted = rewriter.create<mlir::arith::ShRUIOp>(
+                shifted = mlir::arith::ShRUIOp::create(rewriter,
                     loc, wire_int_val, amt).getResult();
             } else {
                 shifted = wire_int_val;
             }
-            mlir::Value truncated = rewriter.create<mlir::arith::TruncIOp>(
+            mlir::Value truncated = mlir::arith::TruncIOp::create(rewriter,
                 loc, i1_ty, shifted).getResult();
             results.push_back(truncated);
         }
@@ -187,7 +190,7 @@ struct NotToXor1
         mlir::Location loc = not_op.getLoc();
         llvm::APInt all_ones_val(not_op.getResult().getType().getDim(), 0);
         all_ones_val.flipAllBits();
-        mlir::Value all_ones = rewriter.create<ccirc::ConstantOp>(
+        mlir::Value all_ones = ccirc::ConstantOp::create(rewriter,
             loc, all_ones_val).getResult();
         rewriter.replaceOpWithNewOp<ccirc::XorOp>(
             not_op, adaptor.getOperand(), all_ones);
@@ -210,7 +213,7 @@ struct ParityToXors
             if (!result) {
                 result = operand;
             } else {
-                result = rewriter.create<ccirc::XorOp>(
+                result = ccirc::XorOp::create(rewriter,
                     loc, result, operand).getResult();
             }
         }
@@ -262,7 +265,7 @@ struct CircuitToFunc
         }
 
         mlir::func::FuncOp func_op =
-            rewriter.create<mlir::func::FuncOp>(
+            mlir::func::FuncOp::create(rewriter,
                 loc, circ.getSymName(), func_ty);
         if (circ.isPrivate()) {
             func_op.setPrivate();
@@ -313,7 +316,7 @@ struct FuncPtrToFuncConst
 };
 
 struct CCircToFuncArithConversionPass
-        : public ccirc::CCircToFuncArithConversionBase<CCircToFuncArithConversionPass> {
+        : public ccirc::impl::CCircToFuncArithConversionBase<CCircToFuncArithConversionPass> {
     void runOnOperation() override {
         mlir::ConversionTarget target(getContext());
         target.addIllegalDialect<ccirc::CCircDialect>();

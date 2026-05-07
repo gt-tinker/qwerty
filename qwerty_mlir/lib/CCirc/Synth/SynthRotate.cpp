@@ -32,16 +32,16 @@ mlir::Value synthIfElse(
     // Why do it this way? ANDs (Toffolis) are dramatically more expensive than
     // XORs (CNOTs), both in terms of ancilla and T gates.
 
-    mlir::Value then_and_else_differ = builder.create<ccirc::XorOp>(
+    mlir::Value then_and_else_differ = ccirc::XorOp::create(builder,
         loc, wire_then, wire_else).getResult();
 
-    mlir::Value else_desired = builder.create<ccirc::NotOp>(
+    mlir::Value else_desired = ccirc::NotOp::create(builder,
         loc, wire_cond).getResult();
 
-    mlir::Value should_flip_then = builder.create<ccirc::AndOp>(
+    mlir::Value should_flip_then = ccirc::AndOp::create(builder,
         loc, else_desired, then_and_else_differ).getResult();
 
-    mlir::Value maybe_flipped_then = builder.create<ccirc::XorOp>(
+    mlir::Value maybe_flipped_then = ccirc::XorOp::create(builder,
         loc, wire_then, should_flip_then).getResult();
 
     return maybe_flipped_then;

@@ -15,6 +15,10 @@
 
 namespace ccirc {
 
+// Add patterns used by both CCircToXAGConversionPass and
+// CCircToFuncArithConversionPass.
+void populateSynthConversionPatterns(mlir::RewritePatternSet &patterns);
+
 //===----------------------------------------------------------------------===//
 // Passes
 //===----------------------------------------------------------------------===//

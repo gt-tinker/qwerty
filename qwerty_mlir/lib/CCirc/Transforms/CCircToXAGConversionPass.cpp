@@ -6,7 +6,10 @@
 #include "CCirc/IR/CCircOps.h"
 #include "CCirc/Transforms/CCircPasses.h"
 
-#include "PassDetail.h"
+namespace ccirc {
+#define GEN_PASS_DEF_CCIRCTOXAGCONVERSION
+#include "CCirc/Transforms/CCircPasses.h.inc"
+} // namespace qwerty
 
 // This pass makes a ccirc.circuit op meet the following requirements:
 // 1. Semantics are identical to the original circuit
@@ -57,7 +60,7 @@ struct SplitMultiBitConstant
             mlir::IntegerAttr bit = bits[bits.getBitWidth()-1-i]
                                     ? i1_one
                                     : i1_zero;
-            mlir::Value const_wire = rewriter.create<ccirc::ConstantOp>(
+            mlir::Value const_wire = ccirc::ConstantOp::create(rewriter,
                 loc, bit).getResult();
             const_wires.push_back(const_wire);
         }
@@ -81,15 +84,15 @@ struct SplitMultiBitAnd
         }
 
         mlir::Location loc = op.getLoc();
-        mlir::ValueRange left_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange left_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getLeft()).getWires();
-        mlir::ValueRange right_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange right_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getRight()).getWires();
 
         llvm::SmallVector<mlir::Value> result_wires;
         for (auto [l, r] : llvm::zip(left_wires, right_wires)) {
             result_wires.push_back(
-                rewriter.create<ccirc::AndOp>(loc, l, r).getResult());
+                ccirc::AndOp::create(rewriter, loc, l, r).getResult());
         }
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, result_wires);
@@ -111,13 +114,13 @@ struct SplitMultiBitNot
         }
 
         mlir::Location loc = op.getLoc();
-        mlir::ValueRange wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getOperand()).getWires();
 
         llvm::SmallVector<mlir::Value> result_wires;
         for (mlir::Value w : wires) {
             result_wires.push_back(
-                rewriter.create<ccirc::NotOp>(loc, w).getResult());
+                ccirc::NotOp::create(rewriter, loc, w).getResult());
         }
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, result_wires);
@@ -144,7 +147,7 @@ struct SplitMultiBitParity
 
         llvm::SmallVector<llvm::SmallVector<mlir::Value>> unpacked;
         for (mlir::Value operand : op.getOperands()) {
-            mlir::ValueRange wires = rewriter.create<ccirc::WireUnpackOp>(
+            mlir::ValueRange wires = ccirc::WireUnpackOp::create(rewriter,
                 loc, operand).getWires();
             unpacked.push_back(llvm::SmallVector<mlir::Value>(wires));
         }
@@ -156,7 +159,7 @@ struct SplitMultiBitParity
                 per_bit.push_back(unp[i]);
             }
             result_wires.push_back(
-                rewriter.create<ccirc::ParityOp>(loc, per_bit).getResult());
+                ccirc::ParityOp::create(rewriter, loc, per_bit).getResult());
         }
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, result_wires);
@@ -179,15 +182,15 @@ struct SplitMultiBitOr
         }
 
         mlir::Location loc = op.getLoc();
-        mlir::ValueRange left_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange left_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getLeft()).getWires();
-        mlir::ValueRange right_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange right_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getRight()).getWires();
 
         llvm::SmallVector<mlir::Value> result_wires;
         for (auto [l, r] : llvm::zip(left_wires, right_wires)) {
             result_wires.push_back(
-                rewriter.create<ccirc::OrOp>(loc, l, r).getResult());
+                ccirc::OrOp::create(rewriter, loc, l, r).getResult());
         }
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, result_wires);
@@ -210,15 +213,15 @@ struct SplitMultiBitXor
         }
 
         mlir::Location loc = op.getLoc();
-        mlir::ValueRange left_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange left_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getLeft()).getWires();
-        mlir::ValueRange right_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange right_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, op.getRight()).getWires();
 
         llvm::SmallVector<mlir::Value> result_wires;
         for (auto [l, r] : llvm::zip(left_wires, right_wires)) {
             result_wires.push_back(
-                rewriter.create<ccirc::XorOp>(loc, l, r).getResult());
+                ccirc::XorOp::create(rewriter, loc, l, r).getResult());
         }
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(op, result_wires);
@@ -241,11 +244,11 @@ struct DecomposeOrToDeMorgan
         }
 
         mlir::Location loc = op.getLoc();
-        mlir::Value not_left = rewriter.create<ccirc::NotOp>(
+        mlir::Value not_left = ccirc::NotOp::create(rewriter,
             loc, op.getLeft()).getResult();
-        mlir::Value not_right = rewriter.create<ccirc::NotOp>(
+        mlir::Value not_right = ccirc::NotOp::create(rewriter,
             loc, op.getRight()).getResult();
-        mlir::Value and_result = rewriter.create<ccirc::AndOp>(
+        mlir::Value and_result = ccirc::AndOp::create(rewriter,
             loc, not_left, not_right).getResult();
         rewriter.replaceOpWithNewOp<ccirc::NotOp>(op, and_result);
         return mlir::success();
@@ -266,7 +269,6 @@ struct DecomposeXorToParity
             return mlir::failure();
         }
 
-        mlir::Location loc = op.getLoc();
         llvm::SmallVector<mlir::Value> operands = {op.getLeft(), op.getRight()};
         rewriter.replaceOpWithNewOp<ccirc::ParityOp>(
             op, op.getResult().getType(), operands);
@@ -275,7 +277,7 @@ struct DecomposeXorToParity
 };
 
 struct CCircToXAGConversionPass
-        : public ccirc::CCircToXAGConversionBase<CCircToXAGConversionPass> {
+        : public ccirc::impl::CCircToXAGConversionBase<CCircToXAGConversionPass> {
     void runOnOperation() override {
         ccirc::CircuitOp circ = getOperation();
 

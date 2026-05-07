@@ -284,7 +284,7 @@ struct ParityWithOnePattern : public mlir::OpRewritePattern<ccirc::ParityOp> {
             unsigned bitWidth = op.getType().getDim();
             rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, llvm::APInt(bitWidth, negate ? 1 : 0));
         } else {
-            mlir::Value parity_result = rewriter.create<ccirc::ParityOp>(op.getLoc(), newOperands).getResult();
+            mlir::Value parity_result = ccirc::ParityOp::create(rewriter, op.getLoc(), newOperands).getResult();
             if (negate) {
                 rewriter.replaceOpWithNewOp<ccirc::NotOp>(op, parity_result);
             } else {
@@ -388,7 +388,7 @@ struct PushNotThroughParity : public mlir::OpRewritePattern<ccirc::ParityOp> {
 
         mlir::Location loc = op.getLoc();
         mlir::Value parity_result =
-            rewriter.create<ccirc::ParityOp>(loc, new_operands).getResult();
+            ccirc::ParityOp::create(rewriter, loc, new_operands).getResult();
         if (negated) {
             rewriter.replaceOpWithNewOp<ccirc::NotOp>(op, parity_result);
         } else {
@@ -481,7 +481,7 @@ struct SimplifyPackUnpack : public mlir::OpRewritePattern<ccirc::WireUnpackOp> {
             if (ty.getDim() == 1) {
                 replace_with.push_back(pack_wire);
             } else {
-                mlir::ValueRange unpacked = rewriter.create<ccirc::WireUnpackOp>(
+                mlir::ValueRange unpacked = ccirc::WireUnpackOp::create(rewriter,
                     loc, pack_wire).getWires();
                 replace_with.append(unpacked.begin(), unpacked.end());
             }

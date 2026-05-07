@@ -5,8 +5,7 @@
 
 #include "CCirc/IR/CCircOps.h"
 #include "CCirc/Synth/CCircSynth.h"
-
-#include "PassDetail.h"
+#include "CCirc/Transforms/CCircPasses.h"
 
 // These are synthesis conversion patterns used by both
 // CCircToXAGConversionPass and CCircToFuncArithConversionPass.
@@ -20,11 +19,11 @@ void decomposeRotate(
         mlir::Operation *op,
         ccirc::BitRotateDirection dir) {
     mlir::Location loc = op->getLoc();
-    mlir::ValueRange value_wires = rewriter.create<ccirc::WireUnpackOp>(
+    mlir::ValueRange value_wires = ccirc::WireUnpackOp::create(rewriter,
         loc, value).getWires();
     llvm::SmallVector<mlir::Value> wires_n(value_wires);
 
-    mlir::ValueRange amount_wires = rewriter.create<ccirc::WireUnpackOp>(
+    mlir::ValueRange amount_wires = ccirc::WireUnpackOp::create(rewriter,
         loc, amt).getWires();
     llvm::SmallVector<mlir::Value> wires_k(amount_wires);
 
@@ -71,9 +70,9 @@ struct DecomposeAdd
             mlir::ConversionPatternRewriter &rewriter) const final {
         mlir::Location loc = add.getLoc();
 
-        llvm::SmallVector<mlir::Value> wires_a(rewriter.create<ccirc::WireUnpackOp>(
+        llvm::SmallVector<mlir::Value> wires_a(ccirc::WireUnpackOp::create(rewriter,
             loc, add.getA()).getWires());
-        llvm::SmallVector<mlir::Value> wires_b(rewriter.create<ccirc::WireUnpackOp>(
+        llvm::SmallVector<mlir::Value> wires_b(ccirc::WireUnpackOp::create(rewriter,
             loc, add.getB()).getWires());
 
         llvm::SmallVector<mlir::Value> wires_sum;
@@ -104,7 +103,7 @@ struct DecomposeModMul
             x_2j_modN = (x_2j_modN * x_2j_modN) % N;
         }
 
-        mlir::ValueRange y_wires = rewriter.create<ccirc::WireUnpackOp>(
+        mlir::ValueRange y_wires = ccirc::WireUnpackOp::create(rewriter,
             loc, mod_mul.getY()).getWires();
         llvm::SmallVector<mlir::Value> wires_y(y_wires);
         llvm::SmallVector<mlir::Value> wires_out;
