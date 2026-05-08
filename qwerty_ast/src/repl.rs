@@ -5,8 +5,8 @@
 use crate::ast::{
     Stmt,
     qpu::{
-        Adjoint, BitLiteral, Conditional, EmbedClassical, Expr, Predicated, QLit, QLitExpr,
-        QubitRef, Tensor, UnitLiteral,
+        Adjoint, BitLiteral, Compose, Conditional, EmbedClassical, Expr, Predicated, QLit,
+        QLitExpr, QubitRef, Tensor, UnitLiteral,
     },
 };
 use quantum_sparse_sim::QuantumSim;
@@ -46,6 +46,7 @@ impl Expr {
             Expr::EmbedClassical(EmbedClassical { func_name: _, .. }) => true,
             Expr::Adjoint(Adjoint { func, .. }) => func.as_ref().is_value(),
             Expr::Pipe(_) => false,
+            Expr::Compose(Compose { inner, outer, .. }) => inner.is_value() && outer.is_value(),
             Expr::Measure(_) => true,
             Expr::Discard(_) => true,
             Expr::Tensor(Tensor { vals, .. }) => vals

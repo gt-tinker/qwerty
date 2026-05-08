@@ -1083,6 +1083,73 @@ impl ExprConstrainable for qpu::MetaExpr {
                 }
             }
 
+            qpu::MetaExpr::Compose { inner, outer, dbg } => {
+                let inner_ty = inner.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+                let outer_ty = outer.build_type_constraints(
+                    tv_allocator,
+                    env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+
+                // TODO: remove this hack and follow my understanding of the
+                //       TAPL way instead
+                if let (
+                    InferType::FuncType {
+                        in_ty: inner_in_ty,
+                        out_ty: inner_out_ty,
+                    },
+                    InferType::FuncType {
+                        in_ty: outer_in_ty,
+                        out_ty: outer_out_ty,
+                    },
+                ) = (&inner_ty, &outer_ty)
+                {
+                    ty_constraints.insert(TypeConstraint::new(
+                        (**inner_out_ty).clone(),
+                        (**outer_in_ty).clone(),
+                        dbg.clone(),
+                    ));
+                    Ok(InferType::FuncType {
+                        in_ty: inner_in_ty.clone(),
+                        out_ty: outer_out_ty.clone(),
+                    })
+                } else {
+                    // Fall back to my understanding of the TAPL way
+                    let in_ty = tv_allocator.alloc_type_var();
+                    let mid_ty = tv_allocator.alloc_type_var();
+                    let out_ty = tv_allocator.alloc_type_var();
+
+                    let inner_func_ty = InferType::FuncType {
+                        in_ty: Box::new(in_ty.clone()),
+                        out_ty: Box::new(mid_ty.clone()),
+                    };
+                    let outer_func_ty = InferType::FuncType {
+                        in_ty: Box::new(mid_ty),
+                        out_ty: Box::new(out_ty.clone()),
+                    };
+                    ty_constraints.insert(TypeConstraint::new(
+                        inner_func_ty,
+                        inner_ty,
+                        dbg.clone(),
+                    ));
+                    ty_constraints.insert(TypeConstraint::new(
+                        outer_func_ty,
+                        outer_ty,
+                        dbg.clone(),
+                    ));
+                    Ok(InferType::FuncType {
+                        in_ty: Box::new(in_ty),
+                        out_ty: Box::new(out_ty),
+                    })
+                }
+            }
+
             qpu::MetaExpr::Measure { basis, .. } => {
                 if let Some(basis_dim) = basis.get_dim() {
                     let func_ty = InferType::FuncType {

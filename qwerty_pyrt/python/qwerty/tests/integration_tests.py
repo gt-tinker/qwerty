@@ -494,6 +494,20 @@ class MetaInferIntegrationTests(unittest.TestCase):
         actual_histo = in_infer.test(shots)
         self.assertEqual(expected_histo, actual_histo)
 
+    def test_compose(self):
+        from .integ.meta import compose
+        shots = 1024
+        expected_histo = {bit[1](0b0): shots}
+        actual_histo = compose.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
+    def test_compose_in(self):
+        from .integ.meta import compose_in
+        shots = 1024
+        expected_histo = {bit[2](0b00): shots}
+        actual_histo = compose_in.test(shots)
+        self.assertEqual(expected_histo, actual_histo)
+
     def test_qasm_ghz(self):
         from .integ.meta import qasm_ghz
 

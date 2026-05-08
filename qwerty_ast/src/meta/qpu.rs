@@ -725,6 +725,17 @@ pub enum MetaExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// Composes two functions. Example syntax equivalent to
+    /// `lambda x: g(f(x))`:
+    /// ```text
+    /// f > g
+    /// ```
+    Compose {
+        inner: Box<MetaExpr>,
+        outer: Box<MetaExpr>,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A function value that measures its input when called. Example syntax:
     /// ```text
     /// __MEASURE__({'0','1'})
@@ -857,6 +868,7 @@ impl MetaExpr {
             | MetaExpr::EmbedClassical { dbg, .. }
             | MetaExpr::Adjoint { dbg, .. }
             | MetaExpr::Pipe { dbg, .. }
+            | MetaExpr::Compose { dbg, .. }
             | MetaExpr::Measure { dbg, .. }
             | MetaExpr::Discard { dbg }
             | MetaExpr::BiTensor { dbg, .. }
@@ -910,6 +922,14 @@ impl MetaExpr {
                 Ok(ast::qpu::Expr::Pipe(ast::qpu::Pipe {
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
+                    dbg,
+                }))
+            }
+
+            Compose { inner, outer, dbg } => {
+                Ok(ast::qpu::Expr::Compose(ast::qpu::Compose {
+                    inner: Box::new(inner),
+                    outer: Box::new(outer),
                     dbg,
                 }))
             }
@@ -1050,6 +1070,7 @@ impl fmt::Display for MetaExpr {
             }
             MetaExpr::Adjoint { func, .. } => write!(f, "~({!})", *func),
             MetaExpr::Pipe { lhs, rhs, .. } => write!(f, "({!}) | ({!})", *lhs, *rhs),
+            MetaExpr::Compose { inner, outer, .. } => write!(f, "({!}) > ({!})", *inner, *outer),
             MetaExpr::Measure { basis, .. } => write!(f, "({}).measure", basis),
             MetaExpr::Discard { .. } => write!(f, "discard"),
             MetaExpr::BiTensor { left, right, .. } => write!(f, "({!})*({!})", *left, *right),

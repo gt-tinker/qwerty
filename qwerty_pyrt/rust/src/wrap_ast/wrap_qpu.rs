@@ -609,6 +609,22 @@ impl QpuExpr {
     }
 
     #[classmethod]
+    fn new_compose(
+        _cls: &Bound<'_, PyType>,
+        inner: QpuExpr,
+        outer: QpuExpr,
+        dbg: Option<DebugLoc>,
+    ) -> Self {
+        Self {
+            expr: meta::qpu::MetaExpr::Compose {
+                inner: Box::new(inner.expr),
+                outer: Box::new(outer.expr),
+                dbg: dbg.map(|dbg| dbg.dbg),
+            },
+        }
+    }
+
+    #[classmethod]
     fn new_discard(_cls: &Bound<'_, PyType>, dbg: Option<DebugLoc>) -> Self {
         Self {
             expr: meta::qpu::MetaExpr::Discard {

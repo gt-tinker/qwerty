@@ -1730,41 +1730,62 @@ class QpuVisitor(BaseVisitor):
 
     def visit_Compare(self, compare: ast.Compare):
         """
-        Convert a Python `x in y` AST node into a Qwerty predication
-        `x if y else id**N`.
+        Convert a Python ``x in y`` AST node into a Qwerty predication
+        ``x if y else id**N``. Thanks to Python AST quirks, though, ``x`` here
+        could be a function composition ``f > g > h``, and the ``in y`` suffix
+        may not even be present. This is handled appropriately as
+        ``f > g > h in y`` being interpreted as ``(f > g > h) in y``, where
+        ``(f > g) > h`` becomes two ``Compose`` Qwerty AST nodes.
         """
         dbg = self.get_debug_loc(compare)
 
-        if len(compare.ops) != 1 or len(compare.comparators) != 1:
+        if len(compare.ops) != len(compare.comparators) or not compare.ops:
             raise QwertySyntaxError('Invalid comparison syntax', dbg)
 
         left_node = compare.left
-        op, = compare.ops
-        right_node, = compare.comparators
+        ops = compare.ops
+        right_nodes = compare.comparators
 
-        if not isinstance(op, ast.In):
-            cmp_name = type(op).__name__
-            raise QwertySyntaxError(f'Unknown comparison {cmp_name}', dbg)
+        if any(not isinstance(op, ast.Gt) for op in ops[:-1]) \
+                or (not isinstance(ops[-1], ast.Gt)
+                    and not isinstance(ops[-1], ast.In)):
+            raise QwertySyntaxError('Invalid comparison operator', dbg)
 
-        if self._func_name is None:
-            raise QwertySyntaxError('Cannot use `in` syntax outside of a '
-                                    'function', dbg)
+        if isinstance(ops[-1], ast.In):
+            compose_operands = [left_node] + right_nodes[:-1]
+            pred_basis_operand = right_nodes[-1]
         else:
-            internal_dim_var = self.allocate_internal_dim_var(dbg)
+            compose_operands = [left_node] + right_nodes
+            pred_basis_operand = None
 
-        # '?'**N
-        pad_vec = Vector.new_vector_broadcast_tensor(
-            Vector.new_pad_vector(dbg),
-            internal_dim_var,
-            dbg)
-        pad_basis = Basis.new_basis_literal([pad_vec], dbg)
-        # '?'**N >> '?'**N
-        identity = QpuExpr.new_basis_translation(pad_basis, pad_basis, dbg)
+        compose_exprs = [self.visit(compose_operand)
+                         for compose_operand in compose_operands]
+        compose_node = functools.reduce(
+            lambda acc, node: QpuExpr.new_compose(acc, node, dbg),
+            compose_exprs)
 
-        then_func = self.visit(left_node)
-        else_func = identity
-        pred_basis = self.extract_basis(right_node)
-        return QpuExpr.new_predicated(then_func, else_func, pred_basis, dbg)
+        if pred_basis_operand:
+            if self._func_name is None:
+                raise QwertySyntaxError('Cannot use `in` syntax outside of a '
+                                        'function', dbg)
+            else:
+                internal_dim_var = self.allocate_internal_dim_var(dbg)
+
+            # '?'**N
+            pad_vec = Vector.new_vector_broadcast_tensor(
+                Vector.new_pad_vector(dbg),
+                internal_dim_var,
+                dbg)
+            pad_basis = Basis.new_basis_literal([pad_vec], dbg)
+            # '?'**N >> '?'**N
+            identity = QpuExpr.new_basis_translation(pad_basis, pad_basis, dbg)
+
+            then_func = compose_node
+            else_func = identity
+            pred_basis = self.extract_basis(pred_basis_operand)
+            return QpuExpr.new_predicated(then_func, else_func, pred_basis, dbg)
+        else:
+            return compose_node
 
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):

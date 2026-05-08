@@ -20,7 +20,13 @@ pub fn run_mlir_module(
 ) -> Vec<ShotResult> {
     assert_ne!(num_shots, 0);
 
-    let exec = ExecutionEngine::new(&module, 3, &[], /*enable_object_dump=*/false, /*enable_pic=*/false);
+    let exec = ExecutionEngine::new(
+        &module,
+        3,
+        &[],
+        /*enable_object_dump=*/ false,
+        /*enable_pic=*/ false,
+    );
 
     unsafe {
         exec.register_symbols(&[

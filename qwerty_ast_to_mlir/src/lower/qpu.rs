@@ -13,6 +13,7 @@ use melior::{
             FlatSymbolRefAttribute, FloatAttribute, IntegerAttribute, StringAttribute,
             TypeAttribute,
         },
+        block::BlockArgument,
         operation::OperationResult,
         symbol_table::Visibility,
         r#type::{FunctionType, IntegerType},
@@ -22,9 +23,9 @@ use qwerty_ast::{
     ast::{
         self, FunctionDef, RegKind, angle_is_approx_zero, angles_are_approx_equal,
         qpu::{
-            self, Adjoint, Basis, BasisGenerator, BasisTranslation, BitLiteral, Conditional,
-            Discard, EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe,
-            Predicated, QLit, QLitExpr, Tensor, Tilt, Variable, Vector, VectorAtomKind,
+            self, Adjoint, Basis, BasisGenerator, BasisTranslation, BitLiteral, Compose,
+            Conditional, Discard, EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos,
+            Pipe, Predicated, QLit, QLitExpr, Tensor, Tilt, Variable, Vector, VectorAtomKind,
         },
     },
     typecheck::{ComputeKind, FuncsAvailable},
@@ -1045,6 +1046,74 @@ fn ast_qpu_expr_to_mlir(
                 .map(OperationResult::into)
                 .collect();
             (ty, compute_kind, calli_results)
+        }
+
+        qpu::Expr::Compose(compose @ Compose { inner, outer, dbg }) => {
+            let (inner_ty, inner_compute_kind, inner_vals) =
+                ast_qpu_expr_to_mlir(&**inner, ctx, block);
+            let (outer_ty, outer_compute_kind, outer_vals) =
+                ast_qpu_expr_to_mlir(&**outer, ctx, block);
+            assert_eq!(
+                (inner_vals.len(), outer_vals.len()),
+                (1, 1),
+                "Every function value should have 1 MLIR value"
+            );
+            let inner_val = inner_vals[0];
+            let outer_val = outer_vals[0];
+
+            let (ty, compute_kind) = compose
+                .calc_type(
+                    &(inner_ty, inner_compute_kind),
+                    &(outer_ty, outer_compute_kind),
+                )
+                .expect("Compose failed typechecking");
+
+            let (in_ty, out_ty, is_rev) = match &ty {
+                ast::Type::FuncType { in_ty, out_ty } => (in_ty, out_ty, false),
+                ast::Type::RevFuncType { in_out_ty } => (in_out_ty, in_out_ty, true),
+                bad_ty => panic!("Compose node has non-function type {bad_ty}, how?"),
+            };
+
+            let loc = dbg_to_loc(dbg.clone());
+            let lambda_captures = vec![inner_val, outer_val];
+            let lambda_in_tys = ast_ty_to_mlir_tys::<qpu::Expr>(in_ty);
+            let lambda_out_tys = ast_ty_to_mlir_tys::<qpu::Expr>(out_ty);
+            let lambda = vec![mlir_wrap_lambda(
+                &lambda_captures,
+                &lambda_in_tys,
+                &lambda_out_tys,
+                is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    // 2 captures for inner and outer function + function args
+                    assert_eq!(lambda_block.argument_count(), 2 + lambda_in_tys.len());
+                    let inner_func = lambda_block.argument(0).unwrap().into();
+                    let outer_func = lambda_block.argument(1).unwrap().into();
+                    let arg_vals: Vec<_> = lambda_block
+                        .arguments()
+                        .skip(2)
+                        .map(BlockArgument::into)
+                        .collect();
+
+                    let inner_calli_results: Vec<_> = lambda_block
+                        .append_operation(qwerty::call_indirect(inner_func, &arg_vals, loc))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect();
+
+                    lambda_block
+                        .append_operation(qwerty::call_indirect(
+                            outer_func,
+                            &inner_calli_results,
+                            loc,
+                        ))
+                        .results()
+                        .map(OperationResult::into)
+                        .collect()
+                },
+            )];
+            (ty, compute_kind, lambda)
         }
 
         qpu::Expr::Measure(meas @ Measure { basis, dbg }) => {

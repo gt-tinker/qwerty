@@ -66,6 +66,14 @@ gen_rebuild_structs! {
             pub dbg: Option<DebugLoc>,
         }
 
+        /// See [`Expr::Compose`].
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct Compose {
+            pub inner: Box<Expr>,
+            pub outer: Box<Expr>,
+            pub dbg: Option<DebugLoc>,
+        }
+
         /// See [`Expr::Measure`].
         #[derive(Debug, Clone, PartialEq)]
         pub struct Measure {
@@ -187,6 +195,13 @@ gen_rebuild_structs! {
             /// ```
             Pipe(Pipe),
 
+            /// Composes two functions. Example syntax equivalent to
+            /// `lambda x: g(f(x))`:
+            /// ```text
+            /// f > g
+            /// ```
+            Compose(Compose),
+
             /// A function value that measures its input when called. Example syntax:
             /// ```text
             /// {'0','1'}.measure
@@ -280,6 +295,7 @@ impl Expr {
             | Expr::EmbedClassical(EmbedClassical { dbg, .. })
             | Expr::Adjoint(Adjoint { dbg, .. })
             | Expr::Pipe(Pipe { dbg, .. })
+            | Expr::Compose(Compose { dbg, .. })
             | Expr::Measure(Measure { dbg, .. })
             | Expr::Discard(Discard { dbg, .. })
             | Expr::Tensor(Tensor { dbg, .. })
@@ -341,6 +357,8 @@ impl Expr {
             | Expr::EmbedClassical(_)
             | Expr::Adjoint(_)
             | Expr::Pipe(_)
+            // TODO: rewrite x | (f > g) to x | f | g
+            | Expr::Compose(_)
             | Expr::Measure(_)
             | Expr::Discard(_)
             | Expr::BasisTranslation(_)
@@ -405,6 +423,7 @@ impl fmt::Display for Expr {
             }
             Expr::Adjoint(Adjoint { func, .. }) => write!(f, "~({!})", *func),
             Expr::Pipe(Pipe { lhs, rhs, .. }) => write!(f, "({!}) | ({!})", *lhs, *rhs),
+            Expr::Compose(Compose { inner, outer, .. }) => write!(f, "({!}) > ({!})", *inner, *outer),
             Expr::Measure(Measure { basis, .. }) => write!(f, "({}).measure", basis),
             Expr::Discard(Discard { .. }) => write!(f, "discard"),
             Expr::Tensor(Tensor { vals, ..}) => {
@@ -484,6 +503,13 @@ impl ToPythonCode for Expr {
                 lhs.fmt_py(f)?;
                 write!(f, ") | (")?;
                 rhs.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Compose(Compose { inner, outer, .. }) => {
+                write!(f, "(")?;
+                inner.fmt_py(f)?;
+                write!(f, ") > (")?;
+                outer.fmt_py(f)?;
                 write!(f, ")")
             }
             Expr::Measure(Measure { basis, .. }) => {

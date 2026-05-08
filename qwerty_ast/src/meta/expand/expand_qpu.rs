@@ -763,6 +763,7 @@ impl MetaExpr {
             | MetaExpr::Instantiate { .. }
             | MetaExpr::EmbedClassical { .. }
             | MetaExpr::Adjoint { .. }
+            | MetaExpr::Compose { .. }
             | MetaExpr::Measure { .. }
             | MetaExpr::BiTensor { .. }
             | MetaExpr::Tilt { .. }

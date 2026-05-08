@@ -16,7 +16,7 @@ use crate::ast::{
     },
     in_phase,
     qpu::{
-        self, Adjoint, Basis, BasisGenerator, BasisTranslation, Conditional, Discard,
+        self, Adjoint, Basis, BasisGenerator, BasisTranslation, Compose, Conditional, Discard,
         EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated, QLit,
         QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Vector, VectorAtomKind,
     },
@@ -777,6 +777,138 @@ impl Pipe {
     }
 }
 
+impl Compose {
+    pub fn calc_type(
+        &self,
+        inner: &(Type, ComputeKind),
+        outer: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let dbg = &self.dbg;
+        let (inner_ty, inner_compute_kind) = inner;
+        let (outer_ty, outer_compute_kind) = outer;
+
+        let ty = match (inner_ty, outer_ty) {
+            (
+                Type::FuncType {
+                    in_ty: inner_in_ty,
+                    out_ty: inner_out_ty,
+                },
+                Type::FuncType {
+                    in_ty: outer_in_ty,
+                    out_ty: outer_out_ty,
+                },
+            ) => {
+                if inner_out_ty != outer_in_ty {
+                    Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: inner_out_ty.to_string(),
+                            found: outer_in_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(Type::FuncType {
+                        in_ty: inner_in_ty.clone(),
+                        out_ty: outer_out_ty.clone(),
+                    })
+                }
+            }
+
+            (
+                Type::FuncType {
+                    in_ty: inner_in_ty,
+                    out_ty: inner_out_ty,
+                },
+                Type::RevFuncType {
+                    in_out_ty: outer_in_out_ty,
+                },
+            ) => {
+                if inner_out_ty != outer_in_out_ty {
+                    Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: inner_out_ty.to_string(),
+                            found: outer_in_out_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(Type::FuncType {
+                        in_ty: inner_in_ty.clone(),
+                        out_ty: outer_in_out_ty.clone(),
+                    })
+                }
+            }
+
+            (
+                Type::RevFuncType {
+                    in_out_ty: inner_in_out_ty,
+                },
+                Type::FuncType {
+                    in_ty: outer_in_ty,
+                    out_ty: outer_out_ty,
+                },
+            ) => {
+                if inner_in_out_ty != outer_in_ty {
+                    Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: inner_in_out_ty.to_string(),
+                            found: outer_in_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(Type::FuncType {
+                        in_ty: inner_in_out_ty.clone(),
+                        out_ty: outer_out_ty.clone(),
+                    })
+                }
+            }
+
+            (
+                Type::RevFuncType {
+                    in_out_ty: inner_in_out_ty,
+                },
+                Type::RevFuncType {
+                    in_out_ty: outer_in_out_ty,
+                },
+            ) => {
+                if inner_in_out_ty != outer_in_out_ty {
+                    Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: inner_in_out_ty.to_string(),
+                            found: outer_in_out_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(Type::RevFuncType {
+                        in_out_ty: inner_in_out_ty.clone(),
+                    })
+                }
+            }
+
+            (bad_ty @ (Type::RegType { .. } | Type::TupleType { .. } | Type::UnitType), _)
+            | (_, bad_ty @ (Type::RegType { .. } | Type::TupleType { .. } | Type::UnitType)) => {
+                Err(TypeError {
+                    kind: TypeErrorKind::NotCallable(bad_ty.to_string()),
+                    dbg: dbg.clone(),
+                })
+            }
+        }?;
+
+        let compute_kind = inner_compute_kind.join(*outer_compute_kind);
+
+        Ok((ty, compute_kind))
+    }
+
+    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Compose { inner, outer, .. } = self;
+        let inner_result = inner.typecheck(env)?;
+        let outer_result = outer.typecheck(env)?;
+        self.calc_type(&inner_result, &outer_result)
+    }
+}
+
 impl Measure {
     pub fn calc_type(&self, basis_ty: &Type) -> Result<(Type, ComputeKind), TypeError> {
         // TODO: Should this be elsewhere?
@@ -1475,6 +1607,7 @@ impl TypeCheckable for qpu::Expr {
             qpu::Expr::EmbedClassical(embed) => embed.typecheck(env),
             qpu::Expr::Adjoint(adj) => adj.typecheck(env),
             qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
+            qpu::Expr::Compose(compose) => compose.typecheck(env),
             qpu::Expr::Measure(measure) => measure.typecheck(),
             qpu::Expr::Discard(discard) => discard.typecheck(),
             qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
