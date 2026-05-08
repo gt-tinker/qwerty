@@ -709,60 +709,54 @@ impl MetaExpr {
                 )),
             },
 
-            // TODO: create a lambda node and then expand to
-            //       (lambda q: for_each | for_each | ... | for_each)
-            repeat @ MetaExpr::Repeat { .. } => Ok((repeat, Progress::Partial)),
+            MetaExpr::Repeat {
+                for_each,
+                iter_var,
+                upper_bound: upper_bound @ DimExpr::DimConst { .. },
+                dbg,
+            } => {
+                let ub_int = upper_bound.extract()?;
 
-            // TODO: This is a hack. Remove this and do the TODO above
-            MetaExpr::Pipe { lhs, rhs, dbg } => match *rhs {
-                MetaExpr::Repeat {
-                    for_each,
-                    iter_var,
-                    // TODO: Use progress like normal. Or better yet,
-                    //       obliterate this dumb hack entirely (see todo above)
-                    upper_bound: upper_bound @ DimExpr::DimConst { .. },
-                    dbg,
-                } => {
-                    let ub_int = upper_bound.extract()?;
+                if ub_int == 0 {
+                    Err(LowerError {
+                        kind: LowerErrorKind::EmptyRepeat,
+                        dbg,
+                    })
+                } else {
                     let var = DimVar::MacroParam { var_name: iter_var };
 
                     std::iter::repeat(for_each)
                         .take(ub_int)
                         .enumerate()
-                        .fold(*lhs, |acc, (i, cloned_for_each)| {
-                            let rhs = cloned_for_each.substitute_dim_var(
+                        .map(|(i, cloned_for_each)| {
+                            cloned_for_each.substitute_dim_var(
                                 &var,
                                 &DimExpr::DimConst {
                                     val: i.into(),
                                     dbg: dbg.clone(),
                                 },
-                            );
-
-                            MetaExpr::Pipe {
-                                lhs: Box::new(acc),
-                                rhs: Box::new(rhs),
-                                dbg: dbg.clone(),
-                            }
+                            )
                         })
+                        .reduce(|acc, next| MetaExpr::Compose {
+                            inner: Box::new(acc),
+                            outer: Box::new(next),
+                            dbg: dbg.clone(),
+                        })
+                        .expect("ub_int > 0, how can the std::iter::repeat iterator be empty?")
                         .expand(env)
                 }
+            }
 
-                other => Ok((
-                    MetaExpr::Pipe {
-                        lhs,
-                        rhs: Box::new(other),
-                        dbg,
-                    },
-                    children_progress,
-                )),
-            },
+            // upper_bound not yet expanded to a constant
+            partial_repeat @ MetaExpr::Repeat { .. } => Ok((partial_repeat, Progress::Partial)),
 
-            other @ (MetaExpr::Variable { .. }
+            already_expanded @ (MetaExpr::Variable { .. }
             | MetaExpr::UnitLiteral { .. }
             | MetaExpr::Discard { .. }
             | MetaExpr::Instantiate { .. }
             | MetaExpr::EmbedClassical { .. }
             | MetaExpr::Adjoint { .. }
+            | MetaExpr::Pipe { .. }
             | MetaExpr::Compose { .. }
             | MetaExpr::Measure { .. }
             | MetaExpr::BiTensor { .. }
@@ -773,7 +767,7 @@ impl MetaExpr {
             | MetaExpr::Ensemble { .. }
             | MetaExpr::Conditional { .. }
             | MetaExpr::QLit { .. }
-            | MetaExpr::BitLiteral { .. }) => Ok((other, children_progress)),
+            | MetaExpr::BitLiteral { .. }) => Ok((already_expanded, children_progress)),
         }
     }
 

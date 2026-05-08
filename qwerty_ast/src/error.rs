@@ -179,7 +179,7 @@ pub enum LowerErrorKind {
     },
     DivisionByZero,
     NonIntegerDivision,
-    RepeatMustBeOnRightOfPipe,
+    EmptyRepeat,
     Stuck,
     MissingFuncTypeAnnotation,
     TypeError {
@@ -271,12 +271,12 @@ impl fmt::Display for LowerErrorKind {
             LowerErrorKind::NonIntegerDivision => {
                 write!(f, "Division produced a non-integer value")
             }
-            LowerErrorKind::RepeatMustBeOnRightOfPipe => {
+            LowerErrorKind::EmptyRepeat => {
                 write!(
                     f,
                     concat!(
-                        "The repeat construct `(... for i in ...)` must be on the right-hand side ",
-                        "of a pipe `|`."
+                        "The upper bound `N` in a repeat construct `(... for i in range(N))` ",
+                        "cannot be 0."
                     ),
                 )
             }
