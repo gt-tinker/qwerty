@@ -32,6 +32,7 @@ pub struct RebuildConfig {
     pub progress: Option<Type>,
     pub rewrite: Option<Ident>,
     pub rewrite_to: Vec<TypeMapping>,
+    pub allow_retry_rewrite: bool,
     pub recurse_attrs: bool,
     pub more_generic_params: Vec<GenericParam>,
     pub more_moved_args: Vec<(Ident, Type)>,
@@ -202,6 +203,7 @@ impl Parse for RebuildConfig {
         let mut progress = None;
         let mut rewrite = None;
         let mut rewrite_to = None;
+        let mut allow_retry_rewrite = None;
         let mut recurse_attrs = None;
         let mut more_generic_params = None;
         let mut more_moved_args = None;
@@ -219,7 +221,7 @@ impl Parse for RebuildConfig {
                 }
                 let opt_name: Ident = args.parse()?;
                 parse_rebuild_options!((opt_name, args), {
-                    boolean: [option, recurse_attrs],
+                    boolean: [option, allow_retry_rewrite, recurse_attrs],
                     ident: [rewrite],
                     ty: [progress, result_err],
                     ty_mappings: [rewrite_to],
@@ -236,6 +238,16 @@ impl Parse for RebuildConfig {
 
         if rewrite_to.is_some() && rewrite.is_none() {
             Err(Error::new(name.span(), "rewrite_to requries rewrite"))
+        } else if matches!(allow_retry_rewrite, Some(true)) && rewrite.is_none() {
+            Err(Error::new(
+                name.span(),
+                "allow_retry_rewrite requries rewrite",
+            ))
+        } else if matches!(allow_retry_rewrite, Some(true)) && rewrite_to.is_some() {
+            Err(Error::new(
+                name.span(),
+                "allow_retry_rewrite cannot be used with rewrite_to",
+            ))
         } else if result_err.is_some() && option.is_some() {
             Err(Error::new(
                 name.span(),
@@ -244,6 +256,7 @@ impl Parse for RebuildConfig {
         } else {
             let option = option.unwrap_or(false);
             let rewrite_to = rewrite_to.unwrap_or_else(Vec::new);
+            let allow_retry_rewrite = allow_retry_rewrite.unwrap_or(false);
             let recurse_attrs = recurse_attrs.unwrap_or(false);
             let more_generic_params = more_generic_params.unwrap_or_else(Vec::new);
             let more_moved_args = tidy_up_extra_args(more_moved_args)?;
@@ -257,6 +270,7 @@ impl Parse for RebuildConfig {
                 progress,
                 rewrite,
                 rewrite_to,
+                allow_retry_rewrite,
                 recurse_attrs,
                 more_generic_params,
                 more_moved_args,

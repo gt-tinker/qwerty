@@ -820,11 +820,22 @@ fn gen_variants_and_arms(
         (unpacked_idents, move_assignments)
     };
     let (post_rewrite_pat, maybe_reassign_moved_extra_args) = if config.rewrite.is_some()
-        && (config.progress.is_some() || !config.more_moved_args.is_empty())
+        && (config.progress.is_some()
+            || !config.more_moved_args.is_empty()
+            || config.allow_retry_rewrite)
     {
+        let field_names = if config.allow_retry_rewrite {
+            unpacked_idents
+                .iter()
+                .cloned()
+                .chain(std::iter::once(Ident::new("after_rewrite", span)))
+                .collect()
+        } else {
+            unpacked_idents.clone()
+        };
         (
             quote_spanned! {span=>
-                (rewritten, #(#unpacked_idents),*)
+                (rewritten, #(#field_names),*)
             },
             quote_spanned! {span=>
                 #(#move_assignments)*
@@ -858,18 +869,24 @@ fn gen_variants_and_arms(
             // Nothing (no `?' symbol)
         }
     };
-    let reconstruct_and_rewrite = if config.rewrite_to.is_empty() {
-        let maybe_call_rewrite_method = if let Some(rewrite_func_ident) = &config.rewrite {
+    let reconstruct = if config.rewrite_to.is_empty() {
+        quote_spanned! {span=>
+            #enum_ident::#variant_ident #variant_unpack_pat
+        }
+    } else {
+        quote_spanned! {span=>
+            Rewritten::#variant_ident #all_field_names_in_braces
+        }
+    };
+    let call_rewriter = if config.rewrite_to.is_empty() {
+        if let Some(rewrite_func_ident) = &config.rewrite {
             quote_spanned! {span=>
-                .#rewrite_func_ident(#(#extra_rewrite_args),*) #maybe_question_mark
+                #reconstruct.#rewrite_func_ident(#(#extra_rewrite_args),*) #maybe_question_mark
             }
         } else {
             quote_spanned! {span=>
-                // No method call
+                #reconstruct
             }
-        };
-        quote_spanned! {span=>
-            #enum_ident::#variant_ident #variant_unpack_pat #maybe_call_rewrite_method
         }
     } else {
         let rewrite_func_ident = config
@@ -877,8 +894,12 @@ fn gen_variants_and_arms(
             .as_ref()
             .expect("rewrite_to requires rewrite");
         quote_spanned! {span=>
-            #enum_ident::#rewrite_func_ident(Rewritten::#variant_ident #all_field_names_in_braces) #maybe_question_mark
+            #enum_ident::#rewrite_func_ident(#reconstruct) #maybe_question_mark
         }
+    };
+    let reconstruct_and_rewrite = quote_spanned! {span=>
+        let #post_rewrite_pat = #call_rewriter;
+        #maybe_reassign_moved_extra_args
     };
     let push_operand = if config.progress.is_none() {
         quote_spanned! {span=>
@@ -889,14 +910,29 @@ fn gen_variants_and_arms(
             (rewritten, progress)
         }
     };
+    let push_to_in_or_out_stack = if config.allow_retry_rewrite {
+        quote_spanned! {span=>
+            match after_rewrite {
+                AfterRewrite::Done => {
+                    out_stack.push(#push_operand);
+                }
+                AfterRewrite::Retry => {
+                    in_stack.push(RebuildStackEntry::Deconstruct(rewritten));
+                }
+            }
+        }
+    } else {
+        quote_spanned! {span=>
+            out_stack.push(#push_operand);
+        }
+    };
     let reconstruct_arm = quote_spanned! {span=>
         RebuildStackEntry::Reconstruct(Reconstruct::#variant_ident #reconstruct_fields_in_braces #maybe_progress_pat) => {
-                #(#pop_stmts)*
-                #maybe_init_progress_stmt
-                let #post_rewrite_pat = #reconstruct_and_rewrite;
-                #maybe_reassign_moved_extra_args
-                out_stack.push(#push_operand);
-            }
+            #(#pop_stmts)*
+            #maybe_init_progress_stmt
+            #reconstruct_and_rewrite
+            #push_to_in_or_out_stack
+        }
     };
 
     // Finally, generate the arm of the match that deconstructs this variant

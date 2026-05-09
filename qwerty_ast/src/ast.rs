@@ -647,6 +647,16 @@ impl<'a> fmt::Display for ToPythonCodeHack<'a> {
     }
 }
 
+/// Determines what the generated rebuild code should do after the rewrite
+/// method is called. Used with the `allow_retry_rewrite` option of
+/// the `gen_rebuild` macro.
+pub enum AfterRewrite {
+    /// Do not call the rewrite method again.
+    Done,
+    /// Call the rewrite method again.
+    Retry,
+}
+
 // ----- Miscellaneous math for angles and bits -----
 
 /// Tolerance for floating point comparison

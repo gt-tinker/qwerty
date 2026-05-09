@@ -1,5 +1,5 @@
 use crate::{
-    ast::{self, Trivializable, qpu::EmbedKind},
+    ast::{self, AfterRewrite, Trivializable, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind},
     meta::{DimExpr, DimVar, Progress, expand::MacroEnv},
@@ -124,6 +124,7 @@ impl fmt::Display for FloatExpr {
     ),
     expand(
         rewrite(expand_rewriter),
+        allow_retry_rewrite,
         progress(Progress),
         more_copied_args(env: &MacroEnv),
         result_err(LowerError),
@@ -340,6 +341,7 @@ impl fmt::Display for MetaVector {
     ),
     expand(
         rewrite(expand_rewriter),
+        allow_retry_rewrite,
         progress(Progress),
         more_copied_args(env: &MacroEnv),
         result_err(LowerError),
@@ -437,6 +439,7 @@ impl fmt::Display for MetaBasisGenerator {
     ),
     expand(
         rewrite(expand_rewriter),
+        allow_retry_rewrite,
         progress(Progress),
         more_copied_args(env: &MacroEnv),
         result_err(LowerError),
@@ -605,6 +608,7 @@ impl fmt::Display for MetaBasis {
     ),
     expand(
         rewrite(expand_rewriter),
+        allow_retry_rewrite,
         progress(Progress),
         more_copied_args(env: &MacroEnv),
         result_err(LowerError),

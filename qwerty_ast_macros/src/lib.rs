@@ -115,6 +115,12 @@ fn result_to_token_stream(res: Result<TokenStream, syn::Error>) -> TokenStream {
 /// * `rewrite(method_name)` (one argument, an identifier): After rebuilding
 ///   each `child`, call `child.method_name()`. See
 ///   `MetaBasis::substitute_basis_alias_rewriter` for an example.
+/// * `allow_retry_rewrite` (no arguments, default false when not present):
+///   Allows the rewriter to trigger re-running the deconstruct-reconstruct-rewrite
+///   process. The rewriter must return an enum named `AfterRewrite`, and this
+///   same enum must be visible wherever the [`gen_rebuild`] attribute macro is
+///   written (so that the generated code can reference the `AfterRewrite`
+///   enum).
 /// * `progress(progress_ty)` (one argument, a type): return progress from the
 ///   rewriter (if present) and the ultimate generated rebuild function. That
 ///   is, each returns `(enum_name, progress_ty)` rather than just `enum_name`.

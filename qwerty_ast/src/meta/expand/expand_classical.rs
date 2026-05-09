@@ -1,5 +1,5 @@
 use crate::{
-    ast::{classical::BinaryOpKind, try_log2, ubig_with_n_lower_bits_set},
+    ast::{AfterRewrite, classical::BinaryOpKind, try_log2, ubig_with_n_lower_bits_set},
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, Progress,
@@ -18,7 +18,7 @@ impl MetaExpr {
         self,
         env: &mut MacroEnv,
         children_progress: Progress,
-    ) -> Result<(Self, Progress), LowerError> {
+    ) -> Result<(Self, Progress, AfterRewrite), LowerError> {
         match self {
             MetaExpr::Mod {
                 dividend,
@@ -36,7 +36,7 @@ impl MetaExpr {
                             dbg: dbg.clone(),
                         }
                     })?;
-                    MetaExpr::BinaryOp {
+                    let and_op = MetaExpr::BinaryOp {
                         kind: BinaryOpKind::And,
                         left: dividend,
                         right: Box::new(MetaExpr::BitLiteral {
@@ -52,8 +52,9 @@ impl MetaExpr {
                             dbg: dbg.clone(),
                         }),
                         dbg,
-                    }
-                    .expand(env)
+                    };
+                    // Try to expand just in case, since we just changed things
+                    Ok((and_op, children_progress, AfterRewrite::Retry))
                 } else {
                     Ok((
                         MetaExpr::Mod {
@@ -62,6 +63,7 @@ impl MetaExpr {
                             dbg,
                         },
                         children_progress,
+                        AfterRewrite::Done,
                     ))
                 }
             }
@@ -74,7 +76,7 @@ impl MetaExpr {
             | MetaExpr::ModMul { .. }
             | MetaExpr::BitLiteral { .. }
             | MetaExpr::Repeat { .. }
-            | MetaExpr::Concat { .. }) => Ok((other, children_progress)),
+            | MetaExpr::Concat { .. }) => Ok((other, children_progress, AfterRewrite::Done)),
         }
     }
 }

@@ -1,8 +1,8 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp, angle_is_approx_zero,
-    angles_are_approx_equal, canon_angle, equals_2_to_the_n,
+    AfterRewrite, Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp,
+    angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
 use dashu::integer::UBig;
@@ -24,6 +24,7 @@ gen_rebuild_structs! {
     configs {
         canonicalize(
             rewrite(canonicalize_rewriter),
+            allow_retry_rewrite,
             recurse_attrs,
         ),
     }
@@ -314,7 +315,7 @@ impl Expr {
 
     /// Called by `gen_rebuild` for the `canonicalize` config. The resulting
     /// rebuild code is called in the implementation of [`Canonicalize`] trait.
-    pub(crate) fn canonicalize_rewriter(self) -> Self {
+    pub(crate) fn canonicalize_rewriter(self) -> (Self, AfterRewrite) {
         match self {
             Expr::Tensor(Tensor { vals, dbg }) => {
                 let vals: Vec<_> = vals
@@ -329,9 +330,9 @@ impl Expr {
                     .collect();
 
                 if vals.is_empty() {
-                    Expr::UnitLiteral(UnitLiteral { dbg })
+                    (Expr::UnitLiteral(UnitLiteral { dbg }), AfterRewrite::Done)
                 } else {
-                    Expr::Tensor(Tensor { vals, dbg })
+                    (Expr::Tensor(Tensor { vals, dbg }), AfterRewrite::Done)
                 }
             }
 
@@ -342,17 +343,20 @@ impl Expr {
             }) => {
                 let angle_deg = canon_angle(angle_deg);
                 if angle_is_approx_zero(angle_deg) {
-                    *val
+                    (*val, AfterRewrite::Done)
                 } else {
-                    Expr::Tilt(Tilt {
-                        val,
-                        angle_deg,
-                        dbg,
-                    })
+                    (
+                        Expr::Tilt(Tilt {
+                            val,
+                            angle_deg,
+                            dbg,
+                        }),
+                        AfterRewrite::Done,
+                    )
                 }
             }
 
-            // `x | (f > g > h)`  ==>  `x | f | g | h`
+            // `x | (f > g)`  ==>  `x | f | g`
             Expr::Pipe(Pipe {
                 lhs,
                 rhs,
@@ -364,17 +368,21 @@ impl Expr {
                     dbg: compose_dbg,
                 }) = *rhs
                 {
-                    // TODO: don't call canonicalize recursively like this
-                    Expr::Pipe(Pipe {
-                        lhs: Box::new(Expr::Pipe(Pipe {
-                            lhs,
-                            rhs: inner,
-                            dbg: pipe_dbg,
-                        })),
-                        rhs: outer,
-                        dbg: compose_dbg,
-                    })
-                    .canonicalize()
+                    // Retry so that we can catch if one of the new pipes
+                    // (actually, the innermost one specifically) matches this
+                    // pattern again
+                    (
+                        Expr::Pipe(Pipe {
+                            lhs: Box::new(Expr::Pipe(Pipe {
+                                lhs,
+                                rhs: inner,
+                                dbg: pipe_dbg,
+                            })),
+                            rhs: outer,
+                            dbg: compose_dbg,
+                        }),
+                        AfterRewrite::Retry,
+                    )
                 } else {
                     panic!("match just unmatched itself")
                 }
@@ -395,7 +403,7 @@ impl Expr {
             | Expr::Conditional(_)
             | Expr::QLitExpr(_)
             | Expr::BitLiteral(_)
-            | Expr::QubitRef(_)) => already_canon,
+            | Expr::QubitRef(_)) => (already_canon, AfterRewrite::Done),
         }
     }
 }

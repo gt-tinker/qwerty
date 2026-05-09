@@ -1,5 +1,5 @@
 use crate::{
-    ast::{angle_is_approx_zero, usize_try_into_angle},
+    ast::{AfterRewrite, angle_is_approx_zero, usize_try_into_angle},
     error::{LowerError, LowerErrorKind},
     meta::{
         DimExpr, DimVar, Progress,
@@ -142,14 +142,17 @@ impl MetaVector {
         self,
         env: &MacroEnv,
         children_progress: Progress,
-    ) -> Result<(Self, Progress), LowerError> {
+    ) -> Result<(Self, Progress, AfterRewrite), LowerError> {
         match (self, children_progress) {
             // Only substitution can remove this
-            (alias @ MetaVector::VectorAlias { .. }, _) => Ok((alias, Progress::Partial)),
+            (alias @ MetaVector::VectorAlias { .. }, _) => {
+                Ok((alias, Progress::Partial, AfterRewrite::Done))
+            }
 
             (MetaVector::VectorSymbol { sym, dbg }, _) => {
                 if let Some(vec) = env.vec_symbols.get(&sym) {
-                    vec.clone().expand(env)
+                    // Retry so that the def can get expanded
+                    Ok((vec.clone(), Progress::Partial, AfterRewrite::Retry))
                 } else {
                     Err(LowerError {
                         kind: LowerErrorKind::UndefinedQubitSymbol { sym },
@@ -163,7 +166,11 @@ impl MetaVector {
             (MetaVector::VectorBroadcastTensor { val, factor, dbg }, Progress::Full) => {
                 let factor_int = factor.extract()?;
                 if factor_int == 0 {
-                    Ok((MetaVector::VectorUnit { dbg }, Progress::Full))
+                    Ok((
+                        MetaVector::VectorUnit { dbg },
+                        Progress::Full,
+                        AfterRewrite::Done,
+                    ))
                 } else {
                     let n_fold_tensor_product = std::iter::repeat(*val)
                         .take(factor_int)
@@ -173,12 +180,12 @@ impl MetaVector {
                             dbg: dbg.clone(),
                         })
                         .expect("factor_int > 0, so tensor product should not be empty");
-                    Ok((n_fold_tensor_product, Progress::Full))
+                    Ok((n_fold_tensor_product, Progress::Full, AfterRewrite::Done))
                 }
             }
 
             (unfinished @ MetaVector::VectorBroadcastTensor { .. }, Progress::Partial) => {
-                Ok((unfinished, Progress::Partial))
+                Ok((unfinished, Progress::Partial, AfterRewrite::Done))
             }
 
             (
@@ -188,14 +195,14 @@ impl MetaVector {
                 | MetaVector::TargetVector { .. }
                 | MetaVector::VectorUnit { .. }),
                 _,
-            ) => Ok((done, Progress::Full)),
+            ) => Ok((done, Progress::Full, AfterRewrite::Done)),
 
             (
                 other @ (MetaVector::VectorTilt { .. }
                 | MetaVector::UniformVectorSuperpos { .. }
                 | MetaVector::VectorBiTensor { .. }),
                 _,
-            ) => Ok((other, children_progress)),
+            ) => Ok((other, children_progress, AfterRewrite::Done)),
         }
     }
 }
@@ -247,7 +254,7 @@ impl MetaBasisGenerator {
         self,
         env: &MacroEnv,
         children_progress: Progress,
-    ) -> Result<(MetaBasisGenerator, Progress), LowerError> {
+    ) -> Result<(MetaBasisGenerator, Progress, AfterRewrite), LowerError> {
         match self {
             MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg } => {
                 match env.macros.get(&name) {
@@ -256,10 +263,15 @@ impl MetaBasisGenerator {
                             BasisMacroPattern::AnyBasis {
                                 name: pat_name,
                                 dbg: _,
-                            } => rhs
-                                .clone()
-                                .substitute_basis_alias(pat_name, &*arg)
-                                .expand(env),
+                            } => {
+                                Ok((
+                                    rhs.clone().substitute_basis_alias(pat_name, &*arg),
+                                    Progress::Partial,
+                                    // Retry so that the rhs of this basis
+                                    // macro can get expanded
+                                    AfterRewrite::Retry,
+                                ))
+                            }
 
                             BasisMacroPattern::BasisLiteral {
                                 vec_names: pat_vec_names,
@@ -269,22 +281,23 @@ impl MetaBasisGenerator {
                                 Progress::Partial => Ok((
                                     MetaBasisGenerator::BasisGeneratorMacro { name, arg, dbg },
                                     Progress::Partial,
+                                    AfterRewrite::Done,
                                 )),
 
                                 Progress::Full => match *arg {
                                     MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
-                                        rhs.clone().expand(env)
+                                        // Retry so that the def of this macro
+                                        // can be expanded
+                                        Ok((rhs.clone(), Progress::Partial, AfterRewrite::Retry))
                                     }
 
                                     MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
                                         if pat_vec_names.len() == arg_vecs.len() =>
                                     {
-                                        pat_vec_names
-                                            .iter()
-                                            .zip(arg_vecs.iter())
-                                            .fold(
+                                        Ok((
+                                            pat_vec_names.iter().zip(arg_vecs.iter()).fold(
                                                 rhs.clone(),
                                                 |subst_rhs, (pat_vec_name, arg_vec)| {
                                                     subst_rhs.substitute_vector_alias(
@@ -292,8 +305,12 @@ impl MetaBasisGenerator {
                                                         arg_vec,
                                                     )
                                                 },
-                                            )
-                                            .expand(env)
+                                            ),
+                                            Progress::Partial,
+                                            // Retry so that the def of this macro
+                                            // can be expanded
+                                            AfterRewrite::Retry,
+                                        ))
                                     }
 
                                     // Operand doesn't match or wasn't actually fully expanded
@@ -328,7 +345,9 @@ impl MetaBasisGenerator {
                 }
             }
 
-            other @ MetaBasisGenerator::Revolve { .. } => Ok((other, children_progress)),
+            other @ MetaBasisGenerator::Revolve { .. } => {
+                Ok((other, children_progress, AfterRewrite::Done))
+            }
         }
     }
 }
@@ -342,10 +361,13 @@ impl MetaBasis {
         self,
         env: &MacroEnv,
         children_progress: Progress,
-    ) -> Result<(MetaBasis, Progress), LowerError> {
+    ) -> Result<(MetaBasis, Progress, AfterRewrite), LowerError> {
         match (self, children_progress) {
             (MetaBasis::BasisAlias { name, dbg }, _) => match env.aliases.get(&name) {
-                Some(AliasBinding::BasisAlias { rhs }) => rhs.clone().expand(env),
+                Some(AliasBinding::BasisAlias { rhs }) => {
+                    // Retry so that the def of this basis alias can be expanded
+                    Ok((rhs.clone(), Progress::Partial, AfterRewrite::Retry))
+                }
 
                 Some(AliasBinding::BasisAliasRec { .. }) => Err(LowerError {
                     kind: LowerErrorKind::WrongAliasKind { alias_name: name },
@@ -370,7 +392,13 @@ impl MetaBasis {
                         } = param
                         {
                             if let Some(base_case_basis) = base_cases.get(&val) {
-                                base_case_basis.clone().expand(env)
+                                Ok((
+                                    base_case_basis.clone(),
+                                    Progress::Partial,
+                                    // Retry so that this base case can get
+                                    // expanded if needed
+                                    AfterRewrite::Retry,
+                                ))
                             } else if let Some((dim_var_name, rec_basis)) = recursive_step {
                                 let param = DimVar::MacroParam {
                                     var_name: dim_var_name.to_string(),
@@ -379,10 +407,13 @@ impl MetaBasis {
                                     val: val.clone(),
                                     dbg: dim_const_dbg.clone(),
                                 };
-                                rec_basis
-                                    .clone()
-                                    .substitute_dim_var(&param, &const_val)
-                                    .expand(env)
+                                Ok((
+                                    rec_basis.clone().substitute_dim_var(&param, &const_val),
+                                    Progress::Partial,
+                                    // Retry so that the def of this basis
+                                    // alias can get expanded
+                                    AfterRewrite::Retry,
+                                ))
                             } else {
                                 // Missing recursive step
                                 Err(LowerError {
@@ -416,7 +447,11 @@ impl MetaBasis {
             (MetaBasis::BasisBroadcastTensor { val, factor, dbg }, Progress::Full) => {
                 let factor_int = factor.extract()?;
                 if factor_int == 0 {
-                    Ok((MetaBasis::EmptyBasisLiteral { dbg }, Progress::Full))
+                    Ok((
+                        MetaBasis::EmptyBasisLiteral { dbg },
+                        Progress::Full,
+                        AfterRewrite::Done,
+                    ))
                 } else {
                     let n_fold_tensor_product = std::iter::repeat(*val)
                         .take(factor_int)
@@ -426,7 +461,7 @@ impl MetaBasis {
                             dbg: dbg.clone(),
                         })
                         .expect("factor_int > 0, so tensor product should not be empty");
-                    Ok((n_fold_tensor_product, Progress::Full))
+                    Ok((n_fold_tensor_product, Progress::Full, AfterRewrite::Done))
                 }
             }
 
@@ -434,16 +469,18 @@ impl MetaBasis {
                 unfinished @ (MetaBasis::BasisAliasRec { .. }
                 | MetaBasis::BasisBroadcastTensor { .. }),
                 Progress::Partial,
-            ) => Ok((unfinished, Progress::Partial)),
+            ) => Ok((unfinished, Progress::Partial, AfterRewrite::Done)),
 
-            (done @ MetaBasis::EmptyBasisLiteral { .. }, _) => Ok((done, Progress::Full)),
+            (done @ MetaBasis::EmptyBasisLiteral { .. }, _) => {
+                Ok((done, Progress::Full, AfterRewrite::Done))
+            }
 
             (
                 other @ (MetaBasis::BasisLiteral { .. }
                 | MetaBasis::BasisBiTensor { .. }
                 | MetaBasis::ApplyBasisGenerator { .. }),
                 _,
-            ) => Ok((other, children_progress)),
+            ) => Ok((other, children_progress, AfterRewrite::Done)),
         }
     }
 
@@ -542,7 +579,7 @@ impl MetaExpr {
         self,
         env: &MacroEnv,
         children_progress: Progress,
-    ) -> Result<(Self, Progress), LowerError> {
+    ) -> Result<(Self, Progress, AfterRewrite), LowerError> {
         match self {
             MetaExpr::ExprMacro { name, arg, dbg } => {
                 match env.macros.get(&name) {
@@ -554,11 +591,12 @@ impl MetaExpr {
                             },
                         rhs,
                     }) => {
-                        // The progress of expanding the arg (incorporated in
-                        // children_progress) doesn't even matter since the
-                        // result of rhs.substitute_variable(...).expand() will
-                        // incorporate that progress.
-                        rhs.clone().substitute_variable(pat_name, &*arg).expand(env)
+                        Ok((
+                            rhs.clone().substitute_variable(pat_name, &*arg),
+                            children_progress,
+                            // Retry to expand the result of substituting the variable
+                            AfterRewrite::Retry,
+                        ))
                     }
 
                     Some(MacroBinding::BasisMacro { .. })
@@ -581,15 +619,19 @@ impl MetaExpr {
                 } = &arg
                     && !env.aliases.contains_key(arg_alias_name)
                 {
-                    MetaExpr::ExprMacro {
-                        name: name,
-                        arg: Box::new(MetaExpr::Variable {
-                            name: arg_alias_name.to_string(),
-                            dbg: arg_dbg.clone(),
-                        }),
-                        dbg: dbg,
-                    }
-                    .expand(env)
+                    Ok((
+                        MetaExpr::ExprMacro {
+                            name: name,
+                            arg: Box::new(MetaExpr::Variable {
+                                name: arg_alias_name.to_string(),
+                                dbg: arg_dbg.clone(),
+                            }),
+                            dbg: dbg,
+                        },
+                        children_progress,
+                        // At least try to expand this macro we just introduced
+                        AfterRewrite::Retry,
+                    ))
                 } else {
                     match env.macros.get(&name) {
                         Some(MacroBinding::BasisMacro {
@@ -600,11 +642,12 @@ impl MetaExpr {
                                 },
                             rhs,
                         }) => {
-                            // As mentioned above, we can ignore the progress
-                            // of the arg (children)
-                            rhs.clone()
-                                .substitute_basis_alias(pat_name, &arg)
-                                .expand(env)
+                            Ok((
+                                rhs.clone().substitute_basis_alias(pat_name, &arg),
+                                children_progress,
+                                // Need to try to expand the def of the macro
+                                AfterRewrite::Retry,
+                            ))
                         }
 
                         Some(MacroBinding::BasisMacro {
@@ -619,24 +662,25 @@ impl MetaExpr {
                                 // This is unfortunate, but we cannot actually
                                 // match yet. Consider fourier[N] when
                                 // eventually N=1, for example.
-                                Progress::Partial => {
-                                    Ok((MetaExpr::BasisMacro { name, arg, dbg }, Progress::Partial))
-                                }
+                                Progress::Partial => Ok((
+                                    MetaExpr::BasisMacro { name, arg, dbg },
+                                    Progress::Partial,
+                                    AfterRewrite::Done,
+                                )),
 
                                 Progress::Full => match arg {
                                     MetaBasis::EmptyBasisLiteral { .. }
                                         if pat_vec_names.is_empty() =>
                                     {
-                                        rhs.clone().expand(env)
+                                        // Try to expand the def of this macro
+                                        Ok((rhs.clone(), children_progress, AfterRewrite::Retry))
                                     }
 
                                     MetaBasis::BasisLiteral { vecs: arg_vecs, .. }
                                         if arg_vecs.len() == pat_vec_names.len() =>
                                     {
-                                        pat_vec_names
-                                            .iter()
-                                            .zip(arg_vecs.iter())
-                                            .fold(
+                                        Ok((
+                                            pat_vec_names.iter().zip(arg_vecs.iter()).fold(
                                                 rhs.clone(),
                                                 |subst_rhs, (pat_vec_name, arg_vec)| {
                                                     subst_rhs.substitute_vector_alias(
@@ -644,8 +688,11 @@ impl MetaExpr {
                                                         arg_vec,
                                                     )
                                                 },
-                                            )
-                                            .expand(env)
+                                            ),
+                                            children_progress,
+                                            // Try to expand the def of this macro
+                                            AfterRewrite::Retry,
+                                        ))
                                     }
 
                                     // Operand doesn't match or wasn't actually fully expanded
@@ -685,7 +732,11 @@ impl MetaExpr {
                 (const_factor @ DimExpr::DimConst { .. }, Progress::Full) => {
                     let factor_int = const_factor.extract()?;
                     if factor_int == 0 {
-                        Ok((MetaExpr::UnitLiteral { dbg }, Progress::Full))
+                        Ok((
+                            MetaExpr::UnitLiteral { dbg },
+                            Progress::Full,
+                            AfterRewrite::Done,
+                        ))
                     } else {
                         let n_fold_tensor_product = std::iter::repeat(*val)
                             .take(factor_int)
@@ -695,7 +746,7 @@ impl MetaExpr {
                                 dbg: dbg.clone(),
                             })
                             .expect("factor_int > 0, so tensor product should not be empty");
-                        Ok((n_fold_tensor_product, Progress::Full))
+                        Ok((n_fold_tensor_product, Progress::Full, AfterRewrite::Done))
                     }
                 }
 
@@ -706,6 +757,7 @@ impl MetaExpr {
                         dbg,
                     },
                     children_progress,
+                    AfterRewrite::Done,
                 )),
             },
 
@@ -724,8 +776,7 @@ impl MetaExpr {
                     })
                 } else {
                     let var = DimVar::MacroParam { var_name: iter_var };
-
-                    std::iter::repeat(for_each)
+                    let compose_nodes = std::iter::repeat(for_each)
                         .take(ub_int)
                         .enumerate()
                         .map(|(i, cloned_for_each)| {
@@ -742,13 +793,18 @@ impl MetaExpr {
                             outer: Box::new(next),
                             dbg: dbg.clone(),
                         })
-                        .expect("ub_int > 0, how can the std::iter::repeat iterator be empty?")
-                        .expand(env)
+                        .expect("ub_int > 0, how can the std::iter::repeat iterator be empty?");
+                    // Try to expand all of the functions in the composes we
+                    // just introduced, particularly since we did the dimvar
+                    // substitution above.
+                    Ok((compose_nodes, children_progress, AfterRewrite::Retry))
                 }
             }
 
             // upper_bound not yet expanded to a constant
-            partial_repeat @ MetaExpr::Repeat { .. } => Ok((partial_repeat, Progress::Partial)),
+            partial_repeat @ MetaExpr::Repeat { .. } => {
+                Ok((partial_repeat, Progress::Partial, AfterRewrite::Done))
+            }
 
             already_expanded @ (MetaExpr::Variable { .. }
             | MetaExpr::UnitLiteral { .. }
@@ -767,7 +823,9 @@ impl MetaExpr {
             | MetaExpr::Ensemble { .. }
             | MetaExpr::Conditional { .. }
             | MetaExpr::QLit { .. }
-            | MetaExpr::BitLiteral { .. }) => Ok((already_expanded, children_progress)),
+            | MetaExpr::BitLiteral { .. }) => {
+                Ok((already_expanded, children_progress, AfterRewrite::Done))
+            }
         }
     }
 

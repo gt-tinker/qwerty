@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        self,
+        self, AfterRewrite,
         classical::{BinaryOpKind, UnaryOpKind},
     },
     dbg::DebugLoc,
@@ -18,6 +18,7 @@ use std::fmt;
     ),
     expand(
         rewrite(expand_rewriter),
+        allow_retry_rewrite,
         progress(Progress),
         more_copied_args(env: &mut MacroEnv),
         result_err(LowerError),
