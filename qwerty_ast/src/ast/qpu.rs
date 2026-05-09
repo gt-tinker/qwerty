@@ -352,12 +352,39 @@ impl Expr {
                 }
             }
 
+            // `x | (f > g > h)`  ==>  `x | f | g | h`
+            Expr::Pipe(Pipe {
+                lhs,
+                rhs,
+                dbg: pipe_dbg,
+            }) if matches!(*rhs, Expr::Compose(_)) => {
+                if let Expr::Compose(Compose {
+                    inner,
+                    outer,
+                    dbg: compose_dbg,
+                }) = *rhs
+                {
+                    // TODO: don't call canonicalize recursively like this
+                    Expr::Pipe(Pipe {
+                        lhs: Box::new(Expr::Pipe(Pipe {
+                            lhs,
+                            rhs: inner,
+                            dbg: pipe_dbg,
+                        })),
+                        rhs: outer,
+                        dbg: compose_dbg,
+                    })
+                    .canonicalize()
+                } else {
+                    panic!("match just unmatched itself")
+                }
+            }
+
             already_canon @ (Expr::Variable(_)
             | Expr::UnitLiteral(_)
             | Expr::EmbedClassical(_)
             | Expr::Adjoint(_)
             | Expr::Pipe(_)
-            // TODO: rewrite x | (f > g) to x | f | g
             | Expr::Compose(_)
             | Expr::Measure(_)
             | Expr::Discard(_)
