@@ -337,7 +337,10 @@ where
                 }))
             }
 
-            Stmt::Return(Return { val, dbg }) => Some(Stmt::Return(Return { val, dbg })),
+            Stmt::Return(Return { val, dbg }) => Some(Stmt::Return(Return {
+                val: val.canonicalize(),
+                dbg,
+            })),
         }
     }
 }
