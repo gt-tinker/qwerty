@@ -24,8 +24,9 @@ use qwerty_ast::{
         self, FunctionDef, RegKind, angle_is_approx_zero, angles_are_approx_equal,
         qpu::{
             self, Adjoint, Basis, BasisGenerator, BasisTranslation, BitLiteral, Compose,
-            Conditional, Discard, EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos,
-            Pipe, Predicated, QLit, QLitExpr, Tensor, Tilt, Variable, Vector, VectorAtomKind,
+            Conditional, Discard, EmbedClassical, EmbedKind, Ensemble, Lambda, Measure,
+            NonUniformSuperpos, Pipe, Predicated, QLit, QLitExpr, Tensor, Tilt, Variable, Vector,
+            VectorAtomKind,
         },
     },
     typecheck::{ComputeKind, FuncsAvailable},
@@ -1789,7 +1790,14 @@ fn ast_qpu_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
-        qpu::Expr::Lambda(lam @ Lambda { args, body, dbg }) => {
+        qpu::Expr::Lambda(
+            lam @ Lambda {
+                captures,
+                args,
+                body,
+                dbg,
+            },
+        ) => {
             // TODO: implement me :)
         }
 

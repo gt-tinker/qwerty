@@ -147,6 +147,8 @@ gen_rebuild_structs! {
         #[derive(Debug, Clone, PartialEq)]
         pub struct Lambda {
             #[gen_rebuild::skip_recurse(canonicalize)]
+            pub captures: Vec<(Type, String)>,
+            #[gen_rebuild::skip_recurse(canonicalize)]
             pub args: Vec<(Type, String)>,
             pub body: Box<Expr>,
             pub dbg: Option<DebugLoc>,

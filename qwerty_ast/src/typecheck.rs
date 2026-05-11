@@ -1505,52 +1505,50 @@ impl Conditional {
 
 impl Lambda {
     pub fn create_body_env(&self, env: &TypeEnv) -> Result<TypeEnv, TypeError> {
-        let Lambda { args, dbg, .. } = self;
-        let mut body_env = env.clone();
+        let Lambda { captures, args, dbg, .. } = self;
 
-        for (arg_ty, arg_name) in args {
-            if body_env
-                .vars
-                .insert(arg_name.to_string(), arg_ty.clone())
-                .is_some()
-            {
+        // Check if all captures are in the outer type environment
+        for (cap_ty, cap_name) in captures {
+            if cap_ty.is_linear() {
                 return Err(TypeError {
-                    // TODO: use a more specific shadowing error message?
-                    kind: TypeErrorKind::RedefinedVariable(arg_name.to_string()),
+                    kind: TypeErrorKind::LinearVariableCapturedInLambda(cap_name.to_string()),
                     dbg: dbg.clone(),
                 });
             }
+
+            match env.get_var(cap_name) {
+                None => {
+                    // TODO: use more specific error for captures?
+                    return Err(TypeError {
+                        kind: TypeErrorKind::UndefinedVariable(cap_name.to_string()),
+                        dbg: dbg.clone(),
+                    });
+                }
+
+                Some(var_ty) if var_ty != cap_ty => {
+                    // TODO: use more specific error for captures?
+                    return Err(TypeError {
+                        kind: TypeErrorKind::MismatchedTypes {
+                            expected: cap_ty.to_string(),
+                            found: var_ty.to_string(),
+                        },
+                        dbg: dbg.clone(),
+                    });
+                }
+
+                // :)
+                Some(_) => {}
+            }
+        }
+
+        // Now that all captures are ok, create fresh type env with captures
+        // and args. Names of captures and args cannot overlap.
+        let mut body_env = TypeEnv::new();
+        for (var_ty, var_name) in captures.iter().chain(args.iter()) {
+            body_env.insert_var(var_name, var_ty.clone(), dbg)?;
         }
 
         Ok(body_env)
-    }
-
-    pub fn check_body_env(&self, env: &TypeEnv, body_env: TypeEnv) -> Result<(), TypeError> {
-        let Lambda { args, dbg, .. } = self;
-
-        let ok_vars = {
-            let mut ok_vars: HashSet<_> = env.linear_vars_used.clone();
-            for (_arg_ty, arg_name) in args {
-                let already_used = ok_vars.insert(arg_name.to_string());
-                assert!(
-                    already_used,
-                    "overlap between linear vars used and arg names"
-                );
-            }
-            ok_vars
-        };
-
-        // Find linear vars used that are neither arguments nor used by
-        // previously visited statements/expressions. Any result indicates that
-        // linear variables were captured in the lambda.
-        if let Some(illegal_linear_var) = body_env.linear_vars_used.difference(&ok_vars).next() {
-            Err(TypeError {
-                kind: TypeErrorKind::LinearVariableCapturedInLambda(illegal_linear_var.to_string()),
-                dbg: dbg.clone(),
-            })
-        } else {
-            Ok(())
-        }
     }
 
     pub fn calc_type(
@@ -1582,7 +1580,6 @@ impl Lambda {
         let Lambda { body, .. } = self;
         let mut body_env = self.create_body_env(env)?;
         let body_result = body.typecheck(&mut body_env)?;
-        self.check_body_env(env, body_env)?;
         self.calc_type(&body_result)
     }
 }
