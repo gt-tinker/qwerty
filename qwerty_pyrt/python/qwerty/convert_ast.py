@@ -1787,6 +1787,31 @@ class QpuVisitor(BaseVisitor):
         else:
             return compose_node
 
+    def visit_Lambda(self, lam: ast.Lambda):
+        dbg = self.get_debug_loc(lam)
+
+        lam_args = lam.args
+        if lam_args.posonlyargs \
+                or lam_args.vararg \
+                or lam_args.kwonlyargs \
+                or lam_args.kw_defaults \
+                or lam_args.kwarg \
+                or lam_args.defaults:
+            raise QwertySyntaxError('Lambdas may not have keyword '
+                                    'arguments, varargs, or default '
+                                    'arguments.', dbg)
+
+        if any(lambda arg: arg.annotation is not None
+                           or arg.type_comment is not None, lam_args.args):
+            # Not even possible in current Python syntax
+            raise QwertySyntaxError('Lambda arguments must have no type '
+                                    'annotations', dbg)
+
+        arg_names = [arg.arg for arg in lam_args.args]
+        body = lam.body
+
+        return QpuExpr.new_lambda(arg_names, body, dbg)
+
     #def visit_BoolOp(self, boolOp: ast.BoolOp):
     #    if isinstance(boolOp.op, ast.Or):
     #        return self.visit_BoolOp_Or(boolOp)
@@ -1870,7 +1895,6 @@ class QpuVisitor(BaseVisitor):
             return self.visit_Constant(node)
         elif isinstance(node, ast.Subscript):
             return self.visit_Subscript(node)
-        #elif isinstance(node, ast.BinOp):
         elif isinstance(node, ast.BinOp):
             return self.visit_BinOp(node)
         elif isinstance(node, ast.UnaryOp):

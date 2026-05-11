@@ -28,6 +28,7 @@ pub enum TypeErrorKind {
     LinearVariableUsedTwice(String),
     LinearVariableUnused(String),
     LinearVariableUseMismatch(String),
+    LinearVariableCapturedInLambda(String),
     MismatchedAtoms { atom_kind: VectorAtomKind },
     InvalidBasis,
     SpanMismatch,
@@ -118,6 +119,10 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::LinearVariableUseMismatch(var) => write!(
                 f,
                 "The qubit register variable '{var}' is used in one branch of a classical conditional and not the other branch."
+            ),
+            TypeErrorKind::LinearVariableCapturedInLambda(var) => write!(
+                f,
+                "The qubit register variable '{var}' is illegally captured in a lambda."
             ),
             TypeErrorKind::MismatchedAtoms { atom_kind } => write!(
                 f,

@@ -432,6 +432,20 @@ pub struct FunctionDef<E> {
     pub dbg: Option<DebugLoc>,
 }
 
+/// Converts a list of function arg types to a function input type, since
+/// function types only have one input type, not a list of argument types.
+pub fn func_arg_tys_to_in_ty(args: &[(Type, String)]) -> Type {
+    if args.is_empty() {
+        Type::UnitType
+    } else if args.len() == 1 {
+        args[0].0.clone()
+    } else {
+        let arg_types: Vec<Type> = args.iter().map(|(ty, _)| ty.clone()).collect();
+        Type::tuple(arg_types)
+            .expect("Function with multiple arguments must form a valid TupleType")
+    }
+}
+
 impl<E> FunctionDef<E>
 where
     E: Trivializable + Canonicalizable + Clone,
@@ -462,15 +476,7 @@ where
     /// Reconstructs the full function type (FuncType or RevFuncType) from the
     /// FunctionDef's arguments, value return type, and reversibility flag.
     pub fn get_type(&self) -> Type {
-        let in_ty = if self.args.is_empty() {
-            Type::UnitType
-        } else if self.args.len() == 1 {
-            self.args[0].0.clone()
-        } else {
-            let arg_types: Vec<Type> = self.args.iter().map(|(ty, _)| ty.clone()).collect();
-            Type::tuple(arg_types)
-                .expect("Function with multiple arguments must form a valid TupleType")
-        };
+        let in_ty = func_arg_tys_to_in_ty(&self.args);
 
         if self.is_rev {
             Type::RevFuncType {

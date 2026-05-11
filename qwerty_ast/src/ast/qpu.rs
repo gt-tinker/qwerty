@@ -1,7 +1,7 @@
 //! Expressions and bases for `@qpu` kernels.
 
 use super::{
-    AfterRewrite, Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp,
+    AfterRewrite, Canonicalizable, ToPythonCode, Trivializable, Type, angle_approx_total_cmp,
     angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
 use crate::dbg::DebugLoc;
@@ -143,6 +143,15 @@ gen_rebuild_structs! {
             pub dbg: Option<DebugLoc>,
         }
 
+        /// See [`Expr::Lambda`].
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct Lambda {
+            #[gen_rebuild::skip_recurse(canonicalize)]
+            pub args: Vec<(Type, String)>,
+            pub body: Box<Expr>,
+            pub dbg: Option<DebugLoc>,
+        }
+
         /// See [`Expr::QLitExpr`].
         #[derive(Debug, Clone, PartialEq)]
         pub struct QLitExpr {
@@ -265,6 +274,12 @@ gen_rebuild_structs! {
             /// ```
             Conditional(Conditional),
 
+            /// A classical lambda. Example syntax:
+            /// ```text
+            /// lambda q: -q
+            /// ```
+            Lambda(Lambda),
+
             /// A qubit literal. Example syntax:
             /// ```text
             /// '0' + '1'
@@ -306,6 +321,7 @@ impl Expr {
             | Expr::NonUniformSuperpos(NonUniformSuperpos { dbg, .. })
             | Expr::Ensemble(Ensemble { dbg, .. })
             | Expr::Conditional(Conditional { dbg, .. })
+            | Expr::Lambda(Lambda { dbg, .. })
             | Expr::QLitExpr(QLitExpr { dbg, .. })
             | Expr::BitLiteral(BitLiteral { dbg, .. }) => dbg.clone(),
 
@@ -401,6 +417,7 @@ impl Expr {
             | Expr::NonUniformSuperpos(_)
             | Expr::Ensemble(_)
             | Expr::Conditional(_)
+            | Expr::Lambda(_)
             | Expr::QLitExpr(_)
             | Expr::BitLiteral(_)
             | Expr::QubitRef(_)) => (already_canon, AfterRewrite::Done),
@@ -493,7 +510,7 @@ impl fmt::Display for Expr {
                         pairs.iter()
                         .format_with(
                             "+",
-                            |(prob, qlit), f | {
+                            |(prob, qlit), f| {
                                 f(&format_args!("{}*({})",  prob, qlit))
                             }
                         ))
@@ -504,6 +521,23 @@ impl fmt::Display for Expr {
                 cond,
                 ..
             }) => write!(f, "({!}) if ({!}) else ({!})", then_expr, cond, else_expr),
+            Expr::Lambda(Lambda { args, body, .. }) => {
+                write!(
+                    f,
+                    "lambda{}{}: {!}",
+                    if args.is_empty() { "" } else { " " },
+                    args.iter()
+                        .format_with(
+                            ", ",
+                            |(arg_ty, arg_name), f| {
+                                // This is not valid Python syntax, but it
+                                // should be, let's be honest!
+                                f(&format_args!("{}: {}", arg_name, arg_ty))
+                            }
+                        ),
+                    *body,
+                )
+            }
             Expr::QLitExpr(QLitExpr { qlit, .. }) => write!(f, "{}", qlit),
             Expr::BitLiteral(blit) => write!(f, "{}", blit), // Defer to impl in ast.rs
             Expr::QubitRef(QubitRef { index }) => write!(f, "q[{}]", index),
@@ -624,6 +658,21 @@ impl ToPythonCode for Expr {
                 cond.fmt_py(f)?;
                 write!(f, ") else (")?;
                 else_expr.fmt_py(f)?;
+                write!(f, ")")
+            }
+            Expr::Lambda(Lambda { args, body, .. }) => {
+                write!(f, "lambda")?;
+                for (i, (_arg_ty, arg_name)) in args.iter().enumerate() {
+                    if i == 0 {
+                        write!(f, " ")?;
+                    } else {
+                        // i > 0
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg_name)?;
+                }
+                write!(f, ": (")?;
+                body.fmt_py(f)?;
                 write!(f, ")")
             }
             Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.fmt_py(f),

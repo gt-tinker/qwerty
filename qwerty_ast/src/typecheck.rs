@@ -14,11 +14,11 @@ use crate::ast::{
     classical::{
         self, BinaryOp, Concat, ModMul, ReduceOp, Repeat, RotateOp, Slice, UnaryOp, UnaryOpKind,
     },
-    in_phase,
+    func_arg_tys_to_in_ty, in_phase,
     qpu::{
         self, Adjoint, Basis, BasisGenerator, BasisTranslation, Compose, Conditional, Discard,
-        EmbedClassical, EmbedKind, Ensemble, Measure, NonUniformSuperpos, Pipe, Predicated, QLit,
-        QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Vector, VectorAtomKind,
+        EmbedClassical, EmbedKind, Ensemble, Lambda, Measure, NonUniformSuperpos, Pipe, Predicated,
+        QLit, QLitExpr, QubitRef, Tensor, Tilt, UnitLiteral, Vector, VectorAtomKind,
     },
 };
 
@@ -1503,6 +1503,90 @@ impl Conditional {
     }
 }
 
+impl Lambda {
+    pub fn create_body_env(&self, env: &TypeEnv) -> Result<TypeEnv, TypeError> {
+        let Lambda { args, dbg, .. } = self;
+        let mut body_env = env.clone();
+
+        for (arg_ty, arg_name) in args {
+            if body_env
+                .vars
+                .insert(arg_name.to_string(), arg_ty.clone())
+                .is_some()
+            {
+                return Err(TypeError {
+                    // TODO: use a more specific shadowing error message?
+                    kind: TypeErrorKind::RedefinedVariable(arg_name.to_string()),
+                    dbg: dbg.clone(),
+                });
+            }
+        }
+
+        Ok(body_env)
+    }
+
+    pub fn check_body_env(&self, env: &TypeEnv, body_env: TypeEnv) -> Result<(), TypeError> {
+        let Lambda { args, dbg, .. } = self;
+
+        let ok_vars = {
+            let mut ok_vars: HashSet<_> = env.linear_vars_used.clone();
+            for (_arg_ty, arg_name) in args {
+                let already_used = ok_vars.insert(arg_name.to_string());
+                assert!(
+                    already_used,
+                    "overlap between linear vars used and arg names"
+                );
+            }
+            ok_vars
+        };
+
+        // Find linear vars used that are neither arguments nor used by
+        // previously visited statements/expressions. Any result indicates that
+        // linear variables were captured in the lambda.
+        if let Some(illegal_linear_var) = body_env.linear_vars_used.difference(&ok_vars).next() {
+            Err(TypeError {
+                kind: TypeErrorKind::LinearVariableCapturedInLambda(illegal_linear_var.to_string()),
+                dbg: dbg.clone(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn calc_type(
+        &self,
+        body_result: &(Type, ComputeKind),
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        let Lambda { args, .. } = self;
+        let (out_ty, body_compute_kind) = body_result;
+
+        let in_ty = func_arg_tys_to_in_ty(args);
+
+        let ty = if matches!(body_compute_kind, ComputeKind::Rev) && in_ty == *out_ty {
+            Type::FuncType {
+                in_ty: Box::new(in_ty),
+                out_ty: Box::new(out_ty.clone()),
+            }
+        } else {
+            Type::RevFuncType {
+                in_out_ty: Box::new(in_ty),
+            }
+        };
+
+        // Defining a function is always reversible. Calling it is the problem
+        // for reversibility
+        Ok((ty, ComputeKind::Rev))
+    }
+
+    pub fn typecheck(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let Lambda { body, .. } = self;
+        let mut body_env = self.create_body_env(env)?;
+        let body_result = body.typecheck(&mut body_env)?;
+        self.check_body_env(env, body_env)?;
+        self.calc_type(&body_result)
+    }
+}
+
 impl EmbedClassical {
     pub fn calc_type(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
         let EmbedClassical {
@@ -1617,6 +1701,7 @@ impl TypeCheckable for qpu::Expr {
             qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
             qpu::Expr::Ensemble(ensemble) => ensemble.typecheck(),
             qpu::Expr::Conditional(cond) => cond.typecheck(env),
+            qpu::Expr::Lambda(lam) => lam.typecheck(env),
             qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.typecheck(),
             qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
             qpu::Expr::QubitRef(qref) => qref.typecheck(),

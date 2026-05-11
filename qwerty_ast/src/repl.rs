@@ -71,6 +71,7 @@ impl Expr {
                     && else_expr.as_ref().is_value()
                     && cond.as_ref().is_value()
             }
+            Expr::Lambda(_) => true,
             Expr::QLitExpr(_) => false,
             Expr::BitLiteral(BitLiteral { n_bits, .. }) => *n_bits == 1,
             Expr::QubitRef(_) => true,

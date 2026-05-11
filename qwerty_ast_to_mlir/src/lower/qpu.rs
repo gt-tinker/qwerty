@@ -1789,6 +1789,10 @@ fn ast_qpu_expr_to_mlir(
             (ty, compute_kind, mlir_vals)
         }
 
+        qpu::Expr::Lambda(lam @ Lambda { args, body, dbg }) => {
+            // TODO: implement me :)
+        }
+
         qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => {
             let (ty, compute_kind) = qlit
                 .typecheck()
