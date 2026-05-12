@@ -2,7 +2,7 @@ use crate::{
     ast::{self, AfterRewrite, Trivializable, qpu::EmbedKind},
     dbg::DebugLoc,
     error::{LowerError, LowerErrorKind},
-    meta::{DimExpr, DimVar, Progress, expand::MacroEnv},
+    meta::{DimExpr, DimVar, MetaType, Progress, expand::MacroEnv},
 };
 use dashu::integer::{IBig, UBig};
 use itertools::Itertools;
@@ -620,6 +620,7 @@ impl fmt::Display for MetaBasis {
             MetaExpr => ast::qpu::Expr,
             MetaBasis => ast::qpu::Basis,
             MetaVector => ast::qpu::Vector,
+            MetaType => ast::Type,
             DimExpr => usize,
             FloatExpr => f64,
         ),
@@ -837,6 +838,22 @@ pub enum MetaExpr {
         dbg: Option<DebugLoc>,
     },
 
+    /// A classical lambda. Example syntax:
+    /// ```text
+    /// lambda q: -q
+    /// ```
+    Lambda {
+        #[gen_rebuild::skip_recurse(substitute_vector_alias, substitute_basis_alias)]
+        captures: Option<Vec<(MetaType, String)>>,
+        #[gen_rebuild::skip_recurse(substitute_vector_alias, substitute_basis_alias)]
+        args: Vec<(Option<MetaType>, String)>,
+        #[gen_rebuild::skip_recurse(substitute_vector_alias, substitute_basis_alias)]
+        ret_ty: Option<MetaType>,
+        body: Box<MetaExpr>,
+        is_rev: Option<bool>,
+        dbg: Option<DebugLoc>,
+    },
+
     /// A qubit literal. Example syntax:
     /// ```text
     /// 'p' + 'm'
@@ -882,6 +899,7 @@ impl MetaExpr {
             | MetaExpr::NonUniformSuperpos { dbg, .. }
             | MetaExpr::Ensemble { dbg, .. }
             | MetaExpr::Conditional { dbg, .. }
+            | MetaExpr::Lambda { dbg, .. }
             | MetaExpr::BitLiteral { dbg, .. } => dbg.clone(),
             MetaExpr::QLit { vec } => vec.get_dbg(),
         }
@@ -1026,6 +1044,40 @@ impl MetaExpr {
                 }))
             }
 
+            Lambda { captures, args, ret_ty, body, is_rev, dbg } => {
+                let ast_args = args
+                    .into_iter()
+                    .map(|(arg_ty, arg_name)| {
+                        arg_ty
+                            .ok_or_else(|| {
+                                LowerError {
+                                    kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                                    dbg: dbg.clone(),
+                                }
+                            })
+                            .map(|ast_arg_ty| (ast_arg_ty, arg_name))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let ((ast_captures, ast_ret_ty), ast_is_rev) = captures
+                    .zip(ret_ty)
+                    .zip(is_rev)
+                    .ok_or_else(|| {
+                        LowerError {
+                            kind: LowerErrorKind::MissingFuncTypeAnnotation,
+                            dbg: dbg.clone(),
+                        }
+                    })?;
+
+                Ok(ast::qpu::Expr::Lambda(ast::qpu::Lambda {
+                    captures: ast_captures,
+                    args: ast_args,
+                    ret_ty: ast_ret_ty,
+                    body: Box::new(body),
+                    is_rev: ast_is_rev,
+                    dbg,
+                }))
+            }
+
             QLit { vec } => {
                 let dbg = vec.get_dbg();
                 let qlit = vec.try_into_qubit_literal()
@@ -1113,6 +1165,15 @@ impl fmt::Display for MetaExpr {
             }
             MetaExpr::Conditional { then_expr, else_expr, cond, .. } => {
                 write!(f, "({!}) if ({!}) else ({!})", *then_expr, *cond, *else_expr)
+            }
+            MetaExpr::Lambda { args, body, .. } => {
+                write!(
+                    f,
+                    "lambda{}{}: ({!})",
+                    if args.is_empty() { "" } else { " " },
+                    args.iter().map(|(_arg_ty, arg_name)| arg_name).format(", "),
+                    *body
+                )
             }
             MetaExpr::QLit { vec } => write!(f, "{}", vec),
             MetaExpr::BitLiteral { val, n_bits, .. } => write!(f, "bit[{}]({})", val, n_bits),

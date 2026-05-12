@@ -1319,6 +1319,23 @@ impl ExprConstrainable for qpu::MetaExpr {
             // TODO: implement this
             qpu::MetaExpr::Conditional { .. } => Ok(tv_allocator.alloc_type_var()),
 
+            qpu::MetaExpr::Lambda {
+                captures,
+                args,
+                ret_ty,
+                body,
+                is_rev,
+                dbg,
+            } => {
+                // TODO: put a fresh type context in body_env. possibly use the method on lambda??
+                let body_ty = body.build_type_constraints(
+                    tv_allocator,
+                    body_env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+            }
+
             qpu::MetaExpr::QLit { vec } => {
                 Ok(if let Some(dim) = vec.get_dim() {
                     InferType::RegType {

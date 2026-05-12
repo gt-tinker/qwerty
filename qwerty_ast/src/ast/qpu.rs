@@ -526,10 +526,21 @@ impl fmt::Display for Expr {
                 cond,
                 ..
             }) => write!(f, "({!}) if ({!}) else ({!})", then_expr, cond, else_expr),
-            Expr::Lambda(Lambda { args, body, .. }) => {
+            Expr::Lambda(Lambda { captures, args, ret_ty, body, is_rev, .. }) => {
                 write!(
                     f,
-                    "lambda{}{}: {!}",
+                    "lambda{}{}{}{}{} -{}-> {}: ({!})",
+                    // Definitely not valid Python syntax. We are borrowing
+                    // from our qwerty MLIR dialect here
+                    if captures.is_empty() { "" } else { "[" },
+                    captures.iter()
+                        .format_with(
+                            ", ",
+                            |(cap_ty, cap_name), f| {
+                                f(&format_args!("{}: {}", cap_name, cap_ty))
+                            }
+                        ),
+                    if captures.is_empty() { "" } else { "]" },
                     if args.is_empty() { "" } else { " " },
                     args.iter()
                         .format_with(
@@ -540,6 +551,9 @@ impl fmt::Display for Expr {
                                 f(&format_args!("{}: {}", arg_name, arg_ty))
                             }
                         ),
+                    // Also not valid Python syntax but let's pretend
+                    if *is_rev { "rev" } else { "irrev" },
+                    ret_ty,
                     *body,
                 )
             }

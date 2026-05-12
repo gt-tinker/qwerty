@@ -822,6 +822,7 @@ impl MetaExpr {
             | MetaExpr::NonUniformSuperpos { .. }
             | MetaExpr::Ensemble { .. }
             | MetaExpr::Conditional { .. }
+            | MetaExpr::Lambda { .. }
             | MetaExpr::QLit { .. }
             | MetaExpr::BitLiteral { .. }) => {
                 Ok((already_expanded, children_progress, AfterRewrite::Done))

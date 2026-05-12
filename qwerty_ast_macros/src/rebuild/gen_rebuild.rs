@@ -195,8 +195,14 @@ fn recurse_and_rebuild_attr(
     move_assignments: &Vec<TokenStream2>,
 ) -> TokenStream2 {
     if tys::should_skip_attr_ty(attr_ty) {
-        quote_spanned! {span=>
-            #attr_ident
+        if let Some(progress_ty) = &config.progress {
+            quote_spanned! {span=>
+                (#attr_ident, #progress_ty::identity())
+            }
+        } else {
+            quote_spanned! {span=>
+                #attr_ident
+            }
         }
     } else if let Some(inner_ty) = tys::ty_as_box(attr_ty) {
         let recurse_boxed_elem = recurse_and_rebuild_attr(
