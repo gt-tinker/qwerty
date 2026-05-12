@@ -150,7 +150,10 @@ gen_rebuild_structs! {
             pub captures: Vec<(Type, String)>,
             #[gen_rebuild::skip_recurse(canonicalize)]
             pub args: Vec<(Type, String)>,
+            #[gen_rebuild::skip_recurse(canonicalize)]
+            pub ret_ty: Type,
             pub body: Box<Expr>,
+            pub is_rev: bool,
             pub dbg: Option<DebugLoc>,
         }
 

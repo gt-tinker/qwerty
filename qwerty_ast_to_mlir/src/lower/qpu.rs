@@ -983,41 +983,11 @@ fn ast_qpu_expr_to_mlir(
 ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
     match expr {
         qpu::Expr::Variable(var @ Variable { name, dbg }) => {
+            let loc = dbg_to_loc(dbg.clone());
             let (ty, compute_kind) = var
                 .calc_type(&mut ctx.type_env)
                 .expect("Variable to pass typechecking");
-            let bound_vals = ctx
-                .bindings
-                .get(name)
-                .expect(&format!("Variable {} to be bound", name));
-
-            let mlir_vals = match bound_vals {
-                BoundVals::Materialized(vals) => vals.clone(),
-                BoundVals::UnmaterializedFunction(func_ty) => {
-                    let loc = dbg_to_loc(dbg.clone());
-                    // We use root_block in case block is inside e.g. an scf.if.
-                    let vals = vec![
-                        ctx.root_block
-                            .insert_operation(
-                                0,
-                                qwerty::func_const(
-                                    &MLIR_CTX,
-                                    FlatSymbolRefAttribute::new(&MLIR_CTX, name),
-                                    &[],
-                                    *func_ty,
-                                    loc,
-                                ),
-                            )
-                            .result(0)
-                            .unwrap()
-                            .into(),
-                    ];
-                    ctx.bindings
-                        .insert(name.to_string(), BoundVals::Materialized(vals.clone()));
-                    vals
-                }
-            };
-
+            let mlir_vals = ctx.get_bound_vals(name, loc);
             (ty, compute_kind, mlir_vals)
         }
 
@@ -1794,11 +1764,84 @@ fn ast_qpu_expr_to_mlir(
             lam @ Lambda {
                 captures,
                 args,
+                ret_ty,
+                is_rev,
                 body,
                 dbg,
             },
         ) => {
-            // TODO: implement me :)
+            let loc = dbg_to_loc(dbg.clone());
+            let body_env = lam
+                .create_body_env(&ctx.type_env)
+                .expect("Bad captures or args?");
+
+            let (cap_vals, cap_name_lens): (Vec<_>, Vec<_>) = captures
+                .iter()
+                .map(|(_cap_ty, cap_name)| {
+                    let cap_vals = ctx.get_bound_vals(cap_name, loc);
+                    let cap_len = cap_vals.len();
+                    (cap_vals, (cap_len, cap_name))
+                })
+                .unzip();
+            let cap_vals: Vec<_> = cap_vals.into_iter().flatten().collect();
+
+            let (in_tys, arg_name_lens): (Vec<_>, Vec<_>) = args
+                .iter()
+                .map(|(arg_ty, arg_name)| {
+                    let arg_tys = ast_ty_to_mlir_tys::<qpu::Expr>(arg_ty);
+                    let arg_len = arg_tys.len();
+                    (arg_tys, (arg_len, arg_name))
+                })
+                .unzip();
+            let in_tys: Vec<_> = in_tys.into_iter().flatten().collect();
+
+            let out_tys = ast_ty_to_mlir_tys::<qpu::Expr>(ret_ty);
+
+            let mut body_result = None;
+            let mlir_vals = vec![mlir_wrap_lambda(
+                &cap_vals,
+                &in_tys,
+                &out_tys,
+                *is_rev,
+                loc,
+                block,
+                |lambda_block| {
+                    let mut body_ctx = Ctx::new(lambda_block, body_env);
+                    let mut mlir_arg_iter = lambda_block.arguments();
+
+                    for (cap_len, cap_name) in cap_name_lens {
+                        let cap_vals: Vec<_> = mlir_arg_iter
+                            .by_ref()
+                            .take(cap_len)
+                            .map(BlockArgument::into)
+                            .collect();
+                        body_ctx.bind(cap_name, cap_vals);
+                    }
+
+                    for (arg_len, arg_name) in arg_name_lens {
+                        let arg_vals: Vec<_> = mlir_arg_iter
+                            .by_ref()
+                            .take(arg_len)
+                            .map(BlockArgument::into)
+                            .collect();
+                        body_ctx.bind(arg_name, arg_vals);
+                    }
+
+                    let (body_ty, body_compute_kind, body_mlir_vals) =
+                        ast_qpu_expr_to_mlir(&**body, &mut body_ctx, lambda_block);
+                    // TODO: pass the result back in a less clumsy way than
+                    //       mutating a variable like this
+                    body_result = Some((body_ty, body_compute_kind));
+                    body_mlir_vals
+                },
+            )];
+
+            let body_result = body_result.expect("Should have been assigned by lambda");
+            let (ty, compute_kind) = lam
+                .calc_type(&body_result)
+                .expect("Lambda failed typechecking");
+
+            (ty, compute_kind, mlir_vals)
         }
 
         qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => {

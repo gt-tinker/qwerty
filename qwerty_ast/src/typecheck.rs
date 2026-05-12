@@ -248,14 +248,12 @@ impl<E: TypeCheckable> FunctionDef<E> {
     /// definition. (Specifically, if the statement is irreversible yet this
     /// function is reversible)
     pub fn check_stmt_compute_kind(&self, compute_kind: ComputeKind) -> Result<(), TypeError> {
-        let FunctionDef {
-            name, is_rev, dbg, ..
-        } = self;
+        let FunctionDef { is_rev, dbg, .. } = self;
 
         if *is_rev && matches!(compute_kind, ComputeKind::Irrev) {
             return Err(TypeError {
-                // TODO: say which
-                kind: TypeErrorKind::NonReversibleOperationInReversibleFunction(name.to_string()),
+                // TODO: say which operation was irreversible
+                kind: TypeErrorKind::IrreversibleOperationInReversibleFunction,
                 dbg: dbg.clone(),
             });
         } else {
@@ -1505,7 +1503,12 @@ impl Conditional {
 
 impl Lambda {
     pub fn create_body_env(&self, env: &TypeEnv) -> Result<TypeEnv, TypeError> {
-        let Lambda { captures, args, dbg, .. } = self;
+        let Lambda {
+            captures,
+            args,
+            dbg,
+            ..
+        } = self;
 
         // Check if all captures are in the outer type environment
         for (cap_ty, cap_name) in captures {
@@ -1555,25 +1558,55 @@ impl Lambda {
         &self,
         body_result: &(Type, ComputeKind),
     ) -> Result<(Type, ComputeKind), TypeError> {
-        let Lambda { args, .. } = self;
-        let (out_ty, body_compute_kind) = body_result;
+        let Lambda {
+            args,
+            ret_ty,
+            is_rev,
+            dbg,
+            ..
+        } = self;
+        let (body_ty, body_compute_kind) = body_result;
 
-        let in_ty = func_arg_tys_to_in_ty(args);
-
-        let ty = if matches!(body_compute_kind, ComputeKind::Rev) && in_ty == *out_ty {
-            Type::FuncType {
-                in_ty: Box::new(in_ty),
-                out_ty: Box::new(out_ty.clone()),
-            }
+        if *body_ty != *ret_ty {
+            Err(TypeError {
+                kind: TypeErrorKind::MismatchedTypes {
+                    expected: ret_ty.to_string(),
+                    found: body_ty.to_string(),
+                },
+                dbg: dbg.clone(),
+            })
         } else {
-            Type::RevFuncType {
-                in_out_ty: Box::new(in_ty),
-            }
-        };
+            let in_ty = func_arg_tys_to_in_ty(args);
+            let ty = if *is_rev {
+                if matches!(body_compute_kind, ComputeKind::Irrev) {
+                    Err(TypeError {
+                        // TODO: say which operation was irreversible
+                        kind: TypeErrorKind::IrreversibleOperationInReversibleFunction,
+                        dbg: dbg.clone(),
+                    })
+                } else if in_ty != *ret_ty {
+                    Err(TypeError {
+                        // TODO: show a better error message explaining why
+                        //       this type is wrong
+                        kind: TypeErrorKind::InvalidType(ret_ty.to_string()),
+                        dbg: dbg.clone(),
+                    })
+                } else {
+                    Ok(Type::RevFuncType {
+                        in_out_ty: Box::new(in_ty),
+                    })
+                }
+            } else {
+                Ok(Type::FuncType {
+                    in_ty: Box::new(in_ty),
+                    out_ty: Box::new(ret_ty.clone()),
+                })
+            }?;
 
-        // Defining a function is always reversible. Calling it is the problem
-        // for reversibility
-        Ok((ty, ComputeKind::Rev))
+            // Defining a function is always reversible. Calling it is the problem
+            // for reversibility
+            Ok((ty, ComputeKind::Rev))
+        }
     }
 
     pub fn typecheck(&self, env: &TypeEnv) -> Result<(Type, ComputeKind), TypeError> {

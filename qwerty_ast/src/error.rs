@@ -37,7 +37,7 @@ pub enum TypeErrorKind {
     UnsupportedTilt(String),
     NotOrthogonal { left: String, right: String },
     InvalidQubitOperation(String),
-    NonReversibleOperationInReversibleFunction(String),
+    IrreversibleOperationInReversibleFunction,
     ProbabilitiesDoNotSumToOne,
 }
 
@@ -150,10 +150,9 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::InvalidQubitOperation(op) => {
                 write!(f, "Invalid operation '{op}' performed on a qubit.")
             }
-            TypeErrorKind::NonReversibleOperationInReversibleFunction(func_name) => write!(
+            TypeErrorKind::IrreversibleOperationInReversibleFunction => write!(
                 f,
-                "Function '{}' is declared @reversible but contains non-reversible operations.",
-                func_name
+                "Function declared reversible contains irreversible operations.",
             ),
             TypeErrorKind::ProbabilitiesDoNotSumToOne => {
                 write!(f, "Probabilities of superposition do not add up to 100%.")

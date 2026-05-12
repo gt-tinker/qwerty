@@ -1,7 +1,7 @@
 use melior::{
     Context,
     dialect::{DialectHandle, DialectRegistry, qwerty},
-    ir::{Block, Value},
+    ir::{Block, BlockLike, Location, Value, attribute::FlatSymbolRefAttribute},
     pass::transform,
     target::llvm_ir::LLVMContext,
     utility::{register_inliner_extensions, register_llvm_ir_translations},
@@ -70,5 +70,53 @@ impl<'a> Ctx<'a> {
             type_env,
             bindings: HashMap::new(),
         }
+    }
+
+    pub fn get_bound_vals(
+        &mut self,
+        name: &str,
+        loc: Location<'static>,
+    ) -> Vec<Value<'static, 'static>> {
+        let Self {
+            root_block,
+            bindings,
+            ..
+        } = self;
+
+        let bound_vals = bindings
+            .get(name)
+            .expect(&format!("Variable {} to be bound", name));
+
+        match bound_vals {
+            BoundVals::Materialized(vals) => vals.clone(),
+            BoundVals::UnmaterializedFunction(func_ty) => {
+                // We use root_block in case this is being called inside e.g. an scf.if.
+                let vals = vec![
+                    root_block
+                        .insert_operation(
+                            0,
+                            qwerty::func_const(
+                                &MLIR_CTX,
+                                FlatSymbolRefAttribute::new(&MLIR_CTX, name),
+                                &[],
+                                *func_ty,
+                                loc,
+                            ),
+                        )
+                        .result(0)
+                        .unwrap()
+                        .into(),
+                ];
+                bindings.insert(name.to_string(), BoundVals::Materialized(vals.clone()));
+                vals
+            }
+        }
+    }
+
+    pub fn bind(&mut self, name: &str, vals: Vec<Value<'static, 'static>>) {
+        let old_binding = self
+            .bindings
+            .insert(name.to_string(), BoundVals::Materialized(vals));
+        assert!(old_binding.is_none(), "Binding {} already exists", name);
     }
 }

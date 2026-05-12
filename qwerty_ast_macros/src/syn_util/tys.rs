@@ -188,7 +188,7 @@ pub fn should_skip_attr_ty(ty: &Type) -> bool {
         Some(ty_ident)
         if matches!(
             &ty_ident.to_string()[..],
-            "String" | "DebugLoc" | "UBig" | "f64" | "char" | "usize"
+            "String" | "DebugLoc" | "UBig" | "f64" | "char" | "usize" | "bool"
         )
     ) || matches!(
         ty_as_of_ty(ty),
