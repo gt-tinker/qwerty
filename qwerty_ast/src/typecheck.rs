@@ -1627,35 +1627,59 @@ impl TypeCheckable for classical::Expr {
 				Ok(result)
             },
             classical::Expr::UnaryOp(unary_op) => {
-                let val_result = visit!(*unary_op.val)?;
-                unary_op.calc_type(&val_result)
+                let (ty, compute_kind, env) = visit!(*unary_op.val)?;
+                let val_result = (ty, compute_kind);
+                let (ty, compute_kind) = unary_op.calc_type(&val_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
             classical::Expr::BinaryOp(binary_op) => {
-                let left_result = visit!(*binary_op.left)?;
-                let right_result = visit!(*binary_op.right)?;
-                binary_op.calc_type(&left_result, &right_result)
+                let (left_ty, left_compute_kind, env) = visit!(*binary_op.left)?;
+                let left_result = (left_ty, left_compute_kind);
+                let (right_ty, right_compute_kind, env) = visit!(*binary_op.right)?;
+                let right_result = (right_ty, right_compute_kind);
+                let (ty, compute_kind) = binary_op.calc_type(&left_result, &right_result)?;
+				let result = (ty, compute_kind, env);
+				Ok(result)
             },
             classical::Expr::ReduceOp(reduce_op) => {
-                let val_result = visit!(*reduce_op.val)?;
-                reduce_op.calc_type(&val_result)
+                let (ty, compute_kind, env) = visit!(*reduce_op.val)?;
+                let val_result = (ty, compute_kind);
+                let (ty, compute_kind) = reduce_op.calc_type(&val_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
             classical::Expr::RotateOp(rotate_op) => {
-                let val_result = visit!(*rotate_op.val)?;
-                let amt_result = visit!(*rotate_op.amt)?;
-                rotate_op.calc_type(&val_result, &amt_result)
+                let (val_ty, val_compute_kind, env) = visit!(*rotate_op.val)?;
+                let val_result = (val_ty, val_compute_kind);
+                let (amt_ty, amt_compute_kind, env) = visit!(*rotate_op.amt)?;
+                let amt_result = (amt_ty, amt_compute_kind);
+                let (ty, compute_kind) = rotate_op.calc_type(&val_result, &amt_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
             classical::Expr::Concat(concat) => {
-                let left_result = visit!(*concat.left)?;
-                let right_result = visit!(*concat.right)?;
-                concat.calc_type(&left_result, &right_result)
+                let (left_ty, left_compute_kind, env) = visit!(*concat.left)?;
+                let left_result = (left_ty, left_compute_kind);
+                let (right_ty, right_compute_kind, env) = visit!(*concat.right)?;
+                let right_result = (right_ty, right_compute_kind);
+                let (ty, compute_kind) = concat.calc_type(&left_result, &right_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
             classical::Expr::Repeat(repeat) => {
-                let val_result = visit!(*repeat.val)?;
-                repeat.calc_type(&val_result)
+                let (val_ty, val_compute_kind, env) = visit!(*repeat.val)?;
+                let val_result = (val_ty, val_compute_kind);
+                let (ty, compute_kind) = repeat.calc_type(&val_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
             classical::Expr::ModMul(mod_mul) => {
-                let y_result = visit!(*mod_mul.y)?;
-                mod_mul.calc_type(&y_result)
+                let (y_ty, y_compute_kind, env) = visit!(*mod_mul.y)?;
+                let y_result = (y_ty, y_compute_kind);
+                let (ty, compute_kind) = mod_mul.calc_type(&y_result)?;
+                let result = (ty, compute_kind, env);
+                Ok(result)
             },
         }
     }
