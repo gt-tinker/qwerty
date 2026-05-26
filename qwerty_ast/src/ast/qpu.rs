@@ -400,7 +400,6 @@ impl Expr {
             | Expr::Compose(_)
             | Expr::Measure(_)
             | Expr::Discard(_)
-            | Expr::Tilt(_)
             | Expr::BasisTranslation(_)
             | Expr::Predicated(_)
             | Expr::NonUniformSuperpos(_)
@@ -469,15 +468,11 @@ impl fmt::Display for Expr {
             Expr::Tensor(Tensor { vals, ..}) => {
                 write!(f, "({!:,})", vals.iter(), '*')
             }
-            Expr::Tilt(Tilt { val, angle_deg, .. }) => {
-                write!(f, "({}) @ {}", *val, *angle_deg)
+            Expr::Tilt(Tilt { val, angle_deg, .. }) if angles_are_approx_equal(*angle_deg, 180.0) => {
+                write!(f, "-({})", *val)
             }
             Expr::Tilt(Tilt { val, angle_deg, .. }) => {
-                if angles_are_approx_equal(*angle_deg, 180.0) {
-                    write!(f, "-({})", val)
-                } else {
-                    write!(f, "({}) @ {}", val, angle_deg)
-                }
+                write!(f, "({}) @ {}", *val, *angle_deg)
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "({}) >> ({})", bin, bout)
