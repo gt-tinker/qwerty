@@ -677,14 +677,6 @@ impl ToPythonCode for Program {
     }
 }
 
-struct ToPythonCodeHack<'a>(&'a Program);
-
-impl<'a> fmt::Display for ToPythonCodeHack<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt_py(f)
-    }
-}
-
 /// Determines what the generated rebuild code should do after the rewrite
 /// method is called. Used with the `allow_retry_rewrite` option of
 /// the `gen_rebuild` macro.
