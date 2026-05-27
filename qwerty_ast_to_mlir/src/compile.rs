@@ -19,6 +19,7 @@ use std::{env, fs, path::PathBuf};
 const QWERTY_DEBUG_DIR: &str = "qwerty-debug";
 const MLIR_DUMP_SUBDIR: &str = "mlir";
 const INIT_MLIR_FILENAME: &str = "initial.mlir";
+const META_AST_FILENAME: &str = "meta_qwerty_ast.txt";
 const QWERTY_AST_FILENAME: &str = "qwerty_ast.py";
 const LLVM_IR_FILENAME: &str = "module.ll";
 
@@ -173,12 +174,18 @@ pub fn compile_meta_ast(
     func_name: &str,
     cfg: &CompileConfig,
 ) -> Result<Module<'static>, CompileError> {
+    let dump_dir = create_debug_dump_dir();
+    if cfg.dump {
+        let dump_path = dump_dir.join(META_AST_FILENAME);
+        eprintln!("Dumping MetaQwerty AST to file `{}`", dump_path.display());
+        fs::write(&dump_path, format!("{:#?}", prog)).unwrap();
+    }
+
     let plain_ast = prog.lower(cfg.debug_lowering)?;
     plain_ast.typecheck()?;
     let canon_ast = plain_ast.canonicalize();
 
     if cfg.dump {
-        let dump_dir = create_debug_dump_dir();
         let dump_path = dump_dir.join(QWERTY_AST_FILENAME);
         eprintln!("Dumping Qwerty AST to file `{}`", dump_path.display());
 
