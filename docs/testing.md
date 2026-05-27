@@ -29,6 +29,9 @@ There are four ways we test the Qwerty compiler:
       boilerplate pass like `TestFuncSpecAnalysisPass`, which prints their
       results to stdout so that you and [`FileCheck`][1] can see them.
 
+TESTING INDUVIDUAL UNIT TESTS:
+run `python -m unittest qwerty.tests -k <test name>` e.g. `python -m unittest qwerty.tests -k test_poster` in the same directory as the unit tests Python module. 
+
 You can run all the tests with `dev/run-tests.sh`. Make sure you that have LLVM
 binaries in your path (for [`FileCheck`][1]) and that you activated the virtual
 environment (typically `. venv/bin/activate`).
