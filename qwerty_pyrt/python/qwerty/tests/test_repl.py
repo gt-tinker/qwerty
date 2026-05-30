@@ -93,7 +93,25 @@ class AnyOf:
         return not (self == other)
 
 class CrnchSummit2026PosterReplTests(unittest.TestCase):
-    def test_poster(self):
+    def _run_repl_test(self, inputs_and_outputs):
+        """Helper method to run a sequence through the REPL and assert outcomes."""
+        inputs_and_outputs.append((EOFError(), call()))
+
+        prompt_func_results, prints = zip(*inputs_and_outputs)
+        prompt_func_calls = [call(PROMPT)] * len(prompt_func_results)
+        print_func_calls = [p for p in prints if p is not None]
+
+        prompt_func = Mock(side_effect=prompt_func_results)
+        print_func = Mock()
+        
+        exit_code = repl(prompt_func, print_func)
+        
+        prompt_func.assert_has_calls(prompt_func_calls)
+        print_func.assert_has_calls(print_func_calls)
+        self.assertEqual(exit_code, 0)
+
+    def test_poster_1(self):
+        # i think these are deterministic measurements
         inputs_and_outputs = [
             ("measure('0')", call('bit(0)')),
             ("measure('0')", call('bit(0)')),
@@ -103,10 +121,6 @@ class CrnchSummit2026PosterReplTests(unittest.TestCase):
             ("measure('1')", call('bit(1)')),
             ("measure('1')", call('bit(1)')),
             ("measure('1')", call('bit(1)')),
-            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
-            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
-            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
-            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
             ("measure(-'0')", call('bit(0)')),
             ("measure(-'0')", call('bit(0)')),
             ("measure(-'0')", call('bit(0)')),
@@ -115,10 +129,26 @@ class CrnchSummit2026PosterReplTests(unittest.TestCase):
             ("measure(-'1')", call('bit(1)')),
             ("measure(-'1')", call('bit(1)')),
             ("measure(-'1')", call('bit(1)')),
+        ]
+        self._run_repl_test(inputs_and_outputs)
+
+    def test_poster_2(self):
+        #guessing these are probabilitic measurements
+        inputs_and_outputs = [
+            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
+            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
+            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
+            ("measure('0'+'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
             ("measure('0'-'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
             ("measure('0'-'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
             ("measure('0'-'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
             ("measure('0'-'1')", AnyOf(call('bit(0)'), call('bit(1)'))),
+        ]
+        self._run_repl_test(inputs_and_outputs)
+
+    def test_poster_3(self):
+        #custom functions (i.e. flip and flop)
+        inputs_and_outputs = [
             ("flip = {'0'>>'1', '1'>>'0'}", None),
             ("flip('0')", call("'1'")),
             ("flip('1')", call("'0'")),
@@ -126,22 +156,43 @@ class CrnchSummit2026PosterReplTests(unittest.TestCase):
             ("flop = {'0'+'1'>>'0', '0'-'1'>>'1'}", None),
             ("flop('0'+'1')", call("'0'")),
             ("flop('0'-'1')", call("'1'")),
+            ("'0' | flip", call("'1'")),
+            ("'0'-'1' | flop", call("'1'")),
+        ]
+        self._run_repl_test(inputs_and_outputs)
+
+    def test_poster_4(self):
+        #classical functions
+        inputs_and_outputs = [
             ("f: cfunc = lambda x: x", None),
             ("f.sign('0')", call("'0'")),
             ("f.sign('1')", call("-'1'")),
             ("f.sign('0'+'1')", call("('0') + (-'1')")),
-            ("'0' | flip", call("'1'")),
+        ]
+        self._run_repl_test(inputs_and_outputs)
+
+    def test_poster_5(self):
+        # quantum functions #1?
+        inputs_and_outputs = [
+            ("flop = {'0'+'1'>>'0', '0'-'1'>>'1'}", None),
+            ("f: cfunc = lambda x: x", None),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign", call("('0') + (-'1')")),
-            ("'0'-'1' | flop", call("'1'")),
             ("f: cfunc = lambda x: ~x", None),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(1)")),
+        ]
+        self._run_repl_test(inputs_and_outputs)
+
+    def test_poster_6(self):
+        # quantum functions #2?
+        inputs_and_outputs = [
+            ("flop = {'0'+'1'>>'0', '0'-'1'>>'1'}", None),
             ("f: cfunc = lambda x: bit(0)", None),
             ("'0'+'1' | f.sign | flop | measure", call("bit(0)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(0)")),
@@ -152,15 +203,5 @@ class CrnchSummit2026PosterReplTests(unittest.TestCase):
             ("'0'+'1' | f.sign | flop | measure", call("bit(0)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(0)")),
             ("'0'+'1' | f.sign | flop | measure", call("bit(0)")),
-            (EOFError(), call()),
         ]
-        prompt_func_results, prints = zip(*inputs_and_outputs)
-        prompt_func_calls = [call(PROMPT)]*len(prompt_func_results)
-        print_func_calls = [p for p in prints if p is not None]
-
-        prompt_func = Mock(side_effect=prompt_func_results)
-        print_func = Mock()
-        exit_code = repl(prompt_func, print_func)
-        prompt_func.assert_has_calls(prompt_func_calls)
-        print_func.assert_has_calls(print_func_calls)
-        self.assertEqual(exit_code, 0)
+        self._run_repl_test(inputs_and_outputs)

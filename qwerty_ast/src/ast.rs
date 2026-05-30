@@ -709,7 +709,7 @@ pub fn angles_are_approx_equal(angle_deg1: f64, angle_deg2: f64) -> bool {
 
 /// Returns true if an angle is approximately 0 degrees.
 pub fn angle_is_approx_zero(angle_deg: f64) -> bool {
-    angles_are_approx_equal(angle_deg, 0.0)
+    angles_are_approx_equal(angle_deg, 0.0) || angles_are_approx_equal(angle_deg, 360.0)
 }
 
 /// Returns true iff the two phases are the same angle (up to a multiple of 360)
