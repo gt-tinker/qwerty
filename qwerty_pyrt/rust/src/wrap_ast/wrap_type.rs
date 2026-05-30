@@ -1,4 +1,4 @@
-use crate::wrap_ast::wrap_dim_expr::DimExpr;
+use crate::wrap_ast::{wrap_classical::PlainClassicalFunctionDef, wrap_dim_expr::DimExpr};
 use pyo3::{prelude::*, types::PyType};
 use qwerty_ast::{ast, dbg, meta, typecheck};
 use std::fmt;
@@ -109,6 +109,14 @@ impl TypeEnv {
         TypeEnv {
             env: typecheck::TypeEnv::new(),
         }
+    }
+
+    pub fn insert_classical_func(&mut self, classical_func: &PlainClassicalFunctionDef) {
+        let PlainClassicalFunctionDef {
+            function_def: func_def @ ast::FunctionDef { name, is_rev, .. },
+        } = classical_func;
+        self.env
+            .insert_classical_func(&name, *is_rev, func_def.in_dim(), func_def.out_dim());
     }
 }
 

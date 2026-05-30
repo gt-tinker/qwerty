@@ -1,0 +1,188 @@
+FFFFFF
+======================================================================
+FAIL: test_poster_1 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 133, in test_poster_1
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call()]
+  Actual: [call("Internal Error: Evaluated to non-value ((q[0])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value (-((q[1]))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call()]
+
+======================================================================
+FAIL: test_poster_2 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 147, in test_poster_2
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [<qwerty.tests.test_repl.AnyOf object at 0x74858244c470>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9c9b0>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9c9e0>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9ce90>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9cf20>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9cfb0>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9d040>,
+ <qwerty.tests.test_repl.AnyOf object at 0x74857ba9d0d0>,
+ call()]
+  Actual: [call("Internal Error: Evaluated to non-value ((q[0])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call()]
+
+======================================================================
+FAIL: test_poster_3 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_3)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 162, in test_poster_3
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call("'1'"),
+ call("'0'"),
+ call("(-'0') + ('1')"),
+ call("'0'"),
+ call("'1'"),
+ call("'1'"),
+ call("'1'"),
+ call()]
+  Actual: [call("Internal Error: Evaluated to non-value ((q[0])) | (({'0', '1'}) >> ({'1', '0'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}) >> ({'1', '0'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}) >> ({'1', '0'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({'0', '1'}) >> ({'1', '0'})). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((q[1])) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'})). This is an interpreter bug."),
+ call()]
+
+======================================================================
+FAIL: test_poster_4 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_4)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 172, in test_poster_4
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call("'0'"), call("-'1'"), call("('0') + (-'1')"), call()]
+  Actual: [call('Internal Error: Evaluated to non-value ((q[0])) | (f.sign). This is an interpreter bug.'),
+ call('Internal Error: Evaluated to non-value ((q[1])) | (f.sign). This is an interpreter bug.'),
+ call('Internal Error: Evaluated to non-value ((q[1])) | (f.sign). This is an interpreter bug.'),
+ call()]
+
+======================================================================
+FAIL: test_poster_5 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_5)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 190, in test_poster_5
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call("('0') + (-'1')"),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call()]
+  Actual: [call("Internal Error: Evaluated to non-value ((((q[0])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call('Internal Error: Evaluated to non-value ((q[1])) | (f.sign). This is an interpreter bug.'),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call()]
+
+======================================================================
+FAIL: test_poster_6 (qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_6)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 207, in test_poster_6
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call()]
+  Actual: [call("Internal Error: Evaluated to non-value ((((q[0])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call("Internal Error: Evaluated to non-value ((((q[1])) | (f.sign)) | (({('0') + ('1'), ('0') + (-'1')}) >> ({'0', '1'}))) | (({'0', '1'}).measure). This is an interpreter bug."),
+ call()]
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.089s
+
+FAILED (failures=6)

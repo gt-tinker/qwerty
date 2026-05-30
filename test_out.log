@@ -1,0 +1,414 @@
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+FDEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+.DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=1, num_bits=1, our_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=3, num_bits=1, our_bits=1
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(1, Complex { re: 1.0, im: 0.0 }), (1, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+EDEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+EDEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 0.7071067811865476, im: 0.0 }), (0, Complex { re: 0.7071067811865476, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+EDEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=1, num_bits=1, stefan_bits=1
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+FDEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=0, our_bits=0
+DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: -1.0, im: -0.0 }), (0, Complex { re: 0.0, im: -0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+EDEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+E.DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+E.DEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+EDEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+EDEBUG: our_bits_to_stefan_bits: our_bits=0, num_bits=1, stefan_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=0, num_bits=1, our_bits=0
+DEBUG: stefan_bits_to_our_bits: stefan_bits=2, num_bits=1, our_bits=0
+DEBUG: try_extract_1q_state: qubit_index=0, statevec=[(0, Complex { re: 1.0, im: 0.0 }), (0, Complex { re: 0.0, im: 0.0 })]
+
+thread '<unnamed>' (40833) panicked at /home/ragha/OSPO/QWERTY/qwerty/qwerty_ast/src/repl.rs:90:22:
+internal error: entered unreachable code: Not a one-qubit unit vector
+E
+======================================================================
+ERROR: test_poster_3 (qwerty_pyrt.python.qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_3)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 162, in test_poster_3
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 107, in _run_repl_test
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_poster_4 (qwerty_pyrt.python.qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_4)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 172, in test_poster_4
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 107, in _run_repl_test
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_poster_5 (qwerty_pyrt.python.qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_5)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 190, in test_poster_5
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 107, in _run_repl_test
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_cfunc_def (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_cfunc_def)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 76, in test_cfunc_def
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_input_empty_then_zero_qubit (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_input_empty_then_zero_qubit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 44, in test_input_empty_then_zero_qubit
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_input_python_syntax_error_recovery (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_input_python_syntax_error_recovery)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 52, in test_input_python_syntax_error_recovery
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_input_zero_qubit (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_input_zero_qubit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 20, in test_input_zero_qubit
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_input_zero_qubit_sigint (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_input_zero_qubit_sigint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 28, in test_input_zero_qubit_sigint
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+ERROR: test_input_zero_qubit_whitespace (qwerty_pyrt.python.qwerty.tests.test_repl.ReplTests.test_input_zero_qubit_whitespace)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 36, in test_input_zero_qubit_whitespace
+    exit_code = repl(prompt_func, print_func)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 139, in repl
+    result = ctx.run_cmd_str_catch(cmd)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 108, in run_cmd_str_catch
+    return self.run_cmd_str(cmd)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/repl.py", line 98, in run_cmd_str
+    rendered = result_expr_ast.render(sparse_state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyo3_runtime.PanicException: internal error: entered unreachable code: Not a one-qubit unit vector
+
+======================================================================
+FAIL: test_poster_1 (qwerty_pyrt.python.qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 133, in test_poster_1
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call()]
+  Actual: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call()]
+
+======================================================================
+FAIL: test_poster_6 (qwerty_pyrt.python.qwerty.tests.test_repl.CrnchSummit2026PosterReplTests.test_poster_6)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 207, in test_poster_6
+    self._run_repl_test(inputs_and_outputs)
+  File "/home/ragha/OSPO/QWERTY/qwerty/qwerty_pyrt/python/qwerty/tests/test_repl.py", line 110, in _run_repl_test
+    print_func.assert_has_calls(print_func_calls)
+  File "/usr/lib/python3.12/unittest/mock.py", line 981, in assert_has_calls
+    raise AssertionError(
+AssertionError: Calls not found.
+Expected: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call()]
+  Actual: [call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call('bit(1)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(0)'),
+ call('bit(1)'),
+ call()]
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.145s
+
+FAILED (failures=2, errors=9)

@@ -4,10 +4,10 @@ mod wrap_repl;
 use crate::wrap_ast::{
     Backend, Basis, BasisGenerator, BasisMacroPattern, BinaryOpKind, ClassicalExpr,
     ClassicalFunctionDef, ClassicalStmt, DebugLoc, DimExpr, DimVar, EmbedKind, ExprMacroPattern,
-    FloatExpr, MacroEnv, PlainQpuExpr, PlainQpuStmt, Program, QpuExpr, QpuFunctionDef, QpuPrelude,
-    QpuStmt, RecDefParam, RegKind, Type, TypeEnv, UnaryOpKind, Vector,
+    FloatExpr, MacroEnv, PlainClassicalFunctionDef, PlainQpuExpr, PlainQpuStmt, Program, QpuExpr,
+    QpuFunctionDef, QpuPrelude, QpuStmt, RecDefParam, RegKind, Type, TypeEnv, UnaryOpKind, Vector,
 };
-use crate::wrap_repl::ReplState;
+use crate::wrap_repl::{ReplState, SparseReplState};
 use pyo3::prelude::*;
 
 /// The Python extension module allowing the Python portion of the Qwerty
@@ -45,8 +45,10 @@ fn qwerty_pyrt(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<RecDefParam>()?;
     module.add_class::<QpuPrelude>()?;
     module.add_class::<ReplState>()?;
+    module.add_class::<SparseReplState>()?;
     module.add_class::<PlainQpuExpr>()?;
     module.add_class::<PlainQpuStmt>()?;
+    module.add_class::<PlainClassicalFunctionDef>()?;
 
     Ok(())
 }

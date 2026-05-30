@@ -405,19 +405,29 @@ class BaseVisitor:
     def is_bit_literal(self, call: ast.Call) -> bool:
         return (isinstance(subscript := call.func, ast.Subscript)
                 and isinstance(name := subscript.value, ast.Name)
-                and name.id == 'bit')
+                and name.id == 'bit') \
+               or (isinstance(name := call.func, ast.Name)
+                   and name.id == 'bit')
 
     def extract_bit_literal(self, call: ast.Call) -> QpuExpr | ClassicalExpr:
-        subscript = call.func
-        name = subscript.value
         dbg = self.get_debug_loc(call)
 
-        if not isinstance(dim_const := subscript.slice, ast.Constant) \
-                or not isinstance(dim := dim_const.value, int):
-            dim_dbg = self.get_debug_loc(dim_const)
-            raise QwertySyntaxError('Dimension N to a bit literal '
-                                    '`bit[N](0b1101)` must be an integer '
-                                    'constant.', dim_dbg)
+        if isinstance(subscript := call.func, ast.Subscript):
+            name = subscript.value
+            if not isinstance(dim_const := subscript.slice, ast.Constant) \
+                    or not isinstance(dim := dim_const.value, int):
+                dim_dbg = self.get_debug_loc(dim_const)
+                raise QwertySyntaxError('Dimension N to a bit literal '
+                                        '`bit[N](0b1101)` must be an integer '
+                                        'constant.', dim_dbg)
+        else:
+            name = call.func
+            dim = 1
+
+        if not isinstance(name, ast.Name) or name.id != 'bit':
+            raise QwertySyntaxError('Expected the keyword "bit" in bit '
+                                    'literal `bit[N](...)`', bits_dbg)
+
         if len(call.args) != 1 \
                 or not isinstance(bits_const := call.args[0], ast.Constant) \
                 or not isinstance(bits := bits_const.value, int):
@@ -711,25 +721,103 @@ class BaseVisitor:
         else:
             raise QwertySyntaxError('Unknown assignment syntax', dbg)
 
-    #def visit_AnnAssign(self, assign: ast.AnnAssign):
-    #    """
-    #    Throw an error for the Python type-annotated assignment statement,
-    #    since it is unnecessary::
+    def try_extract_cfunc_dims(self, root: ast.AST) \
+            -> Optional[Tuple[DimExpr, DimExpr]]:
+        """
+        Tries to parse a type annotation as ``cfunc[3,2]`` and return the ``3``
+        and ``2``. Writing just ``cfunc`` is interpreted as ``cfunc[1,1]``, and
+        ``cfunc[4]`` is interpreted as ``cfunc[4,4]``. If the ``cfunc`` keyword
+        is missing (e.g., if the type is `qubit` instead), returns ``None``.
+        """
 
-    #        q: qubit = '0'
-    #    """
-    #    dbg = self.get_debug_loc(assign)
-    #    raise QwertySyntaxError('Typed assignments, i.e.\n'
-    #                            '\tsimple -- q: qubit = v\n'
-    #                            '\tdestructuring -- (a, b): (qubit, qubit[2]) '
-    #                            '= v\n'
-    #                            '\tsubscript typing -- a[1]: bit = x\n'
-    #                            '\tor even just wrapping the name in parens '
-    #                            '-- (a): bit = y\n'
-    #                            'are currently unsupported. Please give '
-    #                            'variables simple names without annotations '
-    #                            'for now.',
-    #                            dbg)
+        dbg = self.get_debug_loc(root)
+
+        if isinstance(name := root, ast.Name) and name.id == 'cfunc':
+            one = DimExpr.new_const(1, dbg)
+            return (one, one)
+        elif isinstance(sub := root, ast.Subscript) \
+                and isinstance(name := sub.value, ast.Name) \
+                and name.id == 'cfunc':
+            if isinstance(dim_param := sub.slice, ast.Tuple) \
+                    and len(dims := dim_param.elts) == 2:
+                in_dim, out_dim = dims
+                in_dim_expr = self.extract_dimvar_expr(in_dim)
+                out_dim_expr = self.extract_dimvar_expr(out_dim)
+                return (in_dim_expr, out_dim_expr)
+            else:
+                in_out_dim = self.extract_dimvar_expr(dim_param)
+                return (in_out_dim, in_out_dim)
+        else:
+            return None
+
+    def extract_classical_expr(self, root: ast.AST) -> ClassicalExpr:
+        visitor = ClassicalVisitor(name_generator=self.name_generator,
+                                   capturer=self.capturer,
+                                   filename=self.filename,
+                                   line_offset=self.line_offset,
+                                   col_offset=self.col_offset)
+        expr = visitor.visit(root)
+        if not isinstance(expr, ClassicalExpr):
+            dbg = self.get_debug_loc(root)
+            raise QwertySyntaxError('Expected @classical expression', dbg)
+        return expr
+
+    def visit_AnnAssign(self, assign: ast.AnnAssign):
+        """
+        Process an inline classical function definition::
+
+            f: cfunc[3,1] = lambda x: (x & secret_string).xor_reduce()
+
+        Other uses of this Python AST node will throw an error, since type
+        annotations are not needed in Qwerty assignments.
+        """
+        dbg = self.get_debug_loc(assign)
+
+        if assign.simple == 1 \
+                and isinstance(target := assign.target, ast.Name) \
+                and (cfunc_dims := self.try_extract_cfunc_dims(
+                    assign.annotation)) is not None:
+            name = target.id
+            in_dim, out_dim = cfunc_dims
+
+            if not isinstance(lam := assign.value, ast.Lambda):
+                raise QwertySyntaxError('Right-hand side of inline classical '
+                                        'function definition must be lambda '
+                                        'expression.', dbg)
+
+            lam_args = lam.args
+            if lam_args.posonlyargs \
+                    or lam_args.vararg \
+                    or lam_args.kwonlyargs \
+                    or lam_args.kw_defaults \
+                    or lam_args.kwarg \
+                    or lam_args.defaults:
+                raise QwertySyntaxError('Inline classical function '
+                                        'definitions may not have keyword '
+                                        'arguments, varargs, or default '
+                                        'arguments.', dbg)
+
+            if len(args := lam_args.args) != 1:
+                raise QwertySyntaxError('Inline classical function definition '
+                                        'must take one argument. Graduate '
+                                        'school has been hard on me.', dbg)
+            arg, = args
+
+            if arg.annotation is not None \
+                    or arg.type_comment is not None:
+                # This isn't even possible in current Python syntax, but let's
+                # be paranoid anyway.
+                raise QwertySyntaxError('Inline classical function definition '
+                                        'arguments must have no type '
+                                        'annotations', dbg)
+            arg_name = arg.arg
+            body = self.extract_classical_expr(lam.body)
+
+            return QpuStmt.new_classical_lambda_def(name, arg_name, in_dim,
+                                                    out_dim, body, dbg)
+        else:
+            raise QwertySyntaxError('Please do not include type annotations in '
+                                    'assignment statements.', dbg)
 
     #def visit_AugAssign(self, assign: ast.AugAssign):
     #    """
@@ -821,8 +909,8 @@ class BaseVisitor:
             return self.visit_Assign(node)
         elif isinstance(node, ast.Name):
             return self.visit_Name(node)
-        #elif isinstance(node, ast.AnnAssign):
-        #    return self.visit_AnnAssign(node)
+        elif isinstance(node, ast.AnnAssign):
+            return self.visit_AnnAssign(node)
         #elif isinstance(node, ast.AugAssign):
         #    return self.visit_AugAssign(node)
         # Commenting these for now, since we can't handle nested functions, and
@@ -1060,10 +1148,11 @@ class QpuVisitor(BaseVisitor):
             return self.extract_vector_atom_intrinsic(node)
         elif isinstance(node, ast.Constant) and node.value == '':
             return Vector.new_vector_unit(dbg)
-        elif isinstance(node, ast.Constant):
+        elif isinstance(const := node, ast.Constant) \
+                and isinstance(const.value, str):
             return functools.reduce(
                 lambda acc, atom: Vector.new_vector_bi_tensor(acc, atom, dbg),
-                (Vector.new_vector_symbol(sym, dbg) for sym in node.value))
+                (Vector.new_vector_symbol(sym, dbg) for sym in const.value))
         else:
             node_name = type(node).__name__
             raise QwertySyntaxError('Unknown basis vector or qubit literal syntax {}'
@@ -1278,8 +1367,8 @@ class QpuVisitor(BaseVisitor):
             return self.visit_BinOp_Pow(binOp)
         #elif isinstance(binOp.op, ast.BitAnd):
         #    return self.visit_BinOp_BitAnd(binOp)
-        #elif isinstance(binOp.op, ast.MatMult):
-        #    return self.visit_BinOp_MatMult(binOp)
+        elif isinstance(binOp.op, ast.MatMult):
+            return self.visit_BinOp_MatMult(binOp)
         else:
             op_name = type(binOp.op).__name__
             raise QwertySyntaxError('Unknown binary operation {}'
@@ -1387,59 +1476,59 @@ class QpuVisitor(BaseVisitor):
     #    dbg = self.get_debug_loc(binOp)
     #    return Pred(dbg, basis, body)
 
-    #def visit_BinOp_MatMult(self, binOp: ast.BinOp):
-    #    """
-    #    Convert a Python matrix multiplication expression into a Qwerty
-    #    ``Phase`` (tilt) AST node. For example, ``t1 @ t2`` becomes a ``Phase``
-    #    node with two children — the left should be a rev_qfunc[N] or qubit[N],
-    #    and the right should be a float. If the right operand is in degrees
-    #    (this is the default unless you write ``t1 @ rad(t2)``), then a
-    #    conversion to radians is automatically synthesized.
-    #    """
-    #    if isinstance(call := binOp.right, ast.Call) \
-    #            and isinstance(name := call.func, ast.Name) \
-    #            and name.id in ('deg', 'rad'):
-    #        unit = name.id
-    #        if call.keywords:
-    #            raise QwertySyntaxError(
-    #                'Keyword arguments not supported for {}(...)'.format(unit),
-    #                self.get_debug_loc(binOp))
-    #        if len(call.args) != 1:
-    #            raise QwertySyntaxError(
-    #                'Wrong number of arguments {} != 1 passed to {}(...)'
-    #                .format(len(call.args), unit),
-    #                self.get_debug_loc(binOp))
-    #        angle = call.args[0]
-    #        # Set the debug location for the angle expression code to this
-    #        # pseudo-function (deg() or rad())
-    #        angle_conv_dbg_node = call
-    #    else:
-    #        unit = 'deg'
-    #        angle = binOp.right
-    #        angle_conv_dbg_node = binOp.right
+    def visit_BinOp_MatMult(self, binOp: ast.BinOp):
+        """
+        Convert a Python matrix multiplication expression into a Qwerty
+        ``Tilt`` AST node. For example, ``t1 @ t2`` becomes a ``Tilt``
+        expression with two children — the left should be a rev_qfunc[N] or
+        qubit[N], and the right should be a float.
+        """
+        # TODO: investigate reintroducing this expr@rad(float_expr) syntax.
+        #if isinstance(call := binOp.right, ast.Call) \
+        #        and isinstance(name := call.func, ast.Name) \
+        #        and name.id in ('deg', 'rad'):
+        #    unit = name.id
+        #    if call.keywords:
+        #        raise QwertySyntaxError(
+        #            'Keyword arguments not supported for {}(...)'.format(unit),
+        #            self.get_debug_loc(binOp))
+        #    if len(call.args) != 1:
+        #        raise QwertySyntaxError(
+        #            'Wrong number of arguments {} != 1 passed to {}(...)'
+        #            .format(len(call.args), unit),
+        #            self.get_debug_loc(binOp))
+        #    angle = call.args[0]
+        #    # Set the debug location for the angle expression code to this
+        #    # pseudo-function (deg() or rad())
+        #    angle_conv_dbg_node = call
+        #else:
+        #    unit = 'deg'
+        #    angle = binOp.right
+        #    angle_conv_dbg_node = binOp.right
 
-    #    angle_expr = self.extract_float_expr(angle)
-    #    if unit == 'deg':
-    #        angle_conv_dbg = self.get_debug_loc(angle_conv_dbg_node)
-    #        # Convert to radians: angle_expr/360 * 2*pi
-    #        # The canonicalizer AST pass will fold this
-    #        angle_expr = \
-    #            FloatBinaryOp(
-    #                angle_conv_dbg.copy(),
-    #                FLOAT_MUL,
-    #                FloatBinaryOp(
-    #                    angle_conv_dbg.copy(),
-    #                    FLOAT_DIV,
-    #                    angle_expr,
-    #                    FloatLiteral(
-    #                        angle_conv_dbg.copy(), 360.0)),
-    #                FloatLiteral(
-    #                    angle_conv_dbg.copy(),
-    #                    2*math.pi))
+        #angle_expr = self.extract_float_expr(angle)
+        #if unit == 'deg':
+        #    angle_conv_dbg = self.get_debug_loc(angle_conv_dbg_node)
+        #    # Convert to radians: angle_expr/360 * 2*pi
+        #    # The canonicalizer AST pass will fold this
+        #    angle_expr = \
+        #        FloatBinaryOp(
+        #            angle_conv_dbg.copy(),
+        #            FLOAT_MUL,
+        #            FloatBinaryOp(
+        #                angle_conv_dbg.copy(),
+        #                FLOAT_DIV,
+        #                angle_expr,
+        #                FloatLiteral(
+        #                    angle_conv_dbg.copy(), 360.0)),
+        #            FloatLiteral(
+        #                angle_conv_dbg.copy(),
+        #                2*math.pi))
 
-    #    dbg = self.get_debug_loc(binOp)
-    #    lhs = self.visit(binOp.left)
-    #    return Phase(dbg, angle_expr, lhs)
+        dbg = self.get_debug_loc(binOp)
+        val = self.visit(binOp.left)
+        angle_deg = self.extract_float_expr(binOp.right)
+        return QpuExpr.new_tilt(val, angle_deg, dbg)
 
     def visit_BinOp_RShift(self, binOp: ast.BinOp):
         """

@@ -669,6 +669,7 @@ impl TypeVarAllocator {
     }
 }
 
+#[derive(Debug)]
 pub struct TypeEnv {
     bindings: HashMap<String, InferType>,
     cfuncs: HashMap<String, (Option<DimExpr>, Option<DimExpr>)>,
@@ -687,16 +688,16 @@ impl TypeEnv {
         for (func_name, avail_func_ty) in funcs_avail {
             match avail_func_ty {
                 AvailableFuncType::Qpu(func_ty) => {
-                    ret.insert(func_name.to_string(), func_ty.clone())?;
+                    ret.insert(func_name.to_string(), func_ty.clone());
                 }
                 AvailableFuncType::Classical(in_dim, out_dim) => {
-                    ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone())?;
+                    ret.insert_cfunc(func_name.to_string(), in_dim.clone(), out_dim.clone());
                 }
             }
         }
 
         for (arg_ty, arg_name) in args {
-            ret.insert(arg_name.to_string(), arg_ty.clone())?;
+            ret.insert(arg_name.to_string(), arg_ty.clone());
         }
 
         Ok(ret)
@@ -708,44 +709,40 @@ impl TypeEnv {
                 .all_vars()
                 .map(|(name, ty)| (name.to_string(), InferType::from_plain_type(ty)))
                 .collect(),
-            cfuncs: HashMap::new(),
+            cfuncs: plain_ty_env
+                .all_classical_funcs()
+                .map(|(func_name, (_is_rev, in_dim, out_dim))| {
+                    let in_dim_expr = DimExpr::DimConst {
+                        val: (*in_dim).into(),
+                        dbg: None,
+                    };
+                    let out_dim_expr = DimExpr::DimConst {
+                        val: (*out_dim).into(),
+                        dbg: None,
+                    };
+                    (
+                        func_name.to_string(),
+                        (Some(in_dim_expr), Some(out_dim_expr)),
+                    )
+                })
+                .collect(),
         }
     }
 
-    fn insert(&mut self, name: String, ty: InferType) -> Result<(), LowerError> {
-        let existing_binding = self.bindings.insert(name.to_string(), ty);
-        if existing_binding.is_some() {
-            Err(LowerError {
-                kind: LowerErrorKind::TypeError {
-                    kind: TypeErrorKind::RedefinedVariable(name),
-                },
-                // TODO: set a debug location
-                dbg: None,
-            })
-        } else {
-            Ok(())
+    fn new_cfunc_lambda_env(&self, arg_name: String, arg_ty: InferType) -> Self {
+        let bindings = HashMap::from([(arg_name, arg_ty)]);
+        TypeEnv {
+            bindings,
+            cfuncs: self.cfuncs.clone(),
         }
     }
 
-    fn insert_cfunc(
-        &mut self,
-        name: String,
-        in_dim: Option<DimExpr>,
-        out_dim: Option<DimExpr>,
-    ) -> Result<(), LowerError> {
-        let existing_cfunc = self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
-        if existing_cfunc.is_some() {
-            Err(LowerError {
-                kind: LowerErrorKind::TypeError {
-                    // TODO: use more precise error? since this is just functions?
-                    kind: TypeErrorKind::RedefinedVariable(name),
-                },
-                // TODO: set a debug location
-                dbg: None,
-            })
-        } else {
-            Ok(())
-        }
+    fn insert(&mut self, name: String, ty: InferType) {
+        self.bindings.insert(name.to_string(), ty);
+    }
+
+    fn insert_cfunc(&mut self, name: String, in_dim: Option<DimExpr>, out_dim: Option<DimExpr>) {
+        self.cfuncs.insert(name.to_string(), (in_dim, out_dim));
     }
 
     fn get_type(&self, name: &str) -> Option<InferType> {
@@ -1199,9 +1196,7 @@ impl ExprConstrainable for qpu::MetaExpr {
             }
 
             qpu::MetaExpr::Tilt { val, .. } => {
-                let val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                Ok(val_ty)
+                val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
             }
 
             qpu::MetaExpr::BasisTranslation { bin, bout, .. } => {
@@ -1646,7 +1641,7 @@ fn build_type_constraints_for_unpack_assign<E: ExprConstrainable>(
     }?;
 
     for (lhs_name, lhs_ty) in lhs.iter().zip(lhs_tys.into_iter()) {
-        env.insert(lhs_name.to_string(), lhs_ty)?;
+        env.insert(lhs_name.to_string(), lhs_ty);
     }
 
     Ok(None)
@@ -1661,6 +1656,7 @@ impl StmtConstrainable for qpu::MetaStmt {
             | qpu::MetaStmt::VectorSymbolDef { dbg, .. }
             | qpu::MetaStmt::BasisAliasDef { dbg, .. }
             | qpu::MetaStmt::BasisAliasRecDef { dbg, .. }
+            | qpu::MetaStmt::ClassicalLambdaDef { dbg, .. }
             | qpu::MetaStmt::Assign { dbg, .. }
             | qpu::MetaStmt::UnpackAssign { dbg, .. }
             | qpu::MetaStmt::Return { dbg, .. } => dbg.clone(),
@@ -1677,6 +1673,39 @@ impl StmtConstrainable for qpu::MetaStmt {
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<Option<InferType>, LowerError> {
         match self {
+            qpu::MetaStmt::ClassicalLambdaDef {
+                name,
+                arg_name,
+                in_dim,
+                out_dim,
+                body,
+                dbg,
+            } => {
+                let in_ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: in_dim.clone(),
+                };
+                let mut lambda_env = env.new_cfunc_lambda_env(arg_name.to_string(), in_ty);
+                let body_ty = body.build_type_constraints(
+                    tv_allocator,
+                    &mut lambda_env,
+                    ty_constraints,
+                    dv_constraints,
+                )?;
+                let out_ty = InferType::RegType {
+                    elem_ty: RegKind::Bit,
+                    dim: out_dim.clone(),
+                };
+                ty_constraints.insert(TypeConstraint::new(body_ty, out_ty, dbg.clone()));
+
+                env.insert_cfunc(
+                    name.to_string(),
+                    Some(in_dim.clone()),
+                    Some(out_dim.clone()),
+                );
+                Ok(None)
+            }
+
             qpu::MetaStmt::Return { val, .. } => {
                 let val_ty =
                     val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
@@ -1692,7 +1721,7 @@ impl StmtConstrainable for qpu::MetaStmt {
             qpu::MetaStmt::Assign { lhs, rhs, .. } => {
                 let rhs_ty =
                     rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                env.insert(lhs.to_string(), rhs_ty)?;
+                env.insert(lhs.to_string(), rhs_ty);
                 Ok(None)
             }
 
@@ -1752,7 +1781,7 @@ impl StmtConstrainable for classical::MetaStmt {
             classical::MetaStmt::Assign { lhs, rhs, .. } => {
                 let rhs_ty =
                     rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                env.insert(lhs.to_string(), rhs_ty)?;
+                env.insert(lhs.to_string(), rhs_ty);
                 Ok(None)
             }
 
