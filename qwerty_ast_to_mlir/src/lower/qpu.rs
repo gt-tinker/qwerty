@@ -518,7 +518,8 @@ fn try_basis_as_primitive(basis_elems: &Vec<Basis>) -> Option<qwerty::PrimitiveB
 /// of phases which correspond one-to-one with any vectors that have
 /// hasPhase==true.
 fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
-    let basis_elements = basis.to_explicit().canonicalize().to_vec();
+    let basis_elements = basis.to_explicit().canonicalize().to_vec().into_iter()
+        .flat_map(|b| b.factor_separable().to_vec()).collect();
 
     let prim_basis = try_basis_as_primitive(&basis_elements);
     let (elems, phases) = if let Some(prim_basis) = prim_basis {
@@ -1155,7 +1156,7 @@ fn ast_qpu_expr_to_mlir(
                         explicit_indices,
                         pad_indices,
                         tgt_indices,
-                    } = ast_basis_to_mlir(basis);
+                    } = ast_basis_to_mlir(&basis.clone().strip_phases());
                     assert!(pad_indices.is_empty());
                     assert!(tgt_indices.is_empty());
                     assert_eq!(explicit_indices.len(), dim);

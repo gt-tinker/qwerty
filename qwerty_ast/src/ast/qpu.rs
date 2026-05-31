@@ -2023,6 +2023,65 @@ impl Basis {
         rebuild!(Basis, self, canonicalize)
     }
 
+    pub fn strip_phases(self) -> Self {
+        match self {
+            Basis::BasisLiteral { vecs, dbg } => Basis::BasisLiteral {
+                vecs: vecs.into_iter().map(|v| v.canonicalize().normalize()).collect(),
+                dbg,
+            },
+            Basis::BasisTensor { bases, dbg } => Basis::BasisTensor {
+                bases: bases.into_iter().map(Basis::strip_phases).collect(),
+                dbg,
+            },
+            other => other,
+        }
+    }
+
+    pub fn factor_separable(self) -> Self {
+        let Basis::BasisLiteral { vecs, dbg } = self else {
+            return self;
+        };
+        if vecs.len() < 2 {
+            return Basis::BasisLiteral { vecs, dbg };
+        }
+        
+        let mut rows: Vec<Vec<Vector>> = Vec::with_capacity(vecs.len());
+        for v in &vecs {
+            match v.clone().canonicalize() {
+                Vector::VectorTensor { qs, .. } => { rows.push(qs); }
+                _ => return Basis::BasisLiteral { vecs, dbg },
+            }
+        }
+
+        let n = rows[0].len();
+        if rows.iter().any(|r| r.len() != n) {
+            return Basis::BasisLiteral { vecs, dbg };
+        }
+
+        let mut letters: Vec<Vec<Vector>> = vec![Vec::new(); n];
+
+        for row in &rows {
+            for (i, atom) in row.iter().enumerate() {
+
+                if !letters[i].iter().any(|l| l.approx_equal(atom)) {
+                    letters[i].push(atom.clone());
+                }
+            }
+        }
+
+        let product: usize = letters.iter().map(Vec::len).product();
+        if product != vecs.len() {
+            return Basis::BasisLiteral { vecs, dbg };
+        }
+
+        let bases = letters
+            .into_iter()
+            .map(|vecs| Basis::BasisLiteral { vecs, dbg: dbg.clone() })
+            .collect();
+
+        Basis::BasisTensor { bases, dbg }.canonicalize()
+    }
+
     pub(crate) fn canonicalize_rewriter(self) -> Self {
         match self {
             Basis::BasisLiteral { vecs, dbg } => {
