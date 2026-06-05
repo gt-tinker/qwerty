@@ -2044,7 +2044,7 @@ impl Basis {
         if vecs.len() < 2 {
             return Basis::BasisLiteral { vecs, dbg };
         }
-        
+
         let mut rows: Vec<Vec<Vector>> = Vec::with_capacity(vecs.len());
         for v in &vecs {
             match v.clone().canonicalize() {
@@ -2062,15 +2062,24 @@ impl Basis {
 
         for row in &rows {
             for (i, atom) in row.iter().enumerate() {
-
                 if !letters[i].iter().any(|l| l.approx_equal(atom)) {
                     letters[i].push(atom.clone());
                 }
             }
         }
 
-        let product: usize = letters.iter().map(Vec::len).product();
-        if product != vecs.len() {
+        let expected: Vec<Vec<Vector>> = letters
+            .clone()
+            .into_iter()
+            .multi_cartesian_product()
+            .collect();
+
+        let is_factorable = rows.len() == expected.len()
+            && rows.iter().zip(&expected).all(|(r, e)| {
+                r.len() == e.len() && r.iter().zip(e).all(|(a, b)| a.approx_equal(b))
+            });
+
+        if !is_factorable {
             return Basis::BasisLiteral { vecs, dbg };
         }
 
@@ -2078,7 +2087,6 @@ impl Basis {
             .into_iter()
             .map(|vecs| Basis::BasisLiteral { vecs, dbg: dbg.clone() })
             .collect();
-
         Basis::BasisTensor { bases, dbg }.canonicalize()
     }
 
