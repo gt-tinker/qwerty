@@ -172,6 +172,41 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
     let genVerifyDecl = 1;
 }
 
+def Qwerty_BasisVectorTreeKindAttr : I64EnumAttr<
+        "BasisVectorTreeKind", "Kind of a recursive basis-vector tree node",
+        [
+            I64EnumAttrCase<"ZeroVector",   0>,
+            I64EnumAttrCase<"OneVector",    1>,
+            I64EnumAttrCase<"PadVector",    2>,
+            I64EnumAttrCase<"TargetVector", 3>,
+            I64EnumAttrCase<"VectorUnit",   4>,
+            I64EnumAttrCase<"VectorTilt",            5>,
+            I64EnumAttrCase<"UniformVectorSuperpos", 6>,
+            I64EnumAttrCase<"VectorTensor",          7>,
+        ]> {
+    let cppNamespace = "::qwerty";
+}
+
+def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
+    let summary = "A recursive basis vector mirroring the AST `Vector` enum";
+    let description = [{
+        A mirror of the AST `Vector` type (qwerty_ast/src/ast/qpu.rs): one tree node per AST node. 
+        The front-end transcribes a `Vector` structurally, with NO Pauli recognition,
+        factoring, or flattening; all semantic analysis happens downstream on
+        the tree.
+    }];
+    let parameters = (ins
+        "BasisVectorTreeKind":$kind,
+        OptionalParameter<"mlir::FloatAttr">:$angle,
+        ArrayRefParameter<"BasisVectorTreeAttr", "">:$children
+    );
+
+    let assemblyFormat =
+        "`<` $kind ($angle^)? `[` $children `]` `>`";
+
+    let genVerifyDecl = 1;
+}
+
 def Qwerty_BasisElemAttr : Qwerty_Attr<"BasisElem", "basiselem"> {
     let summary = "Union of BuiltinBasisAttr, BasisVectorListAttr, and ApplyRevolveGeneratorAttr";
     let description = [{
