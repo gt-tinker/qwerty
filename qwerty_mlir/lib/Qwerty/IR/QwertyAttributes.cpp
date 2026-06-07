@@ -499,6 +499,15 @@ mlir::LogicalResult BasisVectorListAttr::verify(
     return mlir::success();
 }
 
+mlir::LogicalResult BasisVectorTreeAttr::verify(
+        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
+        BasisVectorTreeKind kind,
+        mlir::FloatAttr angle,
+        llvm::ArrayRef<BasisVectorTreeAttr> children) {
+    // TODO: Write the verify method
+    return mlir::success();
+}
+
 mlir::LogicalResult ApplyRevolveGeneratorAttr::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
         BasisAttr foo,
