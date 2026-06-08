@@ -190,19 +190,18 @@ def Qwerty_BasisVectorTreeKindAttr : I64EnumAttr<
 def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
     let summary = "A recursive basis vector mirroring the AST `Vector` enum";
     let description = [{
-        A mirror of the AST `Vector` type (qwerty_ast/src/ast/qpu.rs): one tree node per AST node. 
-        The front-end transcribes a `Vector` structurally, with NO Pauli recognition,
+        A mirror of the AST `Vector` type: one tree node per AST node. 
+        The front-end transcribes a `Vector` structurally, with no Pauli recognition,
         factoring, or flattening; all semantic analysis happens downstream on
         the tree.
     }];
     let parameters = (ins
         "BasisVectorTreeKind":$kind,
-        OptionalParameter<"mlir::FloatAttr">:$angle,
+        OptionalParameter<"mlir::FloatAttr">:$tilt,
         ArrayRefParameter<"BasisVectorTreeAttr", "">:$children
     );
 
-    let assemblyFormat =
-        "`<` $kind ($angle^)? `[` $children `]` `>`";
+    let hasCustomAssemblyFormat = 1;
 
     let genVerifyDecl = 1;
 }
