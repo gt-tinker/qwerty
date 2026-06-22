@@ -499,6 +499,118 @@ mlir::LogicalResult BasisVectorListAttr::verify(
     return mlir::success();
 }
 
+mlir::LogicalResult BasisVectorTreeAttr::verify(
+        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
+        BasisVectorTreeKind kind,
+        mlir::FloatAttr tilt,
+        llvm::ArrayRef<BasisVectorTreeAttr> children) {
+    bool hasTilt = (bool)tilt;
+    size_t n = children.size();
+
+    auto angleErr = [&](bool requiredAngle) {
+        return emitError() << stringifyBasisVectorTreeKind(kind)
+                           << (requiredAngle ? " requires an angle"
+                                         : " must not carry an angle");
+    };
+    auto arityErr = [&](const char *numChildren) {
+        return emitError() << stringifyBasisVectorTreeKind(kind) << " expects "
+                           << numChildren << " child(ren), got " << n;
+    };
+
+    switch (kind) {
+    case BasisVectorTreeKind::ZeroVector:
+    case BasisVectorTreeKind::OneVector:
+    case BasisVectorTreeKind::PadVector:
+    case BasisVectorTreeKind::TargetVector:
+    case BasisVectorTreeKind::VectorUnit:
+        if (hasTilt) return angleErr(false);
+        if (n != 0) return arityErr("no");
+        return mlir::success();
+
+    case BasisVectorTreeKind::VectorTilt:
+        if (!hasTilt) return angleErr(true);
+        if (n != 1) return arityErr("exactly 1");
+        return mlir::success();
+
+    case BasisVectorTreeKind::UniformVectorSuperpos:
+        if (hasTilt) return angleErr(false);
+        if (n != 2) return arityErr("exactly 2");
+        return mlir::success();
+
+    case BasisVectorTreeKind::VectorTensor:
+        if (hasTilt) return angleErr(false);
+        if (n < 2) return arityErr("at least 2");
+        return mlir::success();
+    }
+    return emitError() << "unknown BasisVectorTreeKind";
+}
+
+void BasisVectorTreeAttr::print(mlir::AsmPrinter &printer) const {
+    printer << "<" << stringifyBasisVectorTreeKind(getKind());
+    if (mlir::FloatAttr tilt = getTilt()) {
+        printer << " tilt " << tilt;
+    }
+    printer << " [";
+    llvm::ArrayRef<BasisVectorTreeAttr> children = getChildren();
+    for (size_t i = 0; i < children.size(); i++) {
+        if (i) {
+            printer << ", ";
+        }
+        printer << children[i];
+    }
+    printer << "]>";
+}
+
+mlir::Attribute BasisVectorTreeAttr::parse(mlir::AsmParser &parser, mlir::Type odsType) {
+    llvm::SMLoc loc = parser.getCurrentLocation();
+    if (parser.parseLess()) {
+        return {};
+    }
+
+    llvm::StringRef kindKeyword;
+    if (parser.parseKeyword(&kindKeyword)) {
+        return {};
+    }
+    std::optional<BasisVectorTreeKind> kind =
+        symbolizeBasisVectorTreeKind(kindKeyword);
+    if (!kind) {
+        parser.emitError(loc, "unknown BasisVectorTreeKind: '")
+            << kindKeyword << "'";
+        return {};
+    }
+
+    mlir::FloatAttr tilt;
+    if (succeeded(parser.parseOptionalKeyword("tilt"))) {
+        if (parser.parseAttribute(tilt)) {
+            return {};
+        }
+    }
+
+    llvm::SmallVector<BasisVectorTreeAttr> children;
+    if (parser.parseLSquare()) {
+        return {};
+    }
+    if (failed(parser.parseOptionalRSquare())) {
+        do {
+            BasisVectorTreeAttr child;
+            if (parser.parseAttribute(child)) {
+                return {};
+            }
+            children.push_back(child);
+        } while (succeeded(parser.parseOptionalComma()));
+        if (parser.parseRSquare()) {
+            return {};
+        }
+    }
+
+    if (parser.parseGreater()) {
+        return {};
+    }
+
+    return parser.getChecked<BasisVectorTreeAttr>(
+        loc, parser.getContext(), *kind, tilt, children);
+}
+
 mlir::LogicalResult ApplyRevolveGeneratorAttr::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
         BasisAttr foo,
