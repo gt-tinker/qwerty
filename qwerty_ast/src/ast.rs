@@ -698,8 +698,28 @@ const ATOL: f64 = 1e-12;
 
 /// Returns a canon form of this angle in the range [0.0, 360.0).
 pub fn canon_angle(angle_deg: f64) -> f64 {
-    // angle_deg % 360 could be negative. This will always be nonnegative.
-    angle_deg.rem_euclid(360.0)
+    let res = angle_deg.rem_euclid(360.0);
+
+    /*
+    Because of this: https://doc.rust-lang.org/std/primitive.f64.html#method.rem_euclid
+
+    "
+    In particular, the return value r satisfies 0.0 <= r < rhs.abs() in most cases. 
+    However, due to a floating point round-off error it can result in r == rhs.abs(), 
+    violating the mathematical definition, if self is much smaller than rhs.abs() in 
+    magnitude and self < 0.0.
+    "
+
+    Basically we just have to check to make sure result isn't 360 or very close to it becuase if it is,
+    then we're going to have floating point errors with like 0.000000000000....1 degrees of precision.
+    */
+    if res == 360.0 
+    {
+        0.0
+    } else 
+    {
+        res
+    }
 }
 
 /// Returns true if two angles are approximately equal.

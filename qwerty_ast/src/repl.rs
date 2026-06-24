@@ -362,8 +362,12 @@ impl QubitRef {
         let QubitRef { index } = self;
 
         if let Some((amp0, amp1)) = state.try_extract_1q_state(index) {
+            /*
+            z = |z|e^{i\theta}
+            */
             let (zero_abs, zero_rad) = amp0.to_polar();
             let zero_prob = zero_abs * zero_abs;
+            //QWERTY uses degrees instead of radians so we have to convert from zero rad to zero deg
             let zero_deg = canon_angle(zero_rad * std::f64::consts::FRAC_1_PI * 180.0);
 
             let (one_abs, one_rad) = amp1.to_polar();
@@ -438,11 +442,21 @@ impl QLit {
             })
             .collect();
         let indices = state.sim.init_alloc(statevec, sparse.num_qbits);
-        let vals = indices
+        let vals: Vec<_> = indices
             .into_iter()
             .map(|i| Expr::QubitRef(QubitRef { index: i }))
             .collect();
-        Ok(Expr::Tensor(Tensor { vals, dbg: None }))
+        if vals.len() == 1 {
+            let val = vals
+                .into_iter()
+                .next()
+                .expect("vals was length 1 but is empty, how?");
+            Ok(val)
+        } else if vals.is_empty() {
+            Ok(Expr::UnitLiteral(UnitLiteral { dbg: None }))
+        } else {
+            Ok(Expr::Tensor(Tensor { vals, dbg: None }))
+        }
     }
 }
 
