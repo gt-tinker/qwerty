@@ -20,6 +20,7 @@ use qwerty_ast_macros::rebuild;
 use std::{collections::HashMap, fmt};
 
 mod qlit2sparse;
+mod bt;
 
 /// Newtype for a `qir_runner` sparse state vector.
 #[derive(Debug, Clone)]
