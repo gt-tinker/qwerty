@@ -160,7 +160,7 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
         The verifier checks that all vectors must have the same dimension,
         same primitive basis, and distinct eigenbits.
     }];
-    let parameters = (ins ArrayRefParameter<"BasisVectorAttr", "">:$vectors);
+    let parameters = (ins ArrayRefParameter<"BasisVectorTreeAttr", "">:$vectors);
     let assemblyFormat = "`{` $vectors `}`";
     let extraClassDeclaration = [{
         uint64_t getDim() const;
@@ -190,16 +190,30 @@ def Qwerty_BasisVectorTreeKindAttr : I64EnumAttr<
 def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
     let summary = "A recursive basis vector mirroring the AST `Vector` enum";
     let description = [{
-        A mirror of the AST `Vector` type: one tree node per AST node. 
+        A mirror of the AST `Vector` type: one tree node per AST node.
         The front-end transcribes a `Vector` structurally, with no Pauli recognition,
         factoring, or flattening; all semantic analysis happens downstream on
         the tree.
+
+        For a `VectorTilt`, the optional `tilt` discriminates how the phase
+        angle is supplied:
+          - present -> a compile-time constant angle, in degrees.
+          - absent  -> a dynamic angle, supplied at runtime as an f64
+                       `phases(...)` operand on the op using this basis, matched
+                       positionally to placeholders in tree-traversal order.
+        `getNumPhases()` counts the absent-tilt (dynamic) `VectorTilt` nodes.
     }];
     let parameters = (ins
         "BasisVectorTreeKind":$kind,
         OptionalParameter<"mlir::FloatAttr">:$tilt,
         ArrayRefParameter<"BasisVectorTreeAttr", "">:$children
     );
+    let extraClassDeclaration = [{
+        uint64_t getDim() const;
+        bool isPredicate() const;
+        bool hasPhases() const;
+        uint64_t getNumPhases() const;
+    }];
 
     let hasCustomAssemblyFormat = 1;
 
