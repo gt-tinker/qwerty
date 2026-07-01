@@ -202,6 +202,10 @@ def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
                        `phases(...)` operand on the op using this basis, matched
                        positionally to placeholders in tree-traversal order.
         `getNumPhases()` counts the absent-tilt (dynamic) `VectorTilt` nodes.
+        A mirror of the AST `Vector` type: one tree node per AST node. 
+        The front-end transcribes a `Vector` structurally, with no Pauli recognition,
+        factoring, or flattening; all semantic analysis happens downstream on
+        the tree.
     }];
     let parameters = (ins
         "BasisVectorTreeKind":$kind,
