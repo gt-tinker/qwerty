@@ -132,6 +132,28 @@ MlirAttribute mlirQwertyBasisVectorListAttrGet(
     return wrap(qwerty::BasisVectorListAttr::get(unwrap(ctx), vecs));
 }
 
+MlirAttribute mlirQwertyBasisVectorTreeAttrGet(
+        MlirContext ctx, int64_t kind, bool hasTilt, double tiltDeg,
+        intptr_t numChildren, MlirAttribute const *children) {
+    llvm::SmallVector<mlir::Attribute> attrs;
+    (void)unwrapList(static_cast<size_t>(numChildren), children, attrs);
+
+    llvm::SmallVector<qwerty::BasisVectorTreeAttr> trees;
+    for (mlir::Attribute attr : attrs) {
+        trees.push_back(llvm::cast<qwerty::BasisVectorTreeAttr>(attr));
+    }
+    mlir::FloatAttr tilt;
+    if (hasTilt) {
+        tilt = mlir::FloatAttr::get(mlir::Float64Type::get(unwrap(ctx)), tiltDeg);
+    }
+
+    return wrap(qwerty::BasisVectorTreeAttr::get(unwrap(ctx), static_cast<qwerty::BasisVectorTreeKind>(kind), tilt, trees));
+}
+
+bool mlirAttributeIsAQwertyBasisVectorTree(MlirAttribute attr) {
+    return llvm::isa<qwerty::BasisVectorTreeAttr>(unwrap(attr));
+}
+
 bool mlirAttributeIsAQwertyBasisVectorList(MlirAttribute attr) {
     return llvm::isa<qwerty::BasisVectorListAttr>(unwrap(attr));
 }
