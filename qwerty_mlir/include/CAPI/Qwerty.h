@@ -86,7 +86,7 @@ MLIR_CAPI_EXPORTED bool mlirAttributeIsAQwertyBasisVector(MlirAttribute attr);
 MLIR_CAPI_EXPORTED bool mlirQwertyBasisVectorAttrGetHasPhase(MlirAttribute attr);
 
 /// Creates an qwerty::BasisVectorListAttr containing the given list of
-/// qwerty::BasisVectorAttrs.
+/// qwerty::BasisVectorTreeAttrs.
 MLIR_CAPI_EXPORTED MlirAttribute mlirQwertyBasisVectorListAttrGet(
         MlirContext ctx, intptr_t numVectors, MlirAttribute const *vectors);
 
