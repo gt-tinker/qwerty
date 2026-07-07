@@ -39,19 +39,17 @@ void QwertyDialect::registerAttributes() {
     >();
 }
 
-qwerty::BasisVectorListAttr BuiltinBasisAttr::expandToVeclist() const {
-    llvm::SmallVector<qwerty::BasisVectorAttr> vectors;
+void BuiltinBasisAttr::expandToFlatVectors(
+        llvm::SmallVectorImpl<qwerty::BasisVectorAttr> &out) const {
     size_t expanded_size = 1ULL << getDim();
-    vectors.reserve(expanded_size);
+    out.reserve(out.size() + expanded_size);
     uint64_t dim = getDim();
 
     for (size_t i = 0; i < expanded_size; i++) {
         llvm::APInt eigentemp(getDim(), i, /*isSigned=*/false);
-        vectors.push_back(BasisVectorAttr::get(getContext(), getPrimBasis(), eigentemp,
-                                               dim, false));
+        out.push_back(BasisVectorAttr::get(getContext(), getPrimBasis(), eigentemp,
+                                           dim, false));
     }
-
-    return BasisVectorListAttr::get(getContext(), vectors);
 }
 
 uint64_t BasisVectorListAttr::getNumPhases() const {
@@ -471,7 +469,7 @@ mlir::LogicalResult BasisVectorListAttr::verify(
         }
     }
     llvm::DenseSet<BasisVectorTreeAttr> seen;
-    for (BasisVectorTreeAttr vec : getVectors()) {
+    for (BasisVectorTreeAttr vec : vectors) {
         if (!seen.insert(vec).second) {
             return emitError() << "Basis vector already seen";
         }
@@ -525,6 +523,133 @@ mlir::LogicalResult BasisVectorTreeAttr::verify(
         return mlir::success();
     }
     return emitError() << "unknown BasisVectorTreeKind";
+}
+
+namespace {
+
+double tiltDegToRad(double angle_deg) {
+    return angle_deg / 360.0 * 2.0 * M_PI;
+}
+
+// Canonicalizes an angle in radians into [0, 2*pi).
+double canonRad(double theta) {
+    double two_pi = 2.0 * M_PI;
+    double m = std::fmod(theta, two_pi);
+    if (m < 0.0) {
+        m += two_pi;
+    }
+    return m;
+}
+
+// Returns true iff theta is approximately angle
+bool radsApproxEqual(double theta, double angle) {
+    double diff = canonRad(theta - angle);
+    return diff < ATOL || (2.0 * M_PI) - diff < ATOL;
+}
+
+} // namespace
+
+std::optional<std::pair<qwerty::BasisVectorAttr, double>>
+BasisVectorTreeAttr::tryFlatten() const {
+    mlir::MLIRContext *ctx = getContext();
+
+    switch (getKind()) {
+    case BasisVectorTreeKind::ZeroVector:
+        return std::make_pair(
+            BasisVectorAttr::get(ctx, PrimitiveBasis::Z, llvm::APInt(1, 0), 1,false), 0.0); // hasPhase = false
+    case BasisVectorTreeKind::OneVector:
+        return std::make_pair(
+            BasisVectorAttr::get(ctx, PrimitiveBasis::Z, llvm::APInt(1, 1), 1, false), 0.0); // hasPhase = false
+
+    case BasisVectorTreeKind::PadVector:
+    case BasisVectorTreeKind::TargetVector:
+    case BasisVectorTreeKind::VectorUnit:
+        return std::nullopt;
+
+    case BasisVectorTreeKind::VectorTilt: {
+        mlir::FloatAttr tilt = getTilt();
+        if (!tilt) {
+            // Dynamic tilt: the angle is a runtime phases() operand, so there
+            // is no compile-time flat form.
+            return std::nullopt;
+        }
+        auto sub = getChildren()[0].tryFlatten();
+        if (!sub) {
+            return std::nullopt;
+        }
+        return std::make_pair(
+            sub->first, sub->second + tiltDegToRad(tilt.getValueAsDouble()));
+    }
+
+    case BasisVectorTreeKind::UniformVectorSuperpos: {
+        auto lhs = getChildren()[0].tryFlatten();
+        auto rhs = getChildren()[1].tryFlatten();
+        if (!lhs || !rhs) {
+            return std::nullopt;
+        }
+        BasisVectorAttr lv = lhs->first;
+        BasisVectorAttr rv = rhs->first;
+        // for Bell States
+        if (lv.getPrimBasis() != PrimitiveBasis::Z
+                || rv.getPrimBasis() != PrimitiveBasis::Z
+                || lv.getDim() != 1 || rv.getDim() != 1
+                || lv.getEigenbits() == rv.getEigenbits()) {
+            return std::nullopt;
+        }
+        // Order the terms so r0/r1 are the phases on the |0>/|1> components
+        double r0 = lhs->second;
+        double r1 = rhs->second;
+        if (lv.getEigenbits().isAllOnes()) {
+            std::swap(r0, r1);
+        }
+        double rel = r1 - r0;
+
+        PrimitiveBasis prim_basis;
+        unsigned eigenbit;
+        if (radsApproxEqual(rel, 0.0)) {                      // |0> + |1>
+            prim_basis = PrimitiveBasis::X;
+            eigenbit = 0;
+        } else if (radsApproxEqual(rel, M_PI)) {              // |0> - |1>
+            prim_basis = PrimitiveBasis::X;
+            eigenbit = 1;
+        } else if (radsApproxEqual(rel, M_PI / 2.0)) {        // |0> + i|1>
+            prim_basis = PrimitiveBasis::Y;
+            eigenbit = 0;
+        } else if (radsApproxEqual(rel, 3.0 * M_PI / 2.0)) {  // |0> - i|1>
+            prim_basis = PrimitiveBasis::Y;
+            eigenbit = 1;
+        } else {
+            // non-Pauli superposition: stays a tree.
+            return std::nullopt;
+        }
+        return std::make_pair(BasisVectorAttr::get(ctx, prim_basis, llvm::APInt(1, eigenbit), 1, false), r0);
+    }
+
+    case BasisVectorTreeKind::VectorTensor: {
+        std::optional<PrimitiveBasis> prim_basis;
+        llvm::APInt eigenbits = llvm::APInt::getZero(0);
+        uint64_t dim = 0;
+        double residual = 0.0;
+        for (BasisVectorTreeAttr child : getChildren()) {
+            auto flat = child.tryFlatten();
+            if (!flat) {
+                return std::nullopt;
+            }
+            if (prim_basis && *prim_basis != flat->first.getPrimBasis()) {
+                // Mixed primitive bases do not flatten to a single vector.
+                return std::nullopt;
+            }
+            prim_basis = flat->first.getPrimBasis();
+            // Leftmost factor lands in the most significant bits, matching
+            // the eigenbit convention documented on BasisVectorAttr.
+            eigenbits = eigenbits.concat(flat->first.getEigenbits());
+            dim += flat->first.getDim();
+            residual += flat->second;
+        }
+        return std::make_pair(BasisVectorAttr::get(ctx, *prim_basis, eigenbits, dim, false), residual);
+    }
+    }
+    llvm_unreachable("unknown BasisVectorTreeKind");
 }
 
 uint64_t BasisVectorTreeAttr::getDim() const {
@@ -670,117 +795,6 @@ mlir::Attribute BasisVectorTreeAttr::parse(mlir::AsmParser &parser, mlir::Type o
         loc, parser.getContext(), *kind, tilt, children);
 }
 
-mlir::LogicalResult BasisVectorTreeAttr::verify(
-        llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
-        BasisVectorTreeKind kind,
-        mlir::FloatAttr tilt,
-        llvm::ArrayRef<BasisVectorTreeAttr> children) {
-    bool hasTilt = (bool)tilt;
-    size_t n = children.size();
-
-    auto angleErr = [&](bool requiredAngle) {
-        return emitError() << stringifyBasisVectorTreeKind(kind)
-                           << (requiredAngle ? " requires an angle"
-                                         : " must not carry an angle");
-    };
-    auto arityErr = [&](const char *numChildren) {
-        return emitError() << stringifyBasisVectorTreeKind(kind) << " expects "
-                           << numChildren << " child(ren), got " << n;
-    };
-
-    switch (kind) {
-    case BasisVectorTreeKind::ZeroVector:
-    case BasisVectorTreeKind::OneVector:
-    case BasisVectorTreeKind::PadVector:
-    case BasisVectorTreeKind::TargetVector:
-    case BasisVectorTreeKind::VectorUnit:
-        if (hasTilt) return angleErr(false);
-        if (n != 0) return arityErr("no");
-        return mlir::success();
-
-    case BasisVectorTreeKind::VectorTilt:
-        if (!hasTilt) return angleErr(true);
-        if (n != 1) return arityErr("exactly 1");
-        return mlir::success();
-
-    case BasisVectorTreeKind::UniformVectorSuperpos:
-        if (hasTilt) return angleErr(false);
-        if (n != 2) return arityErr("exactly 2");
-        return mlir::success();
-
-    case BasisVectorTreeKind::VectorTensor:
-        if (hasTilt) return angleErr(false);
-        if (n < 2) return arityErr("at least 2");
-        return mlir::success();
-    }
-    return emitError() << "unknown BasisVectorTreeKind";
-}
-
-void BasisVectorTreeAttr::print(mlir::AsmPrinter &printer) const {
-    printer << "<" << stringifyBasisVectorTreeKind(getKind());
-    if (mlir::FloatAttr tilt = getTilt()) {
-        printer << " tilt " << tilt;
-    }
-    printer << " [";
-    llvm::ArrayRef<BasisVectorTreeAttr> children = getChildren();
-    for (size_t i = 0; i < children.size(); i++) {
-        if (i) {
-            printer << ", ";
-        }
-        printer << children[i];
-    }
-    printer << "]>";
-}
-
-mlir::Attribute BasisVectorTreeAttr::parse(mlir::AsmParser &parser, mlir::Type odsType) {
-    llvm::SMLoc loc = parser.getCurrentLocation();
-    if (parser.parseLess()) {
-        return {};
-    }
-
-    llvm::StringRef kindKeyword;
-    if (parser.parseKeyword(&kindKeyword)) {
-        return {};
-    }
-    std::optional<BasisVectorTreeKind> kind =
-        symbolizeBasisVectorTreeKind(kindKeyword);
-    if (!kind) {
-        parser.emitError(loc, "unknown BasisVectorTreeKind: '")
-            << kindKeyword << "'";
-        return {};
-    }
-
-    mlir::FloatAttr tilt;
-    if (succeeded(parser.parseOptionalKeyword("tilt"))) {
-        if (parser.parseAttribute(tilt)) {
-            return {};
-        }
-    }
-
-    llvm::SmallVector<BasisVectorTreeAttr> children;
-    if (parser.parseLSquare()) {
-        return {};
-    }
-    if (failed(parser.parseOptionalRSquare())) {
-        do {
-            BasisVectorTreeAttr child;
-            if (parser.parseAttribute(child)) {
-                return {};
-            }
-            children.push_back(child);
-        } while (succeeded(parser.parseOptionalComma()));
-        if (parser.parseRSquare()) {
-            return {};
-        }
-    }
-
-    if (parser.parseGreater()) {
-        return {};
-    }
-
-    return parser.getChecked<BasisVectorTreeAttr>(
-        loc, parser.getContext(), *kind, tilt, children);
-}
 
 mlir::LogicalResult ApplyRevolveGeneratorAttr::verify(
         llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
