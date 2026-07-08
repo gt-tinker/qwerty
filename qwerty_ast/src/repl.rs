@@ -247,6 +247,7 @@ impl SparseReplState {
     }
 }
 
+#[derive(Debug)]
 pub struct NotImplementedError(pub String);
 
 /// Holds the quantum simulator state and a mapping of names to values.
@@ -566,94 +567,18 @@ impl Expr {
                     }
 
                     // E-BTrans
+                    /*
+                    Call the special basis translation algorithm here,
+                    which accounts for more quantum basises than common ones
+                    */
                     (
-                        Expr::QubitRef(QubitRef { index }),
-                        Expr::BasisTranslation(BasisTranslation { bin, bout, .. }),
-                    ) => {
-                        // Strip debug info so we can actually compare them
-                        let bin = bin.clone().into_strip_dbg().canonicalize();
-                        let bout = bout.clone().into_strip_dbg().canonicalize();
-
-                        match (bin, bout) {
-                            (left, right) if left == right => {
-                                // Nothing to do.
-                                Ok(())
-                            }
-
-                            (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                            )
-                            | (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                            ) if matches!(
-                                &vecs_left[..],
-                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
-                            ) && matches!(
-                                &vecs_right[..],
-                                [Vector::OneVector { .. }, Vector::ZeroVector { .. }]
-                            ) =>
-                            {
-                                state.sim.x(*index);
-                                Ok(())
-                            }
-
-                            (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                            )
-                            | (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                            ) if matches!(
-                                &vecs_left[..],
-                                [
-                                    Vector::UniformVectorSuperpos { q1: q1l, q2: q2l, .. },
-                                    Vector::UniformVectorSuperpos { q1: q1r, q2: q2r, .. }
-                                ]
-                                if matches!(
-                                    (&**q1l, &**q2l, &**q1r, &**q2r),
-                                    (
-                                        Vector::ZeroVector { .. },
-                                        Vector::OneVector { .. },
-                                        Vector::ZeroVector { .. },
-                                        Vector::VectorTilt {q, angle_deg, ..}
-                                    ) if angles_are_approx_equal(*angle_deg, 180.0)
-                                        && matches!(&**q, Vector::OneVector { .. })
-                                )
-                            ) && matches!(
-                                &vecs_right[..],
-                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
-                            ) =>
-                            {
-                                state.sim.h(*index);
-                                Ok(())
-                            }
-
-                            (left, right) => Err(NotImplementedError(format!(
-                                "Synthesis for basis translation {} >> {} not yet implemented",
-                                left, right
-                            ))),
-                        }?;
-
-                        Ok(Some(Expr::QubitRef(QubitRef { index: *index })))
+                        lhs,
+                        Expr::BasisTranslation(btrans),
+                    ) if get_qubit_indices(lhs).is_some() => {
+                        let targets = get_qubit_indices(lhs).unwrap();
+                        let unitary = bt::basis_tranlation_unitary(btrans.clone())?;
+                        state.sim.apply(&unitary, &targets, None);
+                        Ok(Some(lhs.clone()))
                     }
 
                     (
@@ -841,5 +766,23 @@ impl Expr {
                 val
             )))
         }
+    }
+}
+
+fn get_qubit_indices(expr: &Expr) -> Option<Vec<usize>> {
+    match expr {
+        Expr::QubitRef(QubitRef { index }) => Some(vec![*index]),
+        Expr::Tensor(Tensor { vals, .. }) => {
+            let mut indices = Vec::new();
+            for val in vals {
+                if let Expr::QubitRef(QubitRef { index }) = val {
+                    indices.push(*index);
+                } else {
+                    return None;
+                }
+            }
+            Some(indices)
+        }
+        _ => None,
     }
 }
