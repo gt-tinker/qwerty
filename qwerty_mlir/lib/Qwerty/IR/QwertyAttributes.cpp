@@ -243,12 +243,6 @@ llvm::APInt SuperposElemAttr::getEigenbits() const {
     return eigenbits;
 }
 
-PrimitiveBasis BasisVectorListAttr::getPrimBasis() const {
-    llvm::ArrayRef<BasisVectorAttr> vectors = getVectors();
-    assert(!vectors.empty() && "Empty BasisVectorList. How? The verifier should catch this!");
-    return vectors[0].getPrimBasis();
-}
-
 bool BasisVectorListAttr::isPredicate() const {
     return getVectors().size() < (1ULL << getDim());
 }
@@ -280,7 +274,11 @@ PrimitiveBasis BasisElemAttr::getPrimBasis() const {
     if (getStd()) {
         return getStd().getPrimBasis();
     } else if (getVeclist()) {
-        return getVeclist().getPrimBasis();
+        // Veclists hold trees, which have no single primitive basis. Callers
+        // that need a Pauli tag must flatten the vectors with tryFlatten().
+        llvm_unreachable(
+            "BasisElemAttr::getPrimBasis() on a veclist element; flatten the "
+            "tree vectors with tryFlatten() instead");
     } else if (getRevolve()) {
         return getRevolve().getPrimBasis();
     } else {
@@ -370,6 +368,26 @@ bool BasisAttr::hasPhases() const {
     return false;
 }
 
+// True iff `tree` denotes the all-ones vector '1'*n: a OneVector leaf, or a
+// tensor whose factors are all all-ones. Any other kind -- including a tilt --
+// disqualifies it, which subsumes the old "predicate must not have phases"
+// check.
+static bool isAllOnesTree(qwerty::BasisVectorTreeAttr tree) {
+    switch (tree.getKind()) {
+    case BasisVectorTreeKind::OneVector:
+        return true;
+    case BasisVectorTreeKind::VectorTensor:
+        for (BasisVectorTreeAttr child : tree.getChildren()) {
+            if (!isAllOnesTree(child)) {
+                return false;
+            }
+        }
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool BasisAttr::hasOnlyOnes() const {
     if (hasNonPredicate()) {
         // Fast path
@@ -384,11 +402,7 @@ bool BasisAttr::hasOnlyOnes() const {
             // Duplicate vectors are not allowed, so this can't be possible
             return false;
         }
-        BasisVectorAttr vec = vl.getVectors()[0];
-        // Predicate bases should not have phases (they are meaningless)
-        assert(!vec.hasPhase());
-        if (vec.getPrimBasis() != PrimitiveBasis::Z
-                || !vec.getEigenbits().isAllOnes()) {
+        if (!isAllOnesTree(vl.getVectors()[0])) {
             return false;
         }
     }
@@ -406,16 +420,22 @@ uint64_t BasisAttr::getNumPhases() const {
 }
 
 BasisAttr BasisAttr::getAllOnesBasis(mlir::MLIRContext *ctx, size_t dim) {
+    // '1' as a tree leaf; '1'*dim as a tensor of leaves for dim > 1 (a
+    // VectorTensor needs >= 2 children, so dim == 1 stays a bare leaf).
+    BasisVectorTreeAttr one = BasisVectorTreeAttr::get(
+        ctx, BasisVectorTreeKind::OneVector, /*tilt=*/mlir::FloatAttr(), {});
+    BasisVectorTreeAttr all_ones = one;
+    if (dim > 1) {
+        llvm::SmallVector<BasisVectorTreeAttr> children(dim, one);
+        all_ones = BasisVectorTreeAttr::get(
+            ctx, BasisVectorTreeKind::VectorTensor, /*tilt=*/mlir::FloatAttr(),
+            children);
+    }
     return BasisAttr::get(ctx,
         std::initializer_list<BasisElemAttr>{
             BasisElemAttr::get(ctx,
                 BasisVectorListAttr::get(ctx,
-                    std::initializer_list<BasisVectorAttr>{
-                        BasisVectorAttr::get(ctx,
-                            PrimitiveBasis::Z,
-                            Eigenstate::MINUS,
-                            dim,
-                            /*hasPhase=*/false)}))});
+                    std::initializer_list<BasisVectorTreeAttr>{all_ones}))});
 }
 
 mlir::LogicalResult BuiltinBasisAttr::verify(
@@ -650,6 +670,85 @@ BasisVectorTreeAttr::tryFlatten() const {
     }
     }
     llvm_unreachable("unknown BasisVectorTreeKind");
+}
+
+namespace {
+// Build the single-qubit tree leaf for primitive basis `pb` and eigenbit
+// `bit`, inverting tryFlatten()'s per-leaf classification
+BasisVectorTreeAttr singleQubitLeaf(mlir::MLIRContext *ctx,
+                                    PrimitiveBasis pb, bool bit) {
+    mlir::Builder builder(ctx);
+    BasisVectorTreeAttr zero = BasisVectorTreeAttr::get(
+        ctx, BasisVectorTreeKind::ZeroVector, mlir::FloatAttr(), {});
+    BasisVectorTreeAttr one = BasisVectorTreeAttr::get(
+        ctx, BasisVectorTreeKind::OneVector, mlir::FloatAttr(), {});
+
+    switch (pb) {
+    case PrimitiveBasis::Z:
+        return bit ? one : zero;
+    case PrimitiveBasis::X: {
+        BasisVectorTreeAttr hi =
+            bit ? BasisVectorTreeAttr::get(ctx, BasisVectorTreeKind::VectorTilt,
+                                           builder.getF64FloatAttr(180.0), {one})
+                : one;
+        return BasisVectorTreeAttr::get(
+            ctx, BasisVectorTreeKind::UniformVectorSuperpos, mlir::FloatAttr(),
+            {zero, hi});
+    }
+    case PrimitiveBasis::Y: {
+        BasisVectorTreeAttr hi = BasisVectorTreeAttr::get(
+            ctx, BasisVectorTreeKind::VectorTilt,
+            builder.getF64FloatAttr(bit ? 270.0 : 90.0), {one});
+        return BasisVectorTreeAttr::get(
+            ctx, BasisVectorTreeKind::UniformVectorSuperpos, mlir::FloatAttr(),
+            {zero, hi});
+    }
+    case PrimitiveBasis::BELL:
+        break;
+    }
+    llvm_unreachable("BELL is not a single-qubit primitive basis; it never "
+                     "appears in a flat BasisVectorAttr");
+}
+}
+
+BasisVectorTreeAttr BasisVectorTreeAttr::fromFlat(mlir::MLIRContext *ctx, qwerty::BasisVectorAttr flat) {
+    PrimitiveBasis pb = flat.getPrimBasis();
+    llvm::APInt eigenbits = flat.getEigenbits();
+    uint64_t dim = flat.getDim();
+    assert(dim >= 1 && "flat basis vector must have dim >= 1");
+
+    // One leaf per qubit. Qubit i is the (dim-1-i)-th eigenbit (MSB first),
+    llvm::SmallVector<BasisVectorTreeAttr> leaves;
+    leaves.reserve(dim);
+    for (uint64_t i = 0; i < dim; i++) {
+        leaves.push_back(singleQubitLeaf(ctx, pb, eigenbits[dim - 1 - i]));
+    }
+
+    // dim == 1 stays a bare leaf (VectorTensor requires >= 2 children).
+    BasisVectorTreeAttr tree =
+        dim == 1
+            ? leaves[0]
+            : BasisVectorTreeAttr::get(ctx, BasisVectorTreeKind::VectorTensor,
+                                       mlir::FloatAttr(), leaves);
+
+    // A runtime phase becomes one top-level dynamic VectorTilt (absent tilt) =
+    // one phase() operand, the tree image of the flat hasPhase bit.
+    if (flat.hasPhase()) {
+        tree = BasisVectorTreeAttr::get(ctx, BasisVectorTreeKind::VectorTilt, mlir::FloatAttr(), {tree});
+    }
+    return tree;
+}
+
+BasisVectorListAttr BuiltinBasisAttr::expandToTreeVeclist() const {
+    mlir::MLIRContext *ctx = getContext();
+    llvm::SmallVector<BasisVectorAttr> flat;
+    expandToFlatVectors(flat);
+    llvm::SmallVector<BasisVectorTreeAttr> trees;
+    trees.reserve(flat.size());
+    for (BasisVectorAttr v : flat) {
+        trees.push_back(BasisVectorTreeAttr::fromFlat(ctx, v));
+    }
+    return BasisVectorListAttr::get(ctx, trees);
 }
 
 uint64_t BasisVectorTreeAttr::getDim() const {
