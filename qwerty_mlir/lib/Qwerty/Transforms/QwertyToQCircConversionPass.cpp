@@ -4429,11 +4429,8 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                 "yet supported in .rotate");
         }
         // Rotation about a basis vector is insensitive to a per-vector global
-        // phase (the projector |v><v| is phase-invariant), so only the
-        // flattened letters matter here; any const residual is safely
-        // dropped. The rebuilt vectors carry dynamic tilts (theta operands
-        // below); while dynamic basis phases are deferred, the resulting
-        // translation is refused downstream.
+        // phase, so only the flattened letters matter here; any const residual is safely
+        // dropped
         qwerty::BasisVectorAttr v0 = flattenVec(vectors[0]);
         qwerty::BasisVectorAttr v1 = flattenVec(vectors[1]);
 
