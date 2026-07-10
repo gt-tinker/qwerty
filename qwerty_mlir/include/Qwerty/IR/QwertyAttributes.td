@@ -47,7 +47,10 @@ def Qwerty_BuiltinBasisAttr : Qwerty_Attr<"BuiltinBasis", "std"> {
     let assemblyFormat = "$prim_basis `[` $dim `]`";
     let genVerifyDecl = 1;
     let extraClassDeclaration = [{
-        qwerty::BasisVectorListAttr expandToVeclist() const;
+        void expandToFlatVectors(
+            llvm::SmallVectorImpl<qwerty::BasisVectorAttr> &out) const;
+        // Expand this builtin basis into an explicit list of tree vectors
+        qwerty::BasisVectorListAttr expandToTreeVeclist() const;
     }];
 }
 
@@ -164,7 +167,6 @@ def Qwerty_BasisVectorListAttr : Qwerty_Attr<"BasisVectorList", "veclist"> {
     let assemblyFormat = "`{` $vectors `}`";
     let extraClassDeclaration = [{
         uint64_t getDim() const;
-        qwerty::PrimitiveBasis getPrimBasis() const;
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
@@ -206,6 +208,8 @@ def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
         The front-end transcribes a `Vector` structurally, with no Pauli recognition,
         factoring, or flattening; all semantic analysis happens downstream on
         the tree.
+
+        Note: tryFlatten in extraClassDeclarations tries to flatten a canonical pauli basis encoded as a tree.
     }];
     let parameters = (ins
         "BasisVectorTreeKind":$kind,
@@ -217,7 +221,12 @@ def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
         bool isPredicate() const;
         bool hasPhases() const;
         uint64_t getNumPhases() const;
+        std::optional<std::pair<qwerty::BasisVectorAttr, double>> tryFlatten() const;
+        // Inverse of tryFlatten(): encode a flat Pauli BasisVectorAttr as an equivalent tree
+        static qwerty::BasisVectorTreeAttr fromFlat(
+            mlir::MLIRContext *ctx, qwerty::BasisVectorAttr flat);
     }];
+
 
     let hasCustomAssemblyFormat = 1;
 

@@ -10,6 +10,11 @@ There are four ways we test the Qwerty compiler:
       $ cd qwerty_pyrt/
       $ python -m unittest qwerty.tests -v
       ```
+    * To run individual unit tests, use the `-k` flag followed by the test name:
+      ```
+      $ python -m unittest qwerty.tests -k <test name>
+      ```
+      For example: `python -m unittest qwerty.tests -k test_poster`
  2. Integration tests (running Qwerty code):
     `qwerty_pyrt/python/qwerty/integration_tests.py`, invoked same as #1 above
  3. Unit tests for Rust code: `qwerty_ast/**/test_*.rs`

@@ -124,9 +124,9 @@ MlirAttribute mlirQwertyBasisVectorListAttrGet(
     llvm::SmallVector<mlir::Attribute> attrs;
     (void)unwrapList(static_cast<size_t>(numVectors), vectors, attrs);
 
-    llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
+    llvm::SmallVector<qwerty::BasisVectorTreeAttr> vecs;
     for (mlir::Attribute attr : attrs) {
-        vecs.push_back(llvm::cast<qwerty::BasisVectorAttr>(attr));
+        vecs.push_back(llvm::cast<qwerty::BasisVectorTreeAttr>(attr));
     }
 
     return wrap(qwerty::BasisVectorListAttr::get(unwrap(ctx), vecs));
