@@ -202,14 +202,16 @@ def Qwerty_BasisVectorTreeAttr : Qwerty_Attr<"BasisVectorTree", "vectree"> {
           - present -> a compile-time constant angle, in degrees.
           - absent  -> a dynamic angle, supplied at runtime as an f64
                        `phases(...)` operand on the op using this basis, matched
-                       positionally to placeholders in tree-traversal order.
+                       positionally to placeholders in preorder traversal order.
         `getNumPhases()` counts the absent-tilt (dynamic) `VectorTilt` nodes.
         A mirror of the AST `Vector` type: one tree node per AST node. 
         The front-end transcribes a `Vector` structurally, with no Pauli recognition,
         factoring, or flattening; all semantic analysis happens downstream on
         the tree.
 
-        Note: tryFlatten in extraClassDeclarations tries to flatten a canonical pauli basis encoded as a tree.
+        Note: tryFlatten in extraClassDeclarations tries to flatten a canonical
+        pauli basis encoded as a tree. Dynamic tilts do not flatten (nullopt),
+        so bases containing them fail at conversion with a diagnostic for now.
     }];
     let parameters = (ins
         "BasisVectorTreeKind":$kind,
