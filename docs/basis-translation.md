@@ -1,7 +1,5 @@
 # Basis Translation Algorithm
 
-*Raghav Vikramprabhu, Austin Adams — June 2026*
-
 ## Overview
 
 The QWERTY interpreter previously hard-coded quantum basis translations to specific outcomes. This document describes the general algorithm implemented to replace that approach with a correct, comprehensive basis translation procedure.
