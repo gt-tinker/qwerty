@@ -19,8 +19,8 @@ use quantum_sparse_sim::QuantumSim;
 use qwerty_ast_macros::rebuild;
 use std::{collections::HashMap, fmt};
 
-mod qlit2sparse;
 mod bt;
+mod qlit2sparse;
 
 /// Newtype for a `qir_runner` sparse state vector.
 #[derive(Debug, Clone)]
@@ -567,16 +567,13 @@ impl Expr {
                     }
 
                     // E-BTrans
-                    /*
-                    Call the special basis translation algorithm here,
-                    which accounts for more quantum basises than common ones
-                    */
                     (
-                        lhs,
+                        lhs @ (Expr::QubitRef { .. } | Expr::Tensor { .. }),
                         Expr::BasisTranslation(btrans),
-                    ) if get_qubit_indices(lhs).is_some() => {
-                        let targets = get_qubit_indices(lhs).unwrap();
-                        let unitary = bt::basis_tranlation_unitary(btrans.clone())?;
+                    ) => {
+                        let targets =
+                            get_qubit_indices(lhs).expect("lhs had indicies, not it does not");
+                        let unitary = bt::basis_translation_unitary(btrans.clone())?;
                         state.sim.apply(&unitary, &targets, None);
                         Ok(Some(lhs.clone()))
                     }
@@ -769,20 +766,24 @@ impl Expr {
     }
 }
 
+/// Extracts the qubit indices from a quantum expression.
+///
+/// Returns `Some` containing a vector of indices if the expression is either a
+/// single [`QubitRef`] or a [`Tensor`] containing only [`QubitRef`]s.
+/// Returns `None` otherwise.
 fn get_qubit_indices(expr: &Expr) -> Option<Vec<usize>> {
     match expr {
         Expr::QubitRef(QubitRef { index }) => Some(vec![*index]),
-        Expr::Tensor(Tensor { vals, .. }) => {
-            let mut indices = Vec::new();
-            for val in vals {
+        Expr::Tensor(Tensor { vals, .. }) => vals
+            .iter()
+            .map(|val| {
                 if let Expr::QubitRef(QubitRef { index }) = val {
-                    indices.push(*index);
+                    Some(*index)
                 } else {
-                    return None;
+                    None
                 }
-            }
-            Some(indices)
-        }
+            })
+            .collect::<Option<Vec<usize>>>(),
         _ => None,
     }
 }
