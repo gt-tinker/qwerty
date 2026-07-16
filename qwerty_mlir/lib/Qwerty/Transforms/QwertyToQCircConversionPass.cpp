@@ -929,6 +929,76 @@ struct BitInitOpLowering : public mlir::OpConversionPattern<qwerty::BitInitOp> {
     }
 };
 
+// tree->flat bridge helpers for this pass.
+// True iff every veclist vector in this basis has a flat Pauli form (no
+// dynamic phases, no non-Pauli structure). The entry gate for patterns whose
+// machinery requires flat vectors.
+bool basisFlattens(qwerty::BasisAttr basis) {
+    if (!basis) {
+        return true;
+    }
+    for (qwerty::BasisElemAttr elem : basis.getElems()) {
+        if (qwerty::BasisVectorListAttr vl = elem.getVeclist()) {
+            for (qwerty::BasisVectorTreeAttr tree : vl.getVectors()) {
+                if (!tree.tryFlatten()) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+// Flat Pauli form of a tree vector
+qwerty::BasisVectorAttr flattenVec(qwerty::BasisVectorTreeAttr tree,
+                                   double *residual_out = nullptr) {
+    std::optional<std::pair<qwerty::BasisVectorAttr, double>> flat =
+        tree.tryFlatten();
+    assert(flat && "unflattenable tree vector; missing basisFlattens() gate?");
+    if (residual_out) {
+        *residual_out += flat->second;
+    }
+    return flat->first;
+}
+
+// Old BasisVectorListAttr::getPrimBasis() semantics: the primitive basis of
+// the first flattened vector. nullopt if it has no flat form.
+std::optional<qwerty::PrimitiveBasis> tryGetPrimBasis(
+        qwerty::BasisVectorListAttr veclist) {
+    std::optional<std::pair<qwerty::BasisVectorAttr, double>> flat =
+        veclist.getVectors()[0].tryFlatten();
+    if (!flat) {
+        return std::nullopt;
+    }
+    return flat->first.getPrimBasis();
+}
+
+// True iff every vector in the list flattens to primitive basis `pb`.
+bool veclistAllFlattenTo(qwerty::BasisVectorListAttr vl,
+                         qwerty::PrimitiveBasis pb) {
+    for (qwerty::BasisVectorTreeAttr tree : vl.getVectors()) {
+        std::optional<std::pair<qwerty::BasisVectorAttr, double>> flat =
+            tree.tryFlatten();
+        if (!flat || flat->first.getPrimBasis() != pb) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Rebuild a veclist from flat vectors (the write direction of the bridge).
+qwerty::BasisVectorListAttr flatToTreeVeclist(
+        mlir::Builder &builder,
+        llvm::ArrayRef<qwerty::BasisVectorAttr> vecs) {
+    llvm::SmallVector<qwerty::BasisVectorTreeAttr> trees;
+    trees.reserve(vecs.size());
+    for (qwerty::BasisVectorAttr v : vecs) {
+        trees.push_back(qwerty::BasisVectorTreeAttr::fromFlat(
+            builder.getContext(), v));
+    }
+    return builder.getAttr<qwerty::BasisVectorListAttr>(trees);
+}
+
 struct QBundleInitOpLowering : public mlir::OpConversionPattern<qwerty::QBundleInitOp> {
     using mlir::OpConversionPattern<qwerty::QBundleInitOp>::OpConversionPattern;
 
@@ -938,6 +1008,12 @@ struct QBundleInitOpLowering : public mlir::OpConversionPattern<qwerty::QBundleI
         mlir::Location loc = init.getLoc();
         qwerty::BasisAttr basis = init.getBasis();
         mlir::ValueRange basis_phases = init.getBasisPhases();
+
+        if (!basisFlattens(basis)) {
+            return rewriter.notifyMatchFailure(init,
+                "dynamic basis phases and non-Pauli basis vectors are not "
+                "yet supported");
+        }
 
         mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, init.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
@@ -955,13 +1031,32 @@ struct QBundleInitOpLowering : public mlir::OpConversionPattern<qwerty::QBundleI
                 if (elem.getVeclist().getVectors().size() != 1) {
                     return rewriter.notifyMatchFailure(init, "Expected a singleton basis for qbinit");
                 }
-                qwerty::BasisVectorAttr vec = elem.getVeclist().getVectors()[0];
+                double residual_rad = 0.0;
+                qwerty::BasisVectorAttr vec = flattenVec(
+                    elem.getVeclist().getVectors()[0], &residual_rad);
                 if (vec.hasPhase()) {
                     qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
                     qubits[qubit_idx] = qcirc::Gate1Q1POp::create(rewriter,
                             loc, qcirc::Gate1Q1P::P, basis_phases[phase_idx++], mlir::ValueRange(), qubits[qubit_idx]
+                        ).getResult();
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
+                            loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
+                        ).getResult();
+                }
+                if (std::abs(residual_rad) >= ATOL) {
+                    // Impart the constant per-vector phase e^{i*residual}
+                    // (from const tilts) on the |0...0> component, mirroring
+                    // the dynamic-phase sandwich above with a compile-time
+                    // angle.
+                    mlir::Value phi = qcirc::stationaryF64Const(
+                        rewriter, loc, residual_rad);
+                    qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
+                            loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
+                        ).getResult();
+                    qubits[qubit_idx] = qcirc::Gate1Q1POp::create(rewriter,
+                            loc, qcirc::Gate1Q1P::P, phi, mlir::ValueRange(), qubits[qubit_idx]
                         ).getResult();
                     qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
@@ -1009,6 +1104,12 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
         qwerty::BasisAttr basis = deinit.getBasis();
         mlir::ValueRange basis_phases = deinit.getBasisPhases();
 
+        if (!basisFlattens(basis)) {
+            return rewriter.notifyMatchFailure(deinit,
+                "dynamic basis phases and non-Pauli basis vectors are not "
+                "yet supported");
+        }
+
         mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter, loc, deinit.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(), unpacked.end());
         if (basis.getDim() != qubits.size()) {
@@ -1025,7 +1126,9 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                 if (elem.getVeclist().getVectors().size() != 1) {
                     return rewriter.notifyMatchFailure(deinit, "Expected a singleton basis for qbinit");
                 }
-                qwerty::BasisVectorAttr vec = elem.getVeclist().getVectors()[0];
+                double residual_rad = 0.0;
+                qwerty::BasisVectorAttr vec = flattenVec(
+                    elem.getVeclist().getVectors()[0], &residual_rad);
                 for (uint64_t j = 0; j < vec.getDim(); j++) {
                     uint64_t bit = vec.getEigenbits()[vec.getDim()-j-1];
                     if (vec.getPrimBasis() == qwerty::PrimitiveBasis::X) {
@@ -1047,6 +1150,8 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                     }
                     qubit_idx++;
                 }
+                // dormant: dynamic basis phases deferred — flattened vectors
+                // never carry hasPhase today. This will have to be updated in tryFlatten
                 if (vec.hasPhase()) {
                     qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
@@ -1063,6 +1168,20 @@ struct QBundleDeinitOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
                         ).getResult();
                     qubits[qubit_idx] = qcirc::Gate1QOp::create(rewriter,
                             loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[qubit_idx]
+                        ).getResult();
+                }
+                if (std::abs(residual_rad) >= ATOL) {
+                    size_t first_idx = qubit_idx - vec.getDim();
+                    mlir::Value phi = qcirc::stationaryF64Const(
+                        rewriter, loc, -residual_rad);
+                    qubits[first_idx] = qcirc::Gate1QOp::create(rewriter,
+                            loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[first_idx]
+                        ).getResult();
+                    qubits[first_idx] = qcirc::Gate1Q1POp::create(rewriter,
+                            loc, qcirc::Gate1Q1P::P, phi, mlir::ValueRange(), qubits[first_idx]
+                        ).getResult();
+                    qubits[first_idx] = qcirc::Gate1QOp::create(rewriter,
+                            loc, qcirc::Gate1Q::X, mlir::ValueRange(), qubits[first_idx]
                         ).getResult();
                 }
             } else {
@@ -1123,7 +1242,9 @@ struct NontrivialQBundlePrepOpLowering : public mlir::OpConversionPattern<qwerty
             qwerty::BasisAttr basis = rewriter.getAttr<qwerty::BasisAttr>(
                 rewriter.getAttr<qwerty::BasisElemAttr>(
                     rewriter.getAttr<qwerty::BasisVectorListAttr>(
-                        rewriter.getAttr<qwerty::BasisVectorAttr>(prep.getPrimBasis(), prep.getEigenstate(), prep.getDim(), false))));
+                        qwerty::BasisVectorTreeAttr::fromFlat(
+                            rewriter.getContext(),
+                            rewriter.getAttr<qwerty::BasisVectorAttr>(prep.getPrimBasis(), prep.getEigenstate(), prep.getDim(), false)))));
             rewriter.replaceOpWithNewOp<qwerty::QBundleInitOp>(prep, basis, mlir::ValueRange(), zeros);
             return mlir::success();
         }
@@ -1693,8 +1814,8 @@ bool isAligned(qwerty::BasisAttr lhs, qwerty::BasisAttr rhs) {
             }
         } else if (lvl && rvl) {
             if (lvl.hasPhases() || rvl.hasPhases()
-                    || lvl.getPrimBasis() != qwerty::PrimitiveBasis::Z
-                    || rvl.getPrimBasis() != qwerty::PrimitiveBasis::Z) {
+                    || !veclistAllFlattenTo(lvl, qwerty::PrimitiveBasis::Z)
+                    || !veclistAllFlattenTo(rvl, qwerty::PrimitiveBasis::Z)) {
                 return false;
             }
         } else {
@@ -1743,18 +1864,20 @@ qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
 
 qwerty::BasisElemAttr rebuildZ(mlir::RewriterBase &rewriter,
                                qwerty::BasisVectorListAttr veclist) {
-    if (veclist.getPrimBasis() == qwerty::PrimitiveBasis::Z && !veclist.hasPhases()) {
+    if (tryGetPrimBasis(veclist) == qwerty::PrimitiveBasis::Z
+            && !veclist.hasPhases()) {
         return rewriter.getAttr<qwerty::BasisElemAttr>(veclist);
     } else {
         llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
-        for (qwerty::BasisVectorAttr vec : veclist.getVectors()) {
+        for (qwerty::BasisVectorTreeAttr tree : veclist.getVectors()) {
+            qwerty::BasisVectorAttr vec = flattenVec(tree);
             vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
                 qwerty::PrimitiveBasis::Z, vec.getEigenbits(), vec.getDim(),
                 /*hasPhase=*/false));
         }
 
         return rewriter.getAttr<qwerty::BasisElemAttr>(
-            rewriter.getAttr<qwerty::BasisVectorListAttr>(vecs));
+            flatToTreeVeclist(rewriter, vecs));
     }
 }
 
@@ -1789,13 +1912,19 @@ qwerty::BasisElemAttr factorFull(mlir::RewriterBase &rewriter,
     }
     size_t n_suffixes = vl.getVectors().size() >> std_dim;
 
+    llvm::SmallVector<qwerty::BasisVectorAttr> vl_vecs;
+    vl_vecs.reserve(vl.getVectors().size());
+    for (qwerty::BasisVectorTreeAttr tree : vl.getVectors()) {
+        vl_vecs.push_back(flattenVec(tree));
+    }
+
     // Whether we should return built-in basis or a veclist
     bool prefixes_in_order = true;
     llvm::SmallVector<llvm::APInt> prefix_order;
     prefix_order.reserve(two_to_the_n);
 
     llvm::SmallVector<bool> prefixes_seen(two_to_the_n, false);
-    for (qwerty::BasisVectorAttr vec : vl.getVectors()) {
+    for (qwerty::BasisVectorAttr vec : vl_vecs) {
         llvm::APInt eigenbits = vec.getEigenbits();
         size_t prefix = eigenbits.extractBitsAsZExtValue(std_dim,
                                                          n_qubits - std_dim);
@@ -1822,7 +1951,7 @@ qwerty::BasisElemAttr factorFull(mlir::RewriterBase &rewriter,
     suffix_order.reserve(n_suffixes);
 
     size_t i = 0;
-    for (qwerty::BasisVectorAttr vec : vl.getVectors()) {
+    for (qwerty::BasisVectorAttr vec : vl_vecs) {
         llvm::APInt eigenbits = vec.getEigenbits();
         llvm::APInt prefix = eigenbits.extractBits(std_dim,
                                                    n_qubits - std_dim);
@@ -1841,32 +1970,33 @@ qwerty::BasisElemAttr factorFull(mlir::RewriterBase &rewriter,
         i++;
     }
 
+    qwerty::PrimitiveBasis vl_prim_basis = vl_vecs[0].getPrimBasis();
     qwerty::BasisElemAttr ret;
     if (prefixes_in_order) {
         ret = rewriter.getAttr<qwerty::BasisElemAttr>(
-            rewriter.getAttr<qwerty::BuiltinBasisAttr>(vl.getPrimBasis(),
+            rewriter.getAttr<qwerty::BuiltinBasisAttr>(vl_prim_basis,
                                                         std_dim));
     } else {
         llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
         vecs.reserve(two_to_the_n);
         for (llvm::APInt eigenbits : prefix_order) {
             vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
-                vl.getPrimBasis(), eigenbits, std_dim, /*hasPhase=*/false));
+                vl_prim_basis, eigenbits, std_dim, /*hasPhase=*/false));
         }
 
         ret = rewriter.getAttr<qwerty::BasisElemAttr>(
-            rewriter.getAttr<qwerty::BasisVectorListAttr>(vecs));
+            flatToTreeVeclist(rewriter, vecs));
     }
 
     llvm::SmallVector<qwerty::BasisVectorAttr> suffix_vecs;
     suffix_vecs.reserve(n_suffixes);
     for (llvm::APInt eigenbits : suffix_order) {
         suffix_vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
-            vl.getPrimBasis(), eigenbits, n_qubits - std_dim, /*hasPhase=*/false));
+            vl_prim_basis, eigenbits, n_qubits - std_dim, /*hasPhase=*/false));
     }
     qwerty::BasisElemAttr remainder =
         rewriter.getAttr<qwerty::BasisElemAttr>(
-            rewriter.getAttr<qwerty::BasisVectorListAttr>(suffix_vecs));
+            flatToTreeVeclist(rewriter, suffix_vecs));
     dest_queue.push_front(remainder);
 
     return ret;
@@ -1885,16 +2015,23 @@ qwerty::BasisVectorListAttr factorVeclist(
     }
     size_t n_suffixes = vl.getVectors().size() / n_prefixes;
 
+    llvm::SmallVector<qwerty::BasisVectorAttr> vl_vecs;
+    vl_vecs.reserve(vl.getVectors().size());
+    for (qwerty::BasisVectorTreeAttr tree : vl.getVectors()) {
+        vl_vecs.push_back(flattenVec(tree));
+    }
+
     llvm::DenseSet<llvm::APInt> allowed_prefixes;
     llvm::SmallVector<llvm::APInt> prefix_order;
     prefix_order.reserve(n_prefixes);
-    for (qwerty::BasisVectorAttr vec : factor.getVectors()) {
+    for (qwerty::BasisVectorTreeAttr tree : factor.getVectors()) {
+        qwerty::BasisVectorAttr vec = flattenVec(tree);
         allowed_prefixes.insert(vec.getEigenbits());
         prefix_order.push_back(vec.getEigenbits());
     }
 
     llvm::DenseSet<llvm::APInt> prefixes_seen;
-    for (qwerty::BasisVectorAttr vec : vl.getVectors()) {
+    for (qwerty::BasisVectorAttr vec : vl_vecs) {
         llvm::APInt eigenbits = vec.getEigenbits();
         llvm::APInt prefix = eigenbits.extractBits(n_factor_qubits,
                                                    n_qubits - n_factor_qubits);
@@ -1914,7 +2051,7 @@ qwerty::BasisVectorListAttr factorVeclist(
     suffix_order.reserve(n_suffixes);
 
     size_t i = 0;
-    for (qwerty::BasisVectorAttr vec : vl.getVectors()) {
+    for (qwerty::BasisVectorAttr vec : vl_vecs) {
         llvm::APInt eigenbits = vec.getEigenbits();
         llvm::APInt prefix = eigenbits.extractBits(n_factor_qubits,
                                                    n_qubits - n_factor_qubits);
@@ -1933,25 +2070,25 @@ qwerty::BasisVectorListAttr factorVeclist(
         i++;
     }
 
+    qwerty::PrimitiveBasis vl_prim_basis = vl_vecs[0].getPrimBasis();
     llvm::SmallVector<qwerty::BasisVectorAttr> prefix_vecs;
     prefix_vecs.reserve(n_prefixes);
     for (llvm::APInt eigenbits : prefix_order) {
         prefix_vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
-            vl.getPrimBasis(), eigenbits, n_factor_qubits, /*hasPhase=*/false));
+            vl_prim_basis, eigenbits, n_factor_qubits, /*hasPhase=*/false));
     }
-    qwerty::BasisVectorListAttr ret =
-        rewriter.getAttr<qwerty::BasisVectorListAttr>(prefix_vecs);
+    qwerty::BasisVectorListAttr ret = flatToTreeVeclist(rewriter, prefix_vecs);
 
     llvm::SmallVector<qwerty::BasisVectorAttr> suffix_vecs;
     suffix_vecs.reserve(n_suffixes);
     for (llvm::APInt eigenbits : suffix_order) {
         suffix_vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
-            vl.getPrimBasis(), eigenbits, n_qubits - n_factor_qubits,
+            vl_prim_basis, eigenbits, n_qubits - n_factor_qubits,
             /*hasPhase=*/false));
     }
     qwerty::BasisElemAttr remainder =
         rewriter.getAttr<qwerty::BasisElemAttr>(
-            rewriter.getAttr<qwerty::BasisVectorListAttr>(suffix_vecs));
+            flatToTreeVeclist(rewriter, suffix_vecs));
     dest_queue.push_front(remainder);
 
     return ret;
@@ -1965,8 +2102,10 @@ qwerty::BasisVectorListAttr merge(
     llvm::SmallVector<qwerty::BasisVectorAttr> vecs;
     vecs.reserve(left.getVectors().size() * right.getVectors().size());
 
-    for (qwerty::BasisVectorAttr lvec : left.getVectors()) {
-        for (qwerty::BasisVectorAttr rvec : right.getVectors()) {
+    for (qwerty::BasisVectorTreeAttr ltree : left.getVectors()) {
+        qwerty::BasisVectorAttr lvec = flattenVec(ltree);
+        for (qwerty::BasisVectorTreeAttr rtree : right.getVectors()) {
+            qwerty::BasisVectorAttr rvec = flattenVec(rtree);
             llvm::APInt eigenbits = lvec.getEigenbits()
                                         .concat(rvec.getEigenbits());
             vecs.push_back(rewriter.getAttr<qwerty::BasisVectorAttr>(
@@ -1974,7 +2113,7 @@ qwerty::BasisVectorListAttr merge(
         }
     }
 
-    return rewriter.getAttr<qwerty::BasisVectorListAttr>(vecs);
+    return flatToTreeVeclist(rewriter, vecs);
 }
 
 qwerty::BasisVectorListAttr merge(
@@ -1983,7 +2122,7 @@ qwerty::BasisVectorListAttr merge(
         qwerty::BasisElemAttr right) {
     qwerty::BasisVectorListAttr vl_right = right.getVeclist();
     if (!vl_right) {
-        vl_right = right.getStd().expandToVeclist();
+        vl_right = right.getStd().expandToTreeVeclist();
     }
     return merge(rewriter, left, vl_right);
 }
@@ -2027,7 +2166,7 @@ bool greedyMerge(mlir::RewriterBase &rewriter,
         if (stdnext) {
             qwerty::BasisVectorListAttr splat =
                 splitStd(rewriter, small_queue, stdnext, delta)
-                .expandToVeclist();
+                .expandToTreeVeclist();
             big_rebuilt.push_back(rebuildZ(rewriter, big));
             small_rebuilt.push_back(rebuildZ(rewriter,
                                              merge(rewriter, small, splat)));
@@ -2091,7 +2230,17 @@ void findStandardizations(
         llvm::ArrayRef<qwerty::BasisElemAttr> elems) {
     size_t qubit_idx = 0;
     for (qwerty::BasisElemAttr elem : elems) {
-        qwerty::PrimitiveBasis prim_basis = elem.getPrimBasis();
+        qwerty::PrimitiveBasis prim_basis;
+        if (qwerty::BuiltinBasisAttr std = elem.getStd()) {
+            prim_basis = std.getPrimBasis();
+        } else if (qwerty::BasisVectorListAttr vl = elem.getVeclist()) {
+            std::optional<qwerty::PrimitiveBasis> pb = tryGetPrimBasis(vl);
+            assert(pb && "unflattenable veclist; missing basisFlattens() "
+                         "gate?");
+            prim_basis = *pb;
+        } else {
+            prim_basis = elem.getRevolve().getPrimBasis();
+        }
         stdize.emplace_back(prim_basis, qubit_idx, qubit_idx + elem.getDim());
         qubit_idx += elem.getDim();
     }
@@ -2213,8 +2362,12 @@ struct VectorPhase {
 };
 
 // Find the ranges of qubits and eigenbits upon the programmer requested us to
-// (de)impart phases on particular vectors.
-void findVectorPhases(llvm::SmallVectorImpl<VectorPhase> &vec_phases,
+// (de)impart phases on particular vectors. Constant per-vector phases (const
+// tilts folded into tryFlatten()'s residual) are materialized here as
+// stationary f64 constants.
+void findVectorPhases(mlir::RewriterBase &rewriter,
+                      mlir::Location loc,
+                      llvm::SmallVectorImpl<VectorPhase> &vec_phases,
                       qwerty::BasisAttr basis,
                       mlir::ValueRange basis_phases,
                       size_t start_phase_idx) {
@@ -2222,10 +2375,17 @@ void findVectorPhases(llvm::SmallVectorImpl<VectorPhase> &vec_phases,
     size_t phase_idx = start_phase_idx;
     for (qwerty::BasisElemAttr elem : basis.getElems()) {
         if (qwerty::BasisVectorListAttr veclist = elem.getVeclist()) {
-            for (qwerty::BasisVectorAttr vec : veclist.getVectors()) {
+            for (qwerty::BasisVectorTreeAttr tree : veclist.getVectors()) {
+                double residual_rad = 0.0;
+                qwerty::BasisVectorAttr vec = flattenVec(tree, &residual_rad);
                 if (vec.hasPhase()) {
                     vec_phases.emplace_back(qubit_idx, vec.getEigenbits(),
                                             basis_phases[phase_idx++]);
+                }
+                if (std::abs(residual_rad) >= ATOL) {
+                    vec_phases.emplace_back(qubit_idx, vec.getEigenbits(),
+                                            qcirc::stationaryF64Const(
+                                                rewriter, loc, residual_rad));
                 }
             }
         }
@@ -2267,7 +2427,7 @@ mlir::LogicalResult rebuildAligned(mlir::Operation *offender,
                 }
 
                 left_rebuilt.push_back(rebuildZ(rewriter,
-                                                lstd.expandToVeclist()));
+                                                lstd.expandToTreeVeclist()));
                 right_rebuilt.push_back(rebuildZ(rewriter, rvl));
             } else if (rstd) { // && lvl
                 if (lvl.isPredicate()) {
@@ -2277,12 +2437,18 @@ mlir::LogicalResult rebuildAligned(mlir::Operation *offender,
 
                 left_rebuilt.push_back(rebuildZ(rewriter, lvl));
                 right_rebuilt.push_back(rebuildZ(rewriter,
-                                                 rstd.expandToVeclist()));
+                                                 rstd.expandToTreeVeclist()));
             } else { // lvl && rvl
+                llvm::SmallVector<qwerty::BasisVectorAttr> lvecs, rvecs;
+                for (qwerty::BasisVectorTreeAttr tree : lvl.getVectors()) {
+                    lvecs.push_back(flattenVec(tree));
+                }
+                for (qwerty::BasisVectorTreeAttr tree : rvl.getVectors()) {
+                    rvecs.push_back(flattenVec(tree));
+                }
                 if ((lvl.isPredicate() || rvl.isPredicate())
-                    && (lvl.getPrimBasis() != rvl.getPrimBasis()
-                        || !isPermutation(lvl.getVectors(),
-                                          rvl.getVectors()))) {
+                    && (tryGetPrimBasis(lvl) != tryGetPrimBasis(rvl)
+                        || !isPermutation(lvecs, rvecs))) {
                     return rewriter.notifyMatchFailure(offender,
                        "Veclists are not permutations of one another. "
                        "How did this pass span checking?");
@@ -2316,7 +2482,7 @@ mlir::LogicalResult rebuildAligned(mlir::Operation *offender,
                 big_rebuilt.push_back(rebuildZ(rewriter,
                                                splitStd(rewriter, big_queue,
                                                         bigstd, small_dim)
-                                               .expandToVeclist()));
+                                               .expandToTreeVeclist()));
                 small_rebuilt.push_back(rebuildZ(rewriter, smallvl));
                 if (smallvl.isPredicate()) {
                     return rewriter.notifyMatchFailure(offender,
@@ -2338,11 +2504,11 @@ mlir::LogicalResult rebuildAligned(mlir::Operation *offender,
                                                        factored_vl));
                         small_rebuilt.push_back(rebuildZ(rewriter,
                                                          smallstd
-                                                         .expandToVeclist()));
+                                                         .expandToTreeVeclist()));
                     }
                 } else {
                     if (!greedyMerge(rewriter, bigvl,
-                                     smallstd.expandToVeclist(),
+                                     smallstd.expandToTreeVeclist(),
                                      big_queue, small_queue,
                                      big_rebuilt, small_rebuilt)) {
                         return rewriter.notifyMatchFailure(offender,
@@ -2568,7 +2734,8 @@ void chopOutRangeFromVeclist(
     llvm::SmallSet<llvm::APInt, 4, APIntCompare> left_seen, right_seen;
     size_t pad_dim = chop_end - chop_start;
     size_t dim = vl.getDim();
-    for (qwerty::BasisVectorAttr vec : vl.getVectors()) {
+    for (qwerty::BasisVectorTreeAttr tree : vl.getVectors()) {
+        qwerty::BasisVectorAttr vec = flattenVec(tree);
         if (chop_start) {
             llvm::APInt left_eigenbits = vec.getEigenbits();
             left_eigenbits.lshrInPlace(dim - chop_start);
@@ -2590,7 +2757,7 @@ void chopOutRangeFromVeclist(
                 qwerty::PrimitiveBasis::Z, vec, vec.getBitWidth(), false));
         }
         elems_out.push_back(builder.getAttr<qwerty::BasisElemAttr>(
-            builder.getAttr<qwerty::BasisVectorListAttr>(left_vectors)));
+            flatToTreeVeclist(builder, left_vectors)));
     }
 
     elems_out.push_back(builder.getAttr<qwerty::BasisElemAttr>(
@@ -2604,7 +2771,7 @@ void chopOutRangeFromVeclist(
                 qwerty::PrimitiveBasis::Z, vec, vec.getBitWidth(), false));
         }
         elems_out.push_back(builder.getAttr<qwerty::BasisElemAttr>(
-            builder.getAttr<qwerty::BasisVectorListAttr>(right_vectors)));
+            flatToTreeVeclist(builder, right_vectors)));
     }
 
 }
@@ -3266,7 +3433,9 @@ struct ArbitraryRevolveBasisRevolveGenerator
                     qwerty::PrimitiveBasis::Z, 1))});
 
     auto bv1_bv2_vec = rewriter.getAttr<qwerty::BasisVectorListAttr>(
-        llvm::ArrayRef<qwerty::BasisVectorAttr>{bv1, bv2});
+        std::initializer_list<qwerty::BasisVectorTreeAttr>{
+            qwerty::BasisVectorTreeAttr::fromFlat(rewriter.getContext(), bv1),
+            qwerty::BasisVectorTreeAttr::fromFlat(rewriter.getContext(), bv2)});
 
     auto bv1_bv2_elem = rewriter.getAttr<qwerty::BasisElemAttr>(bv1_bv2_vec);
 
@@ -3769,14 +3938,16 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
           return mlir::failure();
         }
 
+        if (!basisFlattens(basis_in) || !basisFlattens(basis_out)) {
+            return rewriter.notifyMatchFailure(trans,
+                "dynamic basis phases and non-Pauli basis vectors are not "
+                "yet supported");
+        }
+
         llvm::SmallVector<Standardization> left_stdize, right_stdize;
         findStandardizations(left_stdize, basis_in.getElems());
         findStandardizations(right_stdize, basis_out.getElems());
         determineUnconditional(left_stdize, right_stdize);
-
-        llvm::SmallVector<VectorPhase> left_phases, right_phases;
-        findVectorPhases(left_phases, basis_in, basis_phases, 0);
-        findVectorPhases(right_phases, basis_out, basis_phases, basis_in.getNumPhases());
 
         llvm::SmallVector<qwerty::BasisElemAttr> left_rebuilt, right_rebuilt;
         mlir::LogicalResult ret = rebuildAligned(trans, rewriter, basis_in,
@@ -3788,12 +3959,21 @@ struct AlignBasisTranslations : public mlir::OpConversionPattern<qwerty::QBundle
 
         // Must return success after this point
 
+        mlir::Location loc = trans.getLoc();
+
+        // These may materialize stationary f64 constants for const-tilt
+        // residuals, so they run after the last possible match failure above.
+        llvm::SmallVector<VectorPhase> left_phases, right_phases;
+        findVectorPhases(rewriter, loc, left_phases, basis_in,
+                         basis_phases, 0);
+        findVectorPhases(rewriter, loc, right_phases, basis_out,
+                         basis_phases, basis_in.getNumPhases());
+
         // TODO: Do phase optimizations here
 
         shootdownStandardizations(left_stdize, right_stdize, left_phases, right_phases,
                                   left_rebuilt, right_rebuilt);
 
-        mlir::Location loc = trans.getLoc();
         mlir::ValueRange unpacked = qwerty::QBundleUnpackOp::create(rewriter,
             loc, trans.getQbundleIn()).getQubits();
         llvm::SmallVector<mlir::Value> qubits(unpacked.begin(),
@@ -3867,8 +4047,8 @@ void synthesizePermutationSlow(
     }
 
     for (size_t i = 0; i < left.getVectors().size(); i++) {
-        qwerty::BasisVectorAttr lv = left.getVectors()[i];
-        qwerty::BasisVectorAttr rv = right.getVectors()[i];
+        qwerty::BasisVectorAttr lv = flattenVec(left.getVectors()[i]);
+        qwerty::BasisVectorAttr rv = flattenVec(right.getVectors()[i]);
 
         // reverseBits() is to account for Tweedledum using the opposite
         // endianness as we do
@@ -3898,10 +4078,10 @@ void synthesizePermutationFast(
         qwerty::BasisVectorListAttr left,
         qwerty::BasisVectorListAttr right) {
     llvm::SmallVector<std::pair<llvm::APInt, llvm::APInt>> perm;
-    for (auto [left_vec, right_vec] : llvm::zip(left.getVectors(),
-                                                right.getVectors())) {
-        llvm::APInt left = left_vec.getEigenbits();
-        llvm::APInt right = right_vec.getEigenbits();
+    for (auto [left_tree, right_tree] : llvm::zip(left.getVectors(),
+                                                  right.getVectors())) {
+        llvm::APInt left = flattenVec(left_tree).getEigenbits();
+        llvm::APInt right = flattenVec(right_tree).getEigenbits();
         if (left != right) {
             perm.emplace_back(std::move(left), std::move(right));
         }
@@ -4194,7 +4374,7 @@ struct QBundleFlipOpLowering : public mlir::OpConversionPattern<qwerty::QBundleF
         qwerty::BasisVectorListAttr vector_list = elem.getVeclist();
         if (!vector_list) {
             assert(elem.getStd() && "Basis has neither built-in basis nor veclist!");
-            vector_list = elem.getStd().expandToVeclist();
+            vector_list = elem.getStd().expandToTreeVeclist();
         }
 
         auto vectors = vector_list.getVectors();
@@ -4203,7 +4383,7 @@ struct QBundleFlipOpLowering : public mlir::OpConversionPattern<qwerty::QBundleF
         qwerty::BasisAttr rev_basis = rewriter.getAttr<qwerty::BasisAttr>(
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BasisVectorListAttr>(
-                    std::initializer_list<qwerty::BasisVectorAttr>{vectors[1], vectors[0]})));
+                    std::initializer_list<qwerty::BasisVectorTreeAttr>{vectors[1], vectors[0]})));
 
         llvm::SmallVector<mlir::Value> phases(basis_phases);
         auto rev_phases = llvm::reverse(basis_phases);
@@ -4238,10 +4418,21 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
         qwerty::BasisVectorListAttr vector_list = elem.getVeclist();
         if (!vector_list) {
             assert(elem.getStd() && "Basis has neither built-in basis nor veclist!");
-            vector_list = elem.getStd().expandToVeclist();
+            vector_list = elem.getStd().expandToTreeVeclist();
         }
         auto vectors = vector_list.getVectors();
         assert(vectors.size() == 2 && "Expected two vectors for 1D non-predicate");
+
+        if (!basisFlattens(basis)) {
+            return rewriter.notifyMatchFailure(rot,
+                "dynamic basis phases and non-Pauli basis vectors are not "
+                "yet supported in .rotate");
+        }
+        // Rotation about a basis vector is insensitive to a per-vector global
+        // phase, so only the flattened letters matter here; any const residual is safely
+        // dropped
+        qwerty::BasisVectorAttr v0 = flattenVec(vectors[0]);
+        qwerty::BasisVectorAttr v1 = flattenVec(vectors[1]);
 
         mlir::Value theta_by_2 = wrapStationaryFloatOps(
             rewriter, loc, rot.getTheta(),
@@ -4268,11 +4459,17 @@ struct QBundleRotateOpLowering : public mlir::OpConversionPattern<qwerty::QBundl
         qwerty::BasisAttr rot_basis = rewriter.getAttr<qwerty::BasisAttr>(
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BasisVectorListAttr>(
-                    std::initializer_list<qwerty::BasisVectorAttr>{
-                        rewriter.getAttr<qwerty::BasisVectorAttr>(
-                            vectors[0].getPrimBasis(), vectors[0].getEigenbits(), vectors[0].getDim(), /*hasPhase=*/true),
-                        rewriter.getAttr<qwerty::BasisVectorAttr>(
-                            vectors[1].getPrimBasis(), vectors[1].getEigenbits(), vectors[1].getDim(), /*hasPhase=*/true)})));
+                    std::initializer_list<qwerty::BasisVectorTreeAttr>{
+                        qwerty::BasisVectorTreeAttr::fromFlat(
+                            rewriter.getContext(),
+                            rewriter.getAttr<qwerty::BasisVectorAttr>(
+                                v0.getPrimBasis(), v0.getEigenbits(),
+                                v0.getDim(), /*hasPhase=*/true)),
+                        qwerty::BasisVectorTreeAttr::fromFlat(
+                            rewriter.getContext(),
+                            rewriter.getAttr<qwerty::BasisVectorAttr>(
+                                v1.getPrimBasis(), v1.getEigenbits(),
+                                v1.getDim(), /*hasPhase=*/true))})));
 
         llvm::SmallVector<mlir::Value> phases{left_phase, right_phase};
         rewriter.replaceOpWithNewOp<qwerty::QBundleBasisTranslationOp>(

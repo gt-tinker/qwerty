@@ -73,10 +73,12 @@ qwerty::FuncOp synthSign(
         std::initializer_list<qwerty::BasisElemAttr>{
             rewriter.getAttr<qwerty::BasisElemAttr>(
                 rewriter.getAttr<qwerty::BasisVectorListAttr>(
-                    std::initializer_list<qwerty::BasisVectorAttr>{
-                        rewriter.getAttr<qwerty::BasisVectorAttr>(
-                            qwerty::PrimitiveBasis::X, qwerty::Eigenstate::MINUS,
-                            out_dim, /*hasPhase=*/false)}))});
+                    std::initializer_list<qwerty::BasisVectorTreeAttr>{
+                        qwerty::BasisVectorTreeAttr::fromFlat(
+                            rewriter.getContext(),
+                            rewriter.getAttr<qwerty::BasisVectorAttr>(
+                                qwerty::PrimitiveBasis::X, qwerty::Eigenstate::MINUS,
+                                out_dim, /*hasPhase=*/false))}))});
     mlir::Value zero = qwerty::QBundlePrepOp::create(rewriter,
         loc, qwerty::PrimitiveBasis::Z, qwerty::Eigenstate::PLUS, out_dim).getResult();
     mlir::Value minus = qwerty::QBundleInitOp::create(rewriter,
