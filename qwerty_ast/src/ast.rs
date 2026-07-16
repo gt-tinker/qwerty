@@ -713,13 +713,7 @@ pub fn canon_angle(angle_deg: f64) -> f64 {
     Basically we just have to check to make sure result isn't 360 or very close to it becuase if it is,
     then we're going to have floating point errors with like 0.000000000000....1 degrees of precision.
     */
-    if res == 360.0 
-    {
-        0.0
-    } else 
-    {
-        res
-    }
+    if res == 360.0 { 0.0 } else { res }
 }
 
 /// Returns true if two angles are approximately equal.

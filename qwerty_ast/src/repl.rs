@@ -19,6 +19,7 @@ use quantum_sparse_sim::QuantumSim;
 use qwerty_ast_macros::rebuild;
 use std::{collections::HashMap, fmt};
 
+mod bt;
 mod qlit2sparse;
 
 /// Newtype for a `qir_runner` sparse state vector.
@@ -246,6 +247,7 @@ impl SparseReplState {
     }
 }
 
+#[derive(Debug)]
 pub struct NotImplementedError(pub String);
 
 /// Holds the quantum simulator state and a mapping of names to values.
@@ -566,93 +568,14 @@ impl Expr {
 
                     // E-BTrans
                     (
-                        Expr::QubitRef(QubitRef { index }),
-                        Expr::BasisTranslation(BasisTranslation { bin, bout, .. }),
+                        lhs @ (Expr::QubitRef { .. } | Expr::Tensor { .. }),
+                        Expr::BasisTranslation(btrans),
                     ) => {
-                        // Strip debug info so we can actually compare them
-                        let bin = bin.clone().into_strip_dbg().canonicalize();
-                        let bout = bout.clone().into_strip_dbg().canonicalize();
-
-                        match (bin, bout) {
-                            (left, right) if left == right => {
-                                // Nothing to do.
-                                Ok(())
-                            }
-
-                            (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                            )
-                            | (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                            ) if matches!(
-                                &vecs_left[..],
-                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
-                            ) && matches!(
-                                &vecs_right[..],
-                                [Vector::OneVector { .. }, Vector::ZeroVector { .. }]
-                            ) =>
-                            {
-                                state.sim.x(*index);
-                                Ok(())
-                            }
-
-                            (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                            )
-                            | (
-                                Basis::BasisLiteral {
-                                    vecs: vecs_right, ..
-                                },
-                                Basis::BasisLiteral {
-                                    vecs: vecs_left, ..
-                                },
-                            ) if matches!(
-                                &vecs_left[..],
-                                [
-                                    Vector::UniformVectorSuperpos { q1: q1l, q2: q2l, .. },
-                                    Vector::UniformVectorSuperpos { q1: q1r, q2: q2r, .. }
-                                ]
-                                if matches!(
-                                    (&**q1l, &**q2l, &**q1r, &**q2r),
-                                    (
-                                        Vector::ZeroVector { .. },
-                                        Vector::OneVector { .. },
-                                        Vector::ZeroVector { .. },
-                                        Vector::VectorTilt {q, angle_deg, ..}
-                                    ) if angles_are_approx_equal(*angle_deg, 180.0)
-                                        && matches!(&**q, Vector::OneVector { .. })
-                                )
-                            ) && matches!(
-                                &vecs_right[..],
-                                [Vector::ZeroVector { .. }, Vector::OneVector { .. }]
-                            ) =>
-                            {
-                                state.sim.h(*index);
-                                Ok(())
-                            }
-
-                            (left, right) => Err(NotImplementedError(format!(
-                                "Synthesis for basis translation {} >> {} not yet implemented",
-                                left, right
-                            ))),
-                        }?;
-
-                        Ok(Some(Expr::QubitRef(QubitRef { index: *index })))
+                        let targets =
+                            get_qubit_indices(lhs).expect("lhs had indicies, not it does not");
+                        let unitary = bt::basis_translation_unitary(btrans.clone())?;
+                        state.sim.apply(&unitary, &targets, None);
+                        Ok(Some(lhs.clone()))
                     }
 
                     (
@@ -840,5 +763,27 @@ impl Expr {
                 val
             )))
         }
+    }
+}
+
+/// Extracts the qubit indices from a quantum expression.
+///
+/// Returns `Some` containing a vector of indices if the expression is either a
+/// single [`QubitRef`] or a [`Tensor`] containing only [`QubitRef`]s.
+/// Returns `None` otherwise.
+fn get_qubit_indices(expr: &Expr) -> Option<Vec<usize>> {
+    match expr {
+        Expr::QubitRef(QubitRef { index }) => Some(vec![*index]),
+        Expr::Tensor(Tensor { vals, .. }) => vals
+            .iter()
+            .map(|val| {
+                if let Expr::QubitRef(QubitRef { index }) = val {
+                    Some(*index)
+                } else {
+                    None
+                }
+            })
+            .collect::<Option<Vec<usize>>>(),
+        _ => None,
     }
 }
