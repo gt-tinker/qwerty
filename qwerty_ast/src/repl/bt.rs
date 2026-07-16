@@ -42,6 +42,8 @@ pub fn basis_to_dense_vectors(
     }
 }
 
+/// Convert a basis translation AST node into a unitary. Pseudocode:
+/// ```text
 /// Input: b1 >> b2, where
 ///     b1 == {bv1, bv2, ..., bvn} and b2 == {bv1', bv2', ..., bvn'}
 /// Output: 2^m x 2^m unitary that achieves b1>>b2
@@ -51,6 +53,7 @@ pub fn basis_to_dense_vectors(
 /// P_U = I - P_W
 /// M = |bv1'⟩⟨bv1| + |bv2'⟩⟨bv2| + ... + |bvn'⟩⟨bvn|
 /// return M + P_U
+/// ```
 pub fn basis_translation_unitary(
     ast: BasisTranslation,
 ) -> Result<Array2<Complex64>, NotImplementedError> {
@@ -174,7 +177,8 @@ mod tests {
     use ndarray::Array2;
     use num_complex::Complex64;
 
-    const EPS: f64 = 1e-10;
+    //switch to match ATOL in /qwerty_ast/src/ast.rs
+    const EPS: f64 = 1e-12;
 
     /// Check two matrices are element-wise approximately equal within `EPS`.
     fn approx_eq(a: &Array2<Complex64>, b: &Array2<Complex64>) -> bool {
