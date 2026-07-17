@@ -3432,10 +3432,43 @@ struct ArbitraryRevolveBasisRevolveGenerator
                 rewriter.getAttr<qwerty::BuiltinBasisAttr>(
                     qwerty::PrimitiveBasis::Z, 1))});
 
+    // Encode bv1/bv2 as trees. Where a phase's operand is a compile-time
+    // constant (the qcirc.calc-of-arith.constant idiom, i.e. angles written
+    // in source), fold it into a const tilt on the tree and drop the operand
+    size_t bar_phase_idx = 0;
+    llvm::SmallVector<mlir::Value> bar_phases_dyn;
+    auto bv_to_tree =
+        [&](qwerty::BasisVectorAttr bv) -> qwerty::BasisVectorTreeAttr {
+        if (!bv.hasPhase()) {
+            return qwerty::BasisVectorTreeAttr::fromFlat(
+                rewriter.getContext(), bv);
+        }
+        mlir::Value phase_operand = bar_phases[bar_phase_idx++];
+        qwerty::BasisVectorAttr bare = qwerty::BasisVectorAttr::get(
+            rewriter.getContext(), bv.getPrimBasis(), bv.getEigenbits(),
+            bv.getDim(), /*hasPhase=*/false);
+        qwerty::BasisVectorTreeAttr tree =
+            qwerty::BasisVectorTreeAttr::fromFlat(rewriter.getContext(), bare);
+        mlir::FloatAttr angle;
+        if (mlir::matchPattern(phase_operand, qcirc::m_CalcConstant(&angle))) {
+            double angle_deg = angle.getValueAsDouble() / (2.0 * M_PI) * 360.0;
+            return qwerty::BasisVectorTreeAttr::get(
+                rewriter.getContext(), qwerty::BasisVectorTreeKind::VectorTilt,
+                rewriter.getF64FloatAttr(angle_deg), {tree});
+        }
+        bar_phases_dyn.push_back(phase_operand);
+        return qwerty::BasisVectorTreeAttr::get(
+            rewriter.getContext(), qwerty::BasisVectorTreeKind::VectorTilt,
+            mlir::FloatAttr(), {tree});
+    };
+    qwerty::BasisVectorTreeAttr bv1_tree = bv_to_tree(bv1);
+    qwerty::BasisVectorTreeAttr bv2_tree = bv_to_tree(bv2);
+
+    bar_phases = bar_phases_dyn;
+
     auto bv1_bv2_vec = rewriter.getAttr<qwerty::BasisVectorListAttr>(
-        std::initializer_list<qwerty::BasisVectorTreeAttr>{
-            qwerty::BasisVectorTreeAttr::fromFlat(rewriter.getContext(), bv1),
-            qwerty::BasisVectorTreeAttr::fromFlat(rewriter.getContext(), bv2)});
+        std::initializer_list<qwerty::BasisVectorTreeAttr>{bv1_tree,
+                                                           bv2_tree});
 
     auto bv1_bv2_elem = rewriter.getAttr<qwerty::BasisElemAttr>(bv1_bv2_vec);
 

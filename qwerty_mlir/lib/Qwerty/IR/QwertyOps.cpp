@@ -2318,24 +2318,49 @@ void QBundlePhaseOp::buildPredicated(
     // Constructed faithfully with dynamic tilts ({'0'@theta, '1'@theta});
     // while dynamic basis phases are deferred, the resulting translation is
     // refused downstream at conversion.
+    mlir::FloatAttr theta_attr;
+    bool theta_is_const = mlir::matchPattern(
+        adaptor.getTheta(), qcirc::m_CalcConstant(&theta_attr));
+    llvm::SmallVector<mlir::Value> trans_phases;
+    BasisVectorTreeAttr zero_tree, one_tree;
+    if (theta_is_const) {
+        double theta_deg =
+            theta_attr.getValueAsDouble() / (2.0 * M_PI) * 360.0;
+        mlir::FloatAttr tilt = rewriter.getF64FloatAttr(theta_deg);
+        zero_tree = BasisVectorTreeAttr::get(
+            rewriter.getContext(), BasisVectorTreeKind::VectorTilt, tilt,
+            {BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                rewriter.getAttr<BasisVectorAttr>(
+                    PrimitiveBasis::Z, Eigenstate::PLUS,
+                    /*dim=*/1, /*hasPhase=*/false))});
+        one_tree = BasisVectorTreeAttr::get(
+            rewriter.getContext(), BasisVectorTreeKind::VectorTilt, tilt,
+            {BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                rewriter.getAttr<BasisVectorAttr>(
+                    PrimitiveBasis::Z, Eigenstate::MINUS,
+                    /*dim=*/1, /*hasPhase=*/false))});
+    } else {
+        zero_tree = BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+            rewriter.getAttr<BasisVectorAttr>(
+                PrimitiveBasis::Z, Eigenstate::PLUS,
+                /*dim=*/1, /*hasPhase=*/true));
+        one_tree = BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+            rewriter.getAttr<BasisVectorAttr>(
+                PrimitiveBasis::Z, Eigenstate::MINUS,
+                /*dim=*/1, /*hasPhase=*/true));
+        trans_phases.push_back(adaptor.getTheta());
+        trans_phases.push_back(adaptor.getTheta());
+    }
     rhs_elems.push_back(
         rewriter.getAttr<BasisElemAttr>(
             rewriter.getAttr<BasisVectorListAttr>(
-                std::initializer_list<BasisVectorTreeAttr>{
-                    BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
-                        rewriter.getAttr<BasisVectorAttr>(
-                            PrimitiveBasis::Z, Eigenstate::PLUS,
-                            /*dim=*/1, /*hasPhase=*/true)),
-                    BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
-                        rewriter.getAttr<BasisVectorAttr>(
-                            PrimitiveBasis::Z, Eigenstate::MINUS,
-                            /*dim=*/1, /*hasPhase=*/true))})));
+                std::initializer_list<BasisVectorTreeAttr>{zero_tree,
+                                                           one_tree})));
 
     mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
-        std::initializer_list<mlir::Value>{
-            adaptor.getTheta(), adaptor.getTheta()},
+        trans_phases,
         repacked).getQbundleOut();
 
     mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
