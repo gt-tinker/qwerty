@@ -83,6 +83,29 @@ struct DecomposeAdd
     }
 };
 
+struct DecomposeSub
+        : public mlir::OpConversionPattern<ccirc::SubOp> {
+    using mlir::OpConversionPattern<ccirc::SubOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::SubOp sub,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        mlir::Location loc = sub.getLoc();
+
+        llvm::SmallVector<mlir::Value> wires_a(ccirc::WireUnpackOp::create(rewriter,
+            loc, sub.getA()).getWires());
+        llvm::SmallVector<mlir::Value> wires_b(ccirc::WireUnpackOp::create(rewriter,
+            loc, sub.getB()).getWires());
+
+        llvm::SmallVector<mlir::Value> wires_diff;
+        ccirc::synthSub(rewriter, loc, wires_a, wires_b, wires_diff);
+
+        rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(sub, wires_diff);
+        return mlir::success();
+    }
+};
+
 struct DecomposeModMul
         : public mlir::OpConversionPattern<ccirc::ModMulOp> {
     using mlir::OpConversionPattern<ccirc::ModMulOp>::OpConversionPattern;
@@ -132,5 +155,6 @@ void ccirc::populateSynthConversionPatterns(
     patterns.add<DecomposeRotateLeft,
                  DecomposeRotateRight,
                  DecomposeAdd,
+                 DecomposeSub,
                  DecomposeModMul>(patterns.getContext());
 }

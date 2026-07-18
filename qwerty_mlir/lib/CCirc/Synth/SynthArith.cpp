@@ -62,6 +62,22 @@ void synthAdd(
     fullAdderN(builder, loc, wires_a, wires_b, zero, wires_sum);
 }
 
+void synthSub(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_b,
+        llvm::SmallVectorImpl<mlir::Value> &wires_diff) {
+    // Two's complement: a - b = a + ~b + 1
+    llvm::SmallVector<mlir::Value> wires_not_b;
+    for (mlir::Value b : wires_b) {
+        wires_not_b.push_back(ccirc::NotOp::create(builder, loc, b).getResult());
+    }
+    mlir::Value one = ccirc::ConstantOp::create(builder,
+        loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
+    fullAdderN(builder, loc, wires_a, wires_not_b, one, wires_diff);
+}
+
 void synthModMul(
         mlir::OpBuilder &builder,
         mlir::Location loc,
