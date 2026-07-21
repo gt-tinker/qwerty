@@ -927,6 +927,25 @@ mlir::LogicalResult AddOp::inferReturnTypes(
     return mlir::success();
 }
 
+mlir::LogicalResult SubOp::verify() {
+    if (getA().getType() != getB().getType()) {
+        return emitOpError("Both input wire sizes do not match");
+    }
+    if (getA().getType() != getDiff().getType()) {
+        return emitOpError("Input and output wire sizes do not match");
+    }
+    return mlir::success();
+}
+
+mlir::LogicalResult SubOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        SubOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    inferredReturnTypes.push_back(adaptor.getA().getType());
+    return mlir::success();
+}
+
 mlir::LogicalResult ModMulOp::verify() {
     if (getY().getType() != getProduct().getType()) {
         return emitOpError("Input and output wire sizes do not match");

@@ -8,8 +8,20 @@ ccirc.circuit @add(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
     ccirc.return %0 : !ccirc<wire[4]>
 }
 
+ccirc.circuit @sub(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.sub(%a, %b) : (!ccirc<wire[4]>, !ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
 func.func @check_add(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add : (i4, i4) -> (i4)
+    %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+func.func @check_sub(%a: i4, %b: i4) -> () {
+    %func = ccirc.func_ptr @sub : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
     vector.print %res : i4
     return
@@ -1056,6 +1068,1030 @@ func.func @test() {
     // 0x0f + 0x0f = 0x0e
     // CHECK: -2
     func.call @check_add(%c15, %c15) : (i4, i4) -> ()
+
+    // 0x00 - 0x00 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c0, %c0) : (i4, i4) -> ()
+
+    // 0x00 - 0x01 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c0, %c1) : (i4, i4) -> ()
+
+    // 0x00 - 0x02 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c0, %c2) : (i4, i4) -> ()
+
+    // 0x00 - 0x03 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c0, %c3) : (i4, i4) -> ()
+
+    // 0x00 - 0x04 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c0, %c4) : (i4, i4) -> ()
+
+    // 0x00 - 0x05 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c0, %c5) : (i4, i4) -> ()
+
+    // 0x00 - 0x06 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c0, %c6) : (i4, i4) -> ()
+
+    // 0x00 - 0x07 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c0, %c7) : (i4, i4) -> ()
+
+    // 0x00 - 0x08 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c0, %c8) : (i4, i4) -> ()
+
+    // 0x00 - 0x09 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c0, %c9) : (i4, i4) -> ()
+
+    // 0x00 - 0x0a = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c0, %c10) : (i4, i4) -> ()
+
+    // 0x00 - 0x0b = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c0, %c11) : (i4, i4) -> ()
+
+    // 0x00 - 0x0c = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c0, %c12) : (i4, i4) -> ()
+
+    // 0x00 - 0x0d = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c0, %c13) : (i4, i4) -> ()
+
+    // 0x00 - 0x0e = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c0, %c14) : (i4, i4) -> ()
+
+    // 0x00 - 0x0f = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c0, %c15) : (i4, i4) -> ()
+
+    // 0x01 - 0x00 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c1, %c0) : (i4, i4) -> ()
+
+    // 0x01 - 0x01 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c1, %c1) : (i4, i4) -> ()
+
+    // 0x01 - 0x02 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c1, %c2) : (i4, i4) -> ()
+
+    // 0x01 - 0x03 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c1, %c3) : (i4, i4) -> ()
+
+    // 0x01 - 0x04 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c1, %c4) : (i4, i4) -> ()
+
+    // 0x01 - 0x05 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c1, %c5) : (i4, i4) -> ()
+
+    // 0x01 - 0x06 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c1, %c6) : (i4, i4) -> ()
+
+    // 0x01 - 0x07 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c1, %c7) : (i4, i4) -> ()
+
+    // 0x01 - 0x08 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c1, %c8) : (i4, i4) -> ()
+
+    // 0x01 - 0x09 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c1, %c9) : (i4, i4) -> ()
+
+    // 0x01 - 0x0a = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c1, %c10) : (i4, i4) -> ()
+
+    // 0x01 - 0x0b = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c1, %c11) : (i4, i4) -> ()
+
+    // 0x01 - 0x0c = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c1, %c12) : (i4, i4) -> ()
+
+    // 0x01 - 0x0d = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c1, %c13) : (i4, i4) -> ()
+
+    // 0x01 - 0x0e = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c1, %c14) : (i4, i4) -> ()
+
+    // 0x01 - 0x0f = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c1, %c15) : (i4, i4) -> ()
+
+    // 0x02 - 0x00 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c2, %c0) : (i4, i4) -> ()
+
+    // 0x02 - 0x01 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c2, %c1) : (i4, i4) -> ()
+
+    // 0x02 - 0x02 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c2, %c2) : (i4, i4) -> ()
+
+    // 0x02 - 0x03 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c2, %c3) : (i4, i4) -> ()
+
+    // 0x02 - 0x04 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c2, %c4) : (i4, i4) -> ()
+
+    // 0x02 - 0x05 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c2, %c5) : (i4, i4) -> ()
+
+    // 0x02 - 0x06 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c2, %c6) : (i4, i4) -> ()
+
+    // 0x02 - 0x07 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c2, %c7) : (i4, i4) -> ()
+
+    // 0x02 - 0x08 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c2, %c8) : (i4, i4) -> ()
+
+    // 0x02 - 0x09 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c2, %c9) : (i4, i4) -> ()
+
+    // 0x02 - 0x0a = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c2, %c10) : (i4, i4) -> ()
+
+    // 0x02 - 0x0b = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c2, %c11) : (i4, i4) -> ()
+
+    // 0x02 - 0x0c = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c2, %c12) : (i4, i4) -> ()
+
+    // 0x02 - 0x0d = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c2, %c13) : (i4, i4) -> ()
+
+    // 0x02 - 0x0e = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c2, %c14) : (i4, i4) -> ()
+
+    // 0x02 - 0x0f = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c2, %c15) : (i4, i4) -> ()
+
+    // 0x03 - 0x00 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c3, %c0) : (i4, i4) -> ()
+
+    // 0x03 - 0x01 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c3, %c1) : (i4, i4) -> ()
+
+    // 0x03 - 0x02 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c3, %c2) : (i4, i4) -> ()
+
+    // 0x03 - 0x03 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c3, %c3) : (i4, i4) -> ()
+
+    // 0x03 - 0x04 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c3, %c4) : (i4, i4) -> ()
+
+    // 0x03 - 0x05 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c3, %c5) : (i4, i4) -> ()
+
+    // 0x03 - 0x06 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c3, %c6) : (i4, i4) -> ()
+
+    // 0x03 - 0x07 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c3, %c7) : (i4, i4) -> ()
+
+    // 0x03 - 0x08 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c3, %c8) : (i4, i4) -> ()
+
+    // 0x03 - 0x09 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c3, %c9) : (i4, i4) -> ()
+
+    // 0x03 - 0x0a = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c3, %c10) : (i4, i4) -> ()
+
+    // 0x03 - 0x0b = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c3, %c11) : (i4, i4) -> ()
+
+    // 0x03 - 0x0c = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c3, %c12) : (i4, i4) -> ()
+
+    // 0x03 - 0x0d = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c3, %c13) : (i4, i4) -> ()
+
+    // 0x03 - 0x0e = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c3, %c14) : (i4, i4) -> ()
+
+    // 0x03 - 0x0f = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c3, %c15) : (i4, i4) -> ()
+
+    // 0x04 - 0x00 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c4, %c0) : (i4, i4) -> ()
+
+    // 0x04 - 0x01 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c4, %c1) : (i4, i4) -> ()
+
+    // 0x04 - 0x02 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c4, %c2) : (i4, i4) -> ()
+
+    // 0x04 - 0x03 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c4, %c3) : (i4, i4) -> ()
+
+    // 0x04 - 0x04 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c4, %c4) : (i4, i4) -> ()
+
+    // 0x04 - 0x05 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c4, %c5) : (i4, i4) -> ()
+
+    // 0x04 - 0x06 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c4, %c6) : (i4, i4) -> ()
+
+    // 0x04 - 0x07 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c4, %c7) : (i4, i4) -> ()
+
+    // 0x04 - 0x08 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c4, %c8) : (i4, i4) -> ()
+
+    // 0x04 - 0x09 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c4, %c9) : (i4, i4) -> ()
+
+    // 0x04 - 0x0a = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c4, %c10) : (i4, i4) -> ()
+
+    // 0x04 - 0x0b = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c4, %c11) : (i4, i4) -> ()
+
+    // 0x04 - 0x0c = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c4, %c12) : (i4, i4) -> ()
+
+    // 0x04 - 0x0d = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c4, %c13) : (i4, i4) -> ()
+
+    // 0x04 - 0x0e = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c4, %c14) : (i4, i4) -> ()
+
+    // 0x04 - 0x0f = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c4, %c15) : (i4, i4) -> ()
+
+    // 0x05 - 0x00 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c5, %c0) : (i4, i4) -> ()
+
+    // 0x05 - 0x01 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c5, %c1) : (i4, i4) -> ()
+
+    // 0x05 - 0x02 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c5, %c2) : (i4, i4) -> ()
+
+    // 0x05 - 0x03 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c5, %c3) : (i4, i4) -> ()
+
+    // 0x05 - 0x04 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c5, %c4) : (i4, i4) -> ()
+
+    // 0x05 - 0x05 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c5, %c5) : (i4, i4) -> ()
+
+    // 0x05 - 0x06 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c5, %c6) : (i4, i4) -> ()
+
+    // 0x05 - 0x07 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c5, %c7) : (i4, i4) -> ()
+
+    // 0x05 - 0x08 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c5, %c8) : (i4, i4) -> ()
+
+    // 0x05 - 0x09 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c5, %c9) : (i4, i4) -> ()
+
+    // 0x05 - 0x0a = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c5, %c10) : (i4, i4) -> ()
+
+    // 0x05 - 0x0b = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c5, %c11) : (i4, i4) -> ()
+
+    // 0x05 - 0x0c = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c5, %c12) : (i4, i4) -> ()
+
+    // 0x05 - 0x0d = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c5, %c13) : (i4, i4) -> ()
+
+    // 0x05 - 0x0e = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c5, %c14) : (i4, i4) -> ()
+
+    // 0x05 - 0x0f = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c5, %c15) : (i4, i4) -> ()
+
+    // 0x06 - 0x00 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c6, %c0) : (i4, i4) -> ()
+
+    // 0x06 - 0x01 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c6, %c1) : (i4, i4) -> ()
+
+    // 0x06 - 0x02 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c6, %c2) : (i4, i4) -> ()
+
+    // 0x06 - 0x03 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c6, %c3) : (i4, i4) -> ()
+
+    // 0x06 - 0x04 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c6, %c4) : (i4, i4) -> ()
+
+    // 0x06 - 0x05 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c6, %c5) : (i4, i4) -> ()
+
+    // 0x06 - 0x06 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c6, %c6) : (i4, i4) -> ()
+
+    // 0x06 - 0x07 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c6, %c7) : (i4, i4) -> ()
+
+    // 0x06 - 0x08 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c6, %c8) : (i4, i4) -> ()
+
+    // 0x06 - 0x09 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c6, %c9) : (i4, i4) -> ()
+
+    // 0x06 - 0x0a = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c6, %c10) : (i4, i4) -> ()
+
+    // 0x06 - 0x0b = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c6, %c11) : (i4, i4) -> ()
+
+    // 0x06 - 0x0c = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c6, %c12) : (i4, i4) -> ()
+
+    // 0x06 - 0x0d = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c6, %c13) : (i4, i4) -> ()
+
+    // 0x06 - 0x0e = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c6, %c14) : (i4, i4) -> ()
+
+    // 0x06 - 0x0f = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c6, %c15) : (i4, i4) -> ()
+
+    // 0x07 - 0x00 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c7, %c0) : (i4, i4) -> ()
+
+    // 0x07 - 0x01 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c7, %c1) : (i4, i4) -> ()
+
+    // 0x07 - 0x02 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c7, %c2) : (i4, i4) -> ()
+
+    // 0x07 - 0x03 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c7, %c3) : (i4, i4) -> ()
+
+    // 0x07 - 0x04 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c7, %c4) : (i4, i4) -> ()
+
+    // 0x07 - 0x05 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c7, %c5) : (i4, i4) -> ()
+
+    // 0x07 - 0x06 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c7, %c6) : (i4, i4) -> ()
+
+    // 0x07 - 0x07 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c7, %c7) : (i4, i4) -> ()
+
+    // 0x07 - 0x08 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c7, %c8) : (i4, i4) -> ()
+
+    // 0x07 - 0x09 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c7, %c9) : (i4, i4) -> ()
+
+    // 0x07 - 0x0a = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c7, %c10) : (i4, i4) -> ()
+
+    // 0x07 - 0x0b = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c7, %c11) : (i4, i4) -> ()
+
+    // 0x07 - 0x0c = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c7, %c12) : (i4, i4) -> ()
+
+    // 0x07 - 0x0d = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c7, %c13) : (i4, i4) -> ()
+
+    // 0x07 - 0x0e = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c7, %c14) : (i4, i4) -> ()
+
+    // 0x07 - 0x0f = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c7, %c15) : (i4, i4) -> ()
+
+    // 0x08 - 0x00 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c8, %c0) : (i4, i4) -> ()
+
+    // 0x08 - 0x01 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c8, %c1) : (i4, i4) -> ()
+
+    // 0x08 - 0x02 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c8, %c2) : (i4, i4) -> ()
+
+    // 0x08 - 0x03 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c8, %c3) : (i4, i4) -> ()
+
+    // 0x08 - 0x04 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c8, %c4) : (i4, i4) -> ()
+
+    // 0x08 - 0x05 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c8, %c5) : (i4, i4) -> ()
+
+    // 0x08 - 0x06 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c8, %c6) : (i4, i4) -> ()
+
+    // 0x08 - 0x07 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c8, %c7) : (i4, i4) -> ()
+
+    // 0x08 - 0x08 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c8, %c8) : (i4, i4) -> ()
+
+    // 0x08 - 0x09 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c8, %c9) : (i4, i4) -> ()
+
+    // 0x08 - 0x0a = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c8, %c10) : (i4, i4) -> ()
+
+    // 0x08 - 0x0b = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c8, %c11) : (i4, i4) -> ()
+
+    // 0x08 - 0x0c = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c8, %c12) : (i4, i4) -> ()
+
+    // 0x08 - 0x0d = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c8, %c13) : (i4, i4) -> ()
+
+    // 0x08 - 0x0e = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c8, %c14) : (i4, i4) -> ()
+
+    // 0x08 - 0x0f = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c8, %c15) : (i4, i4) -> ()
+
+    // 0x09 - 0x00 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c9, %c0) : (i4, i4) -> ()
+
+    // 0x09 - 0x01 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c9, %c1) : (i4, i4) -> ()
+
+    // 0x09 - 0x02 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c9, %c2) : (i4, i4) -> ()
+
+    // 0x09 - 0x03 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c9, %c3) : (i4, i4) -> ()
+
+    // 0x09 - 0x04 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c9, %c4) : (i4, i4) -> ()
+
+    // 0x09 - 0x05 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c9, %c5) : (i4, i4) -> ()
+
+    // 0x09 - 0x06 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c9, %c6) : (i4, i4) -> ()
+
+    // 0x09 - 0x07 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c9, %c7) : (i4, i4) -> ()
+
+    // 0x09 - 0x08 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c9, %c8) : (i4, i4) -> ()
+
+    // 0x09 - 0x09 = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c9, %c9) : (i4, i4) -> ()
+
+    // 0x09 - 0x0a = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c9, %c10) : (i4, i4) -> ()
+
+    // 0x09 - 0x0b = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c9, %c11) : (i4, i4) -> ()
+
+    // 0x09 - 0x0c = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c9, %c12) : (i4, i4) -> ()
+
+    // 0x09 - 0x0d = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c9, %c13) : (i4, i4) -> ()
+
+    // 0x09 - 0x0e = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c9, %c14) : (i4, i4) -> ()
+
+    // 0x09 - 0x0f = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c9, %c15) : (i4, i4) -> ()
+
+    // 0x0a - 0x00 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c10, %c0) : (i4, i4) -> ()
+
+    // 0x0a - 0x01 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c10, %c1) : (i4, i4) -> ()
+
+    // 0x0a - 0x02 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c10, %c2) : (i4, i4) -> ()
+
+    // 0x0a - 0x03 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c10, %c3) : (i4, i4) -> ()
+
+    // 0x0a - 0x04 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c10, %c4) : (i4, i4) -> ()
+
+    // 0x0a - 0x05 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c10, %c5) : (i4, i4) -> ()
+
+    // 0x0a - 0x06 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c10, %c6) : (i4, i4) -> ()
+
+    // 0x0a - 0x07 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c10, %c7) : (i4, i4) -> ()
+
+    // 0x0a - 0x08 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c10, %c8) : (i4, i4) -> ()
+
+    // 0x0a - 0x09 = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c10, %c9) : (i4, i4) -> ()
+
+    // 0x0a - 0x0a = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c10, %c10) : (i4, i4) -> ()
+
+    // 0x0a - 0x0b = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c10, %c11) : (i4, i4) -> ()
+
+    // 0x0a - 0x0c = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c10, %c12) : (i4, i4) -> ()
+
+    // 0x0a - 0x0d = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c10, %c13) : (i4, i4) -> ()
+
+    // 0x0a - 0x0e = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c10, %c14) : (i4, i4) -> ()
+
+    // 0x0a - 0x0f = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c10, %c15) : (i4, i4) -> ()
+
+    // 0x0b - 0x00 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c11, %c0) : (i4, i4) -> ()
+
+    // 0x0b - 0x01 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c11, %c1) : (i4, i4) -> ()
+
+    // 0x0b - 0x02 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c11, %c2) : (i4, i4) -> ()
+
+    // 0x0b - 0x03 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c11, %c3) : (i4, i4) -> ()
+
+    // 0x0b - 0x04 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c11, %c4) : (i4, i4) -> ()
+
+    // 0x0b - 0x05 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c11, %c5) : (i4, i4) -> ()
+
+    // 0x0b - 0x06 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c11, %c6) : (i4, i4) -> ()
+
+    // 0x0b - 0x07 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c11, %c7) : (i4, i4) -> ()
+
+    // 0x0b - 0x08 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c11, %c8) : (i4, i4) -> ()
+
+    // 0x0b - 0x09 = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c11, %c9) : (i4, i4) -> ()
+
+    // 0x0b - 0x0a = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c11, %c10) : (i4, i4) -> ()
+
+    // 0x0b - 0x0b = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c11, %c11) : (i4, i4) -> ()
+
+    // 0x0b - 0x0c = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c11, %c12) : (i4, i4) -> ()
+
+    // 0x0b - 0x0d = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c11, %c13) : (i4, i4) -> ()
+
+    // 0x0b - 0x0e = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c11, %c14) : (i4, i4) -> ()
+
+    // 0x0b - 0x0f = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c11, %c15) : (i4, i4) -> ()
+
+    // 0x0c - 0x00 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c12, %c0) : (i4, i4) -> ()
+
+    // 0x0c - 0x01 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c12, %c1) : (i4, i4) -> ()
+
+    // 0x0c - 0x02 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c12, %c2) : (i4, i4) -> ()
+
+    // 0x0c - 0x03 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c12, %c3) : (i4, i4) -> ()
+
+    // 0x0c - 0x04 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c12, %c4) : (i4, i4) -> ()
+
+    // 0x0c - 0x05 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c12, %c5) : (i4, i4) -> ()
+
+    // 0x0c - 0x06 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c12, %c6) : (i4, i4) -> ()
+
+    // 0x0c - 0x07 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c12, %c7) : (i4, i4) -> ()
+
+    // 0x0c - 0x08 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c12, %c8) : (i4, i4) -> ()
+
+    // 0x0c - 0x09 = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c12, %c9) : (i4, i4) -> ()
+
+    // 0x0c - 0x0a = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c12, %c10) : (i4, i4) -> ()
+
+    // 0x0c - 0x0b = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c12, %c11) : (i4, i4) -> ()
+
+    // 0x0c - 0x0c = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c12, %c12) : (i4, i4) -> ()
+
+    // 0x0c - 0x0d = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c12, %c13) : (i4, i4) -> ()
+
+    // 0x0c - 0x0e = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c12, %c14) : (i4, i4) -> ()
+
+    // 0x0c - 0x0f = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c12, %c15) : (i4, i4) -> ()
+
+    // 0x0d - 0x00 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c13, %c0) : (i4, i4) -> ()
+
+    // 0x0d - 0x01 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c13, %c1) : (i4, i4) -> ()
+
+    // 0x0d - 0x02 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c13, %c2) : (i4, i4) -> ()
+
+    // 0x0d - 0x03 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c13, %c3) : (i4, i4) -> ()
+
+    // 0x0d - 0x04 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c13, %c4) : (i4, i4) -> ()
+
+    // 0x0d - 0x05 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c13, %c5) : (i4, i4) -> ()
+
+    // 0x0d - 0x06 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c13, %c6) : (i4, i4) -> ()
+
+    // 0x0d - 0x07 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c13, %c7) : (i4, i4) -> ()
+
+    // 0x0d - 0x08 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c13, %c8) : (i4, i4) -> ()
+
+    // 0x0d - 0x09 = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c13, %c9) : (i4, i4) -> ()
+
+    // 0x0d - 0x0a = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c13, %c10) : (i4, i4) -> ()
+
+    // 0x0d - 0x0b = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c13, %c11) : (i4, i4) -> ()
+
+    // 0x0d - 0x0c = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c13, %c12) : (i4, i4) -> ()
+
+    // 0x0d - 0x0d = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c13, %c13) : (i4, i4) -> ()
+
+    // 0x0d - 0x0e = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c13, %c14) : (i4, i4) -> ()
+
+    // 0x0d - 0x0f = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c13, %c15) : (i4, i4) -> ()
+
+    // 0x0e - 0x00 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c14, %c0) : (i4, i4) -> ()
+
+    // 0x0e - 0x01 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c14, %c1) : (i4, i4) -> ()
+
+    // 0x0e - 0x02 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c14, %c2) : (i4, i4) -> ()
+
+    // 0x0e - 0x03 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c14, %c3) : (i4, i4) -> ()
+
+    // 0x0e - 0x04 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c14, %c4) : (i4, i4) -> ()
+
+    // 0x0e - 0x05 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c14, %c5) : (i4, i4) -> ()
+
+    // 0x0e - 0x06 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c14, %c6) : (i4, i4) -> ()
+
+    // 0x0e - 0x07 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c14, %c7) : (i4, i4) -> ()
+
+    // 0x0e - 0x08 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c14, %c8) : (i4, i4) -> ()
+
+    // 0x0e - 0x09 = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c14, %c9) : (i4, i4) -> ()
+
+    // 0x0e - 0x0a = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c14, %c10) : (i4, i4) -> ()
+
+    // 0x0e - 0x0b = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c14, %c11) : (i4, i4) -> ()
+
+    // 0x0e - 0x0c = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c14, %c12) : (i4, i4) -> ()
+
+    // 0x0e - 0x0d = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c14, %c13) : (i4, i4) -> ()
+
+    // 0x0e - 0x0e = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c14, %c14) : (i4, i4) -> ()
+
+    // 0x0e - 0x0f = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c14, %c15) : (i4, i4) -> ()
+
+    // 0x0f - 0x00 = 0x0f
+    // CHECK: -1
+    func.call @check_sub(%c15, %c0) : (i4, i4) -> ()
+
+    // 0x0f - 0x01 = 0x0e
+    // CHECK: -2
+    func.call @check_sub(%c15, %c1) : (i4, i4) -> ()
+
+    // 0x0f - 0x02 = 0x0d
+    // CHECK: -3
+    func.call @check_sub(%c15, %c2) : (i4, i4) -> ()
+
+    // 0x0f - 0x03 = 0x0c
+    // CHECK: -4
+    func.call @check_sub(%c15, %c3) : (i4, i4) -> ()
+
+    // 0x0f - 0x04 = 0x0b
+    // CHECK: -5
+    func.call @check_sub(%c15, %c4) : (i4, i4) -> ()
+
+    // 0x0f - 0x05 = 0x0a
+    // CHECK: -6
+    func.call @check_sub(%c15, %c5) : (i4, i4) -> ()
+
+    // 0x0f - 0x06 = 0x09
+    // CHECK: -7
+    func.call @check_sub(%c15, %c6) : (i4, i4) -> ()
+
+    // 0x0f - 0x07 = 0x08
+    // CHECK: -8
+    func.call @check_sub(%c15, %c7) : (i4, i4) -> ()
+
+    // 0x0f - 0x08 = 0x07
+    // CHECK: 7
+    func.call @check_sub(%c15, %c8) : (i4, i4) -> ()
+
+    // 0x0f - 0x09 = 0x06
+    // CHECK: 6
+    func.call @check_sub(%c15, %c9) : (i4, i4) -> ()
+
+    // 0x0f - 0x0a = 0x05
+    // CHECK: 5
+    func.call @check_sub(%c15, %c10) : (i4, i4) -> ()
+
+    // 0x0f - 0x0b = 0x04
+    // CHECK: 4
+    func.call @check_sub(%c15, %c11) : (i4, i4) -> ()
+
+    // 0x0f - 0x0c = 0x03
+    // CHECK: 3
+    func.call @check_sub(%c15, %c12) : (i4, i4) -> ()
+
+    // 0x0f - 0x0d = 0x02
+    // CHECK: 2
+    func.call @check_sub(%c15, %c13) : (i4, i4) -> ()
+
+    // 0x0f - 0x0e = 0x01
+    // CHECK: 1
+    func.call @check_sub(%c15, %c14) : (i4, i4) -> ()
+
+    // 0x0f - 0x0f = 0x00
+    // CHECK: 0
+    func.call @check_sub(%c15, %c15) : (i4, i4) -> ()
 
     return
 }

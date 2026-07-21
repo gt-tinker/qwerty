@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Generates ``synth-arith.mlir``, a FileCheck test that tests an 4-bit adder on
-all possible inputs.
+Generates ``synth-arith.mlir``, a FileCheck test that tests an 4-bit adder and
+an 4-bit subtractor on all possible inputs.
 """
 
 import os
@@ -22,8 +22,20 @@ ccirc.circuit @add(%a: !ccirc<wire[{N_BITS}]>, %b: !ccirc<wire[{N_BITS}]>) irrev
     ccirc.return %0 : !ccirc<wire[{N_BITS}]>
 }}
 
+ccirc.circuit @sub(%a: !ccirc<wire[{N_BITS}]>, %b: !ccirc<wire[{N_BITS}]>) irrev {{
+    %0 = ccirc.sub(%a, %b) : (!ccirc<wire[{N_BITS}]>, !ccirc<wire[{N_BITS}]>) -> !ccirc<wire[{N_BITS}]>
+    ccirc.return %0 : !ccirc<wire[{N_BITS}]>
+}}
+
 func.func @check_add(%a: i{N_BITS}, %b: i{N_BITS}) -> () {{
     %func = ccirc.func_ptr @add : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
+    %res = func.call_indirect %func(%a, %b) : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
+    vector.print %res : i{N_BITS}
+    return
+}}
+
+func.func @check_sub(%a: i{N_BITS}, %b: i{N_BITS}) -> () {{
+    %func = ccirc.func_ptr @sub : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
     %res = func.call_indirect %func(%a, %b) : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
     vector.print %res : i{N_BITS}
     return
@@ -40,13 +52,26 @@ EPILOGUE = """
 def format_constant(c):
     return f"    %c{c} = arith.constant {c} : i{N_BITS}\n"
 
-def format_test(c1, c2):
+def to_signed(val):
+    val &= (1 << N_BITS) - 1
+    return val if val < (1 << (N_BITS - 1)) else val | (-1 << N_BITS)
+
+def format_add_test(c1, c2):
     sum = (c1 + c2) & ((1 << N_BITS) - 1)
-    res = sum if sum < (1 << (N_BITS - 1)) else sum | (-1 << N_BITS)
+    res = to_signed(sum)
     return f"""
     // 0x{c1:02x} + 0x{c2:02x} = 0x{sum:02x}
     // CHECK: {res}
     func.call @check_add(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> ()
+"""
+
+def format_sub_test(c1, c2):
+    diff = (c1 - c2) & ((1 << N_BITS) - 1)
+    res = to_signed(diff)
+    return f"""
+    // 0x{c1:02x} - 0x{c2:02x} = 0x{diff:02x}
+    // CHECK: {res}
+    func.call @check_sub(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> ()
 """
 
 def main():
@@ -58,7 +83,11 @@ def main():
 
         for c1 in range(1 << N_BITS):
             for c2 in range(1 << N_BITS):
-                fp.write(format_test(c1, c2))
+                fp.write(format_add_test(c1, c2))
+
+        for c1 in range(1 << N_BITS):
+            for c2 in range(1 << N_BITS):
+                fp.write(format_sub_test(c1, c2))
 
         fp.write(EPILOGUE)
 
