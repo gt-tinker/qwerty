@@ -105,12 +105,37 @@ def format_double_mod_test(modN, c):
     func.call @check_double_mod_{modN}(%c{c}) : (i{N_BITS}) -> ()
 """
 
+def format_add_mod_circuit(modN):
+    return f"""
+ccirc.circuit @add_mod_{modN}(%a: !ccirc<wire[{N_BITS}]>, %b: !ccirc<wire[{N_BITS}]>) irrev {{
+    %0 = ccirc.add_mod {modN} %a, %b : (!ccirc<wire[{N_BITS}]>, !ccirc<wire[{N_BITS}]>) -> !ccirc<wire[{N_BITS}]>
+    ccirc.return %0 : !ccirc<wire[{N_BITS}]>
+}}
+
+func.func @check_add_mod_{modN}(%a: i{N_BITS}, %b: i{N_BITS}) -> () {{
+    %func = ccirc.func_ptr @add_mod_{modN} : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
+    %res = func.call_indirect %func(%a, %b) : (i{N_BITS}, i{N_BITS}) -> (i{N_BITS})
+    vector.print %res : i{N_BITS}
+    return
+}}
+"""
+
+def format_add_mod_test(modN, c1, c2):
+    summed = (c1 + c2) % modN
+    res = to_signed(summed)
+    return f"""
+    // (0x{c1:02x} + 0x{c2:02x}) % {modN} = 0x{summed:02x}
+    // CHECK: {res}
+    func.call @check_add_mod_{modN}(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> ()
+"""
+
 def main():
     with open(OUT_PATH, 'w') as fp:
         fp.write(PROLOGUE)
 
         for modN in MODULI:
             fp.write(format_double_mod_circuit(modN))
+            fp.write(format_add_mod_circuit(modN))
 
         fp.write(TEST_PROLOGUE)
 
@@ -125,10 +150,15 @@ def main():
             for c2 in range(1 << N_BITS):
                 fp.write(format_sub_test(c1, c2))
 
-        # ccirc.double_mod assumes its input is already reduced mod N
+        # The modular routines assume their inputs are already reduced mod N
         for modN in MODULI:
             for c in range(modN):
                 fp.write(format_double_mod_test(modN, c))
+
+        for modN in MODULI:
+            for c1 in range(modN):
+                for c2 in range(modN):
+                    fp.write(format_add_mod_test(modN, c1, c2))
 
         fp.write(EPILOGUE)
 

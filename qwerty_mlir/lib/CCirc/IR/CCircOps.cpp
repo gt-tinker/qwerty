@@ -978,6 +978,32 @@ mlir::LogicalResult DoubleModOp::inferReturnTypes(
     return mlir::success();
 }
 
+mlir::LogicalResult AddModOp::verify() {
+    if (getA().getType() != getB().getType()) {
+        return emitOpError("Both input wire sizes do not match");
+    }
+    if (getA().getType() != getResult().getType()) {
+        return emitOpError("Input and output wire sizes do not match");
+    }
+    if (!getModN()) {
+        return emitOpError("Modulus must be nonzero");
+    }
+    WireType wire_ty = llvm::cast<WireType>(getA().getType());
+    if (llvm::APInt(64, getModN()).getActiveBits() > wire_ty.getDim()) {
+        return emitOpError("Modulus does not fit in the input wires");
+    }
+    return mlir::success();
+}
+
+mlir::LogicalResult AddModOp::inferReturnTypes(
+        mlir::MLIRContext *ctx,
+        std::optional<mlir::Location> loc,
+        AddModOp::Adaptor adaptor,
+        llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+    inferredReturnTypes.push_back(adaptor.getA().getType());
+    return mlir::success();
+}
+
 mlir::LogicalResult ModMulOp::verify() {
     if (getY().getType() != getProduct().getType()) {
         return emitOpError("Input and output wire sizes do not match");

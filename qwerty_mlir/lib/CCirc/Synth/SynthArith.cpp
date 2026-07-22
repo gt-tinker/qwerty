@@ -128,6 +128,47 @@ void synthDoubleMod(
     synthMux(builder, loc, carry_out, wires_then, wires_else, wires_out);
 }
 
+void synthAddMod(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_b,
+        llvm::SmallVectorImpl<mlir::Value> &wires_out) {
+    size_t n_bits = wires_a.size();
+    assert(n_bits && "a is zero bits???");
+    assert(wires_b.size() == n_bits && "a and b must be same size");
+    assert(modN.getBitWidth() == n_bits && "Modulus must be as wide as a");
+
+    mlir::Value zero = ccirc::ConstantOp::create(builder,
+        loc, llvm::APInt(/*numBits=*/1, /*val=*/0)).getResult();
+    llvm::SmallVector<mlir::Value> wires_sum;
+    mlir::Value carry = fullAdderN(builder, loc, wires_a, wires_b, zero,
+                                   wires_sum);
+
+    // a + b needs an extra bit to avoid overflowing
+    llvm::SmallVector<mlir::Value> wires_bigsum;
+    wires_bigsum.push_back(carry);
+    wires_bigsum.append(wires_sum.begin(), wires_sum.end());
+
+    llvm::SmallVector<mlir::Value> wires_not_n;
+    notModN(builder, loc, modN, wires_not_n);
+
+    // (a + b) - N
+    mlir::Value one = ccirc::ConstantOp::create(builder,
+        loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
+    llvm::SmallVector<mlir::Value> wires_diff;
+    mlir::Value carry_out = fullAdderN(builder, loc, wires_bigsum,
+                                       wires_not_n, one, wires_diff);
+
+    // A carry out means no borrow, i.e. a + b >= N, so the difference is the
+    // reduced result. Otherwise a + b did not overflow n_bits bits in the
+    // first place, so the truncated sum is already correct.
+    llvm::SmallVector<mlir::Value> wires_then(wires_diff.begin()+1,
+                                              wires_diff.end());
+    synthMux(builder, loc, carry_out, wires_then, wires_sum, wires_out);
+}
+
 void synthModMul(
         mlir::OpBuilder &builder,
         mlir::Location loc,
