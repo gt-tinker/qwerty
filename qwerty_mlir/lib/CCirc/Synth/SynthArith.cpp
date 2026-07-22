@@ -176,65 +176,38 @@ void synthModMul(
         llvm::APInt modN,
         llvm::SmallVectorImpl<mlir::Value> &wires_y,
         llvm::SmallVectorImpl<mlir::Value> &wires_out) {
-    // TODO: implement me
-    assert(0 && "Mod mul not implemented");
+    size_t n_bits = wires_y.size();
+    assert(n_bits && "y is zero bits???");
+    assert(modN.getBitWidth() == n_bits && "Modulus must be as wide as y");
+    assert(x.getBitWidth() == n_bits && "x must be as wide as y");
 
-    // Suggested pseudocode:
-    // ---------------------
-    // size_t bitsize = wires_y.size();
-    // assert(bitsize > 0);
-    // ssize_t x_idx = bitsize-1
-    // if x[x_idx] == 1 {
-    //   acc = y
-    // } else {
-    //   acc = 0
-    // }
-    //
-    // while (--x_idx >= 0) {
-    //   doubled = doubleMod(acc, modN)
-    //   if x[x_idx] == 1 {
-    //     acc = addMod(doubled, y, modN)
-    //   }
-    // }
+    // Double-and-add, starting from the most significant bit of x. Since x is
+    // a constant, its bits are tested here at synthesis time instead of by the
+    // circuit, so only the modular reductions cost any gates.
     // Reference:
     // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L486
+    llvm::SmallVector<mlir::Value> wires_acc;
+    if (x[n_bits-1]) {
+        wires_acc.append(wires_y.begin(), wires_y.end());
+    } else {
+        mlir::Value zero = ccirc::ConstantOp::create(builder,
+            loc, llvm::APInt(/*numBits=*/1, /*val=*/0)).getResult();
+        wires_acc.append(n_bits, zero);
+    }
 
-    // TODO: Verify the carry_out condition on the muxes at the end of both
-    //       helper pseudocode snippets below. Do I have them backwards?
-    // Helpers:
-    // --------
-    // doubleMod(wires_a, modN) {
-    //     bitsize = wires_a.size()
-    //     assert(modN.getBitWidth() == bitsize);
-    //     shifted = [wires_a, constant(0)] (aka wires_a << 1 in C syntax)
-    //     // Below, [1]+ is sign extension
-    //     not_n_wires = [1] + [NOT(constant(modN[bitsize-1-i]))
-    //                          for i in range(bitsize)]
-    //     // 2*a - N
-    //     sum, carry_out = synthesize adder(a=shifted, b=not_n_wires,
-    //                                       carry_in=constant(1))
-    //     // Remove MSB in order to return bitsize bits
-    //     return carry_out? shifted[1:] : sum[1:]
-    // }
-    // Reference:
-    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L385
-    //
-    // addMod(wires_a, wires_b, modN) {
-    //     bitsize = wires_a.size()
-    //     assert(modN.getBitWidth() == bitsize && wires_b.size() == bitsize);
-    //     sum, carry_out = synthesize adder(a=wires_a, b=wires_b,
-    //                                       carry_in=constant(0))
-    //     bigsum = [carry_out] + sum // bigsum is bitsize+1 bits
-    //     // Below, [1]+ is sign extension
-    //     not_n_wires = [1] + [NOT(constant(modN[bitsize-1-i]))
-    //                          for i in range(bitsize)]
-    //     diff, carry_out = synthesize adder(a=bigsum, b=not_n_wires,
-    //                                        carry_in=constant(1)) // (a+b)-N
-    //     // Remove MSB of diff in order to return bitsize bits
-    //     return carry_out? sum : diff[1:]
-    // }
-    // Reference:
-    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L125
+    for (ssize_t i = (ssize_t)n_bits-2; i >= 0; i--) {
+        llvm::SmallVector<mlir::Value> wires_doubled;
+        synthDoubleMod(builder, loc, modN, wires_acc, wires_doubled);
+
+        if (x[i]) {
+            synthAddMod(builder, loc, modN, wires_doubled, wires_y, wires_acc);
+        } else {
+            wires_acc = std::move(wires_doubled);
+        }
+    }
+
+    wires_out.clear();
+    wires_out.append(wires_acc.begin(), wires_acc.end());
 }
 
 } // namespace ccirc

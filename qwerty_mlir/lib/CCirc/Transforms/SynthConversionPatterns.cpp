@@ -183,8 +183,10 @@ struct DecomposeModMul
         //       the AST node should also be updated to have dashu::IBigs, and
         //       the ModMulOp itself should have APInt attributes instead of i64
         //       attributes.
-        llvm::APInt x_bigint(BITS_NEEDED(x_2j_modN), x_2j_modN);
-        llvm::APInt modN_bigint(BITS_NEEDED(N), N);
+        // Both constants are sized to y rather than to their own values, since
+        // that is the width of the wires they are combined with
+        llvm::APInt x_bigint(wires_y.size(), x_2j_modN);
+        llvm::APInt modN_bigint(wires_y.size(), N);
 
         ccirc::synthModMul(rewriter, loc, x_bigint, modN_bigint, wires_y,
                            wires_out);

@@ -51,6 +51,30 @@ func.func @check_add_mod_2(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_2(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 2 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_2(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_2 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_2(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 2 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_2(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_2 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_3(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 3 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -71,6 +95,42 @@ ccirc.circuit @add_mod_3(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_3(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_3 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_3(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 3 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_3(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_3 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_3(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 3 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_3(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_3 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_3(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 3 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_3(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_3 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -99,6 +159,54 @@ func.func @check_add_mod_4(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_4(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 4 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_4(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_4 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_4(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 4 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_4(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_4 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_4(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 4 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_4(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_4 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_4(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 4 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_4(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_4 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_5(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 5 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -119,6 +227,66 @@ ccirc.circuit @add_mod_5(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_5(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_5 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_5(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 5 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_5(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_5 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_5(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 5 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_5(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_5 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_5(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 5 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_5(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_5 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_5(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 5 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_5(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_5 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_5(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 5 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_5(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_5 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -147,6 +315,78 @@ func.func @check_add_mod_6(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_6(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 6 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_6(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_6 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_7(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 7 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -167,6 +407,90 @@ ccirc.circuit @add_mod_7(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_7(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_7 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_7(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 7 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_7(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_7 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -195,6 +519,102 @@ func.func @check_add_mod_8(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_8(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 8 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_8(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_8 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_9(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 9 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -215,6 +635,114 @@ ccirc.circuit @add_mod_9(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_9(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_9 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_9(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 9 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_9(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_9 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -243,6 +771,126 @@ func.func @check_add_mod_10(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_10(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 10 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_10(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_10 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_11(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 11 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -263,6 +911,138 @@ ccirc.circuit @add_mod_11(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_11(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_11 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_0_11(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 0 11 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_0_11(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_0_11 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -291,6 +1071,150 @@ func.func @check_add_mod_12(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_0_12(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 0 12 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_0_12(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_0_12 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_13(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 13 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -311,6 +1235,162 @@ ccirc.circuit @add_mod_13(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_13(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_13 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_0_13(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 0 13 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_0_13(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_0_13 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -339,6 +1419,174 @@ func.func @check_add_mod_14(%a: i4, %b: i4) -> () {
     return
 }
 
+ccirc.circuit @modmul_0_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_13_0_14(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 13 0 14 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_13_0_14(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_13_0_14 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
 ccirc.circuit @double_mod_15(%a: !ccirc<wire[4]>) irrev {
     %0 = ccirc.double_mod 15 %a : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
     ccirc.return %0 : !ccirc<wire[4]>
@@ -359,6 +1607,726 @@ ccirc.circuit @add_mod_15(%a: !ccirc<wire[4]>, %b: !ccirc<wire[4]>) irrev {
 func.func @check_add_mod_15(%a: i4, %b: i4) -> () {
     %func = ccirc.func_ptr @add_mod_15 : (i4, i4) -> (i4)
     %res = func.call_indirect %func(%a, %b) : (i4, i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_0_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 0 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_0_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_0_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_1_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 1 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_1_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_1_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_2_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 2 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_2_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_2_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_3_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 3 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_3_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_3_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_4_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 4 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_4_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_4_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_5_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 5 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_5_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_5_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_6_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 6 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_6_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_6_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_7_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 7 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_7_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_7_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_8_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 8 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_8_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_8_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_9_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 9 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_9_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_9_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_10_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 10 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_10_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_10_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_11_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 11 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_11_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_11_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_12_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 12 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_12_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_12_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_13_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 13 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_13_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_13_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_13_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 13 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_13_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_13_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_13_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 13 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_13_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_13_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_13_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 13 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_13_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_13_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_14_0_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 14 0 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_14_0_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_14_0_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_14_1_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 14 1 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_14_1_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_14_1_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_14_2_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 14 2 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_14_2_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_14_2_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
+    vector.print %res : i4
+    return
+}
+
+ccirc.circuit @modmul_14_3_15(%y: !ccirc<wire[4]>) irrev {
+    %0 = ccirc.modmul 14 3 15 %y : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+    ccirc.return %0 : !ccirc<wire[4]>
+}
+
+func.func @check_modmul_14_3_15(%y: i4) -> () {
+    %func = ccirc.func_ptr @modmul_14_3_15 : (i4) -> (i4)
+    %res = func.call_indirect %func(%y) : (i4) -> (i4)
     vector.print %res : i4
     return
 }
@@ -7860,6 +9828,7662 @@ func.func @test() {
     // (0x0e + 0x0e) % 15 = 0x0d
     // CHECK: -3
     func.call @check_add_mod_15(%c14, %c14) : (i4, i4) -> ()
+
+    // (0x00^(2^0) % 2)*0x00 % 2 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_2(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 2)*0x01 % 2 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_2(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 2)*0x00 % 2 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_2(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 2)*0x01 % 2 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_2(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 3)*0x00 % 3 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_3(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 3)*0x01 % 3 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_3(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 3)*0x02 % 3 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_3(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 3)*0x00 % 3 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_3(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 3)*0x01 % 3 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_3(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 3)*0x02 % 3 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_3(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 3)*0x00 % 3 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_3(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 3)*0x01 % 3 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_3(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 3)*0x02 % 3 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_3(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 4)*0x00 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_4(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 4)*0x01 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_4(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 4)*0x02 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_4(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 4)*0x03 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_4(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 4)*0x00 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_4(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 4)*0x01 % 4 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_4(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 4)*0x02 % 4 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_4(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 4)*0x03 % 4 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_4(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 4)*0x00 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_4(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 4)*0x01 % 4 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_4(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 4)*0x02 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_4(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 4)*0x03 % 4 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_4(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 4)*0x00 % 4 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_4(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 4)*0x01 % 4 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_4(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 4)*0x02 % 4 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_4(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 4)*0x03 % 4 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_4(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 5)*0x00 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_5(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 5)*0x01 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_5(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 5)*0x02 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_5(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 5)*0x03 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_5(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 5)*0x04 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_5(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 5)*0x00 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_5(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 5)*0x01 % 5 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_5(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 5)*0x02 % 5 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_5(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 5)*0x03 % 5 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_5(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 5)*0x04 % 5 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_5(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 5)*0x00 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_5(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 5)*0x01 % 5 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_5(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 5)*0x02 % 5 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_5(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 5)*0x03 % 5 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_5(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 5)*0x04 % 5 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_5(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 5)*0x00 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_5(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 5)*0x01 % 5 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_5(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 5)*0x02 % 5 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_5(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 5)*0x03 % 5 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_5(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 5)*0x04 % 5 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_5(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 5)*0x00 % 5 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_5(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 5)*0x01 % 5 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_5(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 5)*0x02 % 5 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_5(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 5)*0x03 % 5 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_5(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 5)*0x04 % 5 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_5(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x01 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x02 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x03 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x04 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 6)*0x05 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_6(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_6(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x01 % 6 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_6(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x02 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_6(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x03 % 6 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_6(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x04 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_6(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 6)*0x05 % 6 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_6(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_6(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x01 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_6(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x02 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_6(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x03 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_6(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x04 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_6(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 6)*0x05 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_6(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_6(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x01 % 6 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_6(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x02 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_6(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x03 % 6 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_6(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x04 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_6(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 6)*0x05 % 6 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_6(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_6(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x01 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_6(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x02 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_6(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x03 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_6(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x04 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_6(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 6)*0x05 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_6(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x00 % 6 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_6(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x01 % 6 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_6(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x02 % 6 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_6(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x03 % 6 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_6(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x04 % 6 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_6(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 6)*0x05 % 6 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_6(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x01 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x02 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x03 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x04 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x05 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 7)*0x06 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_7(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_7(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x01 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_7(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x02 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_7(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x03 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_7(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x04 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_7(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x05 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_7(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 7)*0x06 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_7(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_7(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x01 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_7(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x02 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_7(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x03 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_7(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x04 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_7(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x05 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_7(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 7)*0x06 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_0_7(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_7(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x01 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_7(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x02 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_7(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x03 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_7(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x04 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_7(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x05 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_7(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 7)*0x06 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_7(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_7(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x01 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_7(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x02 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_7(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x03 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_0_7(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x04 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_7(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x05 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_7(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 7)*0x06 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_7(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_7(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x01 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_7(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x02 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_7(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x03 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_7(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x04 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_7(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x05 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_7(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 7)*0x06 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_7(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x00 % 7 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_7(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x01 % 7 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_7(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x02 % 7 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_6_0_7(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x03 % 7 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_7(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x04 % 7 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_7(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x05 % 7 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_7(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 7)*0x06 % 7 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_6_0_7(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x01 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x02 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x03 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x04 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x05 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x06 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 8)*0x07 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_8(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_8(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x01 % 8 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_8(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x02 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_8(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x03 % 8 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_8(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x04 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_8(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x05 % 8 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_8(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x06 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_8(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 8)*0x07 % 8 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_8(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_8(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x01 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_8(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x02 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_8(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x03 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_8(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x04 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_8(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x05 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_8(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x06 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_8(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 8)*0x07 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_8(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_8(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x01 % 8 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_8(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x02 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_8(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x03 % 8 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_8(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x04 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_8(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x05 % 8 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_3_0_8(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x06 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_8(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 8)*0x07 % 8 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_8(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_8(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x01 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_8(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x02 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_8(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x03 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_8(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x04 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_8(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x05 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_8(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x06 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_8(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 8)*0x07 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_8(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_8(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x01 % 8 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_8(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x02 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_8(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x03 % 8 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_8(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x04 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_8(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x05 % 8 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_8(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x06 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_8(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 8)*0x07 % 8 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_8(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_8(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x01 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_8(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x02 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_8(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x03 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_8(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x04 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_8(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x05 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_8(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x06 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_8(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 8)*0x07 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_8(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x00 % 8 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_8(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x01 % 8 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_8(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x02 % 8 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_8(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x03 % 8 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_8(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x04 % 8 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_8(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x05 % 8 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_8(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x06 % 8 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_8(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 8)*0x07 % 8 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_8(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x01 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x02 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x03 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x04 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x05 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x06 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x07 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 9)*0x08 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_9(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_9(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x01 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_9(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x02 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_9(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x03 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_9(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x04 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_9(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x05 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_9(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x06 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_9(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x07 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_9(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 9)*0x08 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_9(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_9(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x01 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_9(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x02 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_9(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x03 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_9(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x04 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_9(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x05 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_9(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x06 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_9(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x07 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_0_9(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 9)*0x08 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_0_9(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_9(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x01 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_9(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x02 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_9(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x03 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_9(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x04 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_9(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x05 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_9(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x06 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_9(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x07 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_9(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 9)*0x08 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_9(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_9(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x01 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_9(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x02 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_9(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x03 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_9(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x04 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_0_9(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x05 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_9(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x06 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_9(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x07 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_9(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 9)*0x08 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_0_9(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_9(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x01 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_9(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x02 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_9(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x03 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_9(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x04 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_9(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x05 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_9(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x06 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_9(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x07 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_5_0_9(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 9)*0x08 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_9(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_9(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x01 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_9(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x02 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_9(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x03 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_9(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x04 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_9(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x05 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_9(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x06 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_9(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x07 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_9(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 9)*0x08 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_9(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_9(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x01 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_9(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x02 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_9(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x03 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_9(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x04 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_9(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x05 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_9(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x06 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_9(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x07 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_9(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 9)*0x08 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_9(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x00 % 9 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_9(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x01 % 9 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_9(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x02 % 9 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_0_9(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x03 % 9 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_9(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x04 % 9 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_0_9(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x05 % 9 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_9(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x06 % 9 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_0_9(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x07 % 9 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_9(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 9)*0x08 % 9 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_0_9(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x01 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x02 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x03 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x04 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x05 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x06 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x07 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x08 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 10)*0x09 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_10(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_10(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x01 % 10 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_10(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x02 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_10(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x03 % 10 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_10(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x04 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_10(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x05 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_10(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x06 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_10(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x07 % 10 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_10(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x08 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_10(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 10)*0x09 % 10 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_10(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_10(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x01 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_10(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x02 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_10(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x03 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_10(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x04 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_10(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x05 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_10(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x06 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_10(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x07 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_10(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x08 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_10(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 10)*0x09 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_10(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_10(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x01 % 10 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_10(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x02 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_10(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x03 % 10 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_10(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x04 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_10(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x05 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_10(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x06 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_3_0_10(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x07 % 10 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_10(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x08 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_10(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 10)*0x09 % 10 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_3_0_10(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_10(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x01 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_10(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x02 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_10(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x03 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_10(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x04 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_10(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x05 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_10(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x06 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_10(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x07 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_10(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x08 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_10(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 10)*0x09 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_10(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_10(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x01 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_10(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x02 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_10(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x03 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_10(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x04 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_10(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x05 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_10(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x06 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_10(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x07 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_10(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x08 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_10(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 10)*0x09 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_10(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_10(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x01 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_10(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x02 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_10(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x03 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_10(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x04 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_10(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x05 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_10(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x06 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_10(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x07 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_10(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x08 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_10(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 10)*0x09 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_10(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_10(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x01 % 10 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_10(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x02 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_10(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x03 % 10 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_10(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x04 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_10(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x05 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_10(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x06 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_10(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x07 % 10 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_0_10(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x08 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_10(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 10)*0x09 % 10 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_10(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_10(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x01 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_10(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x02 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_10(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x03 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_10(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x04 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_10(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x05 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_10(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x06 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_10(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x07 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_10(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x08 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_10(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 10)*0x09 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_10(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x00 % 10 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_10(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x01 % 10 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_10(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x02 % 10 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_9_0_10(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x03 % 10 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_9_0_10(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x04 % 10 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_10(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x05 % 10 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_9_0_10(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x06 % 10 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_9_0_10(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x07 % 10 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_10(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x08 % 10 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_9_0_10(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 10)*0x09 % 10 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_9_0_10(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x01 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x02 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x03 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x04 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x05 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x06 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x07 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x08 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x09 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 11)*0x0a % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_11(%c10) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_11(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x01 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_11(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x02 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_11(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x03 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_11(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x04 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_11(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x05 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_11(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x06 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_11(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x07 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_11(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x08 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_11(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x09 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_11(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 11)*0x0a % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_0_11(%c10) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_11(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x01 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_11(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x02 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_11(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x03 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_11(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x04 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_11(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x05 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_11(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x06 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_11(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x07 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_11(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x08 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_0_11(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x09 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_0_11(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 11)*0x0a % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_0_11(%c10) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_11(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x01 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_11(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x02 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_11(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x03 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_11(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x04 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_11(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x05 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_11(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x06 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_3_0_11(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x07 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_3_0_11(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x08 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_11(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x09 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_11(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 11)*0x0a % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_3_0_11(%c10) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_11(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x01 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_11(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x02 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_11(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x03 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_11(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x04 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_0_11(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x05 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_0_11(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x06 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_11(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x07 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_11(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x08 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_0_11(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x09 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_11(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 11)*0x0a % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_0_11(%c10) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_11(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x01 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_11(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x02 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_11(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x03 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_11(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x04 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_5_0_11(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x05 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_11(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x06 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_5_0_11(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x07 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_11(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x08 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_11(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x09 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_11(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 11)*0x0a % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_11(%c10) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_11(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x01 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_11(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x02 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_6_0_11(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x03 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_6_0_11(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x04 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_11(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x05 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_11(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x06 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_11(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x07 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_0_11(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x08 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_11(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x09 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_6_0_11(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 11)*0x0a % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_6_0_11(%c10) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_11(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x01 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_11(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x02 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_11(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x03 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_0_11(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x04 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_11(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x05 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_11(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x06 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_0_11(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x07 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_11(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x08 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_11(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x09 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_11(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 11)*0x0a % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_11(%c10) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_11(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x01 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_11(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x02 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_0_11(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x03 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_11(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x04 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_0_11(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x05 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_0_11(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x06 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_11(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x07 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_0_11(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x08 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_0_11(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x09 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_11(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 11)*0x0a % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_0_11(%c10) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_11(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x01 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_11(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x02 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_9_0_11(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x03 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_9_0_11(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x04 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_11(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x05 % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_9_0_11(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x06 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_9_0_11(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x07 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_9_0_11(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x08 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_11(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x09 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_9_0_11(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 11)*0x0a % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_9_0_11(%c10) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x00 % 11 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_11(%c0) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x01 % 11 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_11(%c1) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x02 % 11 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_10_0_11(%c2) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x03 % 11 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_11(%c3) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x04 % 11 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_10_0_11(%c4) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x05 % 11 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_11(%c5) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x06 % 11 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_11(%c6) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x07 % 11 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_11(%c7) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x08 % 11 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_10_0_11(%c8) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x09 % 11 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_11(%c9) : (i4) -> ()
+
+    // (0x0a^(2^0) % 11)*0x0a % 11 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_10_0_11(%c10) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x01 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x02 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x03 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x04 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x05 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x07 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x08 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x09 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x0a % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c10) : (i4) -> ()
+
+    // (0x00^(2^0) % 12)*0x0b % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_12(%c11) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_12(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x01 % 12 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_12(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x02 % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_12(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x03 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_12(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x04 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_12(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x05 % 12 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_12(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_12(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x07 % 12 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_12(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x08 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_12(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x09 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_12(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x0a % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_0_12(%c10) : (i4) -> ()
+
+    // (0x01^(2^0) % 12)*0x0b % 12 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_0_12(%c11) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_12(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x01 % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_12(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x02 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_12(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x03 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_12(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x04 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_12(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x05 % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_12(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_12(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x07 % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_12(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x08 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_12(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x09 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_12(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x0a % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_12(%c10) : (i4) -> ()
+
+    // (0x02^(2^0) % 12)*0x0b % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_12(%c11) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_12(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x01 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_12(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x02 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_12(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x03 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_12(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x04 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_12(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x05 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_12(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_12(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x07 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_12(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x08 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_12(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x09 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_12(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x0a % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_12(%c10) : (i4) -> ()
+
+    // (0x03^(2^0) % 12)*0x0b % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_12(%c11) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_12(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x01 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_12(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x02 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_12(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x03 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_12(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x04 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_12(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x05 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_12(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_12(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x07 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_12(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x08 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_12(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x09 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_12(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x0a % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_12(%c10) : (i4) -> ()
+
+    // (0x04^(2^0) % 12)*0x0b % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_12(%c11) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_12(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x01 % 12 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_12(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x02 % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_12(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x03 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_12(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x04 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_5_0_12(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x05 % 12 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_12(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_12(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x07 % 12 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_5_0_12(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x08 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_12(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x09 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_5_0_12(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x0a % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_12(%c10) : (i4) -> ()
+
+    // (0x05^(2^0) % 12)*0x0b % 12 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_12(%c11) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x01 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x02 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x03 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x04 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x05 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x07 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x08 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x09 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x0a % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_12(%c10) : (i4) -> ()
+
+    // (0x06^(2^0) % 12)*0x0b % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_12(%c11) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_12(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x01 % 12 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_12(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x02 % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_12(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x03 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_0_12(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x04 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_12(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x05 % 12 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_0_12(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_12(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x07 % 12 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_12(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x08 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_12(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x09 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_12(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x0a % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_0_12(%c10) : (i4) -> ()
+
+    // (0x07^(2^0) % 12)*0x0b % 12 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_12(%c11) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_12(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x01 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_12(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x02 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_12(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x03 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_12(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x04 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_12(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x05 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_12(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_12(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x07 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_12(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x08 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_12(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x09 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_12(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x0a % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_12(%c10) : (i4) -> ()
+
+    // (0x08^(2^0) % 12)*0x0b % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_12(%c11) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_12(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x01 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_12(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x02 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_12(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x03 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_12(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x04 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_12(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x05 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_12(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_12(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x07 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_12(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x08 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_12(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x09 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_12(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x0a % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_12(%c10) : (i4) -> ()
+
+    // (0x09^(2^0) % 12)*0x0b % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_12(%c11) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_12(%c0) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x01 % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_12(%c1) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x02 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_12(%c2) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x03 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_12(%c3) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x04 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_12(%c4) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x05 % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_12(%c5) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x06 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_12(%c6) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x07 % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_12(%c7) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x08 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_12(%c8) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x09 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_12(%c9) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x0a % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_12(%c10) : (i4) -> ()
+
+    // (0x0a^(2^0) % 12)*0x0b % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_12(%c11) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x00 % 12 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_0_12(%c0) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x01 % 12 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_0_12(%c1) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x02 % 12 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_0_12(%c2) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x03 % 12 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_0_12(%c3) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x04 % 12 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_0_12(%c4) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x05 % 12 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_0_12(%c5) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x06 % 12 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_0_12(%c6) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x07 % 12 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_0_12(%c7) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x08 % 12 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_0_12(%c8) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x09 % 12 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_0_12(%c9) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x0a % 12 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_0_12(%c10) : (i4) -> ()
+
+    // (0x0b^(2^0) % 12)*0x0b % 12 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_0_12(%c11) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x01 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x02 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x03 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x04 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x05 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x06 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x07 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x08 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x09 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x0a % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c10) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x0b % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c11) : (i4) -> ()
+
+    // (0x00^(2^0) % 13)*0x0c % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_13(%c12) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_13(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x01 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_13(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x02 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_13(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x03 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_13(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x04 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_13(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x05 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_13(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x06 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_13(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x07 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_13(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x08 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_13(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x09 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_13(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x0a % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_0_13(%c10) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x0b % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_0_13(%c11) : (i4) -> ()
+
+    // (0x01^(2^0) % 13)*0x0c % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_0_13(%c12) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_13(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x01 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_13(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x02 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_13(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x03 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_13(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x04 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_13(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x05 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_13(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x06 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_0_13(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x07 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_13(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x08 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_13(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x09 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_0_13(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x0a % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_0_13(%c10) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x0b % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_0_13(%c11) : (i4) -> ()
+
+    // (0x02^(2^0) % 13)*0x0c % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_2_0_13(%c12) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_13(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x01 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_13(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x02 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_13(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x03 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_13(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x04 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_0_13(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x05 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_13(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x06 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_13(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x07 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_3_0_13(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x08 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_3_0_13(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x09 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_13(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x0a % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_13(%c10) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x0b % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_3_0_13(%c11) : (i4) -> ()
+
+    // (0x03^(2^0) % 13)*0x0c % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_3_0_13(%c12) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_13(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x01 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_13(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x02 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_13(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x03 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_0_13(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x04 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_13(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x05 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_0_13(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x06 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_4_0_13(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x07 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_13(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x08 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_13(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x09 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_0_13(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x0a % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_13(%c10) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x0b % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_0_13(%c11) : (i4) -> ()
+
+    // (0x04^(2^0) % 13)*0x0c % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_0_13(%c12) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_13(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x01 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_13(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x02 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_13(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x03 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_13(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x04 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_13(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x05 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_5_0_13(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x06 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_13(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x07 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_5_0_13(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x08 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_13(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x09 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_13(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x0a % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_5_0_13(%c10) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x0b % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_13(%c11) : (i4) -> ()
+
+    // (0x05^(2^0) % 13)*0x0c % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_5_0_13(%c12) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_13(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x01 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_13(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x02 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_13(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x03 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_6_0_13(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x04 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_6_0_13(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x05 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_13(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x06 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_6_0_13(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x07 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_13(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x08 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_0_13(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x09 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_13(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x0a % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_13(%c10) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x0b % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_6_0_13(%c11) : (i4) -> ()
+
+    // (0x06^(2^0) % 13)*0x0c % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_6_0_13(%c12) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_13(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x01 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_13(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x02 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_13(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x03 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_13(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x04 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_13(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x05 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_0_13(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x06 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_13(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x07 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_0_13(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x08 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_13(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x09 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_0_13(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x0a % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_13(%c10) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x0b % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_7_0_13(%c11) : (i4) -> ()
+
+    // (0x07^(2^0) % 13)*0x0c % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_13(%c12) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_13(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x01 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_13(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x02 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_0_13(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x03 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_8_0_13(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x04 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_13(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x05 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_0_13(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x06 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_0_13(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x07 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_13(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x08 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_0_13(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x09 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_0_13(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x0a % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_13(%c10) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x0b % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_0_13(%c11) : (i4) -> ()
+
+    // (0x08^(2^0) % 13)*0x0c % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_0_13(%c12) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_13(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x01 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_13(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x02 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_9_0_13(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x03 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_9_0_13(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x04 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_9_0_13(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x05 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_13(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x06 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_9_0_13(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x07 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_9_0_13(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x08 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_9_0_13(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x09 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_13(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x0a % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_0_13(%c10) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x0b % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_9_0_13(%c11) : (i4) -> ()
+
+    // (0x09^(2^0) % 13)*0x0c % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_9_0_13(%c12) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_13(%c0) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x01 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_13(%c1) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x02 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_10_0_13(%c2) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x03 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_13(%c3) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x04 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_10_0_13(%c4) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x05 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_10_0_13(%c5) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x06 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_13(%c6) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x07 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_13(%c7) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x08 % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_13(%c8) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x09 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_10_0_13(%c9) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x0a % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_10_0_13(%c10) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x0b % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_13(%c11) : (i4) -> ()
+
+    // (0x0a^(2^0) % 13)*0x0c % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_10_0_13(%c12) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_0_13(%c0) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x01 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_0_13(%c1) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x02 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_0_13(%c2) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x03 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_0_13(%c3) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x04 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_0_13(%c4) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x05 % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_0_13(%c5) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x06 % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_0_13(%c6) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x07 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_0_13(%c7) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x08 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_0_13(%c8) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x09 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_0_13(%c9) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x0a % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_0_13(%c10) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x0b % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_0_13(%c11) : (i4) -> ()
+
+    // (0x0b^(2^0) % 13)*0x0c % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_0_13(%c12) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x00 % 13 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_13(%c0) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x01 % 13 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_13(%c1) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x02 % 13 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_12_0_13(%c2) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x03 % 13 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_12_0_13(%c3) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x04 % 13 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_0_13(%c4) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x05 % 13 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_12_0_13(%c5) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x06 % 13 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_12_0_13(%c6) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x07 % 13 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_13(%c7) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x08 % 13 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_12_0_13(%c8) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x09 % 13 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_12_0_13(%c9) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x0a % 13 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_0_13(%c10) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x0b % 13 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_12_0_13(%c11) : (i4) -> ()
+
+    // (0x0c^(2^0) % 13)*0x0c % 13 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_12_0_13(%c12) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x01 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x02 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x03 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x04 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x05 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x06 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x08 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x09 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x0a % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c10) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x0b % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c11) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x0c % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c12) : (i4) -> ()
+
+    // (0x00^(2^0) % 14)*0x0d % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_14(%c13) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_14(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x01 % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_14(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x02 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_14(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x03 % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_14(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x04 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_14(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x05 % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_14(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x06 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_14(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_14(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x08 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_14(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x09 % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_14(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x0a % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_0_14(%c10) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x0b % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_0_14(%c11) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x0c % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_0_14(%c12) : (i4) -> ()
+
+    // (0x01^(2^0) % 14)*0x0d % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_1_0_14(%c13) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_14(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x01 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_14(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x02 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_14(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x03 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_14(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x04 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_14(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x05 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_14(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x06 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_0_14(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_14(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x08 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_14(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x09 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_14(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x0a % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_14(%c10) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x0b % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_14(%c11) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x0c % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_14(%c12) : (i4) -> ()
+
+    // (0x02^(2^0) % 14)*0x0d % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_0_14(%c13) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_14(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x01 % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_14(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x02 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_14(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x03 % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_14(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x04 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_0_14(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x05 % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_3_0_14(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x06 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_3_0_14(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_3_0_14(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x08 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_3_0_14(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x09 % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_3_0_14(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x0a % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_3_0_14(%c10) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x0b % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_3_0_14(%c11) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x0c % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_3_0_14(%c12) : (i4) -> ()
+
+    // (0x03^(2^0) % 14)*0x0d % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_3_0_14(%c13) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_14(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x01 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_14(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x02 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_14(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x03 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_0_14(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x04 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_14(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x05 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_14(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x06 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_0_14(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_14(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x08 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_14(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x09 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_14(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x0a % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_0_14(%c10) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x0b % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_14(%c11) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x0c % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_14(%c12) : (i4) -> ()
+
+    // (0x04^(2^0) % 14)*0x0d % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_0_14(%c13) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_14(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x01 % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_14(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x02 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_14(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x03 % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_5_0_14(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x04 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_5_0_14(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x05 % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_5_0_14(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x06 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_5_0_14(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_5_0_14(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x08 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_5_0_14(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x09 % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_5_0_14(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x0a % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_5_0_14(%c10) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x0b % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_5_0_14(%c11) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x0c % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_5_0_14(%c12) : (i4) -> ()
+
+    // (0x05^(2^0) % 14)*0x0d % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_5_0_14(%c13) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_14(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x01 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_14(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x02 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_14(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x03 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_14(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x04 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_6_0_14(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x05 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_14(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x06 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_14(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_14(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x08 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_14(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x09 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_14(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x0a % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_6_0_14(%c10) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x0b % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_6_0_14(%c11) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x0c % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_6_0_14(%c12) : (i4) -> ()
+
+    // (0x06^(2^0) % 14)*0x0d % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_6_0_14(%c13) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x01 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x02 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x03 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x04 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x05 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x06 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x08 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x09 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x0a % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c10) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x0b % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c11) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x0c % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_14(%c12) : (i4) -> ()
+
+    // (0x07^(2^0) % 14)*0x0d % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_14(%c13) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_14(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x01 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_14(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x02 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_14(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x03 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_0_14(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x04 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_14(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x05 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_0_14(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x06 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_14(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_14(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x08 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_14(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x09 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_14(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x0a % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_0_14(%c10) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x0b % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_14(%c11) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x0c % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_0_14(%c12) : (i4) -> ()
+
+    // (0x08^(2^0) % 14)*0x0d % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_14(%c13) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_14(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x01 % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_14(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x02 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_9_0_14(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x03 % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_9_0_14(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x04 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_9_0_14(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x05 % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_14(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x06 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_0_14(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_9_0_14(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x08 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_9_0_14(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x09 % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_9_0_14(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x0a % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_14(%c10) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x0b % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_9_0_14(%c11) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x0c % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_9_0_14(%c12) : (i4) -> ()
+
+    // (0x09^(2^0) % 14)*0x0d % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_9_0_14(%c13) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_14(%c0) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x01 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_14(%c1) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x02 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_14(%c2) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x03 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_14(%c3) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x04 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_10_0_14(%c4) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x05 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_14(%c5) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x06 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_14(%c6) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_14(%c7) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x08 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_14(%c8) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x09 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_10_0_14(%c9) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x0a % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_10_0_14(%c10) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x0b % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_10_0_14(%c11) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x0c % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_10_0_14(%c12) : (i4) -> ()
+
+    // (0x0a^(2^0) % 14)*0x0d % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_10_0_14(%c13) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_0_14(%c0) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x01 % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_0_14(%c1) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x02 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_0_14(%c2) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x03 % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_0_14(%c3) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x04 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_0_14(%c4) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x05 % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_11_0_14(%c5) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x06 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_0_14(%c6) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_0_14(%c7) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x08 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_0_14(%c8) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x09 % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_0_14(%c9) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x0a % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_0_14(%c10) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x0b % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_0_14(%c11) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x0c % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_0_14(%c12) : (i4) -> ()
+
+    // (0x0b^(2^0) % 14)*0x0d % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_0_14(%c13) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_14(%c0) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x01 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_14(%c1) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x02 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_12_0_14(%c2) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x03 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_12_0_14(%c3) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x04 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_14(%c4) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x05 % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_12_0_14(%c5) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x06 % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_12_0_14(%c6) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x07 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_14(%c7) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x08 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_14(%c8) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x09 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_12_0_14(%c9) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x0a % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_12_0_14(%c10) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x0b % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_14(%c11) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x0c % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_12_0_14(%c12) : (i4) -> ()
+
+    // (0x0c^(2^0) % 14)*0x0d % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_12_0_14(%c13) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x00 % 14 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_13_0_14(%c0) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x01 % 14 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_13_0_14(%c1) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x02 % 14 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_13_0_14(%c2) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x03 % 14 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_13_0_14(%c3) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x04 % 14 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_13_0_14(%c4) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x05 % 14 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_13_0_14(%c5) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x06 % 14 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_13_0_14(%c6) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x07 % 14 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_13_0_14(%c7) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x08 % 14 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_13_0_14(%c8) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x09 % 14 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_13_0_14(%c9) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x0a % 14 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_13_0_14(%c10) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x0b % 14 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_13_0_14(%c11) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x0c % 14 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_13_0_14(%c12) : (i4) -> ()
+
+    // (0x0d^(2^0) % 14)*0x0d % 14 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_13_0_14(%c13) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c0) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x01 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c1) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x02 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c2) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c3) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x04 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c4) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c5) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c6) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x07 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c7) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x08 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c8) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c9) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c10) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x0b % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c11) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c12) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x0d % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c13) : (i4) -> ()
+
+    // (0x00^(2^0) % 15)*0x0e % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_0_15(%c14) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_0_15(%c0) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_0_15(%c1) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_0_15(%c2) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_0_15(%c3) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_0_15(%c4) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_0_15(%c5) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_0_15(%c6) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_0_15(%c7) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_0_15(%c8) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_0_15(%c9) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_0_15(%c10) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_0_15(%c11) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_0_15(%c12) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_1_0_15(%c13) : (i4) -> ()
+
+    // (0x01^(2^0) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_1_0_15(%c14) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_0_15(%c0) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x01 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_0_15(%c1) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x02 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_0_15(%c2) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x03 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_0_15(%c3) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x04 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_0_15(%c4) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x05 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_0_15(%c5) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x06 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_0_15(%c6) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x07 % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_2_0_15(%c7) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x08 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_0_15(%c8) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x09 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_0_15(%c9) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x0a % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_0_15(%c10) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x0b % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_0_15(%c11) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x0c % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_0_15(%c12) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x0d % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_2_0_15(%c13) : (i4) -> ()
+
+    // (0x02^(2^0) % 15)*0x0e % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_2_0_15(%c14) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_15(%c0) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x01 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_15(%c1) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x02 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_15(%c2) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x03 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_15(%c3) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x04 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_0_15(%c4) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_15(%c5) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x06 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_15(%c6) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x07 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_15(%c7) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x08 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_15(%c8) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x09 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_0_15(%c9) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_0_15(%c10) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x0b % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_0_15(%c11) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x0c % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_0_15(%c12) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x0d % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_0_15(%c13) : (i4) -> ()
+
+    // (0x03^(2^0) % 15)*0x0e % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_0_15(%c14) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_0_15(%c0) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x01 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_0_15(%c1) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x02 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_0_15(%c2) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_0_15(%c3) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x04 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_0_15(%c4) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_0_15(%c5) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_0_15(%c6) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x07 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_4_0_15(%c7) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x08 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_0_15(%c8) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_0_15(%c9) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_0_15(%c10) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x0b % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_4_0_15(%c11) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_0_15(%c12) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x0d % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_0_15(%c13) : (i4) -> ()
+
+    // (0x04^(2^0) % 15)*0x0e % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_4_0_15(%c14) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_15(%c0) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x01 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_15(%c1) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x02 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_15(%c2) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_15(%c3) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x04 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_15(%c4) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x05 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_15(%c5) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_15(%c6) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x07 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_15(%c7) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x08 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_15(%c8) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_15(%c9) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x0a % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_15(%c10) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x0b % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_15(%c11) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_0_15(%c12) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x0d % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_0_15(%c13) : (i4) -> ()
+
+    // (0x05^(2^0) % 15)*0x0e % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_0_15(%c14) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_15(%c0) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_15(%c1) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_15(%c2) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_15(%c3) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_0_15(%c4) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_15(%c5) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_15(%c6) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_15(%c7) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_15(%c8) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_0_15(%c9) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_0_15(%c10) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_0_15(%c11) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_0_15(%c12) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_0_15(%c13) : (i4) -> ()
+
+    // (0x06^(2^0) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_0_15(%c14) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_0_15(%c0) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x01 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_0_15(%c1) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x02 % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_7_0_15(%c2) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x03 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_0_15(%c3) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x04 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_7_0_15(%c4) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_0_15(%c5) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x06 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_7_0_15(%c6) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x07 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_0_15(%c7) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x08 % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_0_15(%c8) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x09 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_0_15(%c9) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_0_15(%c10) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x0b % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_0_15(%c11) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x0c % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_0_15(%c12) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x0d % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_0_15(%c13) : (i4) -> ()
+
+    // (0x07^(2^0) % 15)*0x0e % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_0_15(%c14) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_0_15(%c0) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x01 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_0_15(%c1) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x02 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_0_15(%c2) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x03 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_0_15(%c3) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x04 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_0_15(%c4) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x05 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_0_15(%c5) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x06 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_0_15(%c6) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x07 % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_8_0_15(%c7) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x08 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_0_15(%c8) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x09 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_0_15(%c9) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x0a % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_0_15(%c10) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x0b % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_8_0_15(%c11) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x0c % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_0_15(%c12) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x0d % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_8_0_15(%c13) : (i4) -> ()
+
+    // (0x08^(2^0) % 15)*0x0e % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_0_15(%c14) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_15(%c0) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x01 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_15(%c1) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x02 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_15(%c2) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_0_15(%c3) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x04 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_15(%c4) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_15(%c5) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_15(%c6) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x07 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_15(%c7) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x08 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_0_15(%c8) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_15(%c9) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_0_15(%c10) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x0b % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_0_15(%c11) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_0_15(%c12) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x0d % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_0_15(%c13) : (i4) -> ()
+
+    // (0x09^(2^0) % 15)*0x0e % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_0_15(%c14) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_15(%c0) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_15(%c1) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_15(%c2) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_15(%c3) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_15(%c4) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_15(%c5) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_15(%c6) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_15(%c7) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_15(%c8) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_15(%c9) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_15(%c10) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_15(%c11) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_0_15(%c12) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_0_15(%c13) : (i4) -> ()
+
+    // (0x0a^(2^0) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_0_15(%c14) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_0_15(%c0) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x01 % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_0_15(%c1) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x02 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_0_15(%c2) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_0_15(%c3) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x04 % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_11_0_15(%c4) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x05 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_0_15(%c5) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_0_15(%c6) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x07 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_0_15(%c7) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x08 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_11_0_15(%c8) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_0_15(%c9) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x0a % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_0_15(%c10) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x0b % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_0_15(%c11) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_0_15(%c12) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x0d % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_0_15(%c13) : (i4) -> ()
+
+    // (0x0b^(2^0) % 15)*0x0e % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_0_15(%c14) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_15(%c0) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x01 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_15(%c1) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x02 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_0_15(%c2) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x03 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_15(%c3) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x04 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_0_15(%c4) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_15(%c5) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x06 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_15(%c6) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x07 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_0_15(%c7) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x08 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_15(%c8) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x09 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_0_15(%c9) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_0_15(%c10) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x0b % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_0_15(%c11) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x0c % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_0_15(%c12) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x0d % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_0_15(%c13) : (i4) -> ()
+
+    // (0x0c^(2^0) % 15)*0x0e % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_0_15(%c14) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_13_0_15(%c0) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x01 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_13_0_15(%c1) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x02 % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_13_0_15(%c2) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x03 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_13_0_15(%c3) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x04 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_13_0_15(%c4) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_13_0_15(%c5) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x06 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_13_0_15(%c6) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x07 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_13_0_15(%c7) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x08 % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_13_0_15(%c8) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x09 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_13_0_15(%c9) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_13_0_15(%c10) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x0b % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_13_0_15(%c11) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x0c % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_13_0_15(%c12) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x0d % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_13_0_15(%c13) : (i4) -> ()
+
+    // (0x0d^(2^0) % 15)*0x0e % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_13_0_15(%c14) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_14_0_15(%c0) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x01 % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_14_0_15(%c1) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x02 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_14_0_15(%c2) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_14_0_15(%c3) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x04 % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_14_0_15(%c4) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x05 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_14_0_15(%c5) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_14_0_15(%c6) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x07 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_14_0_15(%c7) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x08 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_14_0_15(%c8) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_14_0_15(%c9) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x0a % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_14_0_15(%c10) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x0b % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_14_0_15(%c11) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_14_0_15(%c12) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x0d % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_14_0_15(%c13) : (i4) -> ()
+
+    // (0x0e^(2^0) % 15)*0x0e % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_14_0_15(%c14) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c0) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x01 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c1) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x02 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c2) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c3) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x04 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c4) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c5) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c6) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x07 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c7) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x08 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c8) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c9) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c10) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x0b % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c11) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c12) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x0d % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c13) : (i4) -> ()
+
+    // (0x00^(2^1) % 15)*0x0e % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_1_15(%c14) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c0) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x01 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c1) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x02 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c2) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c3) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x04 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c4) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c5) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c6) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x07 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c7) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x08 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c8) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c9) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c10) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x0b % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c11) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c12) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x0d % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c13) : (i4) -> ()
+
+    // (0x00^(2^2) % 15)*0x0e % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_2_15(%c14) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c0) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x01 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c1) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x02 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c2) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c3) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x04 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c4) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c5) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c6) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x07 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c7) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x08 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c8) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c9) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c10) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x0b % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c11) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c12) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x0d % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c13) : (i4) -> ()
+
+    // (0x00^(2^3) % 15)*0x0e % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_0_3_15(%c14) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_1_15(%c0) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_1_15(%c1) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_1_15(%c2) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_1_15(%c3) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_1_15(%c4) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_1_15(%c5) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_1_15(%c6) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_1_15(%c7) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_1_15(%c8) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_1_15(%c9) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_1_15(%c10) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_1_15(%c11) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_1_15(%c12) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_1_1_15(%c13) : (i4) -> ()
+
+    // (0x01^(2^1) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_1_1_15(%c14) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_2_15(%c0) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_2_15(%c1) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_2_15(%c2) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_2_15(%c3) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_2_15(%c4) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_2_15(%c5) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_2_15(%c6) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_2_15(%c7) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_2_15(%c8) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_2_15(%c9) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_2_15(%c10) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_2_15(%c11) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_2_15(%c12) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_1_2_15(%c13) : (i4) -> ()
+
+    // (0x01^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_1_2_15(%c14) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_1_3_15(%c0) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_1_3_15(%c1) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_1_3_15(%c2) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_1_3_15(%c3) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_1_3_15(%c4) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_1_3_15(%c5) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_1_3_15(%c6) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_1_3_15(%c7) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_1_3_15(%c8) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_1_3_15(%c9) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_1_3_15(%c10) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_1_3_15(%c11) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_1_3_15(%c12) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_1_3_15(%c13) : (i4) -> ()
+
+    // (0x01^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_1_3_15(%c14) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_1_15(%c0) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x01 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_1_15(%c1) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x02 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_1_15(%c2) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_1_15(%c3) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x04 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_1_15(%c4) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_1_15(%c5) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_1_15(%c6) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x07 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_2_1_15(%c7) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x08 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_1_15(%c8) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_1_15(%c9) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_1_15(%c10) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x0b % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_2_1_15(%c11) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_1_15(%c12) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x0d % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_1_15(%c13) : (i4) -> ()
+
+    // (0x02^(2^1) % 15)*0x0e % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_2_1_15(%c14) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_2_15(%c0) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_2_15(%c1) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_2_15(%c2) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_2_15(%c3) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_2_15(%c4) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_2_15(%c5) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_2_15(%c6) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_2_15(%c7) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_2_15(%c8) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_2_15(%c9) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_2_15(%c10) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_2_2_15(%c11) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_2_15(%c12) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_2_2_15(%c13) : (i4) -> ()
+
+    // (0x02^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_2_2_15(%c14) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_2_3_15(%c0) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_2_3_15(%c1) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_2_3_15(%c2) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_2_3_15(%c3) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_2_3_15(%c4) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_2_3_15(%c5) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_2_3_15(%c6) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_2_3_15(%c7) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_2_3_15(%c8) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_2_3_15(%c9) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_2_3_15(%c10) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_2_3_15(%c11) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_2_3_15(%c12) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_2_3_15(%c13) : (i4) -> ()
+
+    // (0x02^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_2_3_15(%c14) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_1_15(%c0) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x01 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_1_15(%c1) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x02 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_1_15(%c2) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_1_15(%c3) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x04 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_1_15(%c4) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_1_15(%c5) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_1_15(%c6) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x07 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_1_15(%c7) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x08 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_1_15(%c8) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_1_15(%c9) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_1_15(%c10) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x0b % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_1_15(%c11) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_1_15(%c12) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x0d % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_1_15(%c13) : (i4) -> ()
+
+    // (0x03^(2^1) % 15)*0x0e % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_1_15(%c14) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_2_15(%c0) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_2_15(%c1) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_2_15(%c2) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_2_15(%c3) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_2_15(%c4) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_2_15(%c5) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_2_15(%c6) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_2_15(%c7) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_2_15(%c8) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_2_15(%c9) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_2_15(%c10) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_2_15(%c11) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_2_15(%c12) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_2_15(%c13) : (i4) -> ()
+
+    // (0x03^(2^2) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_2_15(%c14) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_3_15(%c0) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_3_15(%c1) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_3_15(%c2) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_3_15(%c3) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_3_15(%c4) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_3_15(%c5) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_3_15(%c6) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_3_15(%c7) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_3_15(%c8) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_3_15(%c9) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_3_3_15(%c10) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_3_3_15(%c11) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_3_3_15(%c12) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_3_3_15(%c13) : (i4) -> ()
+
+    // (0x03^(2^3) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_3_3_15(%c14) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_1_15(%c0) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_1_15(%c1) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_1_15(%c2) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_1_15(%c3) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_1_15(%c4) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_1_15(%c5) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_1_15(%c6) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_1_15(%c7) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_1_15(%c8) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_1_15(%c9) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_1_15(%c10) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_4_1_15(%c11) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_1_15(%c12) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_4_1_15(%c13) : (i4) -> ()
+
+    // (0x04^(2^1) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_4_1_15(%c14) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_2_15(%c0) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_2_15(%c1) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_2_15(%c2) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_2_15(%c3) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_2_15(%c4) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_2_15(%c5) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_2_15(%c6) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_2_15(%c7) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_2_15(%c8) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_2_15(%c9) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_2_15(%c10) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_4_2_15(%c11) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_2_15(%c12) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_4_2_15(%c13) : (i4) -> ()
+
+    // (0x04^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_4_2_15(%c14) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_4_3_15(%c0) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_4_3_15(%c1) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_4_3_15(%c2) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_4_3_15(%c3) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_4_3_15(%c4) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_4_3_15(%c5) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_4_3_15(%c6) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_4_3_15(%c7) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_4_3_15(%c8) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_4_3_15(%c9) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_4_3_15(%c10) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_4_3_15(%c11) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_4_3_15(%c12) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_4_3_15(%c13) : (i4) -> ()
+
+    // (0x04^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_4_3_15(%c14) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_1_15(%c0) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_1_15(%c1) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_1_15(%c2) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_1_15(%c3) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_1_15(%c4) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_1_15(%c5) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_1_15(%c6) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_1_15(%c7) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_1_15(%c8) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_1_15(%c9) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_1_15(%c10) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_1_15(%c11) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_1_15(%c12) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_1_15(%c13) : (i4) -> ()
+
+    // (0x05^(2^1) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_1_15(%c14) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_2_15(%c0) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_2_15(%c1) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_2_15(%c2) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_2_15(%c3) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_2_15(%c4) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_2_15(%c5) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_2_15(%c6) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_2_15(%c7) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_2_15(%c8) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_2_15(%c9) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_2_15(%c10) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_2_15(%c11) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_2_15(%c12) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_2_15(%c13) : (i4) -> ()
+
+    // (0x05^(2^2) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_2_15(%c14) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_3_15(%c0) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_3_15(%c1) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_3_15(%c2) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_3_15(%c3) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_3_15(%c4) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_3_15(%c5) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_3_15(%c6) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_3_15(%c7) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_3_15(%c8) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_3_15(%c9) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_3_15(%c10) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_3_15(%c11) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_5_3_15(%c12) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_5_3_15(%c13) : (i4) -> ()
+
+    // (0x05^(2^3) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_5_3_15(%c14) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_1_15(%c0) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_1_15(%c1) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_1_15(%c2) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_1_15(%c3) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_1_15(%c4) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_1_15(%c5) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_1_15(%c6) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_1_15(%c7) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_1_15(%c8) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_1_15(%c9) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_1_15(%c10) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_1_15(%c11) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_1_15(%c12) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_1_15(%c13) : (i4) -> ()
+
+    // (0x06^(2^1) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_1_15(%c14) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_2_15(%c0) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_2_15(%c1) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_2_15(%c2) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_2_15(%c3) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_2_15(%c4) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_2_15(%c5) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_2_15(%c6) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_2_15(%c7) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_2_15(%c8) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_2_15(%c9) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_2_15(%c10) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_2_15(%c11) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_2_15(%c12) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_2_15(%c13) : (i4) -> ()
+
+    // (0x06^(2^2) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_2_15(%c14) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_3_15(%c0) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_3_15(%c1) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_3_15(%c2) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_3_15(%c3) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_3_15(%c4) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_3_15(%c5) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_3_15(%c6) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_3_15(%c7) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_3_15(%c8) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_3_15(%c9) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_6_3_15(%c10) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_6_3_15(%c11) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_6_3_15(%c12) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_6_3_15(%c13) : (i4) -> ()
+
+    // (0x06^(2^3) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_6_3_15(%c14) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_1_15(%c0) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x01 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_1_15(%c1) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x02 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_1_15(%c2) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_7_1_15(%c3) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x04 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_1_15(%c4) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_1_15(%c5) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_1_15(%c6) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x07 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_7_1_15(%c7) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x08 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_1_15(%c8) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_1_15(%c9) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_1_15(%c10) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x0b % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_7_1_15(%c11) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_1_15(%c12) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x0d % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_1_15(%c13) : (i4) -> ()
+
+    // (0x07^(2^1) % 15)*0x0e % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_1_15(%c14) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_2_15(%c0) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_2_15(%c1) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_2_15(%c2) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_2_15(%c3) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_2_15(%c4) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_2_15(%c5) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_2_15(%c6) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_2_15(%c7) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_2_15(%c8) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_2_15(%c9) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_2_15(%c10) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_2_15(%c11) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_7_2_15(%c12) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_7_2_15(%c13) : (i4) -> ()
+
+    // (0x07^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_7_2_15(%c14) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_7_3_15(%c0) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_7_3_15(%c1) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_7_3_15(%c2) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_7_3_15(%c3) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_7_3_15(%c4) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_7_3_15(%c5) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_7_3_15(%c6) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_7_3_15(%c7) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_7_3_15(%c8) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_7_3_15(%c9) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_7_3_15(%c10) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_7_3_15(%c11) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_7_3_15(%c12) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_7_3_15(%c13) : (i4) -> ()
+
+    // (0x07^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_7_3_15(%c14) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_1_15(%c0) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x01 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_1_15(%c1) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x02 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_1_15(%c2) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_1_15(%c3) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x04 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_1_15(%c4) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_1_15(%c5) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_1_15(%c6) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x07 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_8_1_15(%c7) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x08 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_1_15(%c8) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_1_15(%c9) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_1_15(%c10) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x0b % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_8_1_15(%c11) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_1_15(%c12) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x0d % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_1_15(%c13) : (i4) -> ()
+
+    // (0x08^(2^1) % 15)*0x0e % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_8_1_15(%c14) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_2_15(%c0) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_2_15(%c1) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_2_15(%c2) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_2_15(%c3) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_2_15(%c4) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_2_15(%c5) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_2_15(%c6) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_2_15(%c7) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_2_15(%c8) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_2_15(%c9) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_2_15(%c10) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_8_2_15(%c11) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_2_15(%c12) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_8_2_15(%c13) : (i4) -> ()
+
+    // (0x08^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_8_2_15(%c14) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_8_3_15(%c0) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_8_3_15(%c1) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_8_3_15(%c2) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_8_3_15(%c3) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_8_3_15(%c4) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_8_3_15(%c5) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_8_3_15(%c6) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_8_3_15(%c7) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_8_3_15(%c8) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_8_3_15(%c9) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_8_3_15(%c10) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_8_3_15(%c11) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_8_3_15(%c12) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_8_3_15(%c13) : (i4) -> ()
+
+    // (0x08^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_8_3_15(%c14) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_1_15(%c0) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_1_15(%c1) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_1_15(%c2) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_1_15(%c3) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_1_15(%c4) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_1_15(%c5) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_1_15(%c6) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_1_15(%c7) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_1_15(%c8) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_1_15(%c9) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_1_15(%c10) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_1_15(%c11) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_1_15(%c12) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_1_15(%c13) : (i4) -> ()
+
+    // (0x09^(2^1) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_1_15(%c14) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_2_15(%c0) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_2_15(%c1) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_2_15(%c2) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_2_15(%c3) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_2_15(%c4) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_2_15(%c5) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_2_15(%c6) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_2_15(%c7) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_2_15(%c8) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_2_15(%c9) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_2_15(%c10) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_2_15(%c11) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_2_15(%c12) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_2_15(%c13) : (i4) -> ()
+
+    // (0x09^(2^2) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_2_15(%c14) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_3_15(%c0) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_3_15(%c1) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_3_15(%c2) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_3_15(%c3) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_3_15(%c4) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_3_15(%c5) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_3_15(%c6) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_3_15(%c7) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_3_15(%c8) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_3_15(%c9) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_9_3_15(%c10) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_9_3_15(%c11) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_9_3_15(%c12) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_9_3_15(%c13) : (i4) -> ()
+
+    // (0x09^(2^3) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_9_3_15(%c14) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_1_15(%c0) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_1_15(%c1) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_1_15(%c2) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_1_15(%c3) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_1_15(%c4) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_1_15(%c5) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_1_15(%c6) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_1_15(%c7) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_1_15(%c8) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_1_15(%c9) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_1_15(%c10) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_1_15(%c11) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_1_15(%c12) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_1_15(%c13) : (i4) -> ()
+
+    // (0x0a^(2^1) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_1_15(%c14) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_2_15(%c0) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_2_15(%c1) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_2_15(%c2) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_2_15(%c3) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_2_15(%c4) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_2_15(%c5) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_2_15(%c6) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_2_15(%c7) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_2_15(%c8) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_2_15(%c9) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_2_15(%c10) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_2_15(%c11) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_2_15(%c12) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_2_15(%c13) : (i4) -> ()
+
+    // (0x0a^(2^2) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_2_15(%c14) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_3_15(%c0) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x01 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_3_15(%c1) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x02 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_3_15(%c2) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x03 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_3_15(%c3) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x04 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_3_15(%c4) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_3_15(%c5) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x06 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_3_15(%c6) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x07 % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_3_15(%c7) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x08 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_3_15(%c8) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x09 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_3_15(%c9) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_3_15(%c10) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x0b % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_3_15(%c11) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x0c % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_10_3_15(%c12) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x0d % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_10_3_15(%c13) : (i4) -> ()
+
+    // (0x0a^(2^3) % 15)*0x0e % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_10_3_15(%c14) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_1_15(%c0) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_1_15(%c1) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_1_15(%c2) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_1_15(%c3) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_1_15(%c4) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_1_15(%c5) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_1_15(%c6) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_1_15(%c7) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_1_15(%c8) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_1_15(%c9) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_1_15(%c10) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_1_15(%c11) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_1_15(%c12) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_11_1_15(%c13) : (i4) -> ()
+
+    // (0x0b^(2^1) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_11_1_15(%c14) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_2_15(%c0) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_2_15(%c1) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_2_15(%c2) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_2_15(%c3) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_2_15(%c4) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_2_15(%c5) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_2_15(%c6) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_2_15(%c7) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_2_15(%c8) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_2_15(%c9) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_2_15(%c10) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_2_15(%c11) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_2_15(%c12) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_11_2_15(%c13) : (i4) -> ()
+
+    // (0x0b^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_11_2_15(%c14) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_11_3_15(%c0) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_11_3_15(%c1) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_11_3_15(%c2) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_11_3_15(%c3) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_11_3_15(%c4) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_11_3_15(%c5) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_11_3_15(%c6) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_11_3_15(%c7) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_11_3_15(%c8) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_11_3_15(%c9) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_11_3_15(%c10) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_11_3_15(%c11) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_11_3_15(%c12) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_11_3_15(%c13) : (i4) -> ()
+
+    // (0x0b^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_11_3_15(%c14) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_1_15(%c0) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x01 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_1_15(%c1) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x02 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_1_15(%c2) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_1_15(%c3) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x04 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_1_15(%c4) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_1_15(%c5) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_1_15(%c6) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x07 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_1_15(%c7) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x08 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_1_15(%c8) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_1_15(%c9) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_1_15(%c10) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x0b % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_1_15(%c11) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_1_15(%c12) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x0d % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_1_15(%c13) : (i4) -> ()
+
+    // (0x0c^(2^1) % 15)*0x0e % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_1_15(%c14) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_2_15(%c0) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_2_15(%c1) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_2_15(%c2) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_2_15(%c3) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_2_15(%c4) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_2_15(%c5) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_2_15(%c6) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_2_15(%c7) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_2_15(%c8) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_2_15(%c9) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_2_15(%c10) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_2_15(%c11) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_2_15(%c12) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_2_15(%c13) : (i4) -> ()
+
+    // (0x0c^(2^2) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_2_15(%c14) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_3_15(%c0) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x01 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_3_15(%c1) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x02 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_3_15(%c2) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_3_15(%c3) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x04 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_3_15(%c4) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x05 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_3_15(%c5) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_3_15(%c6) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x07 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_3_15(%c7) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x08 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_3_15(%c8) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_3_15(%c9) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x0a % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_12_3_15(%c10) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x0b % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_12_3_15(%c11) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_12_3_15(%c12) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x0d % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_12_3_15(%c13) : (i4) -> ()
+
+    // (0x0c^(2^3) % 15)*0x0e % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_12_3_15(%c14) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_13_1_15(%c0) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x01 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_13_1_15(%c1) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x02 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_13_1_15(%c2) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x03 % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_13_1_15(%c3) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x04 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_13_1_15(%c4) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_13_1_15(%c5) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x06 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_13_1_15(%c6) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x07 % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_13_1_15(%c7) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x08 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_13_1_15(%c8) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x09 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_13_1_15(%c9) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_13_1_15(%c10) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x0b % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_13_1_15(%c11) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x0c % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_13_1_15(%c12) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x0d % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_13_1_15(%c13) : (i4) -> ()
+
+    // (0x0d^(2^1) % 15)*0x0e % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_13_1_15(%c14) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_13_2_15(%c0) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_13_2_15(%c1) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_13_2_15(%c2) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_13_2_15(%c3) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_13_2_15(%c4) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_13_2_15(%c5) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_13_2_15(%c6) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_13_2_15(%c7) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_13_2_15(%c8) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_13_2_15(%c9) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_13_2_15(%c10) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_13_2_15(%c11) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_13_2_15(%c12) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_13_2_15(%c13) : (i4) -> ()
+
+    // (0x0d^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_13_2_15(%c14) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_13_3_15(%c0) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_13_3_15(%c1) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_13_3_15(%c2) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_13_3_15(%c3) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_13_3_15(%c4) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_13_3_15(%c5) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_13_3_15(%c6) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_13_3_15(%c7) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_13_3_15(%c8) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_13_3_15(%c9) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_13_3_15(%c10) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_13_3_15(%c11) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_13_3_15(%c12) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_13_3_15(%c13) : (i4) -> ()
+
+    // (0x0d^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_13_3_15(%c14) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_14_1_15(%c0) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_14_1_15(%c1) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_14_1_15(%c2) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_14_1_15(%c3) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_14_1_15(%c4) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_14_1_15(%c5) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_14_1_15(%c6) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_14_1_15(%c7) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_14_1_15(%c8) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_14_1_15(%c9) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_14_1_15(%c10) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_14_1_15(%c11) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_14_1_15(%c12) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_14_1_15(%c13) : (i4) -> ()
+
+    // (0x0e^(2^1) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_14_1_15(%c14) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_14_2_15(%c0) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_14_2_15(%c1) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_14_2_15(%c2) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_14_2_15(%c3) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_14_2_15(%c4) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_14_2_15(%c5) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_14_2_15(%c6) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_14_2_15(%c7) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_14_2_15(%c8) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_14_2_15(%c9) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_14_2_15(%c10) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_14_2_15(%c11) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_14_2_15(%c12) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_14_2_15(%c13) : (i4) -> ()
+
+    // (0x0e^(2^2) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_14_2_15(%c14) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x00 % 15 = 0x00
+    // CHECK: 0
+    func.call @check_modmul_14_3_15(%c0) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x01 % 15 = 0x01
+    // CHECK: 1
+    func.call @check_modmul_14_3_15(%c1) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x02 % 15 = 0x02
+    // CHECK: 2
+    func.call @check_modmul_14_3_15(%c2) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x03 % 15 = 0x03
+    // CHECK: 3
+    func.call @check_modmul_14_3_15(%c3) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x04 % 15 = 0x04
+    // CHECK: 4
+    func.call @check_modmul_14_3_15(%c4) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x05 % 15 = 0x05
+    // CHECK: 5
+    func.call @check_modmul_14_3_15(%c5) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x06 % 15 = 0x06
+    // CHECK: 6
+    func.call @check_modmul_14_3_15(%c6) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x07 % 15 = 0x07
+    // CHECK: 7
+    func.call @check_modmul_14_3_15(%c7) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x08 % 15 = 0x08
+    // CHECK: -8
+    func.call @check_modmul_14_3_15(%c8) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x09 % 15 = 0x09
+    // CHECK: -7
+    func.call @check_modmul_14_3_15(%c9) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x0a % 15 = 0x0a
+    // CHECK: -6
+    func.call @check_modmul_14_3_15(%c10) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x0b % 15 = 0x0b
+    // CHECK: -5
+    func.call @check_modmul_14_3_15(%c11) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x0c % 15 = 0x0c
+    // CHECK: -4
+    func.call @check_modmul_14_3_15(%c12) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x0d % 15 = 0x0d
+    // CHECK: -3
+    func.call @check_modmul_14_3_15(%c13) : (i4) -> ()
+
+    // (0x0e^(2^3) % 15)*0x0e % 15 = 0x0e
+    // CHECK: -2
+    func.call @check_modmul_14_3_15(%c14) : (i4) -> ()
 
     return
 }

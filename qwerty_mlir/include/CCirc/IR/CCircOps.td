@@ -189,7 +189,10 @@ def CCirc_AddModOp : CCirc_Op<"add_mod", [Pure, InferTypeOpAdaptor]> {
 def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
     let summary = "Modular multiplier";
     let description = [{
-        Modular multiplication in-place
+        Calculate x^(2^j) * y % N in-place, for constant x, j, and N. The
+        input y is assumed to already be less than N. When x is coprime with N,
+        this is a bijection on [0, N), which is what allows it to be embedded in
+        place.
     }];
     let arguments = (ins I64Attr:$x, I64Attr:$j, I64Attr:$modN, CCirc_Wire:$y);
     let results = (outs CCirc_Wire:$product);

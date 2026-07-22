@@ -2,7 +2,8 @@
 
 """
 Generates ``synth-arith.mlir``, a FileCheck test that tests an 4-bit adder, an
-4-bit subtractor, and an 4-bit modular doubler on all possible inputs.
+4-bit subtractor, and 4-bit modular doubling, addition, and multiplication on
+all possible inputs.
 """
 
 import os
@@ -129,6 +130,44 @@ def format_add_mod_test(modN, c1, c2):
     func.call @check_add_mod_{modN}(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> ()
 """
 
+# ccirc.modmul multiplies by x^(2^j) % N, but DecomposeModMul does that
+# squaring classically before synthesis ever runs. Sweeping every x at j=0
+# therefore already covers every multiplier the synthesized circuit can see, so
+# j > 0 only needs enough coverage to catch the squaring itself drifting. One
+# modulus swept exhaustively does that without tripling the size of this file.
+SQUARING_MODULUS = (1 << N_BITS) - 1
+SQUARING_EXPONENTS = range(1, 4)
+
+def effective_multiplier(x, j, modN):
+    x_2j_modN = x % modN
+    for _ in range(j):
+        x_2j_modN = (x_2j_modN * x_2j_modN) % modN
+    return x_2j_modN
+
+def format_modmul_circuit(x, j, modN):
+    return f"""
+ccirc.circuit @modmul_{x}_{j}_{modN}(%y: !ccirc<wire[{N_BITS}]>) irrev {{
+    %0 = ccirc.modmul {x} {j} {modN} %y : (!ccirc<wire[{N_BITS}]>) -> !ccirc<wire[{N_BITS}]>
+    ccirc.return %0 : !ccirc<wire[{N_BITS}]>
+}}
+
+func.func @check_modmul_{x}_{j}_{modN}(%y: i{N_BITS}) -> () {{
+    %func = ccirc.func_ptr @modmul_{x}_{j}_{modN} : (i{N_BITS}) -> (i{N_BITS})
+    %res = func.call_indirect %func(%y) : (i{N_BITS}) -> (i{N_BITS})
+    vector.print %res : i{N_BITS}
+    return
+}}
+"""
+
+def format_modmul_test(x, j, modN, c):
+    product = (effective_multiplier(x, j, modN) * c) % modN
+    res = to_signed(product)
+    return f"""
+    // (0x{x:02x}^(2^{j}) % {modN})*0x{c:02x} % {modN} = 0x{product:02x}
+    // CHECK: {res}
+    func.call @check_modmul_{x}_{j}_{modN}(%c{c}) : (i{N_BITS}) -> ()
+"""
+
 def main():
     with open(OUT_PATH, 'w') as fp:
         fp.write(PROLOGUE)
@@ -136,6 +175,11 @@ def main():
         for modN in MODULI:
             fp.write(format_double_mod_circuit(modN))
             fp.write(format_add_mod_circuit(modN))
+            for x in range(modN):
+                fp.write(format_modmul_circuit(x, 0, modN))
+                if modN == SQUARING_MODULUS:
+                    for j in SQUARING_EXPONENTS:
+                        fp.write(format_modmul_circuit(x, j, modN))
 
         fp.write(TEST_PROLOGUE)
 
@@ -159,6 +203,17 @@ def main():
             for c1 in range(modN):
                 for c2 in range(modN):
                     fp.write(format_add_mod_test(modN, c1, c2))
+
+        for modN in MODULI:
+            for x in range(modN):
+                for c in range(modN):
+                    fp.write(format_modmul_test(x, 0, modN, c))
+
+        # Spot check that the repeated squaring in DecomposeModMul lines up
+        for x in range(SQUARING_MODULUS):
+            for j in SQUARING_EXPONENTS:
+                for c in range(SQUARING_MODULUS):
+                    fp.write(format_modmul_test(x, j, SQUARING_MODULUS, c))
 
         fp.write(EPILOGUE)
 
