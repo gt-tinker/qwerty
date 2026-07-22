@@ -1008,6 +1008,13 @@ mlir::LogicalResult ModMulOp::verify() {
     if (getY().getType() != getProduct().getType()) {
         return emitOpError("Input and output wire sizes do not match");
     }
+    if (!getModN()) {
+        return emitOpError("Modulus must be nonzero");
+    }
+    WireType wire_ty = llvm::cast<WireType>(getY().getType());
+    if (llvm::APInt(64, getModN()).getActiveBits() > wire_ty.getDim()) {
+        return emitOpError("Modulus does not fit in the input wires");
+    }
     return mlir::success();
 }
 
