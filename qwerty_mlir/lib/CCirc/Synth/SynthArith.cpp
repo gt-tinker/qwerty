@@ -47,6 +47,21 @@ mlir::Value fullAdderN(
     return carry;
 }
 
+// Build ~N as wires, where N is zero extended by one bit first. Passing this
+// to fullAdderN() as b with a carry_in of 1 calculates a - N, since
+// a - N == a + ~N + 1 in two's complement.
+void notModN(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_not_n) {
+    mlir::Value not_modN = ccirc::ConstantOp::create(builder,
+        loc, ~modN.zext(modN.getBitWidth()+1)).getResult();
+    mlir::ValueRange not_n_wires = ccirc::WireUnpackOp::create(builder,
+        loc, not_modN).getWires();
+    wires_not_n.assign(not_n_wires.begin(), not_n_wires.end());
+}
+
 } // namespace
 
 namespace ccirc {
@@ -76,6 +91,41 @@ void synthSub(
     mlir::Value one = ccirc::ConstantOp::create(builder,
         loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
     fullAdderN(builder, loc, wires_a, wires_not_b, one, wires_diff);
+}
+
+void synthDoubleMod(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_out) {
+    size_t n_bits = wires_a.size();
+    assert(n_bits && "a is zero bits???");
+    assert(modN.getBitWidth() == n_bits && "Modulus must be as wide as a");
+
+    // 2*a needs an extra bit to avoid overflowing
+    llvm::SmallVector<mlir::Value> wires_shifted(wires_a.begin(), wires_a.end());
+    wires_shifted.push_back(ccirc::ConstantOp::create(builder,
+        loc, llvm::APInt(/*numBits=*/1, /*val=*/0)).getResult());
+
+    llvm::SmallVector<mlir::Value> wires_not_n;
+    notModN(builder, loc, modN, wires_not_n);
+
+    // 2*a - N
+    mlir::Value one = ccirc::ConstantOp::create(builder,
+        loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
+    llvm::SmallVector<mlir::Value> wires_diff;
+    mlir::Value carry_out = fullAdderN(builder, loc, wires_shifted,
+                                       wires_not_n, one, wires_diff);
+
+    // A carry out means no borrow, i.e. 2*a >= N, so the difference is the
+    // reduced result. Since a < N, both candidates fit in n_bits bits, so the
+    // extra bit added above is dropped either way.
+    llvm::SmallVector<mlir::Value> wires_then(wires_diff.begin()+1,
+                                              wires_diff.end());
+    llvm::SmallVector<mlir::Value> wires_else(wires_shifted.begin()+1,
+                                              wires_shifted.end());
+    synthMux(builder, loc, carry_out, wires_then, wires_else, wires_out);
 }
 
 void synthModMul(

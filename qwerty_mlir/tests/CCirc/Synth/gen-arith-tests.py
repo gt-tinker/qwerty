@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Generates ``synth-arith.mlir``, a FileCheck test that tests an 4-bit adder and
-an 4-bit subtractor on all possible inputs.
+Generates ``synth-arith.mlir``, a FileCheck test that tests an 4-bit adder, an
+4-bit subtractor, and an 4-bit modular doubler on all possible inputs.
 """
 
 import os
@@ -11,6 +11,9 @@ import sys
 OUT_PATH = os.path.join(os.path.dirname(__file__), 'synth-arith.mlir')
 
 N_BITS = 4
+# Moduli that fit in N_BITS bits. A modulus of 1 reduces everything to zero, so
+# there is not much point in testing it
+MODULI = range(2, 1 << N_BITS)
 
 PROLOGUE = f"""// RUN: qwerty-opt -convert-ccirc-to-func-arith -canonicalize -convert-vector-to-llvm -convert-func-to-llvm -convert-arith-to-llvm %s | mlir-runner -e test -entry-point-result=void --shared-libs=%mlir_c_runner_utils | FileCheck --match-full-lines %s
 
@@ -40,8 +43,10 @@ func.func @check_sub(%a: i{N_BITS}, %b: i{N_BITS}) -> () {{
     vector.print %res : i{N_BITS}
     return
 }}
+"""
 
-func.func @test() {{
+TEST_PROLOGUE = """
+func.func @test() {
 """
 
 EPILOGUE = """
@@ -74,9 +79,40 @@ def format_sub_test(c1, c2):
     func.call @check_sub(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> ()
 """
 
+# The modulus is an attribute rather than an operand, so every modulus tested
+# needs a circuit of its own
+def format_double_mod_circuit(modN):
+    return f"""
+ccirc.circuit @double_mod_{modN}(%a: !ccirc<wire[{N_BITS}]>) irrev {{
+    %0 = ccirc.double_mod {modN} %a : (!ccirc<wire[{N_BITS}]>) -> !ccirc<wire[{N_BITS}]>
+    ccirc.return %0 : !ccirc<wire[{N_BITS}]>
+}}
+
+func.func @check_double_mod_{modN}(%a: i{N_BITS}) -> () {{
+    %func = ccirc.func_ptr @double_mod_{modN} : (i{N_BITS}) -> (i{N_BITS})
+    %res = func.call_indirect %func(%a) : (i{N_BITS}) -> (i{N_BITS})
+    vector.print %res : i{N_BITS}
+    return
+}}
+"""
+
+def format_double_mod_test(modN, c):
+    doubled = (2 * c) % modN
+    res = to_signed(doubled)
+    return f"""
+    // 2*0x{c:02x} % {modN} = 0x{doubled:02x}
+    // CHECK: {res}
+    func.call @check_double_mod_{modN}(%c{c}) : (i{N_BITS}) -> ()
+"""
+
 def main():
     with open(OUT_PATH, 'w') as fp:
         fp.write(PROLOGUE)
+
+        for modN in MODULI:
+            fp.write(format_double_mod_circuit(modN))
+
+        fp.write(TEST_PROLOGUE)
 
         for c in range(1 << N_BITS):
             fp.write(format_constant(c))
@@ -88,6 +124,11 @@ def main():
         for c1 in range(1 << N_BITS):
             for c2 in range(1 << N_BITS):
                 fp.write(format_sub_test(c1, c2))
+
+        # ccirc.double_mod assumes its input is already reduced mod N
+        for modN in MODULI:
+            for c in range(modN):
+                fp.write(format_double_mod_test(modN, c))
 
         fp.write(EPILOGUE)
 

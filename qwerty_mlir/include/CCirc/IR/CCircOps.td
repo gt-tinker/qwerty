@@ -160,6 +160,19 @@ def CCirc_SubOp : CCirc_Op<"sub", [Pure, InferTypeOpAdaptor]> {
     let hasVerifier = 1;
 }
 
+def CCirc_DoubleModOp : CCirc_Op<"double_mod", [Pure, InferTypeOpAdaptor]> {
+    let summary = "Modular doubler";
+    let description = [{
+        Calculate 2*a % N for a constant modulus N. The input a is assumed to
+        be less than N already, so a single conditional subtraction of N is
+        enough to reduce the result.
+    }];
+    let arguments = (ins I64Attr:$modN, CCirc_Wire:$a);
+    let results = (outs CCirc_Wire:$result);
+    let assemblyFormat = "$modN $a attr-dict `:` functional-type(operands, results)";
+    let hasVerifier = 1;
+}
+
 def CCirc_ModMulOp : CCirc_Op<"modmul", [Pure, InferTypeOpAdaptor]> {
     let summary = "Modular multiplier";
     let description = [{

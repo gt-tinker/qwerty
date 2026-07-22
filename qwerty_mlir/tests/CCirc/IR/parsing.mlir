@@ -40,3 +40,12 @@ ccirc.circuit @sub(%arg0: !ccirc<wire[4]>, %arg1: !ccirc<wire[4]>) irrev {
   %0 = ccirc.sub(%arg0, %arg1) : (!ccirc<wire[4]>, !ccirc<wire[4]>) -> !ccirc<wire[4]>
   ccirc.return %0 : !ccirc<wire[4]>
 }
+
+// CHECK-LABEL: ccirc.circuit @double_mod(%arg0: !ccirc<wire[4]>) irrev {
+//  CHECK-NEXT:   %0 = ccirc.double_mod 11 %arg0 : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+//  CHECK-NEXT:   ccirc.return %0 : !ccirc<wire[4]>
+//  CHECK-NEXT: }
+ccirc.circuit @double_mod(%arg0: !ccirc<wire[4]>) irrev {
+  %0 = ccirc.double_mod 11 %arg0 : (!ccirc<wire[4]>) -> !ccirc<wire[4]>
+  ccirc.return %0 : !ccirc<wire[4]>
+}
