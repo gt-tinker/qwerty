@@ -96,24 +96,46 @@ void buildPredicatedInit(
     for (qwerty::BasisElemAttr elem : basis.getElems()) {
         qwerty::BasisVectorListAttr veclist =
             llvm::cast<qwerty::BasisVectorListAttr>(elem.getVeclist());
-        for (qwerty::BasisVectorAttr vec : veclist.getVectors()) {
+        for (qwerty::BasisVectorTreeAttr tree : veclist.getVectors()) {
+            std::optional<std::pair<qwerty::BasisVectorAttr, double>> flat =
+                tree.tryFlatten();
+            // Not supporting dynamic phases for now
+            assert(flat && "cannot predicate init along a non-Pauli or "
+                           "dynamic-phase vector");
+            qwerty::BasisVectorAttr vec = flat->first;
+            double residual_rad = flat->second;
+
             for (size_t i = 0; i < vec.getDim(); i++) {
                 bool hasPhase = !i && vec.hasPhase();
                 bool bit = vec.getEigenbits()[vec.getDim()-1-i];
-                qwerty::BasisVectorAttr zero =
-                    rewriter.getAttr<qwerty::BasisVectorAttr>(
-                        vec.getPrimBasis(), qwerty::Eigenstate::PLUS,
-                        /*dim=*/1, /*hasPhase=*/!bit && hasPhase);
-                qwerty::BasisVectorAttr one =
-                    rewriter.getAttr<qwerty::BasisVectorAttr>(
-                        vec.getPrimBasis(), qwerty::Eigenstate::MINUS,
-                        /*dim=*/1, /*hasPhase=*/bit && hasPhase);
+                qwerty::BasisVectorTreeAttr zero =
+                    qwerty::BasisVectorTreeAttr::fromFlat(
+                        rewriter.getContext(),
+                        rewriter.getAttr<qwerty::BasisVectorAttr>(
+                            vec.getPrimBasis(), qwerty::Eigenstate::PLUS,
+                            /*dim=*/1, /*hasPhase=*/!bit && hasPhase));
+                qwerty::BasisVectorTreeAttr one =
+                    qwerty::BasisVectorTreeAttr::fromFlat(
+                        rewriter.getContext(),
+                        rewriter.getAttr<qwerty::BasisVectorAttr>(
+                            vec.getPrimBasis(), qwerty::Eigenstate::MINUS,
+                            /*dim=*/1, /*hasPhase=*/bit && hasPhase));
+                // A constant phase on the prepared vector rides the first
+                // qubit's target vector as a constant tilt (in degrees).
+                if (!i && std::abs(residual_rad) >= ATOL) {
+                    double residual_deg = residual_rad / (2.0 * M_PI) * 360.0;
+                    qwerty::BasisVectorTreeAttr &target = bit ? one : zero;
+                    target = qwerty::BasisVectorTreeAttr::get(
+                        rewriter.getContext(),
+                        qwerty::BasisVectorTreeKind::VectorTilt,
+                        rewriter.getF64FloatAttr(residual_deg), {target});
+                }
                 rhs_elems.push_back(
                     rewriter.getAttr<qwerty::BasisElemAttr>(
                         rewriter.getAttr<qwerty::BasisVectorListAttr>(
-                            bit? std::initializer_list<qwerty::BasisVectorAttr>
+                            bit? std::initializer_list<qwerty::BasisVectorTreeAttr>
                                  {one, zero}
-                               : std::initializer_list<qwerty::BasisVectorAttr>
+                               : std::initializer_list<qwerty::BasisVectorTreeAttr>
                                  {zero, one})));
             }
         }
@@ -2293,22 +2315,52 @@ void QBundlePhaseOp::buildPredicated(
                 rewriter.getAttr<BuiltinBasisAttr>(
                     PrimitiveBasis::Z, dim-1)));
     }
+    // Constructed faithfully with dynamic tilts ({'0'@theta, '1'@theta});
+    // while dynamic basis phases are deferred, the resulting translation is
+    // refused downstream at conversion.
+    mlir::FloatAttr theta_attr;
+    bool theta_is_const = mlir::matchPattern(
+        adaptor.getTheta(), qcirc::m_CalcConstant(&theta_attr));
+    llvm::SmallVector<mlir::Value> trans_phases;
+    BasisVectorTreeAttr zero_tree, one_tree;
+    if (theta_is_const) {
+        double theta_deg =
+            theta_attr.getValueAsDouble() / (2.0 * M_PI) * 360.0;
+        mlir::FloatAttr tilt = rewriter.getF64FloatAttr(theta_deg);
+        zero_tree = BasisVectorTreeAttr::get(
+            rewriter.getContext(), BasisVectorTreeKind::VectorTilt, tilt,
+            {BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                rewriter.getAttr<BasisVectorAttr>(
+                    PrimitiveBasis::Z, Eigenstate::PLUS,
+                    /*dim=*/1, /*hasPhase=*/false))});
+        one_tree = BasisVectorTreeAttr::get(
+            rewriter.getContext(), BasisVectorTreeKind::VectorTilt, tilt,
+            {BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                rewriter.getAttr<BasisVectorAttr>(
+                    PrimitiveBasis::Z, Eigenstate::MINUS,
+                    /*dim=*/1, /*hasPhase=*/false))});
+    } else {
+        zero_tree = BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+            rewriter.getAttr<BasisVectorAttr>(
+                PrimitiveBasis::Z, Eigenstate::PLUS,
+                /*dim=*/1, /*hasPhase=*/true));
+        one_tree = BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+            rewriter.getAttr<BasisVectorAttr>(
+                PrimitiveBasis::Z, Eigenstate::MINUS,
+                /*dim=*/1, /*hasPhase=*/true));
+        trans_phases.push_back(adaptor.getTheta());
+        trans_phases.push_back(adaptor.getTheta());
+    }
     rhs_elems.push_back(
         rewriter.getAttr<BasisElemAttr>(
             rewriter.getAttr<BasisVectorListAttr>(
-                std::initializer_list<BasisVectorAttr>{
-                    rewriter.getAttr<BasisVectorAttr>(
-                        PrimitiveBasis::Z, Eigenstate::PLUS,
-                        /*dim=*/1, /*hasPhase=*/true),
-                    rewriter.getAttr<BasisVectorAttr>(
-                        PrimitiveBasis::Z, Eigenstate::MINUS,
-                        /*dim=*/1, /*hasPhase=*/true)})));
+                std::initializer_list<BasisVectorTreeAttr>{zero_tree,
+                                                           one_tree})));
 
     mlir::Value res = QBundleBasisTranslationOp::create(rewriter, loc,
         rewriter.getAttr<BasisAttr>(lhs_elems),
         rewriter.getAttr<BasisAttr>(rhs_elems),
-        std::initializer_list<mlir::Value>{
-            adaptor.getTheta(), adaptor.getTheta()},
+        trans_phases,
         repacked).getQbundleOut();
 
     mlir::ValueRange res_unpacked = QBundleUnpackOp::create(rewriter,
@@ -2600,11 +2652,11 @@ void QBundleFlipOp::buildPredicated(
     BasisVectorListAttr sole_veclist = sole_elem.getVeclist();
     if (!sole_veclist) {
         assert(sole_elem.getStd());
-        sole_veclist = sole_elem.getStd().expandToVeclist();
+        sole_veclist = sole_elem.getStd().expandToTreeVeclist();
     }
     rhs_elems.push_back(rewriter.getAttr<BasisElemAttr>(
         rewriter.getAttr<BasisVectorListAttr>(
-            std::initializer_list<BasisVectorAttr>{
+            std::initializer_list<BasisVectorTreeAttr>{
                 sole_veclist.getVectors()[1], sole_veclist.getVectors()[0]})));
 
     llvm::SmallVector<mlir::Value> phases(adaptor.getBasisPhases());
@@ -2751,17 +2803,33 @@ void QBundleRotateOp::buildPredicated(
     BasisVectorListAttr sole_veclist = sole_elem.getVeclist();
     if (!sole_veclist) {
         assert(sole_elem.getStd());
-        sole_veclist = sole_elem.getStd().expandToVeclist();
+        sole_veclist = sole_elem.getStd().expandToTreeVeclist();
     }
-    BasisVectorAttr v1 = sole_veclist.getVectors()[0];
-    BasisVectorAttr v2 = sole_veclist.getVectors()[1];
+    // Rotation about a basis vector is insensitive to a per-vector global
+    // phase (the projector |v><v| is phase-invariant), so only the flattened
+    // letters matter here; any const residual is safely dropped. The rebuilt
+    // vectors carry dynamic tilts (theta operands below); while dynamic basis
+    // phases are deferred, the resulting translation is refused downstream.
+    std::optional<std::pair<BasisVectorAttr, double>> v1_flat =
+        sole_veclist.getVectors()[0].tryFlatten();
+    std::optional<std::pair<BasisVectorAttr, double>> v2_flat =
+        sole_veclist.getVectors()[1].tryFlatten();
+    assert(v1_flat && v2_flat &&
+           "cannot predicate .rotate about a non-Pauli or dynamic-phase "
+           "basis");
+    BasisVectorAttr v1 = v1_flat->first;
+    BasisVectorAttr v2 = v2_flat->first;
     rhs_elems.push_back(rewriter.getAttr<BasisElemAttr>(
         rewriter.getAttr<BasisVectorListAttr>(
-            std::initializer_list<BasisVectorAttr>{
-                rewriter.getAttr<BasisVectorAttr>(
-                    v1.getPrimBasis(), v1.getEigenbits(), v1.getDim(), /*hasPhase=*/true),
-                rewriter.getAttr<BasisVectorAttr>(
-                    v2.getPrimBasis(), v2.getEigenbits(), v2.getDim(), /*hasPhase=*/true)})));
+            std::initializer_list<BasisVectorTreeAttr>{
+                BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                    rewriter.getAttr<BasisVectorAttr>(
+                        v1.getPrimBasis(), v1.getEigenbits(), v1.getDim(),
+                        /*hasPhase=*/true)),
+                BasisVectorTreeAttr::fromFlat(rewriter.getContext(),
+                    rewriter.getAttr<BasisVectorAttr>(
+                        v2.getPrimBasis(), v2.getEigenbits(), v2.getDim(),
+                        /*hasPhase=*/true))})));
 
     mlir::Value theta_by_2 = qcirc::wrapStationaryF64Ops(
         rewriter, loc, adaptor.getTheta(),

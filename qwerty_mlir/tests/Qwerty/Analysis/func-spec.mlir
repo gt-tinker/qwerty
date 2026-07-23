@@ -65,7 +65,7 @@ qwerty.func private @trivial[](%arg0: !qwerty<qbundle[2]>) rev-> !qwerty<qbundle
 qwerty.func @const_adj_pred_call[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_const @trivial[] {tag = "const_adj_pred_call__func_const"} : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
   %1 = qwerty.func_adj %0 {tag = "func_adj"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %2 = qwerty.func_pred %1 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %2 = qwerty.func_pred %1 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %3 = qwerty.call_indirect %2(%arg0) {tag = "calli"} : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
   qwerty.return {tag = "ret"} %3 : !qwerty<qbundle[4]>
 }
@@ -86,7 +86,7 @@ qwerty.func @const_adj_pred_call[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbu
 //  CHECK-NEXT:  operand #0: bottom
 qwerty.func @calli_arg[](%arg0: !qwerty<qbundle[4]>, %arg1: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_adj %arg1 {tag = "calli_arg__func_adj"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %1 = qwerty.func_pred %0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %2 = qwerty.call_indirect %1(%arg0) {tag = "calli"} : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
   qwerty.return {tag = "ret"} %2 : !qwerty<qbundle[4]>
 }
@@ -107,7 +107,7 @@ qwerty.func @calli_arg[](%arg0: !qwerty<qbundle[4]>, %arg1: !qwerty<func(!qwerty
 //  CHECK-NEXT:  operand #0: bottom
 qwerty.func private @priv_calli_arg[](%arg0: !qwerty<qbundle[4]>, %arg1: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_adj %arg1 {tag = "priv_calli_arg__func_adj"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %1 = qwerty.func_pred %0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %2 = qwerty.call_indirect %1(%arg0) {tag = "calli"} : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
   qwerty.return {tag = "callee_ret"} %2 : !qwerty<qbundle[4]>
 }
@@ -181,7 +181,7 @@ qwerty.func private @trivial4[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundl
 //  CHECK-NEXT:  operand #0: bottom
 qwerty.func @multi_call_with_const_arg[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_const @trivial[] {tag = "multi_call_with_const_arg__func_const"} : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %1 = qwerty.func_pred %0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %2 = qwerty.call @priv_calli_multi_arg(%arg0, %1) {tag = "call"} : (!qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) -> !qwerty<qbundle[4]>
   %3 = qwerty.func_const @trivial4[] {tag = "func_const4"} : () -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %4 = qwerty.func_adj %3 {tag = "func_adj"} : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
@@ -248,7 +248,7 @@ qwerty.func private @trivial4[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundl
 //  CHECK-NEXT:  operand #0: bottom
 qwerty.func @multi_calli_with_const_arg[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_const @trivial[] {tag = "multi_calli_with_const_arg__func_const"} : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %1 = qwerty.func_pred %0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %2 = qwerty.func_const @priv_calli_multi_arg[] {tag = "callee_const"} : () -> !qwerty<func(!qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) irrev-> !qwerty<qbundle[4]>>
   %3 = qwerty.call_indirect %2(%arg0, %1) {tag = "calli"} : (!qwerty<func(!qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) irrev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) -> !qwerty<qbundle[4]>
   %4 = qwerty.func_const @trivial4[] {tag = "func_const4"} : () -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
@@ -315,7 +315,7 @@ qwerty.func private @trivial4[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundl
 //  CHECK-NEXT:  operand #0: bottom
 qwerty.func @multi_calli_and_call_with_const_arg[](%arg0: !qwerty<qbundle[4]>) irrev-> !qwerty<qbundle[4]> {
   %0 = qwerty.func_const @trivial[] {tag = "multi_calli_and_call_with_const_arg__func_const"} : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|pp>"}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+  %1 = qwerty.func_pred %0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} {tag = "func_pred"} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
   %2 = qwerty.func_const @priv_calli_multi_arg[] {tag = "callee_const"} : () -> !qwerty<func(!qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) irrev-> !qwerty<qbundle[4]>>
   %3 = qwerty.call_indirect %2(%arg0, %1) {tag = "calli"} : (!qwerty<func(!qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) irrev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>, !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>) -> !qwerty<qbundle[4]>
   %4 = qwerty.func_const @trivial4[] {tag = "func_const4"} : () -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
