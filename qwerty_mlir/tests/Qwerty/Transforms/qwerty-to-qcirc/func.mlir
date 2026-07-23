@@ -48,7 +48,7 @@ qwerty.func private @direct_pred_call__trivial[](%arg0: !qwerty<qbundle[2]>) rev
 //  CHECK-NEXT:   return %0 : !qcirc<array<!qcirc.qubit>[5]>
 //  CHECK-NEXT: }
 qwerty.func @direct_pred_call[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
-  %1 = qwerty.call pred {list:{"|1>"}, list:{"|11>"}} @direct_pred_call__trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  %1 = qwerty.call pred {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @direct_pred_call__trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %1 : !qwerty<qbundle[5]>
 }
 
@@ -66,7 +66,7 @@ qwerty.func private @direct_adj_pred_call__trivial[](%arg0: !qwerty<qbundle[2]>)
 //  CHECK-NEXT:   return %0 : !qcirc<array<!qcirc.qubit>[5]>
 //  CHECK-NEXT: }
 qwerty.func @direct_adj_pred_call[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
-  %1 = qwerty.call adj pred {list:{"|1>"}, list:{"|11>"}} @direct_adj_pred_call__trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  %1 = qwerty.call adj pred {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @direct_adj_pred_call__trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %1 : !qwerty<qbundle[5]>
 }
 
@@ -130,7 +130,7 @@ qwerty.func private @const_pred_calli__trivial[](%arg0: !qwerty<qbundle[2]>) rev
 //  CHECK-NEXT: }
 qwerty.func @const_pred_calli[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
   %0 = qwerty.func_const @const_pred_calli__trivial[] : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|1>"}, list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %1 = qwerty.func_pred %0 by {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %2 = qwerty.call_indirect %1(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %2 : !qwerty<qbundle[5]>
 }
@@ -155,7 +155,7 @@ qwerty.func private @const_adj_pred_calli__trivial[](%arg0: !qwerty<qbundle[2]>)
 qwerty.func @const_adj_pred_calli[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
   %0 = qwerty.func_const @const_adj_pred_calli__trivial[] : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
   %1 = qwerty.func_adj %0 : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %2 = qwerty.func_pred %1 by {list:{"|1>"}, list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %2 = qwerty.func_pred %1 by {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %3 = qwerty.call_indirect %2(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %3 : !qwerty<qbundle[5]>
 }
@@ -179,7 +179,7 @@ qwerty.func private @const_pred_adj_calli__trivial[](%arg0: !qwerty<qbundle[2]>)
 //  CHECK-NEXT: }
 qwerty.func @const_pred_adj_calli[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
   %0 = qwerty.func_const @const_pred_adj_calli__trivial[] : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %1 = qwerty.func_pred %0 by {list:{"|1>"}, list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %1 = qwerty.func_pred %0 by {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %2 = qwerty.func_adj %1 : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %3 = qwerty.call_indirect %2(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %3 : !qwerty<qbundle[5]>
@@ -192,7 +192,7 @@ qwerty.func @const_pred_adj_calli[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qb
 //  CHECK-NEXT:   return %0 : !qcirc<callable (!qcirc<array<!qcirc.qubit>[5]>) -> !qcirc<array<!qcirc.qubit>[5]>>
 //  CHECK-NEXT: }
 qwerty.func @func_pred_already_ones[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>> {
-  %0 = qwerty.func_pred %arg0 by {list:{"|11>"}, list:{"|1>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}, list:{<OneVector []>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
 }
 
@@ -250,9 +250,9 @@ qwerty.func @multi_adj_calls[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle
 //  CHECK-NEXT:   return %3 : !qcirc<array<!qcirc.qubit>[5]>
 //  CHECK-NEXT: }
 qwerty.func @multi_calls_pred[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
-  %0 = qwerty.call pred {list:{"|1>"}, list:{"|11>"}} @direct_pred_call(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  %0 = qwerty.call pred {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @direct_pred_call(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   %1 = qwerty.func_const @const_pred_calli[] : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %2 = qwerty.func_pred %1 by {list:{"|1>"}, list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %2 = qwerty.func_pred %1 by {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %3 = qwerty.call_indirect %2(%0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %3 : !qwerty<qbundle[5]>
 }
@@ -268,8 +268,8 @@ qwerty.func @multi_calls_pred[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundl
 qwerty.func @multi_adj_calls_pred[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
   %0 = qwerty.func_const @const_pred_calli[] : () -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
   %1 = qwerty.func_adj %0 : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>
-  %2 = qwerty.func_pred %1 by {list:{"|1>"}, list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %2 = qwerty.func_pred %1 by {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   %3 = qwerty.call_indirect %2(%arg0) : (!qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>, !qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
-  %4 = qwerty.call adj pred {list:{"|1>"}, list:{"|11>"}} @direct_pred_call(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  %4 = qwerty.call adj pred {list:{<OneVector []>}, list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @direct_pred_call(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %4 : !qwerty<qbundle[5]>
 }

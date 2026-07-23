@@ -748,3 +748,5 @@ mod test_ast_basis;
 mod test_ast_canonicalize;
 #[cfg(test)]
 mod test_ast_vec_qlit;
+#[cfg(test)]
+mod vectree;
