@@ -65,7 +65,7 @@ void buildPredicatedInit(
         mlir::Value predIn,
         mlir::Value &predOut,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     size_t pred_dim = predBasis.getDim();
 
     mlir::ValueRange unpacked_pred = qwerty::QBundleUnpackOp::create(rewriter,
@@ -1260,7 +1260,7 @@ void CallOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     CallOpAdaptor adaptor(newInputs);
     size_t pred_dim = predBasis.getDim();
 
@@ -1495,7 +1495,7 @@ void CallIndirectOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     CallIndirectOpAdaptor adaptor(newInputs);
     size_t pred_dim = predBasis.getDim();
 
@@ -1882,7 +1882,7 @@ void PredOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     assert(!getBasis().hasPhases());
     PredOpAdaptor adaptor(newInputs);
     mlir::Location loc = getLoc();
@@ -2279,7 +2279,7 @@ void QBundlePhaseOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     QBundlePhaseOpAdaptor adaptor(newInputs);
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
@@ -2454,7 +2454,7 @@ void QBundleBasisTranslationOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     QBundleBasisTranslationOpAdaptor adaptor(newInputs);
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
@@ -2621,7 +2621,7 @@ void QBundleFlipOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     QBundleFlipOpAdaptor adaptor(newInputs);
     mlir::Location loc = getLoc();
     size_t pred_dim = predBasis.getDim();
@@ -2771,7 +2771,7 @@ void QBundleRotateOp::buildPredicated(
         mlir::Value &predOut,
         mlir::ValueRange newInputs,
         llvm::SmallVectorImpl<mlir::Value> &newOutputs) {
-    assert(!predBasis.hasPhases());
+    assert(!predBasis.getNumPhases());
     assert(!getBasis().hasPhases());
     QBundleRotateOpAdaptor adaptor(newInputs);
     mlir::Location loc = getLoc();
