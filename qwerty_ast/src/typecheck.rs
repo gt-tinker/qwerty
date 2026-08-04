@@ -4,7 +4,7 @@ use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
 use num_integer::gcd;
-use qwerty_ast_macros::visitor_expr;
+
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
@@ -1685,46 +1685,166 @@ impl TypeCheckable for classical::Expr {
         }
     }
 
+    /// Iteratively calculates types, stack overflow resistant.
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        visitor_expr! {classical::Expr, self,
-            classical::Expr::Variable(var) => var.calc_type(env),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
-            classical::Expr::Slice(slice) => {
-                let val_result = visit!(*slice.val)?;
-                slice.calc_type(&val_result)
-            },
-            classical::Expr::UnaryOp(unary_op) => {
-                let val_result = visit!(*unary_op.val)?;
-                unary_op.calc_type(&val_result)
-            },
-            classical::Expr::BinaryOp(binary_op) => {
-                let left_result = visit!(*binary_op.left)?;
-                let right_result = visit!(*binary_op.right)?;
-                binary_op.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::ReduceOp(reduce_op) => {
-                let val_result = visit!(*reduce_op.val)?;
-                reduce_op.calc_type(&val_result)
-            },
-            classical::Expr::RotateOp(rotate_op) => {
-                let val_result = visit!(*rotate_op.val)?;
-                let amt_result = visit!(*rotate_op.amt)?;
-                rotate_op.calc_type(&val_result, &amt_result)
-            },
-            classical::Expr::Concat(concat) => {
-                let left_result = visit!(*concat.left)?;
-                let right_result = visit!(*concat.right)?;
-                concat.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::Repeat(repeat) => {
-                let val_result = visit!(*repeat.val)?;
-                repeat.calc_type(&val_result)
-            },
-            classical::Expr::ModMul(mod_mul) => {
-                let y_result = visit!(*mod_mul.y)?;
-                mod_mul.calc_type(&y_result)
-            },
+        enum ClassicalExprWork<'a> {
+            Typecheck(&'a classical::Expr),
+            SliceContinuation(&'a Slice),
+            UnaryOpContinuation(&'a UnaryOp),
+            BinaryOpContinuation(&'a BinaryOp),
+            ReduceOpContinuation(&'a ReduceOp),
+            RotateOpContinuation(&'a RotateOp),
+            ConcatContinuation(&'a Concat),
+            RepeatContinuation(&'a Repeat),
+            ModMulContinuation(&'a ModMul),
         }
+        /// Struct with helper methods for managing typechecking
+        /// Maintains two stacks: work_stack and type_stack
+        /// work_stack records jobs needed to be done.
+        /// type_stack record types calculated
+        struct TypecheckingStackMachine<'a> {
+            work_stack: Vec<ClassicalExprWork<'a>>,
+            type_stack: Vec<(Type, ComputeKind)>,
+        }
+        impl<'a> TypecheckingStackMachine<'a> {
+            fn new() -> Self {
+                TypecheckingStackMachine {
+                    work_stack: vec![],
+                    type_stack: vec![],
+                }
+            }
+
+            /// Pushes typechecking jobs onto the work queue.
+            fn push_typechecking<const N: usize>(&mut self, exprs: [&'a classical::Expr; N]) {
+                /* Reverses the order so that ``exprs`` is evaluated left to right,
+                short circuiting logic works as expected. */
+                for expr in exprs.into_iter().rev() {
+                    self.work_stack.push(ClassicalExprWork::Typecheck(expr));
+                }
+            }
+
+            fn pop_types<const N: usize>(&mut self) -> [(Type, ComputeKind); N] {
+                let mut out: [Option<(Type, ComputeKind)>; N] = std::array::from_fn(|_| None);
+                for slot in out.iter_mut() {
+                    *slot = Some(self.type_stack.pop().expect("type_stack underflow."));
+                }
+                /* Pops types from the type stack.
+                Reverses the slice to undo the reverse done in push_typechecking(). */
+                out.reverse();
+                out.map(Option::unwrap)
+            }
+        }
+
+        let mut stack_machine = TypecheckingStackMachine::new();
+        stack_machine.push_typechecking([self]);
+
+        while let Some(work) = stack_machine.work_stack.pop() {
+            match work {
+                ClassicalExprWork::Typecheck(expr) => match expr {
+                    classical::Expr::Variable(var) => {
+                        stack_machine.type_stack.push(var.calc_type(env)?)
+                    }
+                    classical::Expr::BitLiteral(bit_lit) => {
+                        stack_machine.type_stack.push(bit_lit.calc_type()?)
+                    }
+                    classical::Expr::Slice(slice) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::SliceContinuation(slice));
+                        stack_machine.push_typechecking([&slice.val]);
+                    }
+                    classical::Expr::UnaryOp(unary_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::UnaryOpContinuation(unary_op));
+                        stack_machine.push_typechecking([&unary_op.val]);
+                    }
+                    classical::Expr::BinaryOp(binary_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::BinaryOpContinuation(binary_op));
+                        stack_machine.push_typechecking([&binary_op.left, &binary_op.right]);
+                    }
+                    classical::Expr::ReduceOp(reduce_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ReduceOpContinuation(reduce_op));
+                        stack_machine.push_typechecking([&reduce_op.val]);
+                    }
+                    classical::Expr::RotateOp(rotate_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::RotateOpContinuation(rotate_op));
+                        stack_machine.push_typechecking([&rotate_op.val, &rotate_op.amt]);
+                    }
+                    classical::Expr::Concat(concat) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ConcatContinuation(concat));
+                        stack_machine.push_typechecking([&concat.left, &concat.right]);
+                    }
+                    classical::Expr::Repeat(repeat) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::RepeatContinuation(repeat));
+                        stack_machine.push_typechecking([&repeat.val]);
+                    }
+                    classical::Expr::ModMul(mod_mul) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ModMulContinuation(mod_mul));
+                        stack_machine.push_typechecking([&mod_mul.y]);
+                    }
+                },
+                ClassicalExprWork::SliceContinuation(slice) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(slice.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::UnaryOpContinuation(unary_op) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(unary_op.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::BinaryOpContinuation(binary_op) => {
+                    let [left_result, right_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(binary_op.calc_type(&left_result, &right_result)?);
+                }
+                ClassicalExprWork::ReduceOpContinuation(reduce_op) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(reduce_op.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::RotateOpContinuation(rotate_op) => {
+                    let [val_result, amt_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(rotate_op.calc_type(&val_result, &amt_result)?);
+                }
+                ClassicalExprWork::ConcatContinuation(concat) => {
+                    let [left_result, right_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(concat.calc_type(&left_result, &right_result)?);
+                }
+                ClassicalExprWork::RepeatContinuation(repeat) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(repeat.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::ModMulContinuation(mod_mul) => {
+                    let [y_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(mod_mul.calc_type(&y_result)?);
+                }
+            }
+        }
+
+        let [type_result] = stack_machine.pop_types();
+        Ok(type_result)
     }
 }
 
