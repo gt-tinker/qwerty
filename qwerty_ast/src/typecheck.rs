@@ -4,7 +4,7 @@ use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
 use num_integer::gcd;
-use qwerty_ast_macros::visitor_expr;
+
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
@@ -1601,26 +1601,233 @@ pub trait TypeCheckable {
 // --- EXPRESSIONS (QPU IMPLEMENTATION) ---
 impl TypeCheckable for qpu::Expr {
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        match self {
-            qpu::Expr::Variable(var) => var.typecheck(env),
-            qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
-            qpu::Expr::EmbedClassical(embed) => embed.typecheck(env),
-            qpu::Expr::Adjoint(adj) => adj.typecheck(env),
-            qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
-            qpu::Expr::Compose(compose) => compose.typecheck(env),
-            qpu::Expr::Measure(measure) => measure.typecheck(),
-            qpu::Expr::Discard(discard) => discard.typecheck(),
-            qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
-            qpu::Expr::Tilt(tilt) => tilt.typecheck(env),
-            qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
-            qpu::Expr::Predicated(pred) => pred.typecheck(env),
-            qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
-            qpu::Expr::Ensemble(ensemble) => ensemble.typecheck(),
-            qpu::Expr::Conditional(cond) => cond.typecheck(env),
-            qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.typecheck(),
-            qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
-            qpu::Expr::QubitRef(qref) => qref.typecheck(),
+        enum QuantumExprWork<'a> {
+            Typecheck(&'a qpu::Expr),
+            AdjointContinuation(&'a Adjoint),
+            PipeContinuation(&'a Pipe),
+            ComposeContinuation(&'a Compose),
+            TensorContinuation(&'a Tensor),
+            TiltContinuation(&'a Tilt),
+            PredicatedContinuation(&'a Predicated),
+            ConditionalAfterThenContinuation {
+                cond: &'a Conditional,
+                ctx: ConditionalTypeCtx,
+            },
+            ConditionalAfterElseContinuation {
+                cond: &'a Conditional,
+                ctx: ConditionalTypeCtx,
+                then_result: (Type, ComputeKind),
+            },
+            ConditionalAfterCondContinuation {
+                cond: &'a Conditional,
+                then_result: (Type, ComputeKind),
+                else_result: (Type, ComputeKind),
+            },
         }
+        struct TypecheckingStackMachine<'a> {
+            work_stack: Vec<QuantumExprWork<'a>>,
+            type_stack: Vec<(Type, ComputeKind)>,
+        }
+        impl<'a> TypecheckingStackMachine<'a> {
+            fn new() -> Self {
+                TypecheckingStackMachine {
+                    work_stack: vec![],
+                    type_stack: vec![],
+                }
+            }
+
+            /// Pushes typechecking jobs onto the work queue.
+            fn push_typechecking<const N: usize>(&mut self, exprs: [&'a qpu::Expr; N]) {
+                /* Reverses the order so that ``exprs`` is evaluated left to right,
+                short circuiting logic works as expected. */
+                for expr in exprs.into_iter().rev() {
+                    self.work_stack.push(QuantumExprWork::Typecheck(expr));
+                }
+            }
+
+            fn pop_types<const N: usize>(&mut self) -> [(Type, ComputeKind); N] {
+                let mut out: [Option<(Type, ComputeKind)>; N] = std::array::from_fn(|_| None);
+                for slot in out.iter_mut() {
+                    *slot = Some(self.type_stack.pop().expect("type_stack underflow."));
+                }
+                /* Pops types from the type stack.
+                Reverses the slice to undo the reverse done in push_typechecking(). */
+                out.reverse();
+                out.map(Option::unwrap)
+            }
+        }
+        let mut stack_machine = TypecheckingStackMachine::new();
+        stack_machine
+            .work_stack
+            .push(QuantumExprWork::Typecheck(self));
+
+        while let Some(work) = stack_machine.work_stack.pop() {
+            match work {
+                QuantumExprWork::Typecheck(expr) => match expr {
+                    qpu::Expr::Variable(var) => stack_machine.type_stack.push(var.calc_type(env)?),
+                    qpu::Expr::UnitLiteral(unit_lit) => {
+                        stack_machine.type_stack.push(unit_lit.calc_type()?)
+                    }
+                    qpu::Expr::EmbedClassical(embed) => {
+                        stack_machine.type_stack.push(embed.calc_type(env)?)
+                    }
+                    qpu::Expr::Adjoint(adj) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::AdjointContinuation(adj));
+                        stack_machine.push_typechecking([&adj.func]);
+                    }
+                    qpu::Expr::Pipe(pipe) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::PipeContinuation(pipe));
+                        stack_machine.push_typechecking([&pipe.lhs, &pipe.rhs]);
+                    }
+                    qpu::Expr::Compose(compose) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::ComposeContinuation(compose));
+                        stack_machine.push_typechecking([&compose.inner, &compose.outer]);
+                    }
+                    qpu::Expr::Measure(measure) => {
+                        stack_machine.type_stack.push(measure.typecheck()?);
+                    }
+                    qpu::Expr::Discard(discard) => {
+                        stack_machine.type_stack.push(discard.calc_type()?)
+                    }
+                    qpu::Expr::Tensor(tensor) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::TensorContinuation(tensor));
+                        // Reverse iterator direction so values are popped off stack in the same direction
+                        for val in tensor.vals.iter().rev() {
+                            stack_machine
+                                .work_stack
+                                .push(QuantumExprWork::Typecheck(val));
+                        }
+                    }
+                    qpu::Expr::Tilt(tilt) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::TiltContinuation(tilt));
+                        stack_machine.push_typechecking([&tilt.val]);
+                    }
+                    qpu::Expr::BasisTranslation(btrans) => {
+                        stack_machine.type_stack.push(btrans.typecheck()?)
+                    }
+                    qpu::Expr::Predicated(pred) => {
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::PredicatedContinuation(pred));
+                        stack_machine.push_typechecking([&pred.then_func, &pred.else_func]);
+                    }
+                    qpu::Expr::NonUniformSuperpos(superpos) => {
+                        stack_machine.type_stack.push(superpos.typecheck()?)
+                    }
+                    qpu::Expr::Ensemble(ensemble) => {
+                        stack_machine.type_stack.push(ensemble.typecheck()?)
+                    }
+                    qpu::Expr::Conditional(cond) => {
+                        let ctx = cond.linearity_check_before_then(env);
+                        stack_machine
+                            .work_stack
+                            .push(QuantumExprWork::ConditionalAfterThenContinuation { cond, ctx });
+                        stack_machine.push_typechecking([&cond.then_expr]);
+                    }
+                    qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => {
+                        stack_machine.type_stack.push(qlit.typecheck()?)
+                    }
+                    qpu::Expr::BitLiteral(bit_lit) => {
+                        stack_machine.type_stack.push(bit_lit.typecheck()?)
+                    }
+                    qpu::Expr::QubitRef(qref) => stack_machine.type_stack.push(qref.typecheck()?),
+                },
+                QuantumExprWork::AdjointContinuation(adj) => {
+                    let [func_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(adj.calc_type(&func_result)?);
+                }
+                QuantumExprWork::PipeContinuation(pipe) => {
+                    let [lhs_result, rhs_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(pipe.calc_type(&lhs_result, &rhs_result)?);
+                }
+                QuantumExprWork::ComposeContinuation(compose) => {
+                    let [inner_result, outer_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(compose.calc_type(&inner_result, &outer_result)?);
+                }
+                QuantumExprWork::TensorContinuation(tensor) => {
+                    let mut val_results: Vec<(Type, ComputeKind)> = vec![];
+                    for _ in tensor.vals.iter() {
+                        val_results.push(stack_machine.type_stack.pop().unwrap());
+                    }
+                    // Undo reverse on push side
+                    let val_results: Vec<(Type, ComputeKind)> =
+                        val_results.into_iter().rev().collect();
+
+                    stack_machine
+                        .type_stack
+                        .push(tensor.calc_type(&val_results)?);
+                }
+                QuantumExprWork::TiltContinuation(tilt) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(tilt.calc_type(&val_result)?);
+                }
+                QuantumExprWork::PredicatedContinuation(pred) => {
+                    let [then_result, else_result] = stack_machine.pop_types();
+                    let pred_ty = pred.pred.typecheck()?;
+                    stack_machine.type_stack.push(pred.calc_type(
+                        &then_result,
+                        &else_result,
+                        &pred_ty,
+                    )?);
+                }
+                QuantumExprWork::ConditionalAfterThenContinuation { cond, mut ctx } => {
+                    let [then_result] = stack_machine.pop_types();
+                    cond.linearity_check_after_then_before_else(env, &mut ctx);
+                    stack_machine.work_stack.push(
+                        QuantumExprWork::ConditionalAfterElseContinuation {
+                            cond,
+                            ctx,
+                            then_result,
+                        },
+                    );
+                    stack_machine.push_typechecking([&cond.else_expr]);
+                }
+                QuantumExprWork::ConditionalAfterElseContinuation {
+                    cond,
+                    ctx,
+                    then_result,
+                } => {
+                    let [else_result] = stack_machine.pop_types();
+                    cond.linearity_check_after_else(env, &ctx)?;
+                    stack_machine.work_stack.push(
+                        QuantumExprWork::ConditionalAfterCondContinuation {
+                            cond,
+                            then_result,
+                            else_result,
+                        },
+                    );
+                    stack_machine.push_typechecking([&cond.cond]);
+                }
+                QuantumExprWork::ConditionalAfterCondContinuation {
+                    cond,
+                    then_result,
+                    else_result,
+                } => {
+                    let [cond_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(cond.calc_type(
+                        &then_result,
+                        &else_result,
+                        &cond_result,
+                    )?);
+                }
+            }
+        }
+        let [type_result] = stack_machine.pop_types();
+        Ok(type_result)
     }
 }
 
@@ -1685,46 +1892,166 @@ impl TypeCheckable for classical::Expr {
         }
     }
 
+    /// Iteratively calculates types, stack overflow resistant.
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        visitor_expr! {classical::Expr, self,
-            classical::Expr::Variable(var) => var.calc_type(env),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
-            classical::Expr::Slice(slice) => {
-                let val_result = visit!(*slice.val)?;
-                slice.calc_type(&val_result)
-            },
-            classical::Expr::UnaryOp(unary_op) => {
-                let val_result = visit!(*unary_op.val)?;
-                unary_op.calc_type(&val_result)
-            },
-            classical::Expr::BinaryOp(binary_op) => {
-                let left_result = visit!(*binary_op.left)?;
-                let right_result = visit!(*binary_op.right)?;
-                binary_op.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::ReduceOp(reduce_op) => {
-                let val_result = visit!(*reduce_op.val)?;
-                reduce_op.calc_type(&val_result)
-            },
-            classical::Expr::RotateOp(rotate_op) => {
-                let val_result = visit!(*rotate_op.val)?;
-                let amt_result = visit!(*rotate_op.amt)?;
-                rotate_op.calc_type(&val_result, &amt_result)
-            },
-            classical::Expr::Concat(concat) => {
-                let left_result = visit!(*concat.left)?;
-                let right_result = visit!(*concat.right)?;
-                concat.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::Repeat(repeat) => {
-                let val_result = visit!(*repeat.val)?;
-                repeat.calc_type(&val_result)
-            },
-            classical::Expr::ModMul(mod_mul) => {
-                let y_result = visit!(*mod_mul.y)?;
-                mod_mul.calc_type(&y_result)
-            },
+        enum ClassicalExprWork<'a> {
+            Typecheck(&'a classical::Expr),
+            SliceContinuation(&'a Slice),
+            UnaryOpContinuation(&'a UnaryOp),
+            BinaryOpContinuation(&'a BinaryOp),
+            ReduceOpContinuation(&'a ReduceOp),
+            RotateOpContinuation(&'a RotateOp),
+            ConcatContinuation(&'a Concat),
+            RepeatContinuation(&'a Repeat),
+            ModMulContinuation(&'a ModMul),
         }
+        /// Struct with helper methods for managing typechecking
+        /// Maintains two stacks: work_stack and type_stack
+        /// work_stack records jobs needed to be done.
+        /// type_stack record types calculated
+        struct TypecheckingStackMachine<'a> {
+            work_stack: Vec<ClassicalExprWork<'a>>,
+            type_stack: Vec<(Type, ComputeKind)>,
+        }
+        impl<'a> TypecheckingStackMachine<'a> {
+            fn new() -> Self {
+                TypecheckingStackMachine {
+                    work_stack: vec![],
+                    type_stack: vec![],
+                }
+            }
+
+            /// Pushes typechecking jobs onto the work queue.
+            fn push_typechecking<const N: usize>(&mut self, exprs: [&'a classical::Expr; N]) {
+                /* Reverses the order so that ``exprs`` is evaluated left to right,
+                short circuiting logic works as expected. */
+                for expr in exprs.into_iter().rev() {
+                    self.work_stack.push(ClassicalExprWork::Typecheck(expr));
+                }
+            }
+
+            fn pop_types<const N: usize>(&mut self) -> [(Type, ComputeKind); N] {
+                let mut out: [Option<(Type, ComputeKind)>; N] = std::array::from_fn(|_| None);
+                for slot in out.iter_mut() {
+                    *slot = Some(self.type_stack.pop().expect("type_stack underflow."));
+                }
+                /* Pops types from the type stack.
+                Reverses the slice to undo the reverse done in push_typechecking(). */
+                out.reverse();
+                out.map(Option::unwrap)
+            }
+        }
+
+        let mut stack_machine = TypecheckingStackMachine::new();
+        stack_machine.push_typechecking([self]);
+
+        while let Some(work) = stack_machine.work_stack.pop() {
+            match work {
+                ClassicalExprWork::Typecheck(expr) => match expr {
+                    classical::Expr::Variable(var) => {
+                        stack_machine.type_stack.push(var.calc_type(env)?)
+                    }
+                    classical::Expr::BitLiteral(bit_lit) => {
+                        stack_machine.type_stack.push(bit_lit.calc_type()?)
+                    }
+                    classical::Expr::Slice(slice) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::SliceContinuation(slice));
+                        stack_machine.push_typechecking([&slice.val]);
+                    }
+                    classical::Expr::UnaryOp(unary_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::UnaryOpContinuation(unary_op));
+                        stack_machine.push_typechecking([&unary_op.val]);
+                    }
+                    classical::Expr::BinaryOp(binary_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::BinaryOpContinuation(binary_op));
+                        stack_machine.push_typechecking([&binary_op.left, &binary_op.right]);
+                    }
+                    classical::Expr::ReduceOp(reduce_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ReduceOpContinuation(reduce_op));
+                        stack_machine.push_typechecking([&reduce_op.val]);
+                    }
+                    classical::Expr::RotateOp(rotate_op) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::RotateOpContinuation(rotate_op));
+                        stack_machine.push_typechecking([&rotate_op.val, &rotate_op.amt]);
+                    }
+                    classical::Expr::Concat(concat) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ConcatContinuation(concat));
+                        stack_machine.push_typechecking([&concat.left, &concat.right]);
+                    }
+                    classical::Expr::Repeat(repeat) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::RepeatContinuation(repeat));
+                        stack_machine.push_typechecking([&repeat.val]);
+                    }
+                    classical::Expr::ModMul(mod_mul) => {
+                        stack_machine
+                            .work_stack
+                            .push(ClassicalExprWork::ModMulContinuation(mod_mul));
+                        stack_machine.push_typechecking([&mod_mul.y]);
+                    }
+                },
+                ClassicalExprWork::SliceContinuation(slice) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(slice.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::UnaryOpContinuation(unary_op) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(unary_op.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::BinaryOpContinuation(binary_op) => {
+                    let [left_result, right_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(binary_op.calc_type(&left_result, &right_result)?);
+                }
+                ClassicalExprWork::ReduceOpContinuation(reduce_op) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(reduce_op.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::RotateOpContinuation(rotate_op) => {
+                    let [val_result, amt_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(rotate_op.calc_type(&val_result, &amt_result)?);
+                }
+                ClassicalExprWork::ConcatContinuation(concat) => {
+                    let [left_result, right_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(concat.calc_type(&left_result, &right_result)?);
+                }
+                ClassicalExprWork::RepeatContinuation(repeat) => {
+                    let [val_result] = stack_machine.pop_types();
+                    stack_machine
+                        .type_stack
+                        .push(repeat.calc_type(&val_result)?);
+                }
+                ClassicalExprWork::ModMulContinuation(mod_mul) => {
+                    let [y_result] = stack_machine.pop_types();
+                    stack_machine.type_stack.push(mod_mul.calc_type(&y_result)?);
+                }
+            }
+        }
+
+        let [type_result] = stack_machine.pop_types();
+        Ok(type_result)
     }
 }
 
