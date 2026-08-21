@@ -119,6 +119,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "heap_master"
+version = "0.1.0"
+
+[[package]]
 name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -275,6 +279,7 @@ name = "qwerty_ast"
 version = "0.1.0"
 dependencies = [
  "dashu",
+ "heap_master",
  "itertools",
  "num-integer",
  "quantum-sparse-sim",

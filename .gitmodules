@@ -21,3 +21,6 @@
 [submodule "qsim"]
 	path = qsim
 	url = https://github.com/quantumlib/qsim.git
+[submodule "heap_master"]
+	path = heap_master
+	url = https://github.com/Alaric006/heap_master.git
