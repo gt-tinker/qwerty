@@ -1747,45 +1747,9 @@ impl TypeCheckable for classical::Expr {
     }
 
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        visitor_expr! {classical::Expr, self,
-            classical::Expr::Variable(var) => var.calc_type(env),
-            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
-            classical::Expr::Slice(slice) => {
-                let val_result = visit!(*slice.val)?;
-                slice.calc_type(&val_result)
-            },
-            classical::Expr::UnaryOp(unary_op) => {
-                let val_result = visit!(*unary_op.val)?;
-                unary_op.calc_type(&val_result)
-            },
-            classical::Expr::BinaryOp(binary_op) => {
-                let left_result = visit!(*binary_op.left)?;
-                let right_result = visit!(*binary_op.right)?;
-                binary_op.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::ReduceOp(reduce_op) => {
-                let val_result = visit!(*reduce_op.val)?;
-                reduce_op.calc_type(&val_result)
-            },
-            classical::Expr::RotateOp(rotate_op) => {
-                let val_result = visit!(*rotate_op.val)?;
-                let amt_result = visit!(*rotate_op.amt)?;
-                rotate_op.calc_type(&val_result, &amt_result)
-            },
-            classical::Expr::Concat(concat) => {
-                let left_result = visit!(*concat.left)?;
-                let right_result = visit!(*concat.right)?;
-                concat.calc_type(&left_result, &right_result)
-            },
-            classical::Expr::Repeat(repeat) => {
-                let val_result = visit!(*repeat.val)?;
-                repeat.calc_type(&val_result)
-            },
-            classical::Expr::ModMul(mod_mul) => {
-                let y_result = visit!(*mod_mul.y)?;
-                mod_mul.calc_type(&y_result)
-            },
-        }
+        let mut executor = Executor::new();
+        let spawner = executor.spawner();
+        executor.execute(self.typecheck_heap(env, spawner))
     }
 
     async fn typecheck_heap(
@@ -1793,7 +1757,67 @@ impl TypeCheckable for classical::Expr {
         env: &mut TypeEnv,
         spawner: Spawner<'_>,
     ) -> Result<(Type, ComputeKind), TypeError> {
-        todo!()
+        match self {
+            classical::Expr::Variable(var) => var.calc_type(env),
+            classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
+            classical::Expr::Slice(slice) => {
+                let val_result = spawner
+                    .heapify(slice.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                slice.calc_type(&val_result)
+            }
+            classical::Expr::UnaryOp(unary_op) => {
+                let val_result = spawner
+                    .heapify(unary_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                unary_op.calc_type(&val_result)
+            }
+            classical::Expr::BinaryOp(binary_op) => {
+                let left_result = spawner
+                    .heapify(binary_op.left.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let right_result = spawner
+                    .heapify(binary_op.right.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                binary_op.calc_type(&left_result, &right_result)
+            }
+            classical::Expr::ReduceOp(reduce_op) => {
+                let val_result = spawner
+                    .heapify(reduce_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                reduce_op.calc_type(&val_result)
+            }
+            classical::Expr::RotateOp(rotate_op) => {
+                let val_result = spawner
+                    .heapify(rotate_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let amt_result = spawner
+                    .heapify(rotate_op.amt.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                rotate_op.calc_type(&val_result, &amt_result)
+            }
+            classical::Expr::Concat(concat) => {
+                let left_result = spawner
+                    .heapify(concat.left.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let right_result = spawner
+                    .heapify(concat.right.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                concat.calc_type(&left_result, &right_result)
+            }
+            classical::Expr::Repeat(repeat) => {
+                let val_result = spawner
+                    .heapify(repeat.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                repeat.calc_type(&val_result)
+            }
+            classical::Expr::ModMul(mod_mul) => {
+                let y_result = spawner
+                    .heapify(mod_mul.y.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                mod_mul.calc_type(&y_result)
+            }
+        }
     }
 }
 
