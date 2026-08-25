@@ -973,12 +973,23 @@ fn ast_qpu_qlit_pairs_to_mlir(
     (term_tys, superpos_attr)
 }
 
-/// Converts a `@qpu` AST Expr node to mlir::Values by appending ops to the
-/// provided block.
 fn ast_qpu_expr_to_mlir(
     expr: &qpu::Expr,
     ctx: &mut Ctx,
     block: &Block<'static>,
+) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
+    let mut executor = heap_master::Executor::new();
+    let spawner = executor.spawner();
+    let root = ast_qpu_expr_to_mlir_heap(expr, ctx, block, spawner);
+    executor.execute(root)
+}
+/// Converts a `@qpu` AST Expr node to mlir::Values by appending ops to the
+/// provided block.
+async fn ast_qpu_expr_to_mlir_heap(
+    expr: &qpu::Expr,
+    ctx: &mut Ctx<'_>,
+    block: &Block<'static>,
+    spawner: heap_master::Spawner<'_>,
 ) -> (ast::Type, ComputeKind, Vec<Value<'static, 'static>>) {
     match expr {
         qpu::Expr::Variable(var @ Variable { name, dbg }) => {
@@ -1027,8 +1038,22 @@ fn ast_qpu_expr_to_mlir(
 
         qpu::Expr::Pipe(pipe @ Pipe { lhs, rhs, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
-            let (lhs_ty, lhs_compute_kind, lhs_vals) = ast_qpu_expr_to_mlir(&**lhs, ctx, block);
-            let (rhs_ty, rhs_compute_kind, rhs_vals) = ast_qpu_expr_to_mlir(&**rhs, ctx, block);
+            let (lhs_ty, lhs_compute_kind, lhs_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**lhs,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
+            let (rhs_ty, rhs_compute_kind, rhs_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**rhs,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
             assert_eq!(
                 rhs_vals.len(),
                 1,
@@ -1049,10 +1074,22 @@ fn ast_qpu_expr_to_mlir(
         }
 
         qpu::Expr::Compose(compose @ Compose { inner, outer, dbg }) => {
-            let (inner_ty, inner_compute_kind, inner_vals) =
-                ast_qpu_expr_to_mlir(&**inner, ctx, block);
-            let (outer_ty, outer_compute_kind, outer_vals) =
-                ast_qpu_expr_to_mlir(&**outer, ctx, block);
+            let (inner_ty, inner_compute_kind, inner_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**inner,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
+            let (outer_ty, outer_compute_kind, outer_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**outer,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
             assert_eq!(
                 (inner_vals.len(), outer_vals.len()),
                 (1, 1),
@@ -1196,14 +1233,19 @@ fn ast_qpu_expr_to_mlir(
 
         qpu::Expr::Tensor(tensor @ Tensor { vals, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
-
-            let (val_results, val_vals_2d): (Vec<_>, Vec<_>) = vals
-                .iter()
-                .map(|val| {
-                    let (ty, compute_kind, vals) = ast_qpu_expr_to_mlir(val, ctx, block);
-                    ((ty, compute_kind), vals)
-                })
-                .unzip();
+            let (mut val_results, mut val_vals_2d): (
+                Vec<(ast::Type, ComputeKind)>,
+                Vec<Vec<Value<'static, 'static>>>,
+            ) = (vec![], vec![]);
+            for val in vals {
+                let (ty, compute_kind, vals) = spawner
+                    .heapify(ast_qpu_expr_to_mlir_heap(val, ctx, block, spawner.clone()))
+                    .await;
+                val_results.push((ty, compute_kind));
+                val_vals_2d.push(vals);
+            }
+            // To const
+            let (val_results, val_vals_2d) = (val_results, val_vals_2d);
             let (ty, compute_kind) = tensor
                 .calc_type(&val_results)
                 .expect("Tensor to pass typechecking");
@@ -1295,7 +1337,14 @@ fn ast_qpu_expr_to_mlir(
         ) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (val_ty, val_compute_kind, val_vals) = ast_qpu_expr_to_mlir(&**val, ctx, block);
+            let (val_ty, val_compute_kind, val_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**val,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
 
             let (ty, compute_kind) = tilt
                 .calc_type(&(val_ty, val_compute_kind))
@@ -1535,10 +1584,22 @@ fn ast_qpu_expr_to_mlir(
         ) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (then_ty, then_compute_kind, then_vals) =
-                ast_qpu_expr_to_mlir(then_func, ctx, block);
-            let (else_ty, else_compute_kind, else_vals) =
-                ast_qpu_expr_to_mlir(else_func, ctx, block);
+            let (then_ty, then_compute_kind, then_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    then_func,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
+            let (else_ty, else_compute_kind, else_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    else_func,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
             let pred_ty = pred
                 .typecheck()
                 .expect("Predicate basis to pass typechecking");
@@ -1730,7 +1791,9 @@ fn ast_qpu_expr_to_mlir(
         ) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (cond_ty, cond_compute_kind, cond_vals) = ast_qpu_expr_to_mlir(cond, ctx, block);
+            let (cond_ty, cond_compute_kind, cond_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(cond, ctx, block, spawner.clone()))
+                .await;
             assert_eq!(cond_vals.len(), 1);
             let cond_bitbundle = cond_vals[0];
 
@@ -1744,8 +1807,14 @@ fn ast_qpu_expr_to_mlir(
             let then_block = Block::new(then_block_args);
 
             let mut conditional_ctx = conditional.linearity_check_before_then(&ctx.type_env);
-            let (then_ty, then_compute_kind, then_vals) =
-                ast_qpu_expr_to_mlir(then_expr, ctx, &then_block);
+            let (then_ty, then_compute_kind, then_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    then_expr,
+                    ctx,
+                    &then_block,
+                    spawner.clone(),
+                ))
+                .await;
             then_block.append_operation(scf::r#yield(&then_vals, loc));
             conditional
                 .linearity_check_after_then_before_else(&mut ctx.type_env, &mut conditional_ctx);
@@ -1755,8 +1824,14 @@ fn ast_qpu_expr_to_mlir(
 
             let else_block_args = &[];
             let else_block = Block::new(else_block_args);
-            let (else_ty, else_compute_kind, else_vals) =
-                ast_qpu_expr_to_mlir(else_expr, ctx, &else_block);
+            let (else_ty, else_compute_kind, else_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    else_expr,
+                    ctx,
+                    &else_block,
+                    spawner.clone(),
+                ))
+                .await;
             else_block.append_operation(scf::r#yield(&else_vals, loc));
             conditional
                 .linearity_check_after_else(&ctx.type_env, &conditional_ctx)
@@ -1831,7 +1906,14 @@ fn ast_qpu_expr_to_mlir(
         qpu::Expr::Adjoint(adj @ Adjoint { func, dbg }) => {
             let loc = dbg_to_loc(dbg.clone());
 
-            let (func_ty, func_compute_kind, func_vals) = ast_qpu_expr_to_mlir(&**func, ctx, block);
+            let (func_ty, func_compute_kind, func_vals) = spawner
+                .heapify(ast_qpu_expr_to_mlir_heap(
+                    &**func,
+                    ctx,
+                    block,
+                    spawner.clone(),
+                ))
+                .await;
             assert_eq!(
                 func_vals.len(),
                 1,

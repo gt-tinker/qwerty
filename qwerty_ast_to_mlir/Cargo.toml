@@ -10,5 +10,6 @@ melior = { version = "0.27.0", path = "../qwerty_melior/melior" }
 qir-backend = { version = "0.9.4", path = "../qir_runner/backend" }
 qiree_sys = { version = "0.1.0", path = "../qiree_sys", optional = true }
 
+heap_master = { path = "../heap_master/" }
 [features]
 qiree = ["dep:qiree_sys"]
