@@ -8,6 +8,7 @@ use crate::{
     typecheck,
 };
 use dashu::{base::DivRem, integer::IBig};
+use heap_master::{Executor, Spawner};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -962,6 +963,15 @@ pub trait ExprConstrainable {
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError>;
+
+    async fn build_type_constraints_heap(
+        &self,
+        tv_allocator: &mut TypeVarAllocator,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
+        spawner: Spawner<'_>,
+    ) -> Result<InferType, LowerError>;
 }
 
 impl ExprConstrainable for qpu::MetaExpr {
@@ -972,10 +982,36 @@ impl ExprConstrainable for qpu::MetaExpr {
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
+        let mut executor = Executor::new();
+        let spawner = executor.spawner();
+        let root = self.build_type_constraints_heap(
+            tv_allocator,
+            env,
+            ty_constraints,
+            dv_constraints,
+            spawner,
+        );
+        executor.execute(root)
+    }
+    async fn build_type_constraints_heap(
+        &self,
+        tv_allocator: &mut TypeVarAllocator,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
+        spawner: Spawner<'_>,
+    ) -> Result<InferType, LowerError> {
         match self {
             qpu::MetaExpr::BroadcastTensor { val, factor, dbg } => {
-                let val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let val_ty = spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
                 InferType::broadcast_tensor(
                     tv_allocator,
                     /*allow_func=*/ true,
@@ -1056,16 +1092,37 @@ impl ExprConstrainable for qpu::MetaExpr {
             }
 
             qpu::MetaExpr::Adjoint { func, .. } => {
-                let func_ty =
-                    func.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let func_ty = spawner
+                    .heapify(func.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
                 Ok(func_ty)
             }
 
             qpu::MetaExpr::Pipe { lhs, rhs, dbg } => {
-                let lhs_ty =
-                    lhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                let rhs_ty =
-                    rhs.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let lhs_ty = spawner
+                    .heapify(lhs.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let rhs_ty = spawner
+                    .heapify(rhs.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 // TODO: remove this hack and restore the proper TAPL way probably
                 if let InferType::FuncType { in_ty, out_ty } = rhs_ty {
@@ -1084,18 +1141,24 @@ impl ExprConstrainable for qpu::MetaExpr {
             }
 
             qpu::MetaExpr::Compose { inner, outer, dbg } => {
-                let inner_ty = inner.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
-                let outer_ty = outer.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
+                let inner_ty = spawner
+                    .heapify(inner.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let outer_ty = spawner
+                    .heapify(outer.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 // TODO: remove this hack and follow my understanding of the
                 //       TAPL way instead
@@ -1180,14 +1243,24 @@ impl ExprConstrainable for qpu::MetaExpr {
             }),
 
             qpu::MetaExpr::BiTensor { left, right, dbg } => {
-                let left_ty =
-                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                let right_ty = right.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
+                let left_ty = spawner
+                    .heapify(left.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let right_ty = spawner
+                    .heapify(right.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 InferType::bi_tensor(
                     tv_allocator,
@@ -1199,8 +1272,15 @@ impl ExprConstrainable for qpu::MetaExpr {
             }
 
             qpu::MetaExpr::Tilt { val, .. } => {
-                let val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let val_ty = spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
                 Ok(val_ty)
             }
 
@@ -1255,18 +1335,24 @@ impl ExprConstrainable for qpu::MetaExpr {
                 pred,
                 dbg,
             } => {
-                let then_ty = then_func.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
-                let else_ty = else_func.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
+                let then_ty = spawner
+                    .heapify(then_func.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let else_ty = spawner
+                    .heapify(else_func.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 if let Some(num_target_qubits) = pred.target_atom_count() {
                     if let InferType::FuncType { in_ty, out_ty } = &then_ty {
@@ -1352,9 +1438,36 @@ impl ExprConstrainable for classical::MetaExpr {
         ty_constraints: &mut TypeConstraints,
         dv_constraints: &mut DimVarConstraints,
     ) -> Result<InferType, LowerError> {
+        let mut executor = Executor::new();
+        let spawner = executor.spawner();
+        let root = self.build_type_constraints_heap(
+            tv_allocator,
+            env,
+            ty_constraints,
+            dv_constraints,
+            spawner,
+        );
+        executor.execute(root)
+    }
+    async fn build_type_constraints_heap(
+        &self,
+        tv_allocator: &mut TypeVarAllocator,
+        env: &mut TypeEnv,
+        ty_constraints: &mut TypeConstraints,
+        dv_constraints: &mut DimVarConstraints,
+        spawner: Spawner<'_>,
+    ) -> Result<InferType, LowerError> {
         match self {
             classical::MetaExpr::Mod { dividend, .. } => {
-                dividend.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
+                spawner
+                    .heapify(dividend.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await
             }
 
             classical::MetaExpr::Variable { name, dbg } => {
@@ -1376,8 +1489,15 @@ impl ExprConstrainable for classical::MetaExpr {
                 upper: upper_opt,
                 dbg,
             } => {
-                let val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let val_ty = spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 let dim_val_opt = if let InferType::RegType {
                     elem_ty: RegKind::Bit,
@@ -1442,27 +1562,52 @@ impl ExprConstrainable for classical::MetaExpr {
             }
 
             classical::MetaExpr::UnaryOp { val, .. } => {
-                val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)
+                spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await
             }
 
             classical::MetaExpr::BinaryOp {
                 left, right, dbg, ..
             } => {
-                let left_ty =
-                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                let right_ty = right.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
+                let left_ty = spawner
+                    .heapify(left.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let right_ty = spawner
+                    .heapify(right.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
                 ty_constraints.insert(TypeConstraint::new(left_ty.clone(), right_ty, dbg.clone()));
                 Ok(left_ty)
             }
 
             classical::MetaExpr::ReduceOp { val, .. } => {
-                let _val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let _val_ty = spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 // TODO: add a type constraint that this is bit[N] for a new dv N
 
@@ -1478,14 +1623,28 @@ impl ExprConstrainable for classical::MetaExpr {
             }
 
             classical::MetaExpr::ModMul { y, .. } => {
-                let y_ty =
-                    y.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let y_ty = spawner
+                    .heapify(y.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
                 Ok(y_ty)
             }
 
             classical::MetaExpr::Repeat { val, amt, dbg } => {
-                let val_ty =
-                    val.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
+                let val_ty = spawner
+                    .heapify(val.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 match val_ty {
                     InferType::RegType {
@@ -1517,14 +1676,24 @@ impl ExprConstrainable for classical::MetaExpr {
             }
 
             classical::MetaExpr::Concat { left, right, dbg } => {
-                let left_ty =
-                    left.build_type_constraints(tv_allocator, env, ty_constraints, dv_constraints)?;
-                let right_ty = right.build_type_constraints(
-                    tv_allocator,
-                    env,
-                    ty_constraints,
-                    dv_constraints,
-                )?;
+                let left_ty = spawner
+                    .heapify(left.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
+                let right_ty = spawner
+                    .heapify(right.build_type_constraints_heap(
+                        tv_allocator,
+                        env,
+                        ty_constraints,
+                        dv_constraints,
+                        spawner.clone(),
+                    ))
+                    .await?;
 
                 match (left_ty, right_ty) {
                     (

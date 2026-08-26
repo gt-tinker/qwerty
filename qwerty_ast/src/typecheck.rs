@@ -3,8 +3,8 @@
 use crate::dbg::DebugLoc;
 use crate::error::{TypeError, TypeErrorKind};
 use dashu::base::BitTest;
+use heap_master::{Executor, Spawner};
 use num_integer::gcd;
-use qwerty_ast_macros::visitor_expr;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
@@ -768,11 +768,19 @@ impl Pipe {
         Ok((ty, compute_kind))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Pipe { lhs, rhs, .. } = self;
         // Typing rule: lhs type must match rhs function input type.
-        let lhs_result = lhs.typecheck(env)?;
-        let rhs_result = rhs.typecheck(env)?;
+        let lhs_result = spawner
+            .heapify(lhs.typecheck_heap(env, spawner.clone()))
+            .await?;
+        let rhs_result = spawner
+            .heapify(rhs.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.calc_type(&lhs_result, &rhs_result)
     }
 }
@@ -900,11 +908,18 @@ impl Compose {
 
         Ok((ty, compute_kind))
     }
-
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Compose { inner, outer, .. } = self;
-        let inner_result = inner.typecheck(env)?;
-        let outer_result = outer.typecheck(env)?;
+        let inner_result = spawner
+            .heapify(inner.typecheck_heap(env, spawner.clone()))
+            .await?;
+        let outer_result = spawner
+            .heapify(outer.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.calc_type(&inner_result, &outer_result)
     }
 }
@@ -1002,12 +1017,19 @@ impl Tensor {
         Ok((ty, compute_kind))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Tensor { vals, .. } = self;
-        let val_results = vals
-            .iter()
-            .map(|val| val.typecheck(env))
-            .collect::<Result<Vec<_>, TypeError>>()?;
+        let mut val_results: Vec<(Type, ComputeKind)> = vec![];
+        for val in vals {
+            let val_result = spawner
+                .heapify(val.typecheck_heap(env, spawner.clone()))
+                .await?;
+            val_results.push(val_result);
+        }
         self.calc_type(&val_results)
     }
 }
@@ -1036,9 +1058,15 @@ impl Tilt {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Tilt { val, .. } = self;
-        let val_result = val.typecheck(env)?;
+        let val_result = spawner
+            .heapify(val.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.calc_type(&val_result)
     }
 }
@@ -1272,15 +1300,23 @@ impl Predicated {
         }
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Predicated {
             then_func,
             else_func,
             pred,
             ..
         } = self;
-        let t_result = then_func.typecheck(env)?;
-        let e_result = else_func.typecheck(env)?;
+        let t_result = spawner
+            .heapify(then_func.typecheck_heap(env, spawner.clone()))
+            .await?;
+        let e_result = spawner
+            .heapify(else_func.typecheck_heap(env, spawner.clone()))
+            .await?;
         let pred_ty = pred.typecheck()?;
         self.calc_type(&t_result, &e_result, &pred_ty)
     }
@@ -1486,7 +1522,11 @@ impl Conditional {
         Ok((t_ty.clone(), ComputeKind::Irrev))
     }
 
-    pub fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    pub async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         let Conditional {
             then_expr,
             else_expr,
@@ -1494,11 +1534,17 @@ impl Conditional {
             ..
         } = self;
         let mut ctx = self.linearity_check_before_then(env);
-        let t_result = then_expr.typecheck(env)?;
+        let t_result = spawner
+            .heapify(then_expr.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.linearity_check_after_then_before_else(env, &mut ctx);
-        let e_result = else_expr.typecheck(env)?;
+        let e_result = spawner
+            .heapify(else_expr.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.linearity_check_after_else(env, &ctx)?;
-        let c_result = cond.typecheck(env)?;
+        let c_result = spawner
+            .heapify(cond.typecheck_heap(env, spawner.clone()))
+            .await?;
         self.calc_type(&t_result, &e_result, &c_result)
     }
 }
@@ -1596,31 +1642,46 @@ pub trait TypeCheckable {
     }
 
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError>;
+    #[allow(async_fn_in_trait)]
+    async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError>;
 }
 
 // --- EXPRESSIONS (QPU IMPLEMENTATION) ---
 impl TypeCheckable for qpu::Expr {
-    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+    async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
         match self {
             qpu::Expr::Variable(var) => var.typecheck(env),
             qpu::Expr::UnitLiteral(unit_lit) => unit_lit.typecheck(),
             qpu::Expr::EmbedClassical(embed) => embed.typecheck(env),
             qpu::Expr::Adjoint(adj) => adj.typecheck(env),
-            qpu::Expr::Pipe(pipe) => pipe.typecheck(env),
-            qpu::Expr::Compose(compose) => compose.typecheck(env),
+            qpu::Expr::Pipe(pipe) => pipe.typecheck_heap(env, spawner).await,
+            qpu::Expr::Compose(compose) => compose.typecheck_heap(env, spawner).await,
             qpu::Expr::Measure(measure) => measure.typecheck(),
             qpu::Expr::Discard(discard) => discard.typecheck(),
-            qpu::Expr::Tensor(tensor) => tensor.typecheck(env),
-            qpu::Expr::Tilt(tilt) => tilt.typecheck(env),
+            qpu::Expr::Tensor(tensor) => tensor.typecheck_heap(env, spawner).await,
+            qpu::Expr::Tilt(tilt) => tilt.typecheck_heap(env, spawner.clone()).await,
             qpu::Expr::BasisTranslation(btrans) => btrans.typecheck(),
-            qpu::Expr::Predicated(pred) => pred.typecheck(env),
+            qpu::Expr::Predicated(pred) => pred.typecheck_heap(env, spawner.clone()).await,
             qpu::Expr::NonUniformSuperpos(superpos) => superpos.typecheck(),
             qpu::Expr::Ensemble(ensemble) => ensemble.typecheck(),
-            qpu::Expr::Conditional(cond) => cond.typecheck(env),
+            qpu::Expr::Conditional(cond) => cond.typecheck_heap(env, spawner).await,
             qpu::Expr::QLitExpr(QLitExpr { qlit, .. }) => qlit.typecheck(),
             qpu::Expr::BitLiteral(bit_lit) => bit_lit.typecheck(),
             qpu::Expr::QubitRef(qref) => qref.typecheck(),
         }
+    }
+    fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
+        let mut executor = Executor::new();
+        let spawner = executor.spawner();
+        executor.execute(self.typecheck_heap(env, spawner))
     }
 }
 
@@ -1686,44 +1747,76 @@ impl TypeCheckable for classical::Expr {
     }
 
     fn typecheck(&self, env: &mut TypeEnv) -> Result<(Type, ComputeKind), TypeError> {
-        visitor_expr! {classical::Expr, self,
+        let mut executor = Executor::new();
+        let spawner = executor.spawner();
+        executor.execute(self.typecheck_heap(env, spawner))
+    }
+
+    async fn typecheck_heap(
+        &self,
+        env: &mut TypeEnv,
+        spawner: Spawner<'_>,
+    ) -> Result<(Type, ComputeKind), TypeError> {
+        match self {
             classical::Expr::Variable(var) => var.calc_type(env),
             classical::Expr::BitLiteral(bit_lit) => bit_lit.calc_type(),
             classical::Expr::Slice(slice) => {
-                let val_result = visit!(*slice.val)?;
+                let val_result = spawner
+                    .heapify(slice.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 slice.calc_type(&val_result)
-            },
+            }
             classical::Expr::UnaryOp(unary_op) => {
-                let val_result = visit!(*unary_op.val)?;
+                let val_result = spawner
+                    .heapify(unary_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 unary_op.calc_type(&val_result)
-            },
+            }
             classical::Expr::BinaryOp(binary_op) => {
-                let left_result = visit!(*binary_op.left)?;
-                let right_result = visit!(*binary_op.right)?;
+                let left_result = spawner
+                    .heapify(binary_op.left.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let right_result = spawner
+                    .heapify(binary_op.right.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 binary_op.calc_type(&left_result, &right_result)
-            },
+            }
             classical::Expr::ReduceOp(reduce_op) => {
-                let val_result = visit!(*reduce_op.val)?;
+                let val_result = spawner
+                    .heapify(reduce_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 reduce_op.calc_type(&val_result)
-            },
+            }
             classical::Expr::RotateOp(rotate_op) => {
-                let val_result = visit!(*rotate_op.val)?;
-                let amt_result = visit!(*rotate_op.amt)?;
+                let val_result = spawner
+                    .heapify(rotate_op.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let amt_result = spawner
+                    .heapify(rotate_op.amt.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 rotate_op.calc_type(&val_result, &amt_result)
-            },
+            }
             classical::Expr::Concat(concat) => {
-                let left_result = visit!(*concat.left)?;
-                let right_result = visit!(*concat.right)?;
+                let left_result = spawner
+                    .heapify(concat.left.typecheck_heap(env, spawner.clone()))
+                    .await?;
+                let right_result = spawner
+                    .heapify(concat.right.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 concat.calc_type(&left_result, &right_result)
-            },
+            }
             classical::Expr::Repeat(repeat) => {
-                let val_result = visit!(*repeat.val)?;
+                let val_result = spawner
+                    .heapify(repeat.val.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 repeat.calc_type(&val_result)
-            },
+            }
             classical::Expr::ModMul(mod_mul) => {
-                let y_result = visit!(*mod_mul.y)?;
+                let y_result = spawner
+                    .heapify(mod_mul.y.typecheck_heap(env, spawner.clone()))
+                    .await?;
                 mod_mul.calc_type(&y_result)
-            },
+            }
         }
     }
 }

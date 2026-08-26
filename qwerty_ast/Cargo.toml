@@ -9,3 +9,4 @@ itertools = "0.14.0"
 num-integer = "0.1.46"
 quantum-sparse-sim = { version = "0.9.4", path = "../qir_runner/sparsesim" }
 qwerty_ast_macros = { version = "0.1.0", path = "../qwerty_ast_macros" }
+heap_master = { path = "../heap_master" }
