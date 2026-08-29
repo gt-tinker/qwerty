@@ -93,6 +93,22 @@ void synthSub(
     fullAdderN(builder, loc, wires_a, wires_not_b, one, wires_diff);
 }
 
+// Pseudocode:
+// doubleMod(wires_a, modN) {
+//     bitsize = wires_a.size()
+//     assert(modN.getBitWidth() == bitsize);
+//     shifted = [wires_a, constant(0)] (aka wires_a << 1 in C syntax)
+//     // Below, [1]+ accounts for the extra bit shifted in above
+//     not_n = [1] + [NOT(modN[bitsize-1-i]) for i in range(bitsize)]
+//     // 2*a - N
+//     diff, carry_out = synthesize adder(a=shifted, b=not_n,
+//                                        carry_in=constant(1))
+//     // A carry out means no borrow, i.e. 2*a >= N, so the difference is the
+//     // reduced result. Remove the MSB in order to return bitsize bits.
+//     return carry_out? diff[1:] : shifted[1:]
+// }
+// Reference:
+// https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L385
 void synthDoubleMod(
         mlir::OpBuilder &builder,
         mlir::Location loc,
@@ -128,6 +144,25 @@ void synthDoubleMod(
     synthMux(builder, loc, carry_out, wires_then, wires_else, wires_out);
 }
 
+// Pseudocode:
+// addMod(wires_a, wires_b, modN) {
+//     bitsize = wires_a.size()
+//     assert(modN.getBitWidth() == bitsize && wires_b.size() == bitsize);
+//     sum, carry_out = synthesize adder(a=wires_a, b=wires_b,
+//                                       carry_in=constant(0))
+//     bigsum = [carry_out] + sum // bigsum is bitsize+1 bits
+//     // Below, [1]+ accounts for the extra bit of bigsum
+//     not_n = [1] + [NOT(modN[bitsize-1-i]) for i in range(bitsize)]
+//     diff, carry_out = synthesize adder(a=bigsum, b=not_n,
+//                                        carry_in=constant(1)) // (a+b)-N
+//     // A carry out means no borrow, i.e. a+b >= N, so the difference is the
+//     // reduced result. Remove the MSB of diff in order to return bitsize
+//     // bits. Otherwise a+b never overflowed bitsize bits in the first place,
+//     // so the truncated sum is already correct.
+//     return carry_out? diff[1:] : sum
+// }
+// Reference:
+// https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L125
 void synthAddMod(
         mlir::OpBuilder &builder,
         mlir::Location loc,
@@ -169,6 +204,33 @@ void synthAddMod(
     synthMux(builder, loc, carry_out, wires_then, wires_sum, wires_out);
 }
 
+// Double-and-add, starting from the most significant bit of x. Since x is a
+// constant, its bits are tested at synthesis time instead of by the circuit,
+// so only the modular reductions cost any gates.
+//
+// Pseudocode:
+// modMul(x, modN, wires_y) {
+//     bitsize = wires_y.size();
+//     assert(bitsize > 0);
+//     x_idx = bitsize-1
+//     if x[x_idx] == 1 {
+//       acc = y
+//     } else {
+//       acc = 0
+//     }
+//
+//     while (--x_idx >= 0) {
+//       doubled = doubleMod(acc, modN)
+//       if x[x_idx] == 1 {
+//         acc = addMod(doubled, y, modN)
+//       } else {
+//         acc = doubled
+//       }
+//     }
+//     return acc
+// }
+// Reference:
+// https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L486
 void synthModMul(
         mlir::OpBuilder &builder,
         mlir::Location loc,
@@ -180,12 +242,6 @@ void synthModMul(
     assert(n_bits && "y is zero bits???");
     assert(modN.getBitWidth() == n_bits && "Modulus must be as wide as y");
     assert(x.getBitWidth() == n_bits && "x must be as wide as y");
-
-    // Double-and-add, starting from the most significant bit of x. Since x is
-    // a constant, its bits are tested here at synthesis time instead of by the
-    // circuit, so only the modular reductions cost any gates.
-    // Reference:
-    // https://github.com/gt-tinker/tweedledum/blob/a041ef41d1763f19f0a76592ef4b79fae6203240/external/mockturtle/mockturtle/generators/modular_arithmetic.hpp#L486
     llvm::SmallVector<mlir::Value> wires_acc;
     if (x[n_bits-1]) {
         wires_acc.append(wires_y.begin(), wires_y.end());
