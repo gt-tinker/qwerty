@@ -47,19 +47,45 @@ mlir::Value fullAdderN(
     return carry;
 }
 
-// Build ~N as wires, where N is zero extended by one bit first. Passing this
-// to fullAdderN() as b with a carry_in of 1 calculates a - N, since
+// Add the constant b to the wires a, returning the carry out. Since b is known
+// at synthesis time, there is no need for a full adder: fixing b collapses the
+// 1-bit adder above to two gates per bit.
+//
+//     b == 0: sum = a ^ carry_in,    carry_out = a & carry_in
+//     b == 1: sum = ~(a ^ carry_in), carry_out = a | carry_in
+//
+// Passing ~N as b with a carry_in of 1 calculates a - N, since
 // a - N == a + ~N + 1 in two's complement.
-void notModN(
+mlir::Value constAdderN(
         mlir::OpBuilder &builder,
         mlir::Location loc,
-        llvm::APInt modN,
-        llvm::SmallVectorImpl<mlir::Value> &wires_not_n) {
-    mlir::Value not_modN = ccirc::ConstantOp::create(builder,
-        loc, ~modN.zext(modN.getBitWidth()+1)).getResult();
-    mlir::ValueRange not_n_wires = ccirc::WireUnpackOp::create(builder,
-        loc, not_modN).getWires();
-    wires_not_n.assign(not_n_wires.begin(), not_n_wires.end());
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::APInt b,
+        mlir::Value carry_in,
+        llvm::SmallVectorImpl<mlir::Value> &wires_sum) {
+
+    size_t n_bits = wires_a.size();
+    assert(b.getBitWidth() == n_bits && "a and b must be same size");
+
+    mlir::Value carry = carry_in;
+    wires_sum.clear();
+    wires_sum.append(n_bits, nullptr);
+
+    for (size_t i = 0; i < n_bits; i++) {
+        // wires_a is big endian, but APInt indexes bits little endian
+        mlir::Value a = wires_a[n_bits-1-i];
+        mlir::Value sum = ccirc::XorOp::create(builder, loc, a, carry).getResult();
+        mlir::Value cnext;
+        if (b[i]) {
+            sum = ccirc::NotOp::create(builder, loc, sum).getResult();
+            cnext = ccirc::OrOp::create(builder, loc, a, carry).getResult();
+        } else {
+            cnext = ccirc::AndOp::create(builder, loc, a, carry).getResult();
+        }
+        wires_sum[n_bits-1-i] = sum;
+        carry = cnext;
+    }
+    return carry;
 }
 
 } // namespace
@@ -124,15 +150,12 @@ void synthDoubleMod(
     wires_shifted.push_back(ccirc::ConstantOp::create(builder,
         loc, llvm::APInt(/*numBits=*/1, /*val=*/0)).getResult());
 
-    llvm::SmallVector<mlir::Value> wires_not_n;
-    notModN(builder, loc, modN, wires_not_n);
-
     // 2*a - N
     mlir::Value one = ccirc::ConstantOp::create(builder,
         loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
     llvm::SmallVector<mlir::Value> wires_diff;
-    mlir::Value carry_out = fullAdderN(builder, loc, wires_shifted,
-                                       wires_not_n, one, wires_diff);
+    mlir::Value carry_out = constAdderN(builder, loc, wires_shifted,
+                                        ~modN.zext(n_bits+1), one, wires_diff);
 
     // A carry out means no borrow, i.e. 2*a >= N, so the difference is the
     // reduced result. Since a < N, both candidates fit in n_bits bits, so the
@@ -186,15 +209,12 @@ void synthAddMod(
     wires_bigsum.push_back(carry);
     wires_bigsum.append(wires_sum.begin(), wires_sum.end());
 
-    llvm::SmallVector<mlir::Value> wires_not_n;
-    notModN(builder, loc, modN, wires_not_n);
-
     // (a + b) - N
     mlir::Value one = ccirc::ConstantOp::create(builder,
         loc, llvm::APInt(/*numBits=*/1, /*val=*/1)).getResult();
     llvm::SmallVector<mlir::Value> wires_diff;
-    mlir::Value carry_out = fullAdderN(builder, loc, wires_bigsum,
-                                       wires_not_n, one, wires_diff);
+    mlir::Value carry_out = constAdderN(builder, loc, wires_bigsum,
+                                        ~modN.zext(n_bits+1), one, wires_diff);
 
     // A carry out means no borrow, i.e. a + b >= N, so the difference is the
     // reduced result. Otherwise a + b did not overflow n_bits bits in the
@@ -242,6 +262,7 @@ void synthModMul(
     assert(n_bits && "y is zero bits???");
     assert(modN.getBitWidth() == n_bits && "Modulus must be as wide as y");
     assert(x.getBitWidth() == n_bits && "x must be as wide as y");
+
     llvm::SmallVector<mlir::Value> wires_acc;
     if (x[n_bits-1]) {
         wires_acc.append(wires_y.begin(), wires_y.end());
