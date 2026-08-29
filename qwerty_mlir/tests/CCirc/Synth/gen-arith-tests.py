@@ -65,14 +65,16 @@ def to_signed(val):
 def format_add_test(c1, c2):
     sum = (c1 + c2) & ((1 << N_BITS) - 1)
     res = to_signed(sum)
-    return f"""    // CHECK: {res}
+    return f"""
+    // CHECK: {res}
     func.call @check_add(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> () // 0x{c1:02x} + 0x{c2:02x} = 0x{sum:02x}
 """
 
 def format_sub_test(c1, c2):
     diff = (c1 - c2) & ((1 << N_BITS) - 1)
     res = to_signed(diff)
-    return f"""    // CHECK: {res}
+    return f"""
+    // CHECK: {res}
     func.call @check_sub(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> () // 0x{c1:02x} - 0x{c2:02x} = 0x{diff:02x}
 """
 
@@ -96,7 +98,8 @@ func.func @check_double_mod_{modN}(%a: i{N_BITS}) -> () {{
 def format_double_mod_test(modN, c):
     doubled = (2 * c) % modN
     res = to_signed(doubled)
-    return f"""    // CHECK: {res}
+    return f"""
+    // CHECK: {res}
     func.call @check_double_mod_{modN}(%c{c}) : (i{N_BITS}) -> () // 2*0x{c:02x} % {modN} = 0x{doubled:02x}
 """
 
@@ -118,7 +121,8 @@ func.func @check_add_mod_{modN}(%a: i{N_BITS}, %b: i{N_BITS}) -> () {{
 def format_add_mod_test(modN, c1, c2):
     summed = (c1 + c2) % modN
     res = to_signed(summed)
-    return f"""    // CHECK: {res}
+    return f"""
+    // CHECK: {res}
     func.call @check_add_mod_{modN}(%c{c1}, %c{c2}) : (i{N_BITS}, i{N_BITS}) -> () // (0x{c1:02x} + 0x{c2:02x}) % {modN} = 0x{summed:02x}
 """
 
@@ -154,7 +158,8 @@ func.func @check_modmul_{x}_{j}_{modN}(%y: i{N_BITS}) -> () {{
 def format_modmul_test(x, j, modN, c):
     product = (effective_multiplier(x, j, modN) * c) % modN
     res = to_signed(product)
-    return f"""    // CHECK: {res}
+    return f"""
+    // CHECK: {res}
     func.call @check_modmul_{x}_{j}_{modN}(%c{c}) : (i{N_BITS}) -> () // (0x{x:02x}^(2^{j}) % {modN})*0x{c:02x} % {modN} = 0x{product:02x}
 """
 
