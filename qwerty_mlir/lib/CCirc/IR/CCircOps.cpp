@@ -963,7 +963,7 @@ mlir::LogicalResult DoubleModOp::verify() {
         return emitOpError("Modulus must be nonzero");
     }
     WireType wire_ty = llvm::cast<WireType>(getA().getType());
-    if (llvm::APInt(64, getModN()).getActiveBits() > wire_ty.getDim()) {
+    if (getModNAttr().getValue().getActiveBits() > wire_ty.getDim()) {
         return emitOpError("Modulus does not fit in the input wires");
     }
     return mlir::success();
@@ -989,7 +989,7 @@ mlir::LogicalResult AddModOp::verify() {
         return emitOpError("Modulus must be nonzero");
     }
     WireType wire_ty = llvm::cast<WireType>(getA().getType());
-    if (llvm::APInt(64, getModN()).getActiveBits() > wire_ty.getDim()) {
+    if (getModNAttr().getValue().getActiveBits() > wire_ty.getDim()) {
         return emitOpError("Modulus does not fit in the input wires");
     }
     return mlir::success();
@@ -1012,7 +1012,7 @@ mlir::LogicalResult ModMulOp::verify() {
         return emitOpError("Modulus must be nonzero");
     }
     WireType wire_ty = llvm::cast<WireType>(getY().getType());
-    if (llvm::APInt(64, getModN()).getActiveBits() > wire_ty.getDim()) {
+    if (getModNAttr().getValue().getActiveBits() > wire_ty.getDim()) {
         return emitOpError("Modulus does not fit in the input wires");
     }
     return mlir::success();

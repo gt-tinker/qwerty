@@ -121,7 +121,8 @@ struct DecomposeDoubleMod
 
         llvm::SmallVector<mlir::Value> wires_out;
         ccirc::synthDoubleMod(rewriter, loc,
-                              llvm::APInt(wires_a.size(), double_mod.getModN()),
+                              double_mod.getModNAttr().getValue()
+                                  .zextOrTrunc(wires_a.size()),
                               wires_a, wires_out);
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(double_mod, wires_out);
@@ -146,7 +147,8 @@ struct DecomposeAddMod
 
         llvm::SmallVector<mlir::Value> wires_out;
         ccirc::synthAddMod(rewriter, loc,
-                           llvm::APInt(wires_a.size(), add_mod.getModN()),
+                           add_mod.getModNAttr().getValue()
+                               .zextOrTrunc(wires_a.size()),
                            wires_a, wires_b, wires_out);
 
         rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(add_mod, wires_out);
