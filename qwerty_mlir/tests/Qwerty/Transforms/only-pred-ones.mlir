@@ -16,7 +16,7 @@ qwerty.func private @trivial[](%arg0: !qwerty<qbundle[2]>) rev-> !qwerty<qbundle
 //  CHECK-NEXT:   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 //  CHECK-NEXT: }
 qwerty.func @func_pred_pointless[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>> {
-  %0 = qwerty.func_pred %arg0 by {list:{"|ji>","|ij>","|ii>","|jj>"}, std:Y[3]} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
+  %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, std:Y[3]} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 }
 
@@ -29,7 +29,7 @@ qwerty.func @func_pred_pointless[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-
 //  CHECK-NEXT:   qwerty.return %4 : !qwerty<qbundle[7]>
 //  CHECK-NEXT: }
 qwerty.func @call_pointless[](%arg0: !qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]> {
-  %0 = qwerty.call pred {list:{"|ji>","|ij>","|ii>","|jj>"}, std:Y[3]} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+  %0 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, std:Y[3]} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
   qwerty.return %0 : !qwerty<qbundle[7]>
 }
 
@@ -41,7 +41,7 @@ qwerty.func @call_pointless[](%arg0: !qwerty<qbundle[7]>) rev-> !qwerty<qbundle[
 //  CHECK-NEXT:     %result_1 = qcirc.gate1q[]:X %result_0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:     %result_2 = qcirc.gate1q[]:Sdg %1#1 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:     %result_3 = qcirc.gate1q[]:H %result_2 : (!qcirc.qubit) -> !qcirc.qubit
-//  CHECK-NEXT:     %2 = qwerty.func_pred %arg1 by {list:{"|11>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
+//  CHECK-NEXT:     %2 = qwerty.func_pred %arg1 by {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>
 //  CHECK-NEXT:     %3 = qwerty.qbpack(%result_1, %result_3, %1#5, %1#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:     %4 = qwerty.call_indirect %2(%3) : (!qwerty<func(!qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]>>, !qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:     %5:4 = qwerty.qbunpack %4 : (!qwerty<qbundle[4]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
@@ -56,7 +56,7 @@ qwerty.func @call_pointless[](%arg0: !qwerty<qbundle[7]>) rev-> !qwerty<qbundle[
 //  CHECK-NEXT:   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 //  CHECK-NEXT: }
 qwerty.func @func_pred_semi_pointless[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>> {
-  %0 = qwerty.func_pred %arg0 by {list:{"|ij>"}, std:X[3]} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
+  %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, std:X[3]} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 }
 
@@ -68,7 +68,7 @@ qwerty.func @func_pred_semi_pointless[](%arg0: !qwerty<func(!qwerty<qbundle[2]>)
 //  CHECK-NEXT:   %result_2 = qcirc.gate1q[]:Sdg %0#1 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_3 = qcirc.gate1q[]:H %result_2 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %1 = qwerty.qbpack(%result_1, %result_3, %0#5, %0#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[4]>
-//  CHECK-NEXT:   %2 = qwerty.call pred {list:{"|11>"}} @trivial(%1) : (!qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
+//  CHECK-NEXT:   %2 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%1) : (!qwerty<qbundle[4]>) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:   %3:4 = qwerty.qbunpack %2 : (!qwerty<qbundle[4]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_4 = qcirc.gate1q[]:X %3#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_5 = qcirc.gate1q[]:H %result_4 : (!qcirc.qubit) -> !qcirc.qubit
@@ -79,25 +79,25 @@ qwerty.func @func_pred_semi_pointless[](%arg0: !qwerty<func(!qwerty<qbundle[2]>)
 //  CHECK-NEXT:   qwerty.return %4 : !qwerty<qbundle[7]>
 //  CHECK-NEXT: }
 qwerty.func @call_semi_pointless[](%arg0: !qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]> {
-  %0 = qwerty.call pred {list:{"|ij>"}, std:X[3]} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+  %0 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, std:X[3]} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
   qwerty.return %0 : !qwerty<qbundle[7]>
 }
 
 // CHECK-LABEL: qwerty.func @func_pred_already_ones[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>> {
-//  CHECK-NEXT:   %0 = qwerty.func_pred %arg0 by {list:{"|11>"}, list:{"|1>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+//  CHECK-NEXT:   %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}, list:{<OneVector []>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
 //  CHECK-NEXT:   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
 //  CHECK-NEXT: }
 qwerty.func @func_pred_already_ones[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>> {
-  %0 = qwerty.func_pred %arg0 by {list:{"|11>"}, list:{"|1>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
+  %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}, list:{<OneVector []>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]>>
 }
 
 // CHECK-LABEL: qwerty.func @call_already_ones[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
-//  CHECK-NEXT:   %0 = qwerty.call pred {list:{"|11>"}, list:{"|1>"}} @trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+//  CHECK-NEXT:   %0 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}, list:{<OneVector []>}} @trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
 //  CHECK-NEXT:   qwerty.return %0 : !qwerty<qbundle[5]>
 //  CHECK-NEXT: }
 qwerty.func @call_already_ones[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbundle[5]> {
-  %0 = qwerty.call pred {list:{"|11>"}, list:{"|1>"}} @trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
+  %0 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}, list:{<OneVector []>}} @trivial(%arg0) : (!qwerty<qbundle[5]>) -> !qwerty<qbundle[5]>
   qwerty.return %0 : !qwerty<qbundle[5]>
 }
 
@@ -115,7 +115,7 @@ qwerty.func @call_already_ones[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbund
 //  CHECK-NEXT:     %result_7 = qcirc.gate1q[]:H %1#3 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:     %result_8 = qcirc.gate1q[]:X %result_7 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:     %result_9 = qcirc.gate1q[]:H %1#4 : (!qcirc.qubit) -> !qcirc.qubit
-//  CHECK-NEXT:     %2 = qwerty.func_pred %arg1 by {list:{"|11111>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
+//  CHECK-NEXT:     %2 = qwerty.func_pred %arg1 by {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 //  CHECK-NEXT:     %3 = qwerty.qbpack(%result_1, %result_4, %result_6, %result_8, %result_9, %1#5, %1#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:     %4 = qwerty.call_indirect %2(%3) : (!qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>, !qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:     %5:7 = qwerty.qbunpack %4 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
@@ -243,7 +243,7 @@ qwerty.func @call_already_ones[](%arg0: !qwerty<qbundle[5]>) rev-> !qwerty<qbund
 //  CHECK-NEXT:   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 //  CHECK-NEXT: }
 qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) irrev-> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>> {
-  %0 = qwerty.func_pred %arg0 by {list:{"|ii>","|ji>"}, list:{"|ppm>","|mmm>","|mmp>"}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
+  %0 = qwerty.func_pred %arg0 by {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} : (!qwerty<func(!qwerty<qbundle[2]>) rev-> !qwerty<qbundle[2]>>) -> !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
   qwerty.return %0 : !qwerty<func(!qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]>>
 }
 
@@ -261,7 +261,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_8 = qcirc.gate1q[]:X %result_7 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_9 = qcirc.gate1q[]:H %0#4 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %1 = qwerty.qbpack(%result_1, %result_4, %result_6, %result_8, %result_9, %0#5, %0#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %2 = qwerty.call pred {list:{"|11111>"}} @trivial(%1) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %2 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%1) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %3:7 = qwerty.qbunpack %2 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_10 = qcirc.gate1q[]:X %3#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_11 = qcirc.gate1q[]:H %result_10 : (!qcirc.qubit) -> !qcirc.qubit
@@ -285,7 +285,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_29 = qcirc.gate1q[]:X %result_28 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_30 = qcirc.gate1q[]:H %result_20 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %4 = qwerty.qbpack(%result_22, %result_25, %result_27, %result_29, %result_30, %3#5, %3#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %5 = qwerty.call pred {list:{"|11111>"}} @trivial(%4) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %5 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%4) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %6:7 = qwerty.qbunpack %5 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_31 = qcirc.gate1q[]:H %6#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_32 = qcirc.gate1q[]:S %result_31 : (!qcirc.qubit) -> !qcirc.qubit
@@ -307,7 +307,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_48 = qcirc.gate1q[]:H %result_39 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_49 = qcirc.gate1q[]:H %result_40 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %7 = qwerty.qbpack(%result_43, %result_46, %result_47, %result_48, %result_49, %6#5, %6#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %8 = qwerty.call pred {list:{"|11111>"}} @trivial(%7) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %8 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%7) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %9:7 = qwerty.qbunpack %8 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_50 = qcirc.gate1q[]:X %9#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_51 = qcirc.gate1q[]:H %result_50 : (!qcirc.qubit) -> !qcirc.qubit
@@ -327,7 +327,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_65 = qcirc.gate1q[]:H %result_57 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_66 = qcirc.gate1q[]:H %result_58 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %10 = qwerty.qbpack(%result_60, %result_63, %result_64, %result_65, %result_66, %9#5, %9#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %11 = qwerty.call pred {list:{"|11111>"}} @trivial(%10) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %11 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%10) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %12:7 = qwerty.qbunpack %11 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_67 = qcirc.gate1q[]:H %12#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_68 = qcirc.gate1q[]:S %result_67 : (!qcirc.qubit) -> !qcirc.qubit
@@ -348,7 +348,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_83 = qcirc.gate1q[]:H %result_74 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_84 = qcirc.gate1q[]:X %result_83 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %13 = qwerty.qbpack(%result_77, %result_80, %result_81, %result_82, %result_84, %12#5, %12#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %14 = qwerty.call pred {list:{"|11111>"}} @trivial(%13) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %14 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%13) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %15:7 = qwerty.qbunpack %14 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_85 = qcirc.gate1q[]:X %15#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_86 = qcirc.gate1q[]:H %result_85 : (!qcirc.qubit) -> !qcirc.qubit
@@ -370,7 +370,7 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   %result_102 = qcirc.gate1q[]:H %result_94 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_103 = qcirc.gate1q[]:X %result_102 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %16 = qwerty.qbpack(%result_96, %result_99, %result_100, %result_101, %result_103, %15#5, %15#6) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[7]>
-//  CHECK-NEXT:   %17 = qwerty.call pred {list:{"|11111>"}} @trivial(%16) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+//  CHECK-NEXT:   %17 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>, #qwerty.vectree<OneVector []>]>}} @trivial(%16) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
 //  CHECK-NEXT:   %18:7 = qwerty.qbunpack %17 : (!qwerty<qbundle[7]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %result_104 = qcirc.gate1q[]:H %18#0 : (!qcirc.qubit) -> !qcirc.qubit
 //  CHECK-NEXT:   %result_105 = qcirc.gate1q[]:S %result_104 : (!qcirc.qubit) -> !qcirc.qubit
@@ -385,6 +385,6 @@ qwerty.func @func_pred_cartesian_product[](%arg0: !qwerty<func(!qwerty<qbundle[2
 //  CHECK-NEXT:   qwerty.return %19 : !qwerty<qbundle[7]>
 //  CHECK-NEXT: }
 qwerty.func @call_cartesian_product[](%arg0: !qwerty<qbundle[7]>) rev-> !qwerty<qbundle[7]> {
-  %0 = qwerty.call pred {list:{"|ii>","|ji>"}, list:{"|ppm>","|mmm>","|mmp>"}} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
+  %0 = qwerty.call pred {list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 2.700000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 9.000000e+01 : f64 [#qwerty.vectree<OneVector []>]>]>]>}, list:{<VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>]>, <VectorTensor [#qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>, #qwerty.vectree<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<OneVector []>]>]>}} @trivial(%arg0) : (!qwerty<qbundle[7]>) -> !qwerty<qbundle[7]>
   qwerty.return %0 : !qwerty<qbundle[7]>
 }

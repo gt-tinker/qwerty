@@ -293,6 +293,34 @@ fn ast_vec_to_mlir(vec: &Vector) -> (Vec<qwerty::BasisVectorAttribute<'static>>,
     (vec_attrs, phase)
 }
 
+/// Structurally transcribes an AST `Vector` into a qwerty::BasisVectorTreeAttr
+fn ast_vec_to_tree(vec: &Vector) -> qwerty::BasisVectorTreeAttribute<'static> {
+    let node = |kind, tilt, children: &[qwerty::BasisVectorTreeAttribute<'static>]| {
+        qwerty::BasisVectorTreeAttribute::new(&MLIR_CTX, kind, tilt, children)
+    };
+    match vec {
+        Vector::ZeroVector { .. } => node(qwerty::BasisVectorTreeKind::ZeroVector, None, &[]),
+        Vector::OneVector { .. } => node(qwerty::BasisVectorTreeKind::OneVector, None, &[]),
+        Vector::PadVector { .. } => node(qwerty::BasisVectorTreeKind::PadVector, None, &[]),
+        Vector::TargetVector { .. } => node(qwerty::BasisVectorTreeKind::TargetVector, None, &[]),
+        Vector::VectorUnit { .. } => node(qwerty::BasisVectorTreeKind::VectorUnit, None, &[]),
+        Vector::VectorTilt { q, angle_deg, .. } => node(
+            qwerty::BasisVectorTreeKind::VectorTilt,
+            Some(*angle_deg),
+            &[ast_vec_to_tree(q)],
+        ),
+        Vector::UniformVectorSuperpos { q1, q2, .. } => node(
+            qwerty::BasisVectorTreeKind::UniformVectorSuperpos,
+            None,
+            &[ast_vec_to_tree(q1), ast_vec_to_tree(q2)],
+        ),
+        Vector::VectorTensor { qs, .. } => {
+            let children: Vec<_> = qs.iter().map(ast_vec_to_tree).collect();
+            node(qwerty::BasisVectorTreeKind::VectorTensor, None, &children)
+        }
+    }
+}
+
 /// Holds the ingredients to generate some basis-oriented MLIR op. The indices
 /// are useful for having e.g. pad indices bypass a qbtrans op.
 struct MlirBasis {
@@ -539,20 +567,13 @@ fn ast_basis_to_mlir(basis: &Basis) -> MlirBasis {
                     }
 
                     Basis::BasisLiteral { vecs, .. } => {
-                        let (vec_attrs, phases): (Vec<_>, Vec<_>) = vecs.iter().map(|vec| {
-                            let (vec_attrs, phase) = ast_vec_to_mlir(vec);
-                            // TODO: Fix this
-                            assert_eq!(vec_attrs.len(), 1, "vectors must be nonempty, and mixing primitive bases in a vector is not currently supported");
-                            let vec_attr = vec_attrs[0];
-                            let phase_opt = if vec_attr.has_phase() {
-                                Some(phase)
-                            } else {
-                                None
-                            };
-                            (vec_attr, phase_opt)
-                        }).unzip();
-                        let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_attrs);
-                        (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), phases)
+                        // Transcribe each vector as a tree
+                        let vec_trees: Vec<_> = vecs
+                            .iter()
+                            .map(|vec| ast_vec_to_tree(&vec.clone().canonicalize()))
+                            .collect();
+                        let veclist = qwerty::BasisVectorListAttribute::new(&MLIR_CTX, &vec_trees);
+                        (qwerty::BasisElemAttribute::from_veclist(&MLIR_CTX, veclist), vec![])
                     },
 
                     Basis::ApplyBasisGenerator { basis, generator, .. } => {

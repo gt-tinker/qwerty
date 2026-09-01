@@ -1,3 +1,5 @@
+#include "util.hpp"
+
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/IR/QCircInterfaces.h"
 #include "QCirc/Utils/QCircUtils.h"
@@ -19,10 +21,29 @@ bool isIdentity(const qwerty::QubitIndexVec::Indices &inds) {
 
 struct PredElem {
     size_t offset;
-    qwerty::BasisVectorListAttr veclist;
+    // The predicate's vectors, flattened from the veclist's trees down to flat
+    // Pauli vectors. Predicate bases are always canonical, phase-free Pauli
+    // bases, so tryFlatten() always succeeds here with a zero residual phase.
+    llvm::SmallVector<qwerty::BasisVectorAttr> vectors;
 
     PredElem(size_t offset, qwerty::BasisVectorListAttr veclist)
-           : offset(offset), veclist(veclist) {}
+           : offset(offset) {
+        vectors.reserve(veclist.getVectors().size());
+        for (qwerty::BasisVectorTreeAttr tree : veclist.getVectors()) {
+            std::optional<std::pair<qwerty::BasisVectorAttr, double>> flat =
+                tree.tryFlatten();
+            assert(flat && "predicate vector is not a canonical Pauli basis");
+            assert(std::abs(flat->second) < ATOL
+                   && "predicate vector should be phase-free");
+            vectors.push_back(flat->first);
+        }
+    }
+
+    size_t getDim() const {
+        assert(!vectors.empty()
+               && "empty predicate veclist; the verifier should catch this");
+        return vectors[0].getDim();
+    }
 };
 
 void findPredElems(llvm::ArrayRef<qwerty::BasisElemAttr> elems,
@@ -49,7 +70,7 @@ bool nextInCartesianProduct(llvm::SmallVectorImpl<PredElem> &pred_elems,
     size_t n_elems = pred_elems.size();
 
     size_t j;
-    for (j = 0; j < n_elems && i[j] == pred_elems[j].veclist.getVectors().size()-1; j++);
+    for (j = 0; j < n_elems && i[j] == pred_elems[j].vectors.size()-1; j++);
 
     bool done;
     if ((done = j == n_elems)) {
@@ -82,7 +103,7 @@ void standardizeAndFlip(mlir::OpBuilder &builder,
                         llvm::SmallVectorImpl<PredElem> &pred_elems) {
     for (size_t j = 0; j < i.size(); j++) {
         size_t offset = pred_elems[j].offset;
-        qwerty::BasisVectorAttr vec = pred_elems[j].veclist.getVectors()[i[j]];
+        qwerty::BasisVectorAttr vec = pred_elems[j].vectors[i[j]];
 
         for (size_t k = 0; k < vec.getDim(); k++) {
             mlir::Value ctrl = controls[offset + k];
@@ -123,7 +144,7 @@ void unflipAndDestandardize(mlir::OpBuilder &builder,
                             llvm::SmallVectorImpl<PredElem> &pred_elems) {
     for (size_t j = 0; j < i.size(); j++) {
         size_t offset = pred_elems[j].offset;
-        qwerty::BasisVectorAttr vec = pred_elems[j].veclist.getVectors()[i[j]];
+        qwerty::BasisVectorAttr vec = pred_elems[j].vectors[i[j]];
 
         for (size_t k = 0; k < vec.getDim(); k++) {
             mlir::Value ctrl = controls[offset + k];
@@ -164,7 +185,7 @@ void borrowActualControls(
     for (PredElem &pred_elem : pred_elems) {
         actual_controls_out.append(
             controls.begin() + pred_elem.offset,
-            controls.begin() + pred_elem.offset + pred_elem.veclist.getDim());
+            controls.begin() + pred_elem.offset + pred_elem.getDim());
     }
 }
 
@@ -174,7 +195,7 @@ void restoreActualControls(
         llvm::SmallVectorImpl<mlir::Value> &actual_controls) {
     size_t actual_idx = 0;
     for (PredElem &pred_elem : pred_elems) {
-        size_t vl_dim = pred_elem.veclist.getDim();
+        size_t vl_dim = pred_elem.getDim();
         for (size_t i = 0; i < vl_dim; i++) {
             controls_out[pred_elem.offset + i] = actual_controls[actual_idx++];
         }
@@ -374,14 +395,14 @@ void lowerPredBasisToInterleavedControls(
     llvm::SmallVector<mlir::Value> controls;
     for (PredElem &elem : pred_elems) {
         controls.append(qubits.begin() + elem.offset,
-                        qubits.begin() + elem.offset + elem.veclist.getDim());
+                        qubits.begin() + elem.offset + elem.getDim());
     }
 
     lowerPredBasisToControls(builder, loc, pred_elems, controls, controls, cb);
 
     size_t qubit_idx = 0;
     for (PredElem &elem : pred_elems) {
-        for (size_t i = 0; i < elem.veclist.getDim(); i++) {
+        for (size_t i = 0; i < elem.getDim(); i++) {
             qubits[elem.offset + i] = controls[qubit_idx];
             qubit_idx++;
         }

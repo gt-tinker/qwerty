@@ -59,7 +59,7 @@ qwerty.func @embed_xor2[](%arg0: !qwerty<qbundle[2]>) irrev-> !qwerty<qbundle[2]
 //  CHECK-NEXT: }
 //  CHECK-NEXT: qwerty.func private @bv_oracle__sign[](%arg0: !qwerty<qbundle[4]>) rev-> !qwerty<qbundle[4]> {
 //  CHECK-NEXT:   %0 = qwerty.qbprep Z<PLUS>[1] : () -> !qwerty<qbundle[1]>
-//  CHECK-NEXT:   %1 = qwerty.qbinit %0 as {list:{"|m>"}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   %1 = qwerty.qbinit %0 as {list:{<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
 //  CHECK-NEXT:   %2 = qwerty.qbunpack %1 : (!qwerty<qbundle[1]>) -> !qcirc.qubit
 //  CHECK-NEXT:   %3:4 = qwerty.qbunpack %arg0 : (!qwerty<qbundle[4]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %4 = qwerty.qbpack(%3#0, %3#1, %3#2, %3#3, %2) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[5]>
@@ -67,7 +67,7 @@ qwerty.func @embed_xor2[](%arg0: !qwerty<qbundle[2]>) irrev-> !qwerty<qbundle[2]
 //  CHECK-NEXT:   %6:5 = qwerty.qbunpack %5 : (!qwerty<qbundle[5]>) -> (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit)
 //  CHECK-NEXT:   %7 = qwerty.qbpack(%6#0, %6#1, %6#2, %6#3) : (!qcirc.qubit, !qcirc.qubit, !qcirc.qubit, !qcirc.qubit) -> !qwerty<qbundle[4]>
 //  CHECK-NEXT:   %8 = qwerty.qbpack(%6#4) : (!qcirc.qubit) -> !qwerty<qbundle[1]>
-//  CHECK-NEXT:   %9 = qwerty.qbdeinit %8 as {list:{"|m>"}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
+//  CHECK-NEXT:   %9 = qwerty.qbdeinit %8 as {list:{<UniformVectorSuperpos [#qwerty.vectree<ZeroVector []>, #qwerty.vectree<VectorTilt tilt 1.800000e+02 : f64 [#qwerty.vectree<OneVector []>]>]>}} : (!qwerty<qbundle[1]>) -> !qwerty<qbundle[1]>
 //  CHECK-NEXT:   qwerty.qbdiscardz %9 : (!qwerty<qbundle[1]>) -> ()
 //  CHECK-NEXT:   qwerty.return %7 : !qwerty<qbundle[4]>
 //  CHECK-NEXT: }
