@@ -1,13 +1,19 @@
 #include "util.hpp"
+
 #include <algorithm>
+#include "llvm/Support/Debug.h"
+
 #include "QCirc/IR/QCircOps.h"
 #include "QCirc/Synth/QCircSynth.h"
+
 
 // Synthesizes a Bennett embedding, i.e., a circuit U that achieves
 // U|x⟩|y⟩ = |x⟩|y⊕f(x)⟩. Assumes that the input circuit is a XAG.
 // (TODO: define what that even means)
 // This is based on the following paper:
 // https://doi.org/10.23919/DATE51398.2021.9474163
+
+#define DEBUG_TYPE "xag"
 
 namespace {
 
@@ -88,8 +94,19 @@ struct Synthesizer {
         WireQubit &qubit = wire_it->getSecond();
 
         if (qubit.kind == WireQubit::Kind::AndAncilla) {
+            LLVM_DEBUG({
+                llvm::dbgs() << "freeing qubit #" << qubit.qubit_idx << "\n";
+            });
+
+            assert(qubit.refcount && "Freeing qubit that is already free");
             if (!--qubit.refcount) {
-                // Undo computation on this ancilla now that we're done with it
+                LLVM_DEBUG({
+                    llvm::dbgs() << " - refcount==0, uncomputing qubit #"
+                                 << qubit.qubit_idx << "\n";
+                });
+                // Undo computation on this ancilla now that we're done with
+                // it. This will also free ancilla qubits for any ops we depend
+                // on.
                 xorWireInto(qubit.wire, qubit.qubit_idx,
                             static_cast<SynthFlags>(FLAG_TMP | FLAG_REV));
                 qcirc::QfreeZeroOp::create(builder,
@@ -99,32 +116,34 @@ struct Synthesizer {
                 // null pointer to cause a nuclear explosion if some code
                 // incorrectly tries to use it.
                 qubits[qubit.qubit_idx] = nullptr;
-
-                // Also need to decrement the refcount for any dependencies of
-                // this AND that we were keeping around
-                ccirc::AndOp and_op = qubit.wire.getDefiningOp<ccirc::AndOp>();
-                assert(and_op && "AND ancilla not defined for AND, how?");
-                propagateFreeUpward(and_op.getLeft());
-                propagateFreeUpward(and_op.getRight());
             }
         } else {
             // Input qubit, no freeing needed
         }
     }
 
-    void propagateFreeUpward(mlir::Value value) {
-        if (auto wire_iter = wire_qubits.find(value);
-                wire_iter != wire_qubits.end()) {
-            freeAncillaForAnd(wire_iter->getSecond());
-        // This could be a ccirc.constant, ccirc.parity, or ccirc.not. The code
-        // below will do nothing for the first and propagate the free() upward
-        // for the other two cases.
-        } else {
-            mlir::Operation *op = value.getDefiningOp();
-            for (mlir::Value operand : op->getOperands()) {
-                propagateFreeUpward(operand);
+    // The initital refcount is NOT simply the number of SSA uses. Imagine, for
+    // example, an AND with one use, a NOT, but this NOT being an input to 100
+    // different AND gates. Clearly, the AND is referenced 100 times, not once.
+    size_t getInitialRefcount(mlir::Value wire) {
+        size_t ret = 0;
+        for (mlir::OpOperand &use : wire.getUses()) {
+            mlir::Operation *owner = use.getOwner();
+            if (ccirc::NotOp not_op = llvm::dyn_cast<ccirc::NotOp>(owner)) {
+                ret += getInitialRefcount(not_op.getResult());
+            } else if (ccirc::ParityOp parity_op =
+                    llvm::dyn_cast<ccirc::ParityOp>(owner)) {
+                ret += getInitialRefcount(parity_op.getResult());
+            } else if (llvm::isa<ccirc::AndOp, ccirc::WirePackOp,
+                                 ccirc::ReturnOp>(owner)) {
+                // In the last two cases, XORed directly into, no ancilla
+                // needed... but one could still be allocated
+                ret += 1;
+            } else {
+                assert(0 && "Unknown instruction in XAG");
             }
         }
+        return ret;
     }
 
     WireQubit synthAndIfNeeded(ccirc::AndOp and_op) {
@@ -137,6 +156,13 @@ struct Synthesizer {
         // Not yet synthesized. Synthesize it!
         } else {
             size_t ancilla_idx = qubits.size();
+            size_t initial_refcount = getInitialRefcount(wire);
+
+            LLVM_DEBUG({
+                llvm::dbgs() << "allocated qubit #" << ancilla_idx << " with "
+                             << initial_refcount << " uses\n";
+            });
+
             mlir::Value ancilla =
                 qcirc::QallocOp::create(builder, loc).getResult();
             qubits.push_back(ancilla);
@@ -146,7 +172,7 @@ struct Synthesizer {
 
             // By definition of XAG, every user will use each of its operands
             // exactly once. Thus, this is equivalent to the number of users.
-            WireQubit qubit(wire, ancilla_idx, wire.getNumUses());
+            WireQubit qubit(wire, ancilla_idx, initial_refcount);
             wire_qubits.insert({wire, qubit});
             return qubit;
         }
@@ -449,6 +475,11 @@ struct Synthesizer {
                 size_t tgt_qubit_idx = tgt_qubit_start_idx + i;
                 runCNOTGate(ctrl_qubit_idx, tgt_qubit_idx);
             }
+            // Condition is here for the same reason as above in
+            // xorAndWireInto()
+            if ((flags & (FLAG_OUT | FLAG_REV))) {
+                freeAncillaForAnd(wire);
+            }
         // Next possibility: a NOT. If so, we recurse and insert an X gate
         } else if (ccirc::NotOp not_op =
                 wire.getDefiningOp<ccirc::NotOp>()) {
@@ -470,7 +501,8 @@ struct Synthesizer {
         // output wire and then use it wherever else it is needed.
         } else if (ccirc::AndOp and_op =
                 wire.getDefiningOp<ccirc::AndOp>()) {
-            if ((flags & FLAG_OUT) && wire.getNumUses() > 1) {
+            if ((flags & FLAG_OUT)
+                    && getInitialRefcount(and_op.getResult()) > 1) {
                 WireQubit qubit = synthAndIfNeeded(and_op);
                 runCNOTGate(qubit.qubit_idx, tgt_qubit_start_idx);
                 freeAncillaForAnd(qubit);
@@ -539,10 +571,26 @@ struct Synthesizer {
             if (ccirc::WirePackOp pack =
                     ret_val.getDefiningOp<ccirc::WirePackOp>()) {
                 for (mlir::Value pack_arg : pack.getWires()) {
-                    xorWireInto(pack_arg, ret_qubit_idx,
-                                static_cast<SynthFlags>(FLAG_OUT | FLAG_FWD));
                     size_t pack_arg_dim = llvm::cast<ccirc::WireType>(
                         pack_arg.getType()).getDim();
+
+                    LLVM_DEBUG({
+                        llvm::dbgs() << "xoring into output wire #"
+                                     << (ret_qubit_idx-in_dim)
+                                     << " (qubit #" << ret_qubit_idx << ")";
+                        if (pack_arg_dim > 1) {
+                            llvm::dbgs() << " through output wire #"
+                                         << (ret_qubit_idx-in_dim
+                                             + pack_arg_dim-1)
+                                         << " (qubit #"
+                                         << (ret_qubit_idx + pack_arg_dim-1)
+                                         << ")";
+                        }
+                        llvm::dbgs() << "\n";
+                    });
+
+                    xorWireInto(pack_arg, ret_qubit_idx,
+                                static_cast<SynthFlags>(FLAG_OUT | FLAG_FWD));
                     ret_qubit_idx += pack_arg_dim;
                 }
             } else {
