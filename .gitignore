@@ -74,6 +74,7 @@ __pycache__/
 .vscode/*
 .theia/*
 *.whl
+**/.idea/
 
 # LLVM files
 *.ll 

@@ -1030,7 +1030,8 @@ impl MetaStmt {
                 }
             }
 
-            MetaStmt::Expr { .. }
+            MetaStmt::ClassicalLambdaDef { .. }
+            | MetaStmt::Expr { .. }
             | MetaStmt::Assign { .. }
             | MetaStmt::UnpackAssign { .. }
             | MetaStmt::Return { .. } => Ok(()),

@@ -1,10 +1,13 @@
 use crate::wrap_ast::{
-    py_glue::UBigWrap,
+    py_glue::{ProgErrKind, UBigWrap, get_err},
     wrap_dim_expr::DimExpr,
-    wrap_type::{DebugLoc, Type},
+    wrap_type::{DebugLoc, Type, TypeEnv},
 };
 use pyo3::{prelude::*, types::PyType};
-use qwerty_ast::{ast, meta};
+use qwerty_ast::{
+    ast::{self, ToPythonCode},
+    meta,
+};
 use std::fmt;
 
 #[pyclass(eq, hash, frozen)]
@@ -340,5 +343,33 @@ impl ClassicalFunctionDef {
 
     fn get_name(&self) -> String {
         self.function_def.name.to_string()
+    }
+}
+
+#[pyclass(str)]
+#[derive(Clone)]
+pub struct PlainClassicalFunctionDef {
+    pub function_def: ast::FunctionDef<ast::classical::Expr>,
+}
+
+impl fmt::Display for PlainClassicalFunctionDef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.function_def.fmt_py(f)
+    }
+}
+
+#[pymethods]
+impl PlainClassicalFunctionDef {
+    pub fn get_name(&self) -> String {
+        self.function_def.name.to_string()
+    }
+
+    /// Perform type checking on this statement. Used in the REPL.
+    pub fn type_check(&self, py: Python<'_>, env: &TypeEnv) -> PyResult<()> {
+        let funcs_available = env.env.get_cfuncs_available();
+        self.function_def
+            .typecheck(&funcs_available)
+            .map_err(|err| get_err(py, ProgErrKind::Type, err.kind.to_string(), err.dbg))?;
+        Ok(())
     }
 }

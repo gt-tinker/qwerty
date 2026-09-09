@@ -4,7 +4,7 @@ use super::{
     AfterRewrite, Canonicalizable, ToPythonCode, Trivializable, angle_approx_total_cmp,
     angle_is_approx_zero, angles_are_approx_equal, canon_angle, equals_2_to_the_n,
 };
-use crate::dbg::DebugLoc;
+use crate::{dbg::DebugLoc, repl::SparseReplState};
 use dashu::integer::UBig;
 use itertools::Itertools;
 use qwerty_ast_macros::{
@@ -26,6 +26,10 @@ gen_rebuild_structs! {
             rewrite(canonicalize_rewriter),
             allow_retry_rewrite,
             recurse_attrs,
+        ),
+        recover(
+            rewrite(recover_rewriter),
+            more_copied_args(state: &SparseReplState),
         ),
     }
 
@@ -221,7 +225,7 @@ gen_rebuild_structs! {
             /// ```
             Tensor(Tensor),
 
-            /// Tilt a qubit register or function. Example syntax:
+            /// Tilt a qubit register or function value. Example syntax:
             /// ```text
             /// q @ 90
             /// ```
@@ -464,6 +468,9 @@ impl fmt::Display for Expr {
             Expr::Tensor(Tensor { vals, ..}) => {
                 write!(f, "({!:,})", vals.iter(), '*')
             }
+            Expr::Tilt(Tilt { val, angle_deg, .. }) if angles_are_approx_equal(*angle_deg, 180.0) => {
+                write!(f, "-({})", *val)
+            }
             Expr::Tilt(Tilt { val, angle_deg, .. }) => {
                 write!(f, "({}) @ {}", *val, *angle_deg)
             }
@@ -565,9 +572,15 @@ impl ToPythonCode for Expr {
                 Ok(())
             }
             Expr::Tilt(Tilt { val, angle_deg, .. }) => {
-                write!(f, "(")?;
-                val.fmt_py(f)?;
-                write!(f, ") @ {}", angle_deg)
+                if angles_are_approx_equal(*angle_deg, 180.0) {
+                    write!(f, "-(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ")")
+                } else {
+                    write!(f, "(")?;
+                    val.fmt_py(f)?;
+                    write!(f, ") @ {}", angle_deg)
+                }
             }
             Expr::BasisTranslation(BasisTranslation { bin, bout, .. }) => {
                 write!(f, "(")?;
@@ -1779,19 +1792,42 @@ pub enum Basis {
 }
 
 impl Basis {
+    /// Returns `true` if this is the one-qubit standard basis.
+    pub fn is_std_1q(&self) -> bool {
+        if let Basis::BasisLiteral { vecs, .. } = self {
+            vecs.len() == 2
+                && matches!(&vecs[0], Vector::ZeroVector { .. })
+                && matches!(&vecs[1], Vector::OneVector { .. })
+        } else {
+            false
+        }
+    }
+
     /// Returns the n-qubit standard basis, where n = dim.
     pub fn std(dim: usize, dbg: Option<DebugLoc>) -> Basis {
-        let mut bases = vec![];
-        for _ in 0..dim {
-            bases.push(Basis::BasisLiteral {
+        if dim == 0 {
+            Basis::EmptyBasisLiteral { dbg }
+        } else if dim == 1 {
+            Basis::BasisLiteral {
                 vecs: vec![
                     Vector::ZeroVector { dbg: dbg.clone() },
                     Vector::OneVector { dbg: dbg.clone() },
                 ],
-                dbg: dbg.clone(),
-            });
+                dbg,
+            }
+        } else {
+            let mut bases = vec![];
+            for _ in 0..dim {
+                bases.push(Basis::BasisLiteral {
+                    vecs: vec![
+                        Vector::ZeroVector { dbg: dbg.clone() },
+                        Vector::OneVector { dbg: dbg.clone() },
+                    ],
+                    dbg: dbg.clone(),
+                });
+            }
+            Basis::BasisTensor { bases, dbg: dbg }
         }
-        Basis::BasisTensor { bases, dbg: dbg }
     }
 
     /// Returns a version of this basis with no debug info. Useful for

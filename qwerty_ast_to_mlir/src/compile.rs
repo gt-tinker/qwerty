@@ -10,6 +10,7 @@ use melior::{
     target::llvm_ir::{LLVMModule, translate_module},
 };
 use qwerty_ast::{
+    ast::ToPythonCode,
     dbg::DebugLoc,
     error::{LowerError, TypeError},
     meta::MetaProgram,

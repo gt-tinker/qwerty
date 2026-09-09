@@ -72,43 +72,26 @@ impl TypeEnv {
         self.vars.iter()
     }
 
+    pub fn all_classical_funcs(&self) -> impl Iterator<Item = (&String, &(bool, usize, usize))> {
+        self.classical_funcs.iter()
+    }
+
     pub fn insert_classical_func(
         &mut self,
         name: &str,
         is_rev: bool,
         in_dim: usize,
         out_dim: usize,
-        dbg: &Option<DebugLoc>,
-    ) -> Result<(), TypeError> {
-        if let None = self
-            .classical_funcs
-            .insert(name.to_string(), (is_rev, in_dim, out_dim))
-        {
-            Ok(())
-        } else {
-            Err(TypeError {
-                // TODO: use a more specific error message?
-                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
-                dbg: dbg.clone(),
-            })
-        }
+    ) {
+        self.classical_funcs
+            .insert(name.to_string(), (is_rev, in_dim, out_dim));
     }
 
-    /// Attempts to insert a variable into the type context, throwing an error
-    /// if it is already defined.
-    pub fn insert_var(
-        &mut self,
-        name: &str,
-        typ: Type,
-        dbg: &Option<DebugLoc>,
-    ) -> Result<(), TypeError> {
-        if let None = self.vars.insert(name.to_string(), typ) {
-            Ok(())
-        } else {
-            Err(TypeError {
-                kind: TypeErrorKind::RedefinedVariable(name.to_string()),
-                dbg: dbg.clone(),
-            })
+    /// Inserts a variable into the type context.
+    pub fn insert_var(&mut self, name: &str, typ: Type) {
+        if let Some(_) = self.vars.insert(name.to_string(), typ) {
+            // If this was a linear value, it's usable again now.
+            self.linear_vars_used.remove(name);
         }
     }
 
@@ -119,41 +102,23 @@ impl TypeEnv {
     pub fn is_empty(&self) -> bool {
         self.vars.is_empty()
     }
+
+    pub fn get_cfuncs_available(&self) -> FuncsAvailable {
+        let classical_funcs = self
+            .classical_funcs
+            .iter()
+            .map(|(name, (is_rev, in_dim, out_dim))| (name.to_string(), *is_rev, *in_dim, *out_dim))
+            .collect();
+        FuncsAvailable {
+            qpu_kernels: Vec::new(),
+            classical_funcs,
+        }
+    }
 }
 
 //
 // ─── TOP-LEVEL TYPECHECKER ──────────────────────────────────────────────────────
 //
-
-impl FunctionDef<classical::Expr> {
-    fn in_dim(&self) -> usize {
-        let FunctionDef { args, .. } = self;
-        args.iter().fold(0, |acc, (arg_ty, _arg_name)| {
-            if let Type::RegType {
-                elem_ty: RegKind::Bit,
-                dim,
-            } = arg_ty
-            {
-                acc + *dim
-            } else {
-                panic!("Compiler bug: All @classical arguments must be bits")
-            }
-        })
-    }
-
-    fn out_dim(&self) -> usize {
-        let FunctionDef { ret_type, .. } = self;
-        if let Type::RegType {
-            elem_ty: RegKind::Bit,
-            dim,
-        } = ret_type
-        {
-            *dim
-        } else {
-            panic!("Compiler bug: All @classical functions must return bits")
-        }
-    }
-}
 
 /// Tracks the functions available for code to call.
 #[derive(Debug)]
@@ -221,19 +186,18 @@ impl<E: TypeCheckable> FunctionDef<E> {
         E::validate_signature(&arg_tys, &self.ret_type, &self.dbg)?;
 
         let mut env = TypeEnv::new();
-        let dbg = &self.dbg;
 
         for (name, is_rev, in_dim, out_dim) in &funcs_available.classical_funcs {
-            env.insert_classical_func(name, *is_rev, *in_dim, *out_dim, dbg)?;
+            env.insert_classical_func(name, *is_rev, *in_dim, *out_dim);
         }
 
         for (name, ty) in &funcs_available.qpu_kernels {
-            env.insert_var(name, ty.clone(), dbg)?;
+            env.insert_var(name, ty.clone());
         }
 
         // Bind function arguments in environment
         for (ty, name) in &self.args {
-            env.insert_var(name, ty.clone(), dbg)?;
+            env.insert_var(name, ty.clone());
         }
 
         Ok(env)
@@ -320,9 +284,9 @@ impl<E: TypeCheckable> Assign<E> {
         env: &mut TypeEnv,
         rhs_result: &(Type, ComputeKind),
     ) -> Result<ComputeKind, TypeError> {
-        let Assign { lhs, dbg, .. } = self;
+        let Assign { lhs, .. } = self;
         let (rhs_ty, result_compute_kind) = rhs_result;
-        env.insert_var(lhs, rhs_ty.clone(), dbg)?;
+        env.insert_var(lhs, rhs_ty.clone());
         Ok(*result_compute_kind)
     }
 
@@ -364,8 +328,7 @@ impl<E: TypeCheckable> UnpackAssign<E> {
                             elem_ty: elem_ty.clone(),
                             dim: 1,
                         },
-                        dbg,
-                    )?;
+                    );
                 }
                 Ok(*compute_kind)
             }
@@ -1029,8 +992,8 @@ impl Tilt {
                 Ok((val_ty.clone(), *val_compute_kind))
             }
 
-            invalid_ty => Err(TypeError {
-                kind: TypeErrorKind::UnsupportedTilt(invalid_ty.to_string()),
+            _ => Err(TypeError {
+                kind: TypeErrorKind::UnsupportedTilt,
                 dbg: dbg.clone(),
             }),
         }

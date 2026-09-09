@@ -1,0 +1,2 @@
+{"argv":["python", "-m", "qwerty", "jupyter", "-f", "{connection_file}"],
+ "display_name":"Qwerty"}

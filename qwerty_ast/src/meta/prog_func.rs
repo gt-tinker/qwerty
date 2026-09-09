@@ -91,7 +91,18 @@ impl MetaFunctionDef<qpu::MetaStmt> {
 
         let ast_body = body
             .into_iter()
-            .map(|stmt| stmt.extract())
+            .map(|stmt| {
+                let lowered_stmt = stmt.extract()?;
+                match lowered_stmt {
+                    qpu::LoweredStmt::QpuStmt(ast_stmt) => Ok(ast_stmt),
+                    qpu::LoweredStmt::ClassicalFunc(ast::FunctionDef { dbg, .. }) => {
+                        Err(LowerError {
+                            kind: LowerErrorKind::UnsupportedClassicalLambda,
+                            dbg,
+                        })
+                    }
+                }
+            })
             .collect::<Result<Vec<ast::Stmt<ast::qpu::Expr>>, LowerError>>()?;
 
         Ok(ast::FunctionDef {
