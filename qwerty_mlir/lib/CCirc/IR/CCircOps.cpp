@@ -324,7 +324,14 @@ struct ParityWithDuplicates : public mlir::OpRewritePattern<ccirc::ParityOp> {
                 newOperands.erase(ops);
             }
         }
-        rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, replacements);
+
+        if (replacements.empty()) {
+            unsigned bitWidth = op.getType().getDim();
+            llvm::APInt zero(bitWidth, 0);
+            rewriter.replaceOpWithNewOp<ccirc::ConstantOp>(op, std::move(zero));
+        } else {
+            rewriter.replaceOpWithNewOp<ccirc::ParityOp>(op, replacements);
+        }
         return mlir::success();
     }
 };
@@ -885,8 +892,10 @@ mlir::LogicalResult ParityOp::inferReturnTypes(
 void ParityOp::getCanonicalizationPatterns(mlir::RewritePatternSet &results,
                                            mlir::MLIRContext *context) {
     results.add<PushNotThroughParity,
-                MergeParityOps, ParityWithZeroPattern, ParitySingleOperandPattern,
-                ParityWithOnePattern, NestedParityPattern>(context);
+                MergeParityOps, ParityWithZeroPattern,
+                ParitySingleOperandPattern,
+                ParityWithOnePattern, ParityWithDuplicates,
+                NestedParityPattern>(context);
 }
 
 #define ROTATE_OP_VERIFY_AND_INFER(name) \
