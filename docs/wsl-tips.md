@@ -39,8 +39,8 @@ by the OOM killer as seen below:
     c++: fatal error: Killed signal terminated program cc1plus
       compilation terminated.
 
-Then a potential fix is to add the following code near the top of your
-`CMakeLists.txt` both in `/` and  `/tweedledum`:
+Then a potential fix is to add the following code near the top of the
+`CMakeLists.txt` at the root of the repository:
 
     set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=1)
     set(CMAKE_JOB_POOL_LINK link_job_pool)

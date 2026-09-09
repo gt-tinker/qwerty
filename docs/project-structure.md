@@ -10,9 +10,7 @@ This repository consists of the following five top-level subprojects:
    programs and producing OpenQASM 3 or QIR
 4. `qwerty_ast_to_mlir` (Rust): Converts a Qwerty AST to MLIR, JITs the MLIR,
    and then runs it
-5. `qwerty_util` (C++): C++ utility code, presently just a wrapper around
-   [`tweedledum`][4]
-6. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
+5. `qwerty_pyrt` (Python/Rust): Defines the `qwerty` module, a little bit of Python that
    interfaces with the Rust code above via [PyO3][3]
 
 There are also the following forks of third-party libraries that referenced as
@@ -20,16 +18,14 @@ git submodules:
 
 1. [`qir_runner`][5] (Rust): Used for its implementation of the QIR runtime, which
    includes a good quantum simulator
-2. [`tweedledum`][4] (C++): Used for synthesizes classical circuits (or classical
-   permutations) as quantum circuits
-3. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
+2. `qwerty_mlir_sys` (Rust): A fork of [`mlir_sys`][1] that provides Rust
    bindings for the C API for MLIR dialects (both for our dialects and for
    upstream dialects)
-4. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
+3. `qwerty_melior` (Rust): A fork of [`melior`][2] a convenient wrapper for
    using MLIR APIs in Rust
-5. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][6], Rust bindings for
+4. `tblgen_rs` (Rust): A fork of [`tblgen_rs`][6], Rust bindings for
    [Tablegen][7] required by `melior` with no changes except upgrading LLVM.
-6. `eigen` (C++): Actually not a fork, just the [Eigen3][16] linear algebra
+5. `eigen` (C++): Actually not a fork, just the [Eigen3][16] linear algebra
    library used by `qwerty_mlir`
 
 The following sections describe the structure of these subprojects. For each
@@ -140,14 +136,6 @@ brackets.
 * `jit.rs`: Runs passes on an `mlir::Module` and then JITs and invokes the
   code, where QIR intrinsics are bound to `qir_runner` implementations
 
-`qwerty_util`: Tweedledum Adaptor (C++)
----------------------------------------
-
- * `util.hpp`: Macros useful throughout the compiler, such as the definition of
-   pi and platform-agnostic bit manipulation macros
- * `tweedledum.{hpp,cpp}`: Converts a `ccirc.circuit` or a classical
-   permutation to a quantum circuit using [tweedledum][4]
-
 `qwerty_pyrt`: Python Runtime (Rust & Python)
 ---------------------------------------------
 
@@ -190,7 +178,6 @@ brackets.
 [1]: https://github.com/mlir-rs/mlir-sys/
 [2]: https://github.com/mlir-rs/melior/
 [3]: https://pyo3.rs/
-[4]: https://github.com/boschmitt/tweedledum
 [5]: https://github.com/qir-alliance/qir-runner/
 [6]: https://github.com/mlir-rs/tblgen-rs/
 [7]: https://llvm.org/docs/TableGen/
