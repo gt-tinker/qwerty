@@ -56,6 +56,25 @@ void synthSub(
         llvm::SmallVectorImpl<mlir::Value> &wires_b,
         llvm::SmallVectorImpl<mlir::Value> &wires_diff);
 
+// Synthesize classical circuitry that achieves 2*a % N, where N is a constant.
+// a is assumed to be less than N.
+void synthDoubleMod(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_out);
+
+// Synthesize classical circuitry that achieves (a + b) % N, where N is a
+// constant. Both a and b are assumed to be less than N.
+void synthAddMod(
+        mlir::OpBuilder &builder,
+        mlir::Location loc,
+        llvm::APInt modN,
+        llvm::SmallVectorImpl<mlir::Value> &wires_a,
+        llvm::SmallVectorImpl<mlir::Value> &wires_b,
+        llvm::SmallVectorImpl<mlir::Value> &wires_out);
+
 // Synthesize classical circuitry that achieves X * y % N, where X and N are
 // constants.
 void synthModMul(

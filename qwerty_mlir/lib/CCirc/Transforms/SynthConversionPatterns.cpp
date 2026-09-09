@@ -106,6 +106,56 @@ struct DecomposeSub
     }
 };
 
+struct DecomposeDoubleMod
+        : public mlir::OpConversionPattern<ccirc::DoubleModOp> {
+    using mlir::OpConversionPattern<ccirc::DoubleModOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::DoubleModOp double_mod,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        mlir::Location loc = double_mod.getLoc();
+
+        llvm::SmallVector<mlir::Value> wires_a(ccirc::WireUnpackOp::create(rewriter,
+            loc, double_mod.getA()).getWires());
+
+        llvm::SmallVector<mlir::Value> wires_out;
+        ccirc::synthDoubleMod(rewriter, loc,
+                              double_mod.getModNAttr().getValue()
+                                  .zextOrTrunc(wires_a.size()),
+                              wires_a, wires_out);
+
+        rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(double_mod, wires_out);
+        return mlir::success();
+    }
+};
+
+struct DecomposeAddMod
+        : public mlir::OpConversionPattern<ccirc::AddModOp> {
+    using mlir::OpConversionPattern<ccirc::AddModOp>::OpConversionPattern;
+
+    mlir::LogicalResult matchAndRewrite(
+            ccirc::AddModOp add_mod,
+            OpAdaptor adaptor,
+            mlir::ConversionPatternRewriter &rewriter) const final {
+        mlir::Location loc = add_mod.getLoc();
+
+        llvm::SmallVector<mlir::Value> wires_a(ccirc::WireUnpackOp::create(rewriter,
+            loc, add_mod.getA()).getWires());
+        llvm::SmallVector<mlir::Value> wires_b(ccirc::WireUnpackOp::create(rewriter,
+            loc, add_mod.getB()).getWires());
+
+        llvm::SmallVector<mlir::Value> wires_out;
+        ccirc::synthAddMod(rewriter, loc,
+                           add_mod.getModNAttr().getValue()
+                               .zextOrTrunc(wires_a.size()),
+                           wires_a, wires_b, wires_out);
+
+        rewriter.replaceOpWithNewOp<ccirc::WirePackOp>(add_mod, wires_out);
+        return mlir::success();
+    }
+};
+
 struct DecomposeModMul
         : public mlir::OpConversionPattern<ccirc::ModMulOp> {
     using mlir::OpConversionPattern<ccirc::ModMulOp>::OpConversionPattern;
@@ -135,8 +185,10 @@ struct DecomposeModMul
         //       the AST node should also be updated to have dashu::IBigs, and
         //       the ModMulOp itself should have APInt attributes instead of i64
         //       attributes.
-        llvm::APInt x_bigint(BITS_NEEDED(x_2j_modN), x_2j_modN);
-        llvm::APInt modN_bigint(BITS_NEEDED(N), N);
+        // Both constants are sized to y rather than to their own values, since
+        // that is the width of the wires they are combined with
+        llvm::APInt x_bigint(wires_y.size(), x_2j_modN);
+        llvm::APInt modN_bigint(wires_y.size(), N);
 
         ccirc::synthModMul(rewriter, loc, x_bigint, modN_bigint, wires_y,
                            wires_out);
@@ -156,5 +208,7 @@ void ccirc::populateSynthConversionPatterns(
                  DecomposeRotateRight,
                  DecomposeAdd,
                  DecomposeSub,
+                 DecomposeDoubleMod,
+                 DecomposeAddMod,
                  DecomposeModMul>(patterns.getContext());
 }
